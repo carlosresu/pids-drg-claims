@@ -12,3 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r library}
 library(tidyverse)
 ```
+
+```{r test}
+print("Hello World!")
+```
