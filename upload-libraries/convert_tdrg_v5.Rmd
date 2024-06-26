@@ -51,10 +51,10 @@ convert_excel_to_csv(folder_path)
 
 ```{r export column names}
 # Directory containing the CSV files
-csv_directory <- here("Excel")
+csv_directory <- here("upload-libraries/Excel")
 
 # Output Excel file
-output_excel_file <- here("output.xlsx")
+output_excel_file <- here("upload-libraries/output.xlsx")
 
 # Create a new workbook
 wb <- createWorkbook()
@@ -88,10 +88,10 @@ cat("Column names have been exported to", output_excel_file)
 
 ```{r merge csvs}
 # Directory containing the CSV files
-csv_directory <- here("Excel")
+csv_directory <- here("upload-libraries/Excel")
 
 # Output Excel file
-output_excel_file <- here("merged_output.xlsx")
+output_excel_file <- here("upload-libraries/merged_output.xlsx")
 
 # Create a new workbook
 wb <- createWorkbook()
