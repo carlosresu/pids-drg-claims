@@ -6,11 +6,11 @@ from google.cloud import bigquery
 client = bigquery.Client()
 
 # Load the Excel file with column names and types
-excel_file = 'output.xlsx'
+excel_file = "upload-libraries/Excel/output.xlsx"
 xlsx = pd.ExcelFile(excel_file)
 
 # Set variables
-CSV_DIRECTORY = 'C:/Users/resur/Documents/drg/Excel/'
+CSV_DIRECTORY = 'upload-libraries/Excel/'
 DATASET = 'grouper_v5'
 
 # Function to get schema from Excel file

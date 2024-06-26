@@ -43,7 +43,7 @@ convert_excel_to_csv <- function(folder_path) {
 }
 
 # Specify the folder containing Excel files relative to your project directory
-folder_path <- "Excel"
+folder_path <- "upload-libraries/Excel"
 
 # Call the function to convert Excel files to CSV
 convert_excel_to_csv(folder_path)
