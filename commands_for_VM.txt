@@ -1,0 +1,138 @@
+Make a debian 12 VM:
+  asia-east1 (Taiwan), asia-east1-a
+  General Purpose, e2-highmem-8
+  Enable display device
+  Allow HTTP, HTTPS, Load Balance Health Checks in Firewall
+  Turn on Secure Boot
+
+OR use the code below:
+	=======CODE START=======
+	gcloud compute instances create test-instance-3 --project=gphdrg --zone=asia-east1-a --machine-type=e2-highmem-8 --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default --maintenance-policy=MIGRATE --provisioning-model=STANDARD --service-account=608087007591-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/trace.append --enable-display-device --tags=http-server,https-server,lb-health-check --create-disk=auto-delete=yes,boot=yes,device-name=test-instance-3,image=projects/debian-cloud/global/images/debian-12-bookworm-v20240617,mode=rw,size=10,type=projects/gphdrg/zones/asia-east1-a/diskTypes/pd-balanced --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --labels=goog-ec-src=vm_add-gcloud --reservation-affinity=any
+	========CODE END========
+
+Update domain to redirect pids-drg-vm.resu.works to VM's external IP address
+  Log in to your Cloudflare account.
+  Select your domain (resu.works) from the dashboard.
+  Navigate to the DNS settings:
+  Click on the DNS tab.
+  Add a new DNS record:
+  Type: A
+  Name: pids-drg-vm
+  IPv4 address: Enter the External IP address of your GCP GCE VM.
+  TTL: Automatic
+  Proxy status: Enable or disable the proxy (orange cloud for enabled, grey cloud for disabled).
+  Click Save to add the DNS record.
+  
+Verify DNS propagation: 
+https://www.whatsmydns.net/#A/pids-drg-vm.resu.works
+
+DISABLE CLOUDFLARE SECURITY>WAF>BOTS
+
+=======CODE START=======
+sudo apt update
+sudo apt upgrade -y
+
+sudo apt install gdebi-core libclang-dev lsof dnsutils ufw nginx certbot python3-certbot-nginx -y
+sudo apt install libcurl4-openssl-dev libssl-dev libxml2-dev libgit2-dev libharfbuzz-dev libfribidi-dev libfontconfig1-dev libfreetype6-dev libpng-dev libjpeg-dev libtiff5-dev libcairo2-dev libpango1.0-dev libgdal-dev libgeos-dev libproj-dev libudunits2-dev gfortran -y
+
+sudo sh -c 'echo "deb http://cloud.r-project.org/bin/linux/debian bookworm-cran40/" >> /etc/apt/sources.list'
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B8F25A8A73EACF41
+sudo apt update
+sudo apt install r-base
+R --version
+
+wget https://download2.rstudio.org/server/jammy/amd64/rstudio-server-2024.04.2-764-amd64.deb
+sudo gdebi rstudio-server-2024.04.2-764-amd64.deb
+
+sudo systemctl start rstudio-server
+sudo systemctl enable rstudio-server
+
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw allow 8787/tcp
+sudo ufw enable
+
+sudo certbot --nginx -d pids-drg-vm.resu.works
+========CODE END========
+
+Once finished, do this:
+
+=======CODE START=======
+sudo nano /etc/nginx/sites-available/rstudio
+========CODE END========
+
+Paste the below into nginx config file:
+server {
+    listen 80;
+    server_name pids-drg-vm.resu.works;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+        allow all;
+    }
+
+    location / {
+        proxy_pass http://localhost:8787;
+        proxy_redirect http://localhost:8787/ $scheme://$host/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/pids-drg-vm.resu.works/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/pids-drg-vm.resu.works/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+=======CODE START=======
+sudo ln -s /etc/nginx/sites-available/rstudio /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default
+
+sudo systemctl restart nginx
+========CODE END========
+
+Using Google Cloud Console:
+  Go to VPC network > Firewall rules.
+    Click on Create firewall rule.
+  Set the following parameters:
+  Name: rstudio-server
+  Direction of traffic: Ingress
+  Targets: All instances in the network
+  Source filter: IP ranges
+  Source IP ranges: 0.0.0.0/0
+  Ports: 
+    tcp 8787
+    tcp 22
+
+REENABLE CLOUDFLARE SECURITY>WAF>BOTS
+
+=======CODE START=======
+sudo apt install git
+sudo apt install curl gnupg2 apt-transport-https software-properties-common -y
+curl -sSL https://github.com/git-ecosystem/git-credential-manager/releases/download/v2.5.0/gcm-linux_amd64.2.5.0.deb -o gcm-linux_amd64.2.5.0.deb
+sudo dpkg -i gcm-linux_amd64.2.5.0.deb
+git-credential-manager configure
+========CODE END========
+
+For each user:
+=======CODE START=======
+sudo adduser <insert your username here>
+sudo passwd <insert your username here>
+su - username
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+git config --global --list
+git config --global credential.helper manager
+========CODE END========
+
+Then, in your github, go to settings>developer>personal access tokens (classic)
+Create a token, check the "repo" box, add a name and expiration
+Save your token somewhere safe. You'll never see it again!
+Use this token as your github password when prompted by RStudio Server
