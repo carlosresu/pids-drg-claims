@@ -1,0 +1,121 @@
+---
+title: "Convert TDRG_v5 to BigQuery"
+author: "Carlos Resurreccion"
+date: "2024-06-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library}
+library(readxl)
+library(writexl)
+library(here)
+library(readr)
+library(openxlsx)
+```
+
+```{r convert}
+# Function to convert Excel files to CSV
+convert_excel_to_csv <- function(folder_path) {
+  # Get the absolute path to the folder
+  abs_folder_path <- here(folder_path)
+  
+  # Get list of all Excel files in the folder
+  excel_files <- list.files(path = abs_folder_path, pattern = "\\.xlsx$", full.names = TRUE)
+  
+  # Loop through each Excel file
+  for (excel_file in excel_files) {
+    # Read the Excel file with all columns as text to avoid type issues
+    excel_data <- read_excel(excel_file, col_types = "text")
+    
+    # Create CSV file name by replacing .xlsx with .csv
+    csv_file <- sub("\\.xlsx$", ".csv", excel_file)
+    
+    # Write the data to CSV file, leaving NA values as blanks
+    write.csv(excel_data, file = csv_file, row.names = FALSE, na = "")
+    
+    # Print a message to indicate successful conversion
+    cat("Converted:", excel_file, "to", csv_file, "\n")
+  }
+}
+
+# Specify the folder containing Excel files relative to your project directory
+folder_path <- "Excel"
+
+# Call the function to convert Excel files to CSV
+convert_excel_to_csv(folder_path)
+```
+
+```{r export column names}
+# Directory containing the CSV files
+csv_directory <- here("Excel")
+
+# Output Excel file
+output_excel_file <- here("output.xlsx")
+
+# Create a new workbook
+wb <- createWorkbook()
+
+# Get the list of CSV files in the directory
+csv_files <- list.files(csv_directory, pattern = "*.csv", full.names = TRUE)
+
+# Iterate over each CSV file
+for (csv_file in csv_files) {
+  # Read the CSV file
+  df <- read_csv(csv_file)
+  
+  # Get the column names
+  column_names <- data.frame(Column_Names = colnames(df))
+  
+  # Extract the base name of the file for the sheet name
+  sheet_name <- tools::file_path_sans_ext(basename(csv_file))
+  
+  # Add a sheet to the workbook
+  addWorksheet(wb, sheet_name)
+  
+  # Write the column names to the sheet
+  writeData(wb, sheet = sheet_name, x = column_names)
+}
+
+# Save the workbook
+saveWorkbook(wb, output_excel_file, overwrite = TRUE)
+
+cat("Column names have been exported to", output_excel_file)
+```
+
+```{r merge csvs}
+# Directory containing the CSV files
+csv_directory <- here("Excel")
+
+# Output Excel file
+output_excel_file <- here("merged_output.xlsx")
+
+# Create a new workbook
+wb <- createWorkbook()
+
+# Get the list of CSV files in the directory
+csv_files <- list.files(csv_directory, pattern = "*.csv", full.names = TRUE)
+
+# Iterate over each CSV file
+for (csv_file in csv_files) {
+  # Read the CSV file
+  df <- read_csv(csv_file)
+  
+  # Extract the base name of the file for the sheet name
+  sheet_name <- tools::file_path_sans_ext(basename(csv_file))
+  
+  # Add a sheet to the workbook
+  addWorksheet(wb, sheet_name)
+  
+  # Write the data to the sheet
+  writeData(wb, sheet = sheet_name, x = df)
+}
+
+# Save the workbook
+saveWorkbook(wb, output_excel_file, overwrite = TRUE)
+
+cat("Data from all CSV files have been merged into", output_excel_file)
+```
