@@ -48,4 +48,11 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
+#Excel files
 upload-libraries/Excel/
+
+#raw claims
+data-cleaning/raw_claims/
+
+#clean claims
+data-cleaning/cleaned_claims/

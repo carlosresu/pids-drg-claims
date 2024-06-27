@@ -13,7 +13,8 @@ knitr::opts_chunk$set(echo = TRUE)
 # load_or_install <- function(package_name) {
 #   if (!require(package_name, character.only = TRUE)) {
 #     if (package_name == "bigQueryR"){
-#       install.packages("bigQueryR", repos = c(getOption("repos"), "http://cloudyr.github.io/drat"))
+#       install.packages("bigQueryR", repos = c(getOption("repos"), 
+#                         "http://cloudyr.github.io/drat"))
 #       library(bigQueryR)
 #     } else{
 #       install.packages(package_name)
@@ -32,8 +33,182 @@ knitr::opts_chunk$set(echo = TRUE)
 # lapply(packagelist, load_or_install)
 
 library(tidyverse)
+library(here)
+library(data.table)
+library(stringr)
 ```
 
-```{r test}
-print("Hello World!")
+```{r parameters}
+year_to_load <- "2018"
+path_to_raw_claims <- "data-cleaning/raw_claims/"
+path_to_excel_files <- "upload-libraries/Excel/"
+# Define columns to be read as character
+character_cols <- c("PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "HCI_PMCC_NO",
+                    "HCP_NO_LIST", "PRIMARY_ILLNESS", "SECONDARY_ILLNESS",
+                    paste0("ICDCODE", c(1:14, 16:170)), "ICCODED15",
+                    paste0("RVSCODE", 1:20), "DATE_ADM", "TIME_ADM",
+                    "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", 
+                    "CHKDT", "PAT_BDAY", "EXTRACTION_DATE")
+integer_cols = c("OUT_PATIENT", "EMERGENCY")
+factor_cols = c("PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", 
+                "MEMCAT_PARENT_DESC", "MEMCAT_CHILD_DESC", 
+                "MEMCAT_SUBCHILD_DESC", "DISPOSITION", "CLAIMS_STATUS")
+numeric_cols = c("PATAGE", "PAT_BWT_KG", "CLAIMS_PAID_AMT", 
+                 "ACR_AMOUNT_ACTUAL")
+na_values <- c('NONE','None','-','--','---','N/A','n/a','nan','NAN') 
+  # removed '' and ' ' from Google Colab notebook
+
+icd_old <- c(paste0("ICDCODE", 1:14), "ICCODED15", paste0("ICDCODE", 16:170))
+icd_new <- paste0("clin_icd", 1:170)
+
+rvs_old <- paste0("RVSCODE", 1:20)
+rvs_new <- paste0("clin_rvs", 1:20)
+
+# Define NA-like values, including all possible whitespace characters
+  na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028", "\u2029", "\u202F", "\u205F", "\u3000")
+```
+
+
+```{r load data set}
+# For loading the entire dataset
+df <- fread(here(paste0(path_to_raw_claims, "claims_extract_CLAIMS_", year_to_load, ".csv")),
+            colClasses = list(character = character_cols,
+                              integer = integer_cols,
+                              factor = factor_cols,
+                              numeric = numeric_cols
+                              ),
+            na.strings = na_values
+)
+
+#For loading a number of rows only
+# df <- fread(here(paste0(path_to_raw_claims, "claims_extract_CLAIMS_", year_to_load, ".csv")), 
+#             colClasses = list(character = character_cols, 
+#                               integer = integer_cols,
+#                               factor = factor_cols,
+#                               numeric = numeric_cols
+#                               ),
+#             na.strings = na_values,
+#             nrows = 1000000
+# )
+```
+
+```{r assign src_yr}
+# Add a column src_yr and set its value to the variable year_to_load
+df[, id_year := as.integer(year_to_load)]
+```
+
+```{r rename and reorder columns to match metadata}
+# Rename columns
+setnames(df, old = c("id_year", "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "DATE_ADM", 
+                     "TIME_ADM", "DATE_DIS", "TIME_DIS", "DATE_REC", 
+                     "DATE_REF", "CHKDT", "EXTRACTION_DATE", "HCI_PMCC_NO", 
+                     "HCP_NO_LIST", "PATIENT_TYPE", "DEP_REL", "PATSEX", 
+                     "PATAGE", "PAT_BDAY", "PAT_BWT_KG", "MEMCAT_PARENT_DESC", 
+                     "MEMCAT_CHILD_DESC", "MEMCAT_SUBCHILD_DESC", "OUT_PATIENT", 
+                     "EMERGENCY", "ROOM_TYPE", "DISPOSITION", "PRIMARY_ILLNESS", 
+                     "SECONDARY_ILLNESS", "CLAIMS_STATUS", "ACR_AMOUNT_ACTUAL", 
+                     "CLAIMS_PAID_AMT", icd_old, rvs_old),
+             new = c("id_year", "id_series", "id_pin", "date_adm", "time_adm", "date_dis", 
+                     "time_dis", "date_rec", "date_ref", "date_check", "date_ext", 
+                     "id_hci", "id_hcp", "pat_type", "pat_rel", "pat_sex", "pat_age", 
+                     "pat_bdate", "pat_bwt", "pat_memcat_parent", "pat_memcat_child", 
+                     "pat_memcat_subchild", "clin_outpatient", "clin_emergency", 
+                     "clin_acc", "clin_discharge", "clin_pdx", "clin_sdx", 
+                     "claim_status", "claim_charge", "claim_payout", icd_new, rvs_new))
+
+setcolorder(df, c("id_year", "id_series", "id_pin", "date_adm", "time_adm", "date_dis", 
+                  "time_dis", "date_rec", "date_ref", "date_check", "date_ext", 
+                  "id_hci", "id_hcp", "pat_type", "pat_rel", "pat_sex", "pat_age", 
+                  "pat_bdate", "pat_bwt", "pat_memcat_parent", "pat_memcat_child", 
+                  "pat_memcat_subchild", "clin_outpatient", "clin_emergency", 
+                  "clin_acc", "clin_discharge", "clin_pdx", "clin_sdx", 
+                  paste0("clin_icd", 1:170), paste0("clin_rvs", 1:20), 
+                  "claim_status", "claim_charge", "claim_payout"))
+```
+
+
+```{r shorten pat_type, memcat_parent, and memcat_child}
+# Update pat_type to shortened versions
+df[, pat_type := recode(pat_type, "MEMBER" = "MEM", "DEPENDENT" = "DEP")]
+# Update pat_memcat_parent to shortened versions
+df[, pat_memcat_parent := recode(pat_memcat_parent, "DIRECT CONTRIBUTOR" = "DIRECT", "INDIRECT CONTRIBUTOR" = "INDIRECT")]
+# Update pat_memcat_child to simplified categories
+df[, pat_memcat_child := recode(pat_memcat_child,
+  `EMPLOYED PRIVATE` = "FORMAL",
+  `SELF-EARNING INDIVIDUAL` = "INFORMAL",
+  `SENIOR CITIZEN` = "SENIOR",
+  `INDIGENT` = "INDIGENT",
+  `LIFETIME MEMBER` = "LIFETIME",
+  `SPONSORED` = "SPONSORED",
+  `MIGRANT WORKER` = "INFORMAL",
+  `EMPLOYED GOVERNMENT` = "FORMAL",
+  `INFORMAL ECONOMY` = "INFORMAL",
+  `HOUSEHOLD HELP/KASAMBAHAY` = "FORMAL",
+  `FOREIGN NATIONAL` = "INFORMAL",
+  `FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD` = "INFORMAL",
+  `SELF EARNING INDIVIDUAL` = "INFORMAL",
+  `FAMILY DRIVER` = "FORMAL"
+)]
+```
+
+```{r cast clin_discharge}
+# Cast clin_discharge into integers as per grouper v5 categories
+df[, clin_discharge := fcase(
+  clin_discharge == "IMPROVED", 1L,
+  clin_discharge == "RECOVERED", 1L,
+  clin_discharge == "HOME/DISCHARGED AGAINST MEDICAL ADVICE", 2L,
+  clin_discharge == "ABSCONDED", 3L,
+  clin_discharge == "TRANSFERRED/REFERRED", 4L,
+  clin_discharge == "EXPIRED", 9L,
+  clin_discharge == "UNDEFINED", NA_integer_
+)]
+```
+
+```{r process and collapse icd and rvs columns}
+# Define the function to process and collapse columns
+process_and_collapse_columns <- function(df, cols_to_process, new_col_name) {
+  # Identify and drop empty columns
+  empty_cols <- cols_to_process[sapply(df[, ..cols_to_process], function(col) all(is.na(col) | col %in% na_like_strings))]
+  df[, (empty_cols) := NULL]
+  cols_to_process <- setdiff(cols_to_process, empty_cols)
+
+  # Process each column in cols_to_process in batches
+  batch_size <- 10  # Adjust batch size based on available memory
+  for (i in seq(1, length(cols_to_process), by = batch_size)) {
+    batch_cols <- cols_to_process[i:min(i + batch_size - 1, length(cols_to_process))]
+    
+    for (col in batch_cols) {
+      set(df, j = col, value = iconv(df[[col]], to = "UTF-8", sub = "byte"))
+      set(df, j = col, value = toupper(df[[col]]))
+      set(df, j = col, value = str_trim(df[[col]]))
+      set(df, j = col, value = str_replace_all(df[[col]], " ", ""))
+      set(df, j = col, value = str_replace_all(df[[col]], "\n", ""))
+      set(df, j = col, value = str_replace_all(df[[col]], "[^\\w\\d\\/\\s]+", ""))
+      set(df, j = col, value = ifelse(df[[col]] %in% na_like_strings, NA_character_, df[[col]]))
+    }
+  }
+
+  # Collapse columns into a single column
+  df[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
+  df[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|NA", "")]
+  df[, (new_col_name) := str_replace_all(get(new_col_name), "NA\\|\\|", "")]
+  df[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|$", "")]
+  df[, (new_col_name) := ifelse(get(new_col_name) == "NA", NA_character_, get(new_col_name))]
+
+  # Drop the original columns
+  df[, (cols_to_process) := NULL]
+}
+
+# Assuming df is your data.table
+# Process ICD columns
+icd_cols <- paste0("clin_icd", 1:170)
+process_and_collapse_columns(df, icd_cols, "clin_icd")
+
+# Process RVS columns
+rvs_cols <- paste0("clin_rvs", 1:20)
+process_and_collapse_columns(df, rvs_cols, "clin_rvs")
+```
+
+```{r write as csv}
+df %>% write_csv(here(paste0("data-cleaning/cleaned_claims/cleaned_claims_extract_CLAIMS_", year_to_load,".csv")))
 ```
