@@ -173,7 +173,7 @@ process_and_collapse_columns <- function(df, cols_to_process, new_col_name) {
   cols_to_process <- setdiff(cols_to_process, empty_cols)
 
   # Process each column in cols_to_process in batches
-  batch_size <- 10  # Adjust batch size based on available memory
+  batch_size <- 2  # Adjust batch size based on available memory
   for (i in seq(1, length(cols_to_process), by = batch_size)) {
     batch_cols <- cols_to_process[i:min(i + batch_size - 1, length(cols_to_process))]
     
@@ -210,5 +210,5 @@ process_and_collapse_columns(df, rvs_cols, "clin_rvs")
 ```
 
 ```{r write as csv}
-df %>% write_csv(here(paste0("data-cleaning/cleaned_claims/cleaned_claims_extract_CLAIMS_", year_to_load,".csv")))
+df %>% fwrite(here(paste0("data-cleaning/cleaned_claims/cleaned_claims_extract_CLAIMS_", year_to_load,".csv")))
 ```
