@@ -1,5 +1,5 @@
 ---
-title: "DRG_Translated"
+title: "DRG Cleaning"
 author: "Carlos Resurreccion"
 date: "2024-06-26"
 output: html_document
@@ -10,6 +10,27 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r library}
+# load_or_install <- function(package_name) {
+#   if (!require(package_name, character.only = TRUE)) {
+#     if (package_name == "bigQueryR"){
+#       install.packages("bigQueryR", repos = c(getOption("repos"), "http://cloudyr.github.io/drat"))
+#       library(bigQueryR)
+#     } else{
+#       install.packages(package_name)
+#       library(package_name, character.only = TRUE)
+#     }
+#     
+#   }
+# }
+# 
+# packagelist <- c("tidyverse",
+#                  "googleAuthR",
+#                  "bigQueryR", 
+#                  "googleCloudStorageR", 
+#                  "googleComputeEngineR")
+# 
+# lapply(packagelist, load_or_install)
+
 library(tidyverse)
 ```
 
