@@ -1,0 +1,73 @@
+---
+title: "Main R Script Processor"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(foreach)
+library(doParallel)
+library(knitr)
+library(here)
+library(tictoc)
+```
+
+```{r base-directory}
+# Base directory containing the Rmd files
+base_dir <- here("data-cleaning")
+
+# Folder to store generated R scripts
+r_scripts_folder <- file.path(base_dir, "Generated_R_Scripts")
+
+# Create the R scripts folder if it doesn't exist
+if (!dir.exists(r_scripts_folder)) {
+  dir.create(r_scripts_folder)
+}
+```
+
+```{r define-process-function}
+# Function to find and source Rmd files within the base directory
+process_files <- function(file_path) {
+  # Extract R script from Rmd file
+  r_script <- knitr::purl(file_path, quiet = TRUE)
+  
+  # Construct the file path for the generated .R file
+  r_file_path <- file.path(r_scripts_folder, sub("\\.Rmd$", ".R", basename(file_path)))
+  
+  # Move the generated .R file to the R scripts folder
+  file.rename(r_script, r_file_path)
+  
+  # Source the generated .R file from the new location
+  source(r_file_path)
+  
+  # Debugging print statements
+  cat("Processed file:", file_path, "\n")
+  cat("Generated R script:", r_script, "\n")
+  cat("Moved to and sourced from:", r_file_path, "\n")
+}
+```
+
+```{r list-rmd-files}
+# List all Rmd files, excluding VHIN.Rmd
+rmd_files <- list.files(base_dir, pattern = "\\.Rmd$", full.names = TRUE, recursive = FALSE)
+rmd_files <- rmd_files[!basename(rmd_files) %in% c("drg-parallel-cleaning.Rmd")]
+```
+
+```{r parallel-processing}
+tic("Finished parallel processing")
+# Ensure there are enough cores available
+total_cores <- detectCores() - 1
+
+# Register the parallel backend with the total number of cores
+cl <- makeCluster(total_cores)
+registerDoParallel(cl)
+
+# Use foreach to process files in parallel
+foreach(file_path = rmd_files) %dopar% {
+  process_files(file_path)
+}
+
+# Stop the parallel backend
+stopCluster(cl)
+toc()
+```

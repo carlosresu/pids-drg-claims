@@ -56,3 +56,6 @@ data-cleaning/raw_claims/
 
 #clean claims
 data-cleaning/cleaned_claims/
+
+#int claims
+data-cleaning/intermediate_claims/

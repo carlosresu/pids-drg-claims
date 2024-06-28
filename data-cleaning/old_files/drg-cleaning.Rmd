@@ -35,11 +35,13 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(here)
 library(data.table)
-library(stringr)
+library(tictoc)
+# library(stringr)
 ```
 
 ```{r parameters}
-year_to_load <- "2018"
+year_to_load <- "2021"
+tic(paste0("Start cleaning of ", year_to_load))
 path_to_raw_claims <- "data-cleaning/raw_claims/"
 path_to_excel_files <- "upload-libraries/Excel/"
 # Define columns to be read as character
@@ -211,4 +213,5 @@ process_and_collapse_columns(df, rvs_cols, "clin_rvs")
 
 ```{r write as csv}
 df %>% fwrite(here(paste0("data-cleaning/cleaned_claims/cleaned_claims_extract_CLAIMS_", year_to_load,".csv")))
+toc()
 ```
