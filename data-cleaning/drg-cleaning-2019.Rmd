@@ -42,14 +42,14 @@ na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", "N
 
 # Columns to drop (based on indexes)
 drop_cols <- 76:196
+```
 
+```{r process in chunks}
 # Paths to save intermediate results
 chunk_droppable_cols_file <- here("data-cleaning/cache", paste0("chunk_droppable_cols_", year_to_load, ".rds"))
 header_file <- here("data-cleaning/cache", paste0("header_", year_to_load, ".rds"))
 total_rows_file <- here("data-cleaning/cache", paste0("total_rows_", year_to_load, ".rds"))
-```
 
-```{r process in chunks}
 if (file.exists(chunk_droppable_cols_file) && file.exists(header_file) && file.exists(total_rows_file)) {
   chunk_droppable_cols <- readRDS(chunk_droppable_cols_file)
   header <- readRDS(header_file)
