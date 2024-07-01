@@ -1,5 +1,5 @@
 ---
-title: "Test DRG Cleaning"
+title: "DRG Cleaning 2019"
 author: "Carlos Resurreccion"
 date: "2024-06-26"
 output: html_document
@@ -21,6 +21,7 @@ library(parallel)
 year_to_load <- "2019"
 path_to_raw_claims <- "data-cleaning/raw_claims/"
 path_to_intermediate <- "data-cleaning/intermediate_claims/"
+process_in_chunks <- TRUE
 chunk_size <- 1000000
 
 # Define column types
@@ -76,31 +77,42 @@ if (file.exists(chunk_droppable_cols_file) && file.exists(header_file) && file.e
                       header = TRUE)[, .N]
   toc()
   
-  chunk_size <- ceiling(total_rows/10)
-  
-  repeat {
-    tic(paste("Processing", chunk_number, year_to_load))
-    skip_rows <- (chunk_number - 1) * chunk_size + 1
-    if (skip_rows > total_rows) break
+  if (process_in_chunks) {
+    # Processing in chunks
+    repeat {
+      tic(paste("Processing", chunk_number, year_to_load))
+      skip_rows <- (chunk_number - 1) * chunk_size + 1
+      if (skip_rows > total_rows) break
 
+      df <- fread(here(paste0(path_to_raw_claims, "claims_extract_CLAIMS_", year_to_load, ".csv")),
+                  skip = skip_rows,
+                  nrows = chunk_size,
+                  select = cols_to_keep,
+                  na.strings = na_values
+      )
+
+      setnames(df, colnames(header)[cols_to_keep])
+      
+      if (nrow(df) == 0) break
+      
+      # Check which columns can be dropped
+      droppable_cols <- sapply(df, function(col) all(is.na(col) | col %in% na_like_strings))
+      droppable_cols <- which(droppable_cols)
+      chunk_droppable_cols[[paste0(year_to_load, "_chunk_", chunk_number)]] <- droppable_cols
+
+      chunk_number <- chunk_number + 1
+      toc()
+    }
+  } else {
+    # Processing the entire file at once
     df <- fread(here(paste0(path_to_raw_claims, "claims_extract_CLAIMS_", year_to_load, ".csv")),
-                skip = skip_rows,
-                nrows = chunk_size,
                 select = cols_to_keep,
                 na.strings = na_values
     )
 
-    setnames(df, colnames(header)[cols_to_keep])
-    
-    if (nrow(df) == 0) break
-    
-    # Check which columns can be dropped
     droppable_cols <- sapply(df, function(col) all(is.na(col) | col %in% na_like_strings))
     droppable_cols <- which(droppable_cols)
-    chunk_droppable_cols[[paste0(year_to_load, "_chunk_", chunk_number)]] <- droppable_cols
-
-    chunk_number <- chunk_number + 1
-    toc()
+    chunk_droppable_cols[[paste0(year_to_load, "_whole")]] <- droppable_cols
   }
   
   saveRDS(chunk_droppable_cols, chunk_droppable_cols_file)

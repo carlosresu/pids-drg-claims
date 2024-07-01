@@ -1,0 +1,33 @@
+sudo adduser carlosone
+sudo passwd 1172
+su - carlosone
+git config --global user.name "Carlos Resurreccion"
+git config --global user.email "resurreccion.cmc@gmail.com"
+git config --global --list
+git config --global credential.helper manager
+
+sudo adduser carlostwo
+sudo passwd 1172
+su - carlostwo
+git config --global user.name "Carlos Resurreccion"
+git config --global user.email "resurreccion.cmc@gmail.com"
+git config --global --list
+git config --global credential.helper manager
+
+sudo adduser carlosthree
+sudo passwd 1172
+su - carlosthree
+git config --global user.name "Carlos Resurreccion"
+git config --global user.email "resurreccion.cmc@gmail.com"
+git config --global --list
+git config --global credential.helper manager
+
+sudo adduser carlosfour
+sudo passwd 1172
+su - carlosfour
+git config --global user.name "Carlos Resurreccion"
+git config --global user.email "resurreccion.cmc@gmail.com"
+git config --global --list
+git config --global credential.helper manager
+
+/mnt/c/Users/resur/Documents/drg

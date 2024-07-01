@@ -1,0 +1,141 @@
+---
+title: "DRG Cleaning 2018"
+author: "Carlos Resurreccion"
+date: "2024-06-26"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library}
+library(data.table)
+library(here)
+library(tictoc)
+library(stringr)
+```
+
+```{r parameters}
+year_to_load <- "2018"
+path_to_raw_claims <- "data-cleaning/raw_claims/"
+path_to_intermediate <- "data-cleaning/intermediate_claims/"
+
+# Define column types
+character_cols <- c("PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "HCI_PMCC_NO",
+                    "HCP_NO_LIST", "PRIMARY_ILLNESS", "SECONDARY_ILLNESS",
+                    paste0("ICDCODE", c(1:14, 16:170)), "ICCODED15",
+                    paste0("RVSCODE", 1:20), "DATE_ADM", "TIME_ADM",
+                    "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", 
+                    "CHKDT", "PAT_BDAY", "EXTRACTION_DATE")
+integer_cols = c("OUT_PATIENT", "EMERGENCY")
+factor_cols = c("PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", 
+                "MEMCAT_PARENT_DESC", "MEMCAT_CHILD_DESC", 
+                "MEMCAT_SUBCHILD_DESC", "DISPOSITION", "CLAIMS_STATUS")
+numeric_cols = c("PATAGE", "PAT_BWT_KG", "CLAIMS_PAID_AMT", 
+                 "ACR_AMOUNT_ACTUAL")
+na_values <- c('NONE','None','-','--','---','N/A','n/a','nan','NAN') 
+na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028", "\u2029", "\u202F", "\u205F", "\u3000")
+
+# Columns to drop (based on indexes)
+drop_cols <- 76:196
+```
+
+```{r process full dataset}
+# Step 1: Read the entire dataset
+tic("Reading full dataset")
+df <- fread(here(paste0(path_to_raw_claims, "claims_extract_CLAIMS_", year_to_load, ".csv")),
+            na.strings = na_values)
+toc()
+
+# Step 2: Drop unnecessary columns
+cols_to_keep <- setdiff(seq_along(df), drop_cols)
+df <- df[, ..cols_to_keep]
+
+# Step 3: Identify columns that can be dropped (all NA or na_like_strings)
+droppable_cols <- sapply(df, function(col) all(is.na(col) | col %in% na_like_strings))
+df <- df[, !droppable_cols, with = FALSE]
+
+# Step 4: Rename columns
+setnames(df, colnames(df))
+
+# Step 5: Add a column id_year and set its value to the variable year_to_load
+df[, id_year := as.integer(year_to_load)]
+
+# Step 6: Update columns as per your processing steps
+df[, PATIENT_TYPE := fcase(
+  PATIENT_TYPE == "MEMBER", "MEM",
+  PATIENT_TYPE == "DEPENDENT", "DEP"
+)]
+
+df[, MEMCAT_PARENT_DESC := fcase(
+  MEMCAT_PARENT_DESC == "DIRECT CONTRIBUTOR", "DIRECT",
+  MEMCAT_PARENT_DESC == "INDIRECT CONTRIBUTOR", "INDIRECT"
+)]
+
+df[, MEMCAT_CHILD_DESC := fcase(
+  MEMCAT_CHILD_DESC == "EMPLOYED PRIVATE", "FORMAL",
+  MEMCAT_CHILD_DESC == "SELF-EARNING INDIVIDUAL", "INFORMAL",
+  MEMCAT_CHILD_DESC == "SENIOR CITIZEN", "SENIOR",
+  MEMCAT_CHILD_DESC == "INDIGENT", "INDIGENT",
+  MEMCAT_CHILD_DESC == "LIFETIME MEMBER", "LIFETIME",
+  MEMCAT_CHILD_DESC == "SPONSORED", "SPONSORED",
+  MEMCAT_CHILD_DESC == "MIGRANT WORKER", "INFORMAL",
+  MEMCAT_CHILD_DESC == "EMPLOYED GOVERNMENT", "FORMAL",
+  MEMCAT_CHILD_DESC == "INFORMAL ECONOMY", "INFORMAL",
+  MEMCAT_CHILD_DESC == "HOUSEHOLD HELP/KASAMBAHAY", "FORMAL",
+  MEMCAT_CHILD_DESC == "FOREIGN NATIONAL", "INFORMAL",
+  MEMCAT_CHILD_DESC == "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD", "INFORMAL",
+  MEMCAT_CHILD_DESC == "SELF EARNING INDIVIDUAL", "INFORMAL",
+  MEMCAT_CHILD_DESC == "FAMILY DRIVER", "FORMAL"
+)]
+
+df[, DISPOSITION := fcase(
+  DISPOSITION == "IMPROVED", 1L,
+  DISPOSITION == "RECOVERED", 1L,
+  DISPOSITION == "HOME/DISCHARGED AGAINST MEDICAL ADVICE", 2L,
+  DISPOSITION == "ABSCONDED", 3L,
+  DISPOSITION == "TRANSFERRED/REFERRED", 4L,
+  DISPOSITION == "EXPIRED", 9L,
+  DISPOSITION == "UNDEFINED", NA_integer_
+)]
+
+# Step 7: Process and collapse ICD and RVS columns
+icd_cols <- intersect(colnames(df), c(paste0("ICDCODE", c(1:14, 16:170)), "ICCODED15"))
+rvs_cols <- intersect(colnames(df), paste0("RVSCODE", 1:20))
+
+process_and_collapse_columns <- function(df, cols_to_process, new_col_name) {
+  for (col in cols_to_process) {
+    set(df, j = col, value = iconv(df[[col]], to = "UTF-8", sub = "byte"))
+    set(df, j = col, value = toupper(df[[col]]))
+    set(df, j = col, value = str_trim(df[[col]]))
+    set(df, j = col, value = str_replace_all(df[[col]], " ", ""))
+    set(df, j = col, value = str_replace_all(df[[col]], "\n", ""))
+    set(df, j = col, value = str_replace_all(df[[col]], "[^\\w\\d\\/\\s]+", ""))
+    set(df, j = col, value = ifelse(df[[col]] %in% na_like_strings, NA_character_, df[[col]]))
+  }
+
+  df[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
+  df[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|NA", "")]
+  df[, (new_col_name) := str_replace_all(get(new_col_name), "NA\\|\\|", "")]
+  df[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|$", "")]
+  df[, (new_col_name) := ifelse(get(new_col_name) == "NA", NA_character_, get(new_col_name))]
+
+  df[, (cols_to_process) := NULL]
+}
+
+tic("Processing ICD columns")
+process_and_collapse_columns(df, icd_cols, "clin_icd")
+toc()
+
+tic("Processing RVS columns")
+process_and_collapse_columns(df, rvs_cols, "clin_rvs")
+toc()
+
+# Step 8: Export the cleaned data to a CSV file
+output_file <- here("data-cleaning/cleaned_claims", paste0("cleaned_claims_extract_CLAIMS_", year_to_load, ".csv"))
+
+tic("Writing cleaned data to CSV")
+fwrite(df, output_file)
+toc()
+```
