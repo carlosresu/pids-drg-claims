@@ -14,7 +14,8 @@ library(data.table)
 library(here)
 library(tictoc)
 library(stringr)
-library(parallel)
+library(lubridate)
+# library(parallel)
 ```
 
 ```{r parameters}
@@ -130,7 +131,7 @@ chunk_number <- 1
 
 cols_to_keep <- setdiff(1:ncol(header), c(76:196, all_chunks_droppable_cols))
 
-# chunk_size <- ceiling(total_rows/10)
+chunk_size <- ceiling(total_rows/10)
 
 repeat {
   tic(paste("Processing Pt 1 of Chunk", chunk_number, year_to_load))
@@ -153,7 +154,7 @@ repeat {
   if (nrow(df) == 0) break
   
   # Add a column id_year and set its value to the variable year_to_load
-  df[, id_year := as.integer(year_to_load)]
+  df[, SRC_YR := as.integer(year_to_load)]
   
   # Update columns as per your processing steps
   df[, PATIENT_TYPE := fcase(
@@ -219,10 +220,10 @@ repeat {
   }
   toc()
   tic(paste("Processing Pt 2 of Chunk", chunk_number, year_to_load))
-  process_and_collapse_columns(df, icd_cols, "clin_icd")
+  process_and_collapse_columns(df, icd_cols, "ICD_CODES")
   toc()
   tic(paste("Processing Pt 3 of Chunk", chunk_number, year_to_load))
-  process_and_collapse_columns(df, rvs_cols, "clin_rvs")
+  process_and_collapse_columns(df, rvs_cols, "RVS_CODES")
   toc()
   
   tic(paste("Writing Chunk", chunk_number, year_to_load))
@@ -260,4 +261,221 @@ merged_data <- rbindlist(all_chunks)
 tic("Writing merged data to CSV")
 fwrite(merged_data, output_file)
 toc()
+```
+
+```{r read merged file}
+# # Paths and parameters
+# path_to_cleaned_claims <- "data-cleaning/cleaned_claims/"
+# file_path <- here(paste0(path_to_cleaned_claims, "cleaned_claims_extract_CLAIMS_", year_to_load, ".csv"))
+# 
+# # Define column types
+# col_classes <- c(
+#   PSEUDO_CLAIMSERIES = "character", 
+#   PSEUDO_MEM_PIN = "character", 
+#   DATE_ADM = "character", 
+#   TIME_ADM = "character", 
+#   DATE_DIS = "character", 
+#   TIME_DIS = "character", 
+#   DATE_REC = "character", 
+#   DATE_REF = "character", 
+#   CHKDT = "character", 
+#   HCI_PMCC_NO = "character", 
+#   HCP_NO_LIST = "character", 
+#   OUT_PATIENT = "integer", 
+#   EMERGENCY = "integer", 
+#   PATIENT_TYPE = "factor", 
+#   ROOM_TYPE = "factor", 
+#   DEP_REL = "factor", 
+#   PAT_BDAY = "character", 
+#   PATAGE = "numeric", 
+#   PATSEX = "factor", 
+#   PAT_BWT_KG = "numeric", 
+#   MEMCAT_PARENT_DESC = "factor", 
+#   MEMCAT_CHILD_DESC = "factor", 
+#   MEMCAT_SUBCHILD_DESC = "factor", 
+#   DISPOSITION = "integer", 
+#   PRIMARY_ILLNESS = "character", 
+#   SECONDARY_ILLNESS = "character", 
+#   CLAIMS_STATUS = "factor", 
+#   CLAIMS_PAID_AMT = "numeric", 
+#   ACR_AMOUNT_ACTUAL = "numeric", 
+#   EXTRACTION_DATE = "character", 
+#   SRC_YR = "integer", 
+#   ICD_CODES = "character", 
+#   RVS_CODES = "character"
+# )
+# 
+# na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
+# 
+# # Read the cleaned claims data with appropriate column types
+# dt_cleaned <- fread(file_path, colClasses = col_classes, na.strings = na_values)
+
+# Paths and parameters
+path_to_cleaned_claims <- "data-cleaning/cleaned_claims/"
+file_path <- here(paste0(path_to_cleaned_claims, "cleaned_claims_extract_CLAIMS_", year_to_load, ".csv"))
+
+# Define column types
+col_classes <- c(
+  PSEUDO_CLAIMSERIES = "character", 
+  PSEUDO_MEM_PIN = "character", 
+  DATE_ADM = "character", 
+  TIME_ADM = "character", 
+  DATE_DIS = "character", 
+  TIME_DIS = "character", 
+  DATE_REC = "character", 
+  DATE_REF = "character", 
+  CHKDT = "character", 
+  HCI_PMCC_NO = "character", 
+  HCP_NO_LIST = "character", 
+  OUT_PATIENT = "integer", 
+  EMERGENCY = "integer", 
+  PATIENT_TYPE = "factor", 
+  ROOM_TYPE = "factor", 
+  DEP_REL = "factor", 
+  PAT_BDAY = "character", 
+  PATAGE = "numeric", 
+  PATSEX = "factor", 
+  PAT_BWT_KG = "numeric", 
+  MEMCAT_PARENT_DESC = "factor", 
+  MEMCAT_CHILD_DESC = "factor", 
+  MEMCAT_SUBCHILD_DESC = "factor", 
+  DISPOSITION = "integer", 
+  PRIMARY_ILLNESS = "character", 
+  SECONDARY_ILLNESS = "character", 
+  CLAIMS_STATUS = "factor", 
+  CLAIMS_PAID_AMT = "numeric", 
+  ACR_AMOUNT_ACTUAL = "numeric", 
+  EXTRACTION_DATE = "character", 
+  id_year = "integer", 
+  clin_icd = "character", 
+  clin_rvs = "character"
+)
+
+na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
+
+# Read the cleaned claims data with appropriate column types
+dt_cleaned <- fread(file_path, colClasses = col_classes, na.strings = na_values)
+```
+```{r find lumped codes}
+# Create a 100k row random sample of dt_cleaned
+set.seed(123)  # Set seed for reproducibility
+sampled_dt_cleaned <- dt_cleaned[sample(.N, min(1e5, .N))]
+
+# Function to find lumped together codes based on the criteria:
+# - String length > 4
+# - Contains more than one letter
+# - Contains more than one digit
+find_lumped_codes <- function(codes) {
+  sapply(codes, function(code) {
+    nchar(code) > 4 &&
+    sum(str_detect(strsplit(code, NULL)[[1]], "[A-Za-z]")) > 1 &&
+    sum(str_detect(strsplit(code, NULL)[[1]], "[0-9]")) > 1
+  })
+}
+
+# Identify ICD codes in clin_icd
+icds <- unique(unlist(strsplit(dt_cleaned$clin_icd, "||", fixed = TRUE)))
+
+# Debug: Print the first few ICD codes
+cat("First few ICD codes:\n")
+print(head(icds))
+
+# Debug: Print the number of ICD codes
+cat("Total number of ICD codes:\n")
+print(length(icds))
+
+# Find lumped ICD codes based on the criteria
+to_delist <- icds[find_lumped_codes(icds)]
+
+# Debug: Print the codes to be delisted
+cat("ICD codes to be delisted:\n")
+print(to_delist)
+
+# Create a mask for rows with lumped ICD codes, only if to_delist is not empty
+if (length(to_delist) > 0) {
+  delist_pattern <- paste(to_delist, collapse = "|")
+  delist_mask <- str_detect(dt_cleaned$clin_icd, delist_pattern)
+} else {
+  delist_mask <- rep(FALSE, nrow(dt_cleaned))
+}
+
+# Debug: Print the number of rows with lumped ICD codes
+cat("Number of rows with lumped ICD codes:\n")
+print(sum(delist_mask))
+
+# Update clin_icd column to remove lumped codes
+dt_cleaned[delist_mask, clin_icd := str_replace_all(clin_icd, delist_pattern, "")]
+```
+
+```{r output for batch grouper}
+output_txt_file <- here::here(paste0(path_to_cleaned_claims, "DRG_Grouped_Sample_", year_to_load, ".txt"))
+# Function to generate DOB from age and admission date
+generate_dob_vectorized <- function(bdays, ages, date_adms) {
+  dob <- rep(NA_character_, length(ages))  # Initialize dob vector
+  dob[!is.na(bdays) & bdays != ""] <- format(mdy(bdays[!is.na(bdays) & bdays != ""]), "%d/%m/%Y")  # Use PAT_BDAY where available
+
+  # Indices where PAT_BDAY is not available
+  missing_bday_indices <- which(is.na(bdays) | bdays == "")
+
+  # Use age and date_adm to generate DOB for those with missing PAT_BDAY
+  ref_dates <- mdy(date_adms[missing_bday_indices])
+  
+  # Case 1: age == 0
+  zero_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0)
+  dob[missing_bday_indices[zero_age_indices]] <- format(ref_dates[zero_age_indices] - days(sample(1:27, length(zero_age_indices), replace = TRUE)), "%d/%m/%Y")
+  
+  # Case 2: age > 0
+  positive_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0)
+  truncated_ages <- floor(ages[missing_bday_indices][positive_age_indices])
+  dob[missing_bday_indices[positive_age_indices]] <- format(ref_dates[positive_age_indices] - years(truncated_ages) - days(sample(1:170, length(positive_age_indices), replace = TRUE)), "%d/%m/%Y")
+  
+  return(dob)
+}
+
+# Prepare the data for the text file
+df <- data.table(CASEID = 1:nrow(sampled_dt_cleaned))
+df[, DOB := generate_dob_vectorized(sampled_dt_cleaned$PAT_BDAY, sampled_dt_cleaned$PATAGE, sampled_dt_cleaned$DATE_ADM)]
+df[, Sex := ifelse(sampled_dt_cleaned$PATSEX == "M", 1, 2)]
+df[, DateAdm := format(mdy(sampled_dt_cleaned$DATE_ADM), "%d/%m/%Y")]
+df[, TimeAdm := gsub(":", "", sampled_dt_cleaned$TIME_ADM)]
+df[, DateDsc := format(mdy(sampled_dt_cleaned$DATE_DIS), "%d/%m/%Y")]
+df[, TimeDsc := gsub(":", "", sampled_dt_cleaned$TIME_DIS)]
+df[, DischT := sampled_dt_cleaned$DISPOSITION]
+df[, AdmWt := sampled_dt_cleaned$PAT_BWT_KG]
+df[, PDx := sampled_dt_cleaned$PRIMARY_ILLNESS]
+
+# Split ICD_CODES into multiple columns, ensuring 12 elements per row
+split_icd_codes <- function(icd_str) {
+  codes <- unlist(strsplit(icd_str, "||", fixed = TRUE))
+  length(codes) <- 12  # Ensuring 12 elements, with NA for missing
+  codes
+}
+
+icd_codes_list <- lapply(sampled_dt_cleaned$clin_icd, split_icd_codes)
+icd_codes <- do.call(rbind, icd_codes_list)
+icd_cols <- paste0("SDx", 1:12)
+df[, (icd_cols) := as.data.table(icd_codes)]
+
+# Split RVS_CODES into multiple columns, ensuring 20 elements per row
+split_rvs_codes <- function(rvs_str) {
+  codes <- unlist(strsplit(rvs_str, "||", fixed = TRUE))
+  length(codes) <- 20  # Ensuring 20 elements, with NA for missing
+  codes
+}
+
+rvs_codes_list <- lapply(sampled_dt_cleaned$clin_rvs, split_rvs_codes)
+rvs_codes <- do.call(rbind, rvs_codes_list)
+proc_cols <- paste0("Proc", 1:20)
+df[, (proc_cols) := as.data.table(rvs_codes)]
+
+# Replace NA values with '--'
+df[is.na(df)] <- '--'
+
+# Write the data to a text file
+fwrite(df, output_txt_file, sep = "|", col.names = TRUE)
+```
+
+```{r read in batch grouper text file}
+# Read the data from the text file
+df_read <- fread(output_txt_file, sep = "|", na.strings = '--')
 ```
