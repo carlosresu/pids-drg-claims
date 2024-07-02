@@ -262,7 +262,9 @@ if (to_read) {
       total_rows <- readRDS(total_rows_file)
     }
   } else {
-    stop("Cannot proceed: to_read is FALSE, to_sample is FALSE, and to_chunk is FALSE. At least one must be TRUE.")
+    if (!file.exists(intermediate_file)) {
+      stop("Cannot proceed: to_read is FALSE, to_sample is FALSE, and to_chunk is FALSE. At least one must be TRUE.")
+    }
   }
 }
 ```
@@ -293,7 +295,7 @@ if (to_read || (to_sample && !file.exists(sampled_claims))) {
 ```
 
 ```{r process data in chunks}
-if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
+if (to_sample == FALSE && to_chunk == TRUE) {
   tic("Processing data in chunks")
   
   header <- fread(full_claims, nrows = 1, header = TRUE)
