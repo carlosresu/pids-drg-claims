@@ -18,6 +18,7 @@ library(here)
 library(tictoc)
 library(stringr)
 library(lubridate)
+library(docstring)
 ```
 
 ## Set Parameters
@@ -75,7 +76,7 @@ grouper_result_file <- here(path_to_grouper_output, toupper(paste0("DRG_Grouped"
 set.seed(123)
 ```
 
-## Define Data Formats and Additional Parameters
+## Source Data Formats
 
 ```{r data formats and additional parameters}
 source(here("data-cleaning", "drg-cleaning-data-formats.R"))
@@ -237,7 +238,9 @@ if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
   tic("Merging intermediate files")
   
   intermediate_files <- list.files(path_to_intermediate, pattern = "intermediate_chunk_.*\\.csv", full.names = TRUE)
-  df_list <- lapply(intermediate_files, fread)
+  df_list <- lapply(intermediate_files,
+
+ fread)
   df <- rbindlist(df_list)
   
   fwrite(df, intermediate_file)

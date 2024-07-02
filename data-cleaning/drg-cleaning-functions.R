@@ -2,6 +2,9 @@
 
 read_entire_file <- function() {
   tic("Reading entire data file")
+  #' Read the entire data file.
+  #'
+  #' @return A data.table containing the entire data file.
   df <- fread(full_claims, na.strings = na_values)
   toc()
   return(df)
@@ -10,6 +13,9 @@ read_entire_file <- function() {
 ### Read Sampled File
 
 read_sampled_file <- function() {
+  #' Read the sampled data file.
+  #'
+  #' @return A data.table containing the sampled data file.
   df <- fread(sampled_claims, na.strings = na_values)
   return(df)
 }
@@ -17,6 +23,10 @@ read_sampled_file <- function() {
 ### Sample Data
 
 sample_data <- function(df) {
+  #' Sample data from the data table.
+  #'
+  #' @param df A data.table to sample from.
+  #' @return A sampled data.table.
   df <- df[sample(.N, min(sample_size, .N))]
   return(df)
 }
@@ -24,12 +34,20 @@ sample_data <- function(df) {
 ### Write Data
 
 write_data <- function(df, path) {
+  #' Write data to a specified path.
+  #'
+  #' @param df A data.table to write.
+  #' @param path A character string specifying the path to write the data to.
   fwrite(df, path)
 }
 
 ### Keep Necessary Columns
 
 keep_necessary_columns <- function(df) {
+  #' Keep necessary columns in the data table.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with only the necessary columns.
   cols_to_keep <- setdiff(1:ncol(df), drop_cols)
   df <- df[, ..cols_to_keep]
   return(df)
@@ -38,6 +56,11 @@ keep_necessary_columns <- function(df) {
 ### Add Year Column
 
 add_year_column <- function(df, year_to_load) {
+  #' Add a year column to the data table.
+  #'
+  #' @param df A data.table.
+  #' @param year_to_load A character string specifying the year to add.
+  #' @return A data.table with the year column added.
   df[, SRC_YR := as.integer(year_to_load)]
   return(df)
 }
@@ -45,6 +68,11 @@ add_year_column <- function(df, year_to_load) {
 ### Process and Collapse Columns
 
 process_and_collapse_columns <- function(df, cols_to_process, new_col_name) {
+  #' Process and collapse specified columns into a new column.
+  #'
+  #' @param df A data.table.
+  #' @param cols_to_process A character vector specifying columns to process.
+  #' @param new_col_name A character string specifying the name of the new column.
   for (col in cols_to_process) {
     set(df, j = col, value = iconv(df[[col]], to = "UTF-8", sub = "byte"))
     set(df, j = col, value = toupper(df[[col]]))
@@ -67,6 +95,10 @@ process_and_collapse_columns <- function(df, cols_to_process, new_col_name) {
 ### Process Patient Type
 
 process_patient_type <- function(df) {
+  #' Process patient type.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with processed patient type.
   df[, PATIENT_TYPE := fcase(
     PATIENT_TYPE == "MEMBER", "MEM",
     PATIENT_TYPE == "DEPENDENT", "DEP"
@@ -77,6 +109,10 @@ process_patient_type <- function(df) {
 ### Process Memcat Parent Description
 
 process_memcat_parent_desc <- function(df) {
+  #' Process memcat parent description.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with processed memcat parent description.
   df[, MEMCAT_PARENT_DESC := fcase(
     MEMCAT_PARENT_DESC == "DIRECT CONTRIBUTOR", "DIRECT",
     MEMCAT_PARENT_DESC == "INDIRECT CONTRIBUTOR", "INDIRECT"
@@ -87,6 +123,10 @@ process_memcat_parent_desc <- function(df) {
 ### Process Memcat Child Description
 
 process_memcat_child_desc <- function(df) {
+  #' Process memcat child description.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with processed memcat child description.
   df[, MEMCAT_CHILD_DESC := fcase(
     MEMCAT_CHILD_DESC == "EMPLOYED PRIVATE", "FORMAL",
     MEMCAT_CHILD_DESC == "SELF-EARNING INDIVIDUAL", "INFORMAL",
@@ -109,6 +149,10 @@ process_memcat_child_desc <- function(df) {
 ### Process Disposition
 
 process_disposition <- function(df) {
+  #' Process disposition.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with processed disposition.
   df[, DISPOSITION := fcase(
     DISPOSITION == "IMPROVED", 1L,
     DISPOSITION == "RECOVERED", 1L,
@@ -124,6 +168,10 @@ process_disposition <- function(df) {
 ### Process ICD Codes
 
 process_icd_codes <- function(df) {
+  #' Process ICD codes.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with processed ICD codes.
   icd_cols <- intersect(colnames(df), c(paste0("ICDCODE", c(1:14, 16:170)), "ICCODED15"))
   process_and_collapse_columns(df, icd_cols, "ICD_CODES")
   return(df)
@@ -132,6 +180,10 @@ process_icd_codes <- function(df) {
 ### Process RVS Codes
 
 process_rvs_codes <- function(df) {
+  #' Process RVS codes.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with processed RVS codes.
   rvs_cols <- intersect(colnames(df), paste0("RVSCODE", 1:20))
   process_and_collapse_columns(df, rvs_cols, "RVS_CODES")
   return(df)
@@ -140,6 +192,10 @@ process_rvs_codes <- function(df) {
 ### Find Lumped Codes
 
 find_lumped_codes <- function(codes) {
+  #' Find lumped codes.
+  #'
+  #' @param codes A character vector of codes.
+  #' @return A logical vector indicating whether each code is lumped.
   sapply(codes, function(code) {
     if (is.na(code)) {
       return(FALSE)
@@ -153,6 +209,10 @@ find_lumped_codes <- function(codes) {
 ### Remove Lumped ICD Codes
 
 remove_lumped_icd_codes <- function(df) {
+  #' Remove lumped ICD codes.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with lumped ICD codes removed.
   to_delist <- unique(unlist(strsplit(df$ICD_CODES, "\\|\\|")))[find_lumped_codes(unique(unlist(strsplit(df$ICD_CODES, "\\|\\|"))))]
   
   if (length(to_delist) > 0 && !all(is.na(to_delist))) {
@@ -173,6 +233,11 @@ remove_lumped_icd_codes <- function(df) {
 ### Process RVS Code Mapping
 
 process_rvs_code_mapping <- function(df, rvs_icd9) {
+  #' Process RVS code mapping.
+  #'
+  #' @param df A data.table.
+  #' @param rvs_icd9 A data.frame containing RVS to ICD-9 mapping.
+  #' @return A data.table with processed RVS code mapping.
   with_drg <- rvs_icd9 %>%
     filter(is_drg)
   
@@ -247,6 +312,10 @@ process_rvs_code_mapping <- function(df, rvs_icd9) {
 ### Process ICD10 Mapping
 
 process_icd10_mapping <- function(df) {
+  #' Process ICD10 mapping.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with processed ICD10 mapping.
   tdrg_icd10 <- read_csv(here(path_to_aux, "i10.csv"))
   
   df$ICD_CODES <- as.character(df$ICD_CODES)
@@ -313,6 +382,11 @@ process_icd10_mapping <- function(df) {
 ### Find PDx Code
 
 find_pdx_code <- function(codes, target) {
+  #' Find the principal diagnosis (PDx) code.
+  #'
+  #' @param codes A character vector of codes.
+  #' @param target A character string specifying the target code.
+  #' @return The principal diagnosis (PDx) code.
   if (length(codes) == 0 || is.na(codes)) return(NA)
   pdx <- target
   target <- str_remove_all(target, "(Case | Not Case | Uncertain )")
@@ -328,12 +402,20 @@ find_pdx_code <- function(codes, target) {
 ### Process Data
 
 process_data <- function(df, year_to_load, rvs_icd9) {
+  #' Process the data.
+  #'
+  #' @param df A data.table.
+  #' @param year_to_load A character string specifying the year to add.
+  #' @param rvs_icd9 A data.frame containing RVS to ICD-9 mapping.
+  #' @return A processed data.table.
   tic("Processing data")
   
   df <- keep_necessary_columns(df)
   df <- add_year_column(df, year_to_load)
   df <- process_patient_type(df)
   df <- process_memcat_parent_desc(df)
+  
+  
   df <- process_memcat_child_desc(df)
   df <- process_disposition(df)
   df <- process_icd_codes(df)
@@ -359,6 +441,12 @@ process_data <- function(df, year_to_load, rvs_icd9) {
 ### Clean Columns by Removing Periods and Applying NA
 
 clean_columns <- function(df, cols, na_like_strings) {
+  #' Clean columns by removing periods and applying NA.
+  #'
+  #' @param df A data.table.
+  #' @param cols A character vector specifying the columns to clean.
+  #' @param na_like_strings A character vector of strings considered as NA.
+  #' @return A data.table with cleaned columns.
   for (col in cols) {
     set(df, j = col, value = gsub("\\.", "", df[[col]]))
     set(df, j = col, value = ifelse(df[[col]] %in% na_like_strings, NA_character_, df[[col]]))
@@ -369,6 +457,10 @@ clean_columns <- function(df, cols, na_like_strings) {
 ### Clean up ICD List Columns
 
 clean_icd_list_columns <- function(df) {
+  #' Clean up ICD list columns.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with cleaned ICD list columns.
   icd_list_cols <- grep("^icd_list", colnames(df), value = TRUE)
   for (col in icd_list_cols) {
     set(df, j = col, value = gsub("\\.", "", df[[col]]))
@@ -379,14 +471,11 @@ clean_icd_list_columns <- function(df) {
 
 ### Clean up ICD and RVS Codes
 
-clean_code_list <- function(code_list) {
-  codes <- unlist(strsplit(code_list, ","))
-  codes <- gsub(" ", "", codes)
-  codes <- codes[!codes %in% na_like_strings]
-  paste(codes, collapse = ",")
-}
-
 clean_icd_and_rvs_codes <- function(df) {
+  #' Clean up ICD and RVS codes.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with cleaned ICD and RVS codes.
   df$icd9_list <- sapply(df$icd9_list, clean_code_list)
   df$icd_list_1 <- sapply(df$icd_list_1, clean_code_list)
   return(df)
@@ -395,6 +484,11 @@ clean_icd_and_rvs_codes <- function(df) {
 ### Find the Likely Primary Diagnosis (PDx)
 
 find_pdx <- function(row, acc_pdx) {
+  #' Find the likely primary diagnosis (PDx).
+  #'
+  #' @param row A data.table row.
+  #' @param acc_pdx A character vector of accepted PDx codes.
+  #' @return A list containing the PDx and PDx code.
   if (row$clin_c1 %in% acc_pdx) {
     return(list(pdx = row$clin_c1, pdx_code = 1))
   }
@@ -427,23 +521,13 @@ find_pdx <- function(row, acc_pdx) {
   }
 }
 
-clean_icd_columns <- function(df) {
-  df <- df %>%
-    mutate(
-      clin_c1 = ifelse(pdx_code == 1, NA, clin_c1),
-      clin_c2 = ifelse(pdx_code == 2, NA, clin_c2),
-      icd_list = purrr::map2(icd_list, pdx, ~setdiff(.x, .y)),
-      icd_list = purrr::map2(icd_list, clin_c1, ~union(.x, .y)),
-      icd_list = purrr::map2(icd_list, clin_c2, ~union(.x, .y)),
-      icd_list = purrr::map(icd_list, unique)
-    )
-  df <- clean_icd_list_columns(df)
-  return(df)
-}
-
 ### Prepare Data
 
 prepare_data <- function(df) {
+  #' Prepare data for processing.
+  #'
+  #' @param df A data.table.
+  #' @return A prepared data.table.
   df <- df %>%
     mutate(icd_list = strsplit(ICD_CODES, "\\|\\|")) %>%
     rowwise() %>%
@@ -464,6 +548,11 @@ prepare_data <- function(df) {
 ### Apply the PDx Finding Process
 
 apply_find_pdx <- function(df, acc_pdx) {
+  #' Apply the PDx finding process to the data.
+  #'
+  #' @param df A data.table.
+  #' @param acc_pdx A character vector of accepted PDx codes.
+  #' @return A data.table with the PDx finding process applied.
   df <- df %>%
     rowwise() %>%
     mutate(pdx_data = list(find_pdx(cur_data(), acc_pdx))) %>%
@@ -474,6 +563,13 @@ apply_find_pdx <- function(df, acc_pdx) {
 ### Main Function to Process Data for PDx
 
 process_data_for_pdx <- function(df, rvs_icd9, path_to_cache, year_to_load) {
+  #' Process data for likely PDx.
+  #'
+  #' @param df A data.table.
+  #' @param rvs_icd9 A data.frame containing RVS to ICD-9 mapping.
+  #' @param path_to_cache A character string specifying the path to cache.
+  #' @param year_to_load A character string specifying the year to load.
+  #' @return A processed data.table.
   acc_pdx <- acc_pdx
   df <- prepare_data(df)
   df <- apply_find_pdx(df, acc_pdx)
@@ -487,6 +583,11 @@ process_data_for_pdx <- function(df, rvs_icd9, path_to_cache, year_to_load) {
 ### Export for Batch Grouper Software
 
 export_for_batch_grouper <- function(df, year_to_load, output_txt_file) {
+  #' Export data for batch grouper software.
+  #'
+  #' @param df A data.table.
+  #' @param year_to_load A character string specifying the year to load.
+  #' @param output_txt_file A character string specifying the output text file path.
   # Prepare the data for the text file
   output_df <- data.table(CASEID = 1:nrow(df))
   output_df[, DOB := generate_dob_vectorized(df$PAT_BDAY, df$PATAGE, df$DATE_ADM)]
@@ -512,6 +613,8 @@ export_for_batch_grouper <- function(df, year_to_load, output_txt_file) {
   icd_cols <- paste0("SDx", 1:12)
   output_df[, (icd_cols) := icd_codes]
   
+  
+  
   # Split icd9_list into multiple columns, ensuring 20 elements per row
   split_rvs_codes <- function(rvs_str) {
     codes <- unlist(strsplit(rvs_str, ","))
@@ -535,6 +638,12 @@ export_for_batch_grouper <- function(df, year_to_load, output_txt_file) {
 ### Generate DOB from age and admission date
 
 generate_dob_vectorized <- function(bdays, ages, date_adms) {
+  #' Generate DOB from age and admission date.
+  #'
+  #' @param bdays A character vector of birth dates.
+  #' @param ages A numeric vector of ages.
+  #' @param date_adms A character vector of admission dates.
+  #' @return A character vector of generated DOBs.
   dob <- rep(NA_character_, length(ages))  # Initialize dob vector
   dob[!is.na(bdays) & bdays != ""] <- format(mdy(bdays[!is.na(bdays) & bdays != ""]), "%d/%m/%Y")  # Use PAT_BDAY where available
   
