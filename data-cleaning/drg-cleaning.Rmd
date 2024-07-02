@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load Required Libraries
 
 ```{r library}
-library(tidyverse)
 library(data.table)
 library(here)
 library(tictoc)
@@ -33,7 +32,7 @@ year_to_load <- "2018"
 
 ```{r parameters}
 # Parameters
-sample_size <- 1 * 1e3
+sample_size <- 250 * 1e3
 chunk_size <- 1e6
 
 drop_cols <- 76:196 # Columns to drop (based on indexes)
@@ -91,18 +90,17 @@ source(here("data-cleaning", "functions.R"))
 ## Load Mapping Data
 
 ```{r load mapping data}
-proc <- read_csv(here(path_to_excel, "proc.csv")) %>%
-  mutate(CODE = as.character(CODE))
+proc <- fread(here(path_to_excel, "proc.csv"))
+proc[, CODE := as.character(CODE)]
 
-rvs_icd9 <- read_csv(here(path_to_aux, "rvs_icd9cm.csv"), col_select = c("rvs", "icd9cm")) %>%
-  mutate(rvs = as.character(rvs)) %>%
-  mutate(icd9cm = as.character(icd9cm * 100)) %>%
-  left_join(proc %>% select(CODE, DRGUSE), by = c("icd9cm" = "CODE")) %>%
-  mutate(is_drg = !is.na(DRGUSE) & DRGUSE) %>%
-  select(-DRGUSE) %>%
-  filter(!is.na(rvs) & !is.na(icd9cm))
+rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"), select = c("rvs", "icd9cm"))
+rvs_icd9[, rvs := as.character(rvs)]
+rvs_icd9[, icd9cm := as.character(icd9cm * 100)]
+rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)], by.x = "icd9cm", by.y = "CODE", all.x = TRUE)
+rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE]
+rvs_icd9 <- rvs_icd9[!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
 
-acr_rvs <- read_csv(here(path_to_aux, "acr_rvs.csv"))
+acr_rvs <- fread(here(path_to_aux, "acr_rvs.csv"))
 
 # Read in the data.table
 tdrg_icd10 <- fread(here(path_to_aux, "i10.csv"))
@@ -111,10 +109,7 @@ tdrg_icd10 <- fread(here(path_to_aux, "i10.csv"))
 setkey(tdrg_icd10, "CODE")
 
 # Subset and assign the result to acc_pdx
-acc_pdx <- tdrg_icd10[ACCPDX == "Y", .(CODE)]
-
-# Convert acc_pdx to a vector if needed
-acc_pdx <- acc_pdx$CODE
+acc_pdx <- tdrg_icd10[ACCPDX == "Y", CODE]
 
 # Optional: If you want to ensure uniqueness (if CODEs are not unique in tdrg_icd10)
 acc_pdx <- unique(acc_pdx)
@@ -126,43 +121,43 @@ acc_pdx <- unique(acc_pdx)
 
 ```{r reading}
 if (to_read) {
-  df <- read_entire_file()
+  dt <- read_entire_file()
   
   if (to_sample) {
     if (file.exists(sampled_claims)) {
-      df <- read_sampled_file()
+      dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
-      if (nrow(df) != sample_size) {
-        df <- read_entire_file()
-        df <- sample_data(df)
+      if (nrow(dt) != sample_size) {
+        dt <- read_entire_file()
+        dt <- sample_data(dt)
         if (to_write) {
-          write_data(df, sampled_claims)
+          write_data(dt, sampled_claims)
         }
       }
     } else {
-      df <- sample_data(df)
+      dt <- sample_data(dt)
       if (to_write) {
-        write_data(df, sampled_claims)
+        write_data(dt, sampled_claims)
       }
     }
   }
 } else {
   if (to_sample) {
     if (file.exists(sampled_claims)) {
-      df <- read_sampled_file()
+      dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
-      if (nrow(df) != sample_size) {
-        df <- read_entire_file()
-        df <- sample_data(df)
+      if (nrow(dt) != sample_size) {
+        dt <- read_entire_file()
+        dt <- sample_data(dt)
         if (to_write) {
-          write_data(df, sampled_claims)
+          write_data(dt, sampled_claims)
         }
       }
     } else {
-      df <- read_entire_file()
-      df <- sample_data(df)
+      dt <- read_entire_file()
+      dt <- sample_data(dt)
       if (to_write) {
-        write_data(df, sampled_claims)
+        write_data(dt, sampled_claims)
       }
     }
   } else if (to_chunk) {
@@ -187,15 +182,15 @@ if (to_read) {
 if (to_read || (to_sample && !file.exists(sampled_claims))) {
   chunk_number <- 1
   chunk_droppable_cols <- list()
-  header <- names(df)
-  total_rows <- nrow(df)
+  header <- names(dt)
+  total_rows <- nrow(dt)
 
   tic("Processing header row")
   cols_to_keep <- setdiff(seq_along(header), drop_cols)
   toc()
 
   tic("Identifying droppable columns")
-  droppable_cols <- sapply(df, function(col) all(is.na(col) || col %in% na_like_strings))
+  droppable_cols <- sapply(dt, function(col) all(is.na(col) || col %in% na_like_strings))
   droppable_cols <- which(droppable_cols)
   chunk_droppable_cols[[paste0(year_to_load, "_whole")]] <- droppable_cols
   toc()
@@ -237,13 +232,13 @@ if (to_sample == FALSE && to_chunk == TRUE) {
 if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
   tic("Merging intermediate files")
   
-  intermediate_files <- list.files(path_to_intermediate, pattern = "intermediate_chunk_.*\\.csv", full.names = TRUE)
-  df_list <- lapply(intermediate_files,
+  intermediate_files <- list
 
- fread)
-  df <- rbindlist(df_list)
+.files(path_to_intermediate, pattern = "intermediate_chunk_.*\\.csv", full.names = TRUE)
+  dt_list <- lapply(intermediate_files, fread)
+  dt <- rbindlist(dt_list)
   
-  fwrite(df, intermediate_file)
+  fwrite(dt, intermediate_file)
   
   toc()
 }
@@ -252,11 +247,11 @@ if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
 ### Process Data if Not Chunking
 
 ```{r process data if not chunking}
-if (to_chunk == FALSE && exists("df")) {
-  df <- process_data(df, year_to_load, rvs_icd9)
+if (to_chunk == FALSE && exists("dt")) {
+  dt <- process_data(dt, year_to_load, rvs_icd9)
   
   if (to_write) {
-    fwrite(df, intermediate_file)
+    fwrite(dt, intermediate_file)
   }
 }
 ```
@@ -265,17 +260,17 @@ if (to_chunk == FALSE && exists("df")) {
 
 ```{r}
 # Process data for likely PDx
-df <- process_data_for_pdx(df, rvs_icd9, path_to_cache, year_to_load)
+dt <- process_data_for_pdx(dt, rvs_icd9, path_to_cache, year_to_load)
 
 # Check the results
-df_select <- df %>% select(PSEUDO_CLAIMSERIES, pdx, pdx_code, PRIMARY_ILLNESS, SECONDARY_ILLNESS, ICD_CODES, RVS_CODES, clin_c1, clin_c2, icd_list)
+dt_select <- dt[, .(PSEUDO_CLAIMSERIES, pdx, pdx_code, PRIMARY_ILLNESS, SECONDARY_ILLNESS, ICD_CODES, RVS_CODES, clin_c1, clin_c2, icd_list)]
 ```
 
 ## Save Cleaned Data File
 
 ```{r}
 if (to_write) {
-  write_rds(df, here(path_to_cache, paste0("claims_prepdx_", year_to_load, ".rds")))
+  saveRDS(dt, here(path_to_cache, paste0("claims_prepdx_", year_to_load, ".rds")))
 }
 ```
 
@@ -285,9 +280,9 @@ if (to_write) {
 if (to_group) {
   if (to_filter) {
     # Filter out rows where pdx is NA
-    df <- df[!is.na(df$pdx), ]
+    dt <- dt[!is.na(dt$pdx), ]
   }
-  export_for_batch_grouper(df, year_to_load, output_txt_file)
+  export_for_batch_grouper(dt, year_to_load, output_txt_file)
 }
 
 for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
