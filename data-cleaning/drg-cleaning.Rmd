@@ -232,9 +232,7 @@ if (to_sample == FALSE && to_chunk == TRUE) {
 if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
   tic("Merging intermediate files")
   
-  intermediate_files <- list
-
-.files(path_to_intermediate, pattern = "intermediate_chunk_.*\\.csv", full.names = TRUE)
+  intermediate_files <- list.files(path_to_intermediate, pattern = "intermediate_chunk_.*\\.csv", full.names = TRUE)
   dt_list <- lapply(intermediate_files, fread)
   dt <- rbindlist(dt_list)
   

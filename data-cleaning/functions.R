@@ -674,9 +674,7 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   # Case 2: age > 0
   positive_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0)
   truncated_ages <- floor(ages[missing_bday_indices][positive_age_indices])
-  dob[missing_bday_indices[positive_age_indices]] <- format(ref_dates[positive_age_indices] - years(truncated_ages
-                                                                                                    
-  ) - days(sample(1:170, length(positive_age_indices), replace = TRUE)), "%d/%m/%Y")
+  dob[missing_bday_indices[positive_age_indices]] <- format(ref_dates[positive_age_indices] - years(truncated_ages) - days(sample(1:170, length(positive_age_indices), replace = TRUE)), "%d/%m/%Y")
   
   return(dob)
 }
