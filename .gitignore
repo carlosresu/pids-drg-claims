@@ -62,3 +62,12 @@ data-cleaning/intermediate_claims/
 
 #thai grouper software
 thai-grouper-software/
+
+#aux files
+data-cleaning/aux_files/
+
+#cache
+data-cleaning/cache/
+
+#grouper_output
+data-cleaning/grouper_output/
