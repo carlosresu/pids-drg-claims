@@ -53,13 +53,13 @@ na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a",
                      "\u2029", "\u202F", "\u205F", "\u3000")
 
 # File paths
-path_to_raw_claims <- "data-cleaning/raw_claims"
-path_to_intermediate <- "data-cleaning/intermediate_claims"
+path_to_raw_claims <- "git-ignored-files/raw_claims"
+path_to_intermediate <- "git-ignored-files/intermediate_claims"
 path_to_cache <- "data-cleaning/cache"
-path_to_aux <- "data-cleaning/aux_files"
-path_to_excel <- "upload-libraries/Excel"
-path_to_cleaned_claims <- "data-cleaning/cleaned_claims"
-path_to_grouper_output <- "data-cleaning/grouper_output"
+path_to_aux <- "git-ignored-files/aux_files"
+path_to_excel <- "git-ignored-files/Excel"
+path_to_cleaned_claims <- "git-ignored-files/cleaned_claims"
+path_to_grouper_output <- "git-ignored-files/grouper_output"
 
 suffix <- ifelse(to_sample, "_sampled", "_full")
 chunk_droppable_cols_file <- here(path_to_cache, paste0("chunk_droppable_cols_", year_to_load, suffix, ".rds"))
@@ -79,13 +79,13 @@ set.seed(123)
 ## Source Data Formats
 
 ```{r data formats and additional parameters}
-source(here("data-cleaning", "drg-cleaning-data-formats.R"))
+source(here("data-cleaning", "data-formats.R"))
 ```
 
 ## Source Functions
 
 ```{r}
-source(here("data-cleaning", "drg-cleaning-functions.R"))
+source(here("data-cleaning", "functions.R"))
 ```
 
 ## Load Mapping Data

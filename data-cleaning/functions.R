@@ -454,6 +454,41 @@ clean_columns <- function(df, cols, na_like_strings) {
   return(df)
 }
 
+### Clean ICD columns
+
+clean_icd_columns <- function(df) {
+  #' Clean ICD columns by removing periods and applying NA.
+  #'
+  #' @param df A data.table.
+  #' @return A data.table with cleaned ICD columns.
+  icd_cols <- grep("^icd_list", colnames(df), value = TRUE)
+  for (col in icd_cols) {
+    set(df, j = col, value = gsub("\\.", "", df[[col]]))
+    set(df, j = col, value = ifelse(df[[col]] %in% na_like_strings, NA_character_, df[[col]]))
+  }
+  return(df)
+}
+
+### Clean Code List
+
+#' Clean a list of codes by removing periods and applying NA for specified values.
+#'
+#' @param codes A character vector of codes to be cleaned.
+#' @return A character vector with cleaned codes, where periods are removed and specified NA-like values are replaced with NA.
+#' @examples
+#' codes <- c("A.123", "B.456", "N/A")
+#' clean_code_list(codes)
+clean_code_list <- function(codes) {
+  # Remove periods from the codes
+  codes <- gsub("\\.", "", codes)
+  
+  # Replace specified NA-like values with NA
+  codes <- ifelse(codes %in% na_like_strings, NA_character_, codes)
+  
+  return(codes)
+}
+
+
 ### Clean up ICD List Columns
 
 clean_icd_list_columns <- function(df) {
