@@ -32,7 +32,7 @@ year_to_load <- "2018"
 
 ```{r parameters}
 # Parameters
-sample_size <- 250 * 1e3
+sample_size <- 1 * 1e3
 chunk_size <- 1e6
 
 drop_cols <- 76:196 # Columns to drop (based on indexes)

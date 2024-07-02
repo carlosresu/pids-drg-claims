@@ -73,15 +73,16 @@ process_and_collapse_columns <- function(dt, cols_to_process, new_col_name) {
   #' @param dt A data.table.
   #' @param cols_to_process A character vector specifying columns to process.
   #' @param new_col_name A character string specifying the name of the new column.
-  for (col in cols_to_process) {
-    set(dt, j = col, value = iconv(dt[[col]], to = "UTF-8", sub = "byte"))
-    set(dt, j = col, value = toupper(dt[[col]]))
-    set(dt, j = col, value = str_trim(dt[[col]]))
-    set(dt, j = col, value = str_replace_all(dt[[col]], " ", ""))
-    set(dt, j = col, value = str_replace_all(dt[[col]], "\n", ""))
-    set(dt, j = col, value = str_replace_all(dt[[col]], "[^\\w\\d\\/\\s]+", ""))
-    set(dt, j = col, value = ifelse(dt[[col]] %in% na_like_strings, NA_character_, dt[[col]]))
-  }
+  dt[, (cols_to_process) := lapply(.SD, function(col) {
+    col <- iconv(col, to = "UTF-8", sub = "byte")
+    col <- toupper(col)
+    col <- str_trim(col)
+    col <- str_replace_all(col, " ", "")
+    col <- str_replace_all(col, "\n", "")
+    col <- str_replace_all(col, "[^\\w\\d\\/\\s]+", "")
+    col <- ifelse(col %in% na_like_strings, NA_character_, col)
+    col
+  }), .SDcols = cols_to_process]
   
   dt[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
   dt[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|NA", "")]
@@ -260,7 +261,7 @@ process_rvs_code_mapping <- function(dt, rvs_icd9) {
     }
   }
   
-  dt$RVS_CODES <- strsplit(as.character(dt$RVS_CODES), "\\|\\|")
+  dt[, RVS_CODES := strsplit(as.character(RVS_CODES), "\\|\\|")]
   
   rvss <- unique(unlist(dt$RVS_CODES))
   rvss <- intersect(rvss, acr_rvs$rvs)
@@ -276,7 +277,7 @@ process_rvs_code_mapping <- function(dt, rvs_icd9) {
   unmappable_rvs <- setdiff(rvss, mappable_rvs)
   cat(sprintf('There are %d (%.2f%%) with no ICD-9-CM equivalents.\n', length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)))
   
-  dt2 <- dt[lengths(dt$RVS_CODES) > 0, ]
+  dt2 <- dt[lengths(RVS_CODES) > 0]
   
   dt2_info <- dt2[, .N, by = PSEUDO_CLAIMSERIES]
   
@@ -314,7 +315,7 @@ process_icd10_mapping <- function(dt) {
   #' @return A data.table with processed ICD10 mapping.
   tdrg_icd10 <- fread(here(path_to_aux, "i10.csv"))
   
-  dt$ICD_CODES <- as.character(dt$ICD_CODES)
+  dt[, ICD_CODES := as.character(ICD_CODES)]
   
   icds <- unique(c(unlist(strsplit(dt$PRIMARY_ILLNESS, ",")), 
                    unlist(strsplit(dt$SECONDARY_ILLNESS, ",")), 
@@ -421,7 +422,7 @@ process_data <- function(dt, year_to_load, rvs_icd9) {
   dt <- clean_columns(dt, cols_to_clean, na_like_strings)
   
   # Identify Likely Principal Diagnosis (PDx)
-  dt[, clin_c1_pdx := pmap_chr(list(clin_c1, clin_c2), find_pdx_code)]
+  dt[, clin_c1_pdx := mapply(find_pdx_code, strsplit(ICD_CODES, "\\|\\|"), PRIMARY_ILLNESS)]
   
   toc()
   return(dt)
@@ -506,15 +507,16 @@ clean_icd_and_rvs_codes <- function(dt) {
 
 ### Find the Likely Primary Diagnosis (PDx)
 
-find_pdx <- function(row, acc_pdx) {
+find_pdx <- function(clin_c1, clin_c2, icd_list, acc_pdx) {
   #' Find the likely primary diagnosis (PDx).
   #'
-  #' @param row A named list representing a row of data.
+  #' @param clin_c1 A character string of clin_c1.
+  #' @param clin_c2 A character string of clin_c2.
+  #' @param icd_list A character vector of icd_list.
   #' @param acc_pdx A character vector of accepted PDx codes.
   #' @return A list containing the PDx and PDx code.
-  clin_c1 <- row$clin_c1[[1]]
-  clin_c2 <- row$clin_c2[[1]]
-  icd_list <- unlist(row[grep("^icd_list_", names(row))])
+  if (is.null(clin_c1) || is.na(clin_c1)) clin_c1 <- ""
+  if (is.null(clin_c2) || is.na(clin_c2)) clin_c2 <- ""
   
   if (clin_c1 %in% acc_pdx) {
     return(list(pdx = clin_c1, pdx_code = 1))
@@ -558,11 +560,23 @@ prepare_data <- function(dt) {
   dt[, icd_list := lapply(icd_list, unique)]
   dt[, icd_list := lapply(icd_list, function(x) setdiff(x, c(clin_c1, clin_c2)))]
   
-  icd_cols <- dt[, tstrsplit(icd_list, ",", names = paste0("icd_list_", 1:12))]
+  # Find the maximum length of icd_list elements
+  max_length <- max(sapply(dt$icd_list, length))
+  
+  # Ensure all icd_list elements have the same length by padding with NA
+  dt[, icd_list := lapply(icd_list, function(x) {
+    length(x) <- max_length
+    return(x)
+  })]
+  
+  # Split the icd_list into separate columns
+  icd_cols <- dt[, tstrsplit(sapply(icd_list, function(x) paste(x, collapse = ",")), ",", fixed=TRUE, type.convert=FALSE)]
+  setnames(icd_cols, paste0("icd_list_", seq_along(icd_cols)))
   
   dt <- cbind(dt, icd_cols)
   return(dt)
 }
+
 
 ### Apply the PDx Finding Process
 
@@ -572,10 +586,12 @@ apply_find_pdx <- function(dt, acc_pdx) {
   #' @param dt A data.table.
   #' @param acc_pdx A character vector of accepted PDx codes.
   #' @return A data.table with the PDx finding process applied.
-  pdx_data <- dt[, find_pdx(as.list(.SD), acc_pdx), .SDcols = patterns("^icd_list_|clin_c[12]")]
-  dt[, `:=`(pdx = pdx_data$pdx, pdx_code = pdx_data$pdx_code)]
+  pdx_data <- mapply(find_pdx, dt$clin_c1, dt$clin_c2, dt$icd_list, MoreArgs = list(acc_pdx = acc_pdx), SIMPLIFY = FALSE)
+  pdx_data <- do.call(rbind, pdx_data)
+  dt[, `:=`(pdx = pdx_data[, "pdx"], pdx_code = pdx_data[, "pdx_code"])]
   return(dt)
 }
+
 
 ### Main Function to Process Data for PDx
 
@@ -645,6 +661,13 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   # Replace NA values with '--'
   output_dt[is.na(output_dt)] <- '--'
   
+  # Convert list columns to character if any
+  for (col in names(output_dt)) {
+    if (is.list(output_dt[[col]])) {
+      output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
+    }
+  }
+  
   # Write the data to a text file
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
 }
@@ -677,4 +700,16 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   dob[missing_bday_indices[positive_age_indices]] <- format(ref_dates[positive_age_indices] - years(truncated_ages) - days(sample(1:170, length(positive_age_indices), replace = TRUE)), "%d/%m/%Y")
   
   return(dob)
+}
+
+### Clean Code List
+
+clean_code_list <- function(codes) {
+  #' Clean a list of codes by removing periods and applying NA for specified values.
+  #'
+  #' @param codes A character vector of codes to be cleaned.
+  #' @return A character vector with cleaned codes, where periods are removed and specified NA-like values are replaced with NA.
+  codes <- gsub("\\.", "", codes)
+  codes <- ifelse(codes %in% na_like_strings, NA_character_, codes)
+  return(codes)
 }
