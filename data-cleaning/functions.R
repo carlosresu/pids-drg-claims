@@ -174,7 +174,7 @@ process_icd_codes <- function(dt) {
   #'
   #' @param dt A data.table.
   #' @return A data.table with processed ICD codes.
-  icd_cols <- intersect(colnames(dt), c(paste0("ICDCODE", c(1:14, 16:170)), "ICCODED15"))
+  icd_cols <- c(paste0("ICDCODE", 1:12))
   process_and_collapse_columns(dt, icd_cols, "ICD_CODES")
   return(dt)
 }
@@ -186,7 +186,7 @@ process_rvs_codes <- function(dt) {
   #'
   #' @param dt A data.table.
   #' @return A data.table with processed RVS codes.
-  rvs_cols <- intersect(colnames(dt), paste0("RVSCODE", 1:20))
+  rvs_cols <- c(paste0("RVSCODE", 1:20))
   process_and_collapse_columns(dt, rvs_cols, "RVS_CODES")
   return(dt)
 }

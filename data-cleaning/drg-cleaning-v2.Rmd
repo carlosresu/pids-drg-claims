@@ -1,0 +1,238 @@
+---
+title: "DRG Cleaning"
+author: "Carlos Resurreccion"
+date: "2024-07-01"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Required Libraries
+
+```{r library}
+library(data.table)
+library(here)
+library(tictoc)
+library(stringr)
+library(stringi)
+library(lubridate)
+library(docstring)
+library(profvis)
+```
+
+## Set Parameters
+
+### Year to Load
+
+```{r year to load}
+year_to_load <- "2018"
+version <- "v2"
+```
+
+### Parameters
+
+```{r parameters}
+# Parameters
+sample_size <- 1 * 1e5
+
+drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
+
+icd_cols <- paste0("clin_icd",1:12)
+rvs_cols <- paste0("clin_rvs", 1:20)
+
+to_read <- FALSE
+to_sample <- TRUE
+to_write <- TRUE
+to_group <- TRUE
+to_filter <- TRUE
+
+na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
+na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
+                     "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0",
+                     "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", 
+                     "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028", 
+                     "\u2029", "\u202F", "\u205F", "\u3000")
+
+# File paths
+path_to_raw_claims <- "git-ignored-files/raw_claims"
+path_to_intermediate <- "git-ignored-files/intermediate_claims"
+path_to_cache <- "data-cleaning/cache"
+path_to_aux <- "git-ignored-files/aux_files"
+path_to_excel <- "git-ignored-files/Excel"
+path_to_cleaned_claims <- "git-ignored-files/cleaned_claims"
+path_to_grouper_output <- "git-ignored-files/grouper_output"
+
+suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
+sampled_claims <- here(
+  path_to_raw_claims, 
+  paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
+full_claims <- here(
+  path_to_raw_claims, 
+  paste0("claims_extract_CLAIMS_", year_to_load, ".csv"))
+intermediate_file <- here(
+  path_to_intermediate, 
+  paste0("intermediate_claims_", year_to_load, "_processed", suffix, ".csv"))
+cleaned_claims_file <- here(
+  path_to_cleaned_claims, 
+  paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
+output_txt_file <- here(
+  path_to_grouper_output, 
+  paste0("DRG_Grouped", suffix, "_", year_to_load, suffix, ".txt"))
+grouper_result_file <- here(
+  path_to_grouper_output, 
+  toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, suffix, "Res.TXT")))
+
+# Seed for reproducibility
+set.seed(123)
+```
+
+## Source Data Formats
+
+```{r data formats and additional parameters}
+source(here("data-cleaning", "data-formats_v2.R"))
+```
+
+## Source Functions
+
+```{r}
+source(here("data-cleaning", "functions_v2.R"))
+```
+
+## Load Mapping Data
+
+```{r load mapping data}
+proc <- fread(here(path_to_excel, "proc.csv"))
+proc[, CODE := as.character(CODE)]
+
+rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"), select = c("rvs", "icd9cm"))
+rvs_icd9[, rvs := as.character(rvs)]
+rvs_icd9[, icd9cm := as.character(icd9cm * 100)]
+rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)], by.x = "icd9cm", by.y = "CODE", all.x = TRUE)
+rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE]
+rvs_icd9 <- rvs_icd9[!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
+
+acr_rvs <- fread(here(path_to_aux, "acr_rvs.csv"))
+
+# Read in the data.table
+tdrg_icd10 <- fread(here(path_to_aux, "i10.csv"))
+
+# Set the key if not already set
+setkey(tdrg_icd10, "CODE")
+
+# Subset and assign the result to acc_pdx
+acc_pdx <- tdrg_icd10[ACCPDX == "Y", CODE]
+
+# Optional: If you want to ensure uniqueness (if CODEs are not unique in tdrg_icd10)
+acc_pdx <- unique(acc_pdx)
+```
+
+## Read Data
+
+### Reading Data
+
+```{r reading, warning = FALSE}
+if (to_read) {
+  dt <- read_entire_file(drop_cols)
+  
+  if (to_sample) {
+    if (file.exists(sampled_claims)) {
+      dt <- read_sampled_file()
+      # Check if the number of rows matches sample_size
+      if (nrow(dt) != sample_size) {
+        dt <- read_entire_file(drop_cols)
+        dt <- sample_data(dt)
+        if (to_write) {
+          write_data(dt, sampled_claims)
+        }
+      }
+    } else {
+      dt <- sample_data(dt)
+      if (to_write) {
+        write_data(dt, sampled_claims)
+      }
+    }
+  }
+} else {
+  if (to_sample) {
+    if (file.exists(sampled_claims)) {
+      dt <- read_sampled_file()
+      # Check if the number of rows matches sample_size
+      if (nrow(dt) != sample_size) {
+        dt <- read_entire_file(drop_cols)
+        dt <- sample_data(dt)
+        if (to_write) {
+          write_data(dt, sampled_claims)
+        }
+      }
+    } else {
+      dt <- read_entire_file(drop_cols)
+      dt <- sample_data(dt)
+      if (to_write) {
+        write_data(dt, sampled_claims)
+      }
+    }
+  } else {
+    if (!file.exists(intermediate_file)) {
+      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
+    }
+  }
+}
+```
+
+```{r data cleaning}
+tic("Total execution time:")
+original_col_order <- colnames(dt)
+
+# Add year column
+dt <- add_year_column(dt, year_to_load)
+
+# Rename columns
+dt <- rename_columns(dt)
+
+# Process and collapse columns for clin_icd1 to clin_icd12 into clin_icd
+dt <- process_and_collapse_columns(dt, icd_cols, "clin_icd")
+
+# Process and collapse columns for clin_rvs1 to clin_rvs20 into clin_rvs
+dt <- process_and_collapse_columns(dt, rvs_cols, "clin_rvs")
+
+# Remove lumped ICD codes from clin_icd
+dt <- remove_lumped_icd_codes(dt, "clin_icd") #TODO SPEED THIS UP
+
+# Turn clin_icd and clin_rvs into lists
+dt[, clin_icd := split_to_vector(clin_icd)]
+dt[, clin_rvs := split_to_vector(clin_rvs)]
+
+# Clean and unlump clin_c1 and clin_c2
+dt <- clean_columns_in_dt(dt, c("clin_c1", "clin_c2"))
+dt <- remove_lumped_icd_codes(dt, "clin_c1") #TODO SPEED THIS UP
+dt <- remove_lumped_icd_codes(dt, "clin_c2") #TODO SPEED THIS UP
+dt[, clin_c1 := split_to_vector(clin_c1)]
+dt <- process_icd10_codes(dt, "clin_c1")
+
+# Replace empty strings in character and factor columns with NA
+dt <- replace_empty_with_na(dt)
+
+# Stop the timer and capture total time
+toc_data <- toc(log = TRUE)
+total_time <- toc_data$toc - toc_data$tic
+```
+
+```{r calculate speed}
+# Calculate time spent per cell and per row
+total_rows <- nrow(dt)
+total_cells <- nrow(dt) * ncol(dt)
+
+time_per_cell <- total_time / total_cells
+time_per_row <- total_time / total_rows
+
+# Print the results
+cat("Total time taken: ", total_time, " seconds\n")
+cat("Time spent per cell: ", time_per_cell, " seconds\n")
+cat("Time spent per row: ", time_per_row, " seconds\n")
+```
+
+```{r experiment}
+
+```

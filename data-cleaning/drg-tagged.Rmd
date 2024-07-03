@@ -1,0 +1,43 @@
+---
+title: "DRG Tagged"
+author: "Carlos Resurreccion"
+date: "2024-07-03"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load Required Libraries
+
+```{r library}
+library(data.table)
+library(here)
+library(tictoc)
+library(stringr)
+library(stringi)
+library(lubridate)
+library(docstring)
+```
+
+```{r parameters}
+year_to_load <- "2018"
+na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
+na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
+                     "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0",
+                     "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", 
+                     "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028", 
+                     "\u2029", "\u202F", "\u205F", "\u3000")
+
+# File paths
+path_to_tagged <- "git-ignored-files/tagged_claims"
+```
+
+```{r read and filter}
+dt_tagged <- fread(here(path_to_tagged, "phic_tagged_2018_to_2021.csv"), na.strings = na_values, colClasses = "character")[id_year == "2018"]
+```
+
+```{r save RDS}
+saveRDS(dt_tagged, here(path_to_tagged, "phic_tagged_2018.rds"))
+```
