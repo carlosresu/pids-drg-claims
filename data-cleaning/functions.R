@@ -1,11 +1,11 @@
 ### Read Entire File
 
-read_entire_file <- function() {
+read_entire_file <- function(drop_cols) {
   # tic("Reading entire data file")
   #' Read the entire data file.
   #'
   #' @return A data.table containing the entire data file.
-  dt <- fread(full_claims, na.strings = na_values)
+  dt <- fread(full_claims, na.strings = na_values, drop = drop_cols)
   # toc()
   return(dt)
 }

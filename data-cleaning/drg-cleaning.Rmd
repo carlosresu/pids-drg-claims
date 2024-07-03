@@ -33,10 +33,10 @@ year_to_load <- "2018"
 
 ```{r parameters}
 # Parameters
-sample_size <- 25 * 1e3
+sample_size <- 1 * 1e3
 chunk_size <- 1e6
 
-drop_cols <- 76:196 # Columns to drop (based on indexes)
+drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
 
 to_read <- FALSE
 to_sample <- TRUE
@@ -140,14 +140,14 @@ acc_pdx <- unique(acc_pdx)
 
 ```{r reading}
 if (to_read) {
-  dt <- read_entire_file()
+  dt <- read_entire_file(drop_cols)
   
   if (to_sample) {
     if (file.exists(sampled_claims)) {
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
-        dt <- read_entire_file()
+        dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
           write_data(dt, sampled_claims)
@@ -166,14 +166,14 @@ if (to_read) {
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
-        dt <- read_entire_file()
+        dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
           write_data(dt, sampled_claims)
         }
       }
     } else {
-      dt <- read_entire_file()
+      dt <- read_entire_file(drop_cols)
       dt <- sample_data(dt)
       if (to_write) {
         write_data(dt, sampled_claims)
@@ -220,7 +220,9 @@ if (to_read || (to_sample && !file.exists(sampled_claims))) {
 }
 ```
 
-### Process Data in Chunks
+## Process Data in Chunks
+
+### Process
 
 ```{r process data in chunks}
 if (to_sample == FALSE && to_chunk == TRUE) {
@@ -261,7 +263,9 @@ if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
 }
 ```
 
-### Process Data if Not Chunking
+## Process Data if Not Chunking
+
+### Process Data
 
 ```{r process data if not chunking}
 if (to_chunk == FALSE && exists("dt")) {
