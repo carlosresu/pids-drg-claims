@@ -1,12 +1,12 @@
 ### Read Entire File
 
 read_entire_file <- function() {
-  tic("Reading entire data file")
+  # tic("Reading entire data file")
   #' Read the entire data file.
   #'
   #' @return A data.table containing the entire data file.
   dt <- fread(full_claims, na.strings = na_values)
-  toc()
+  # toc()
   return(dt)
 }
 
@@ -73,21 +73,22 @@ process_and_collapse_columns <- function(dt, cols_to_process, new_col_name) {
   #' @param dt A data.table.
   #' @param cols_to_process A character vector specifying columns to process.
   #' @param new_col_name A character string specifying the name of the new column.
+  require(stringi)
   dt[, (cols_to_process) := lapply(.SD, function(col) {
     col <- iconv(col, to = "UTF-8", sub = "byte")
     col <- toupper(col)
-    col <- str_trim(col)
-    col <- str_replace_all(col, " ", "")
-    col <- str_replace_all(col, "\n", "")
-    col <- str_replace_all(col, "[^\\w\\d\\/\\s]+", "")
+    col <- stri_trim_both(col)
+    col <- stri_replace_all_regex(col, " ", "")
+    col <- stri_replace_all_regex(col, "\n", "")
+    col <- stri_replace_all_regex(col, "[^\\w\\d\\/\\s]+", "")
     col <- ifelse(col %in% na_like_strings, NA_character_, col)
     col
   }), .SDcols = cols_to_process]
   
   dt[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
-  dt[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|NA", "")]
-  dt[, (new_col_name) := str_replace_all(get(new_col_name), "NA\\|\\|", "")]
-  dt[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|$", "")]
+  dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "\\|\\|NA", "")]
+  dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "NA\\|\\|", "")]
+  dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "\\|\\|$", "")]
   dt[, (new_col_name) := ifelse(get(new_col_name) == "NA", NA_character_, get(new_col_name))]
   
   dt[, (cols_to_process) := NULL]
@@ -403,7 +404,7 @@ process_data <- function(dt, year_to_load, rvs_icd9) {
   #' @param year_to_load A character string specifying the year to add.
   #' @param rvs_icd9 A data.table containing RVS to ICD-9 mapping.
   #' @return A processed data.table.
-  tic("Processing data")
+  # tic("Processing data")
   
   dt <- keep_necessary_columns(dt)
   dt <- add_year_column(dt, year_to_load)
@@ -424,7 +425,7 @@ process_data <- function(dt, year_to_load, rvs_icd9) {
   # Identify Likely Principal Diagnosis (PDx)
   dt[, clin_c1_pdx := mapply(find_pdx_code, strsplit(ICD_CODES, "\\|\\|"), PRIMARY_ILLNESS)]
   
-  toc()
+  # toc()
   return(dt)
 }
 
@@ -500,8 +501,8 @@ clean_icd_and_rvs_codes <- function(dt) {
   #'
   #' @param dt A data.table.
   #' @return A data.table with cleaned ICD and RVS codes.
-  dt[, icd9_list := sapply(icd9_list, clean_code_list)]
-  dt[, icd_list_1 := sapply(icd_list_1, clean_code_list)]
+  dt[, icd9_list := lapply(icd9_list, clean_code_list)]
+  dt[, icd_list_1 := lapply(icd_list_1, clean_code_list)]
   return(dt)
 }
 
@@ -681,6 +682,7 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   #' @param ages A numeric vector of ages.
   #' @param date_adms A character vector of admission dates.
   #' @return A character vector of generated DOBs.
+  require(lubridate)
   dob <- rep(NA_character_, length(ages))  # Initialize dob vector
   dob[!is.na(bdays) & bdays != ""] <- format(mdy(bdays[!is.na(bdays) & bdays != ""]), "%d/%m/%Y")  # Use PAT_BDAY where available
   

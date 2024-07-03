@@ -16,6 +16,7 @@ library(data.table)
 library(here)
 library(tictoc)
 library(stringr)
+library(stringi)
 library(lubridate)
 library(docstring)
 ```
@@ -32,7 +33,7 @@ year_to_load <- "2018"
 
 ```{r parameters}
 # Parameters
-sample_size <- 1 * 1e3
+sample_size <- 25 * 1e3
 chunk_size <- 1e6
 
 drop_cols <- 76:196 # Columns to drop (based on indexes)
@@ -61,15 +62,33 @@ path_to_cleaned_claims <- "git-ignored-files/cleaned_claims"
 path_to_grouper_output <- "git-ignored-files/grouper_output"
 
 suffix <- ifelse(to_sample, "_sampled", "_full")
-chunk_droppable_cols_file <- here(path_to_cache, paste0("chunk_droppable_cols_", year_to_load, suffix, ".rds"))
-header_file <- here(path_to_cache, paste0("header_", year_to_load, suffix, ".rds"))
-total_rows_file <- here(path_to_cache, paste0("total_rows_", year_to_load, suffix, ".rds"))
-sampled_claims <- here(path_to_raw_claims, paste0("sampled_claims_extract_CLAIMS_", year_to_load, ".csv"))
-full_claims <- here(path_to_raw_claims, paste0("claims_extract_CLAIMS_", year_to_load, ".csv"))
-intermediate_file <- here(path_to_intermediate, paste0("intermediate_claims_", year_to_load, "_processed.csv"))
-cleaned_claims_file <- here(path_to_cleaned_claims, paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
-output_txt_file <- here(path_to_grouper_output, paste0("DRG_Grouped", suffix, "_", year_to_load, ".txt"))
-grouper_result_file <- here(path_to_grouper_output, toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, "Res.TXT")))
+chunk_droppable_cols_file <- here(
+  path_to_cache, 
+  paste0("chunk_droppable_cols_", year_to_load, suffix, ".rds"))
+header_file <- here(
+  path_to_cache, 
+  paste0("header_", year_to_load, suffix, ".rds"))
+total_rows_file <- here(
+  path_to_cache, 
+  paste0("total_rows_", year_to_load, suffix, ".rds"))
+sampled_claims <- here(
+  path_to_raw_claims, 
+  paste0("sampled_claims_extract_CLAIMS_", year_to_load, ".csv"))
+full_claims <- here(
+  path_to_raw_claims, 
+  paste0("claims_extract_CLAIMS_", year_to_load, ".csv"))
+intermediate_file <- here(
+  path_to_intermediate, 
+  paste0("intermediate_claims_", year_to_load, "_processed.csv"))
+cleaned_claims_file <- here(
+  path_to_cleaned_claims, 
+  paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
+output_txt_file <- here(
+  path_to_grouper_output, 
+  paste0("DRG_Grouped", suffix, "_", year_to_load, ".txt"))
+grouper_result_file <- here(
+  path_to_grouper_output, 
+  toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, "Res.TXT")))
 
 # Seed for reproducibility
 set.seed(123)
@@ -246,35 +265,41 @@ if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
 
 ```{r process data if not chunking}
 if (to_chunk == FALSE && exists("dt")) {
+  tic("Process data if not chunking")
   dt <- process_data(dt, year_to_load, rvs_icd9)
   
   if (to_write) {
     fwrite(dt, intermediate_file)
   }
+  toc()
 }
 ```
 
 ### Process for PDx
 
 ```{r}
-# Process data for likely PDx
+tic("Process data for likely PDx")
 dt <- process_data_for_pdx(dt, rvs_icd9, path_to_cache, year_to_load)
 
 # Check the results
 dt_select <- dt[, .(PSEUDO_CLAIMSERIES, pdx, pdx_code, PRIMARY_ILLNESS, SECONDARY_ILLNESS, ICD_CODES, RVS_CODES, clin_c1, clin_c2, icd_list)]
+toc()
 ```
 
 ## Save Cleaned Data File
 
 ```{r}
+tic("Save cleaned file")
 if (to_write) {
   saveRDS(dt, here(path_to_cache, paste0("claims_prepdx_", year_to_load, ".rds")))
 }
+toc()
 ```
 
 ## Export for Batch Grouper Software
 
 ```{r}
+tic("Export for batch grouper")
 if (to_group) {
   if (to_filter) {
     # Filter out rows where pdx is NA
@@ -285,4 +310,5 @@ if (to_group) {
 
 for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
 batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
+toc()
 ```
