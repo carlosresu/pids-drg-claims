@@ -20,6 +20,11 @@ library(stringi)
 library(lubridate)
 library(docstring)
 library(profvis)
+library(hash)
+library(foreach)
+library(doParallel)
+library(future)
+library(future.apply)
 ```
 
 ## Set Parameters
@@ -47,6 +52,7 @@ to_sample <- TRUE
 to_write <- TRUE
 to_group <- TRUE
 to_filter <- TRUE
+to_profvis <- TRUE
 
 na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
 na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
@@ -83,6 +89,10 @@ output_txt_file <- here(
 grouper_result_file <- here(
   path_to_grouper_output, 
   toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, suffix, "Res.TXT")))
+total_rows_file <- here(
+  path_to_cache,
+  paste0("total_rows_", year_to_load, ".rds")
+)
 
 # Seed for reproducibility
 set.seed(123)
@@ -179,41 +189,99 @@ if (to_read) {
     }
   }
 }
+
+if (file.exists(total_rows_file)) {
+  total_rows <- readRDS(total_rows_file)
+} else {
+  total_rows <- fread(full_claims, select = 1L, header = TRUE)[, .N]
+  saveRDS(total_rows, file = total_rows_file)
+}
 ```
+
+## Data Processing
+
+### Data Cleaning
 
 ```{r data cleaning}
 tic("Total execution time:")
-original_col_order <- colnames(dt)
+clean_data <- function(dt) {
+  original_col_order <- colnames(dt)
+  
+  # Add year column
+  dt <- add_year_column(dt, year_to_load)
+  
+  # Rename columns
+  dt <- rename_columns(dt)
+  
+  # Process and collapse columns for clin_icd1 to clin_icd12 into clin_icd
+  dt <- process_and_collapse_columns(dt, icd_cols, "clin_icd")
+  
+  # Process and collapse columns for clin_rvs1 to clin_rvs20 into clin_rvs
+  dt <- process_and_collapse_columns(dt, rvs_cols, "clin_rvs")
+  
+  # Remove lumped ICD codes from clin_icd
+  dt <- remove_lumped_icd_codes(dt, "clin_icd") # TODO SPEED THIS UP
+  
+  # Turn clin_icd and clin_rvs into lists
+  dt[, clin_icd := split_to_vector(clin_icd)]
+  dt[, clin_rvs := split_to_vector(clin_rvs)]
+  
+  # Clean and unlump clin_c1 and clin_c2
+  dt <- clean_columns_in_dt(dt, c("clin_c1", "clin_c2"))
+  dt <- remove_lumped_icd_codes(dt, "clin_c1") # TODO SPEED THIS UP
+  dt <- remove_lumped_icd_codes(dt, "clin_c2") # TODO SPEED THIS UP
+  dt[, clin_c1 := split_to_vector(clin_c1)]
+  dt <- process_icd10_codes(dt, "clin_c1")
+  dt[, clin_c2 := split_to_vector(clin_c2)]
+  dt <- process_icd10_codes(dt, "clin_c2")
+  
+  dt <- append_and_remove_rvs_codes(dt, "clin_c1")
+  dt <- append_and_remove_rvs_codes(dt, "clin_c2")
+  
+  dt <- deduplicate_columns(dt, c("clin_c1","clin_c2","clin_icd","clin_rvs"))
+  
+  # Replace empty strings in character and factor columns with NA
+  dt <- replace_empty_with_na(dt)
+  
+  # Modify factor cols
+  dt <- process_patient_type(dt)
+  dt <- process_memcat_parent_desc(dt)
+  dt <- process_memcat_child_desc(dt)
+  dt <- process_disposition(dt)
+  return(dt)
+}
 
-# Add year column
-dt <- add_year_column(dt, year_to_load)
+if (to_profvis) {
+  profvis({
+    dt <- clean_data(dt)
+  })
+} else {
+  dt <- clean_data(dt)
+}
+```
 
-# Rename columns
-dt <- rename_columns(dt)
+### Map Codes
 
-# Process and collapse columns for clin_icd1 to clin_icd12 into clin_icd
-dt <- process_and_collapse_columns(dt, icd_cols, "clin_icd")
+```{r map codes}
+#Map RVS codes
+if (to_profvis) {
+  profvis({
+    dt <- process_rvs_code_mapping(dt, rvs_icd9)
+    dt <- process_icd10_mapping(dt)
+    # Replace empty strings in character and factor columns with NA
+    dt <- replace_empty_with_na(dt)
+  })
+} else {
+    dt <- process_rvs_code_mapping(dt, rvs_icd9)
+    dt <- process_icd10_mapping(dt)
+    # Replace empty strings in character and factor columns with NA
+    dt <- replace_empty_with_na(dt)
+}
+```
 
-# Process and collapse columns for clin_rvs1 to clin_rvs20 into clin_rvs
-dt <- process_and_collapse_columns(dt, rvs_cols, "clin_rvs")
+### Stop Timer & Calculate Speed
 
-# Remove lumped ICD codes from clin_icd
-dt <- remove_lumped_icd_codes(dt, "clin_icd") #TODO SPEED THIS UP
-
-# Turn clin_icd and clin_rvs into lists
-dt[, clin_icd := split_to_vector(clin_icd)]
-dt[, clin_rvs := split_to_vector(clin_rvs)]
-
-# Clean and unlump clin_c1 and clin_c2
-dt <- clean_columns_in_dt(dt, c("clin_c1", "clin_c2"))
-dt <- remove_lumped_icd_codes(dt, "clin_c1") #TODO SPEED THIS UP
-dt <- remove_lumped_icd_codes(dt, "clin_c2") #TODO SPEED THIS UP
-dt[, clin_c1 := split_to_vector(clin_c1)]
-dt <- process_icd10_codes(dt, "clin_c1")
-
-# Replace empty strings in character and factor columns with NA
-dt <- replace_empty_with_na(dt)
-
+```{r stop timer}
 # Stop the timer and capture total time
 toc_data <- toc(log = TRUE)
 total_time <- toc_data$toc - toc_data$tic
@@ -221,16 +289,21 @@ total_time <- toc_data$toc - toc_data$tic
 
 ```{r calculate speed}
 # Calculate time spent per cell and per row
-total_rows <- nrow(dt)
+total_rows_dt <- nrow(dt)
 total_cells <- nrow(dt) * ncol(dt)
 
 time_per_cell <- total_time / total_cells
-time_per_row <- total_time / total_rows
+time_per_row <- total_time / total_rows_dt
+time_estimate_total_rows <- time_per_row * total_rows
 
-# Print the results
-cat("Total time taken: ", total_time, " seconds\n")
-cat("Time spent per cell: ", time_per_cell, " seconds\n")
-cat("Time spent per row: ", time_per_row, " seconds\n")
+# Format the row numbers
+formatted_total_rows_dt <- format_large_numbers(total_rows_dt)
+formatted_total_rows <- format_large_numbers(total_rows)
+
+# Print the results with aligned decimal points and formatted row numbers
+cat(sprintf("Time spent (total) for %2s rows:  %1.2f sec  (actual)\n", formatted_total_rows_dt, total_time))
+cat(sprintf("Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n", formatted_total_rows_dt, time_per_row * 1000))
+cat(sprintf("Time spent (total) for  %2s rows: %2.2f min  (estimate)\n", formatted_total_rows, time_estimate_total_rows / 60))
 ```
 
 ```{r experiment}
