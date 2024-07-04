@@ -53,6 +53,7 @@ to_write <- TRUE
 to_group <- TRUE
 to_filter <- TRUE
 to_profvis <- FALSE
+to_write <- TRUE
 
 na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
 na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
@@ -278,7 +279,7 @@ if (to_profvis) {
     dt <- replace_empty_with_na(dt)
 }
 ```
-### Map Codes
+### Find PDX
 
 ```{r find pdx}
 #Map RVS codes
@@ -288,6 +289,12 @@ if (to_profvis) {
   })
 } else {
     dt <- apply_find_pdx(dt, acc_pdx)
+}
+```
+
+```{r write}
+if (to_write) {
+  fwrite(dt, here("data-cleaning", "output.csv"))
 }
 ```
 
@@ -318,6 +325,3 @@ cat(sprintf("Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n", formatted
 cat(sprintf("Time spent (total) for  %2s rows: %2.2f min  (estimate)\n", formatted_total_rows, time_estimate_total_rows / 60))
 ```
 
-```{r experiment}
-
-```
