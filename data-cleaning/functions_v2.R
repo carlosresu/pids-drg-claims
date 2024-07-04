@@ -463,3 +463,145 @@ deduplicate_columns <- function(dt, columns) {
   }
   return(dt)
 }
+
+find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+  check_similarity <- function(x, y) {
+    # See how many starting letters the two strings have in common
+    score <- 0
+    min_len <- min(nchar(x), nchar(y))
+    for (i in seq_len(min_len)) {
+      if (substr(x, i, i) == substr(y, i, i)) {
+        score <- score + 1
+      }
+    }
+    return(score)
+  }
+  
+  # Ensure that clin_icd is a vector
+  clin_icd <- unlist(clin_icd)
+  
+  # First, see if either clin_c1 or clin_c2 is an acceptable pdx
+  if (!is.null(clin_c1) && clin_c1 %in% acc_pdx) {
+    return(list(pdx = clin_c1, pdx_code = 1))
+  }
+  if (!is.null(clin_c2) && clin_c2 %in% acc_pdx) {
+    return(list(pdx = clin_c2, pdx_code = 2))
+  }
+  
+  # Check all the other codes listed under clin_icd
+  pdxs <- intersect(clin_icd, acc_pdx)
+  
+  # For those with no acceptable pdx or only one acceptable pdx
+  if (length(pdxs) == 0) {
+    return(list(pdx = NA_character_, pdx_code = 99))
+  } else if (length(pdxs) == 1) {
+    return(list(pdx = pdxs[1], pdx_code = 3))
+  }
+  
+  # If there are multiple eligible pdx
+  for (cr in list(clin_c1, clin_c2)) {
+    if (!is.na(cr) && cr != "") {
+      starting_letter <- substr(cr, 1, 1)
+      starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
+      
+      if (length(starting_codes) == 1) {
+        return(list(pdx = starting_codes[1], pdx_code = 4))
+      }
+      if (length(starting_codes) > 1) {
+        similarities <- sapply(starting_codes, check_similarity, y = cr)
+        most_similar_pdx <- starting_codes[which.max(similarities)]
+        return(list(pdx = most_similar_pdx, pdx_code = 5))
+      }
+    }
+  }
+  
+  # If there is no related starting letter, choose randomly
+  if (length(pdxs) > 0) {
+    return(list(pdx = sample(pdxs, 1), pdx_code = 6))
+  }
+}
+
+apply_find_pdx <- function(dt, acc_pdx) {
+  results <- dt[, {
+    result <- find_pdx(.SD$clin_c1[[1]], .SD$clin_c2[[1]], .SD$clin_icd[[1]], acc_pdx)
+    .(pdx = result$pdx, pdx_code = result$pdx_code)
+  }, by = 1:nrow(dt)]
+  
+  dt[, `:=`(pdx = results$pdx, pdx_code = results$pdx_code)]
+  return(dt)
+}
+
+generate_dob_vectorized <- function(bdays, ages, date_adms) {
+  require(lubridate)
+  dob <- rep(NA_character_, length(ages))  # Initialize dob vector
+  dob[!is.na(bdays) & bdays != ""] <- format(mdy(bdays[!is.na(bdays) & bdays != ""]), "%d/%m/%Y")  # Use PAT_BDAY where available
+  
+  # Indices where PAT_BDAY is not available
+  missing_bday_indices <- which(is.na(bdays) | bdays == "")
+  
+  # Use age and date_adm to generate DOB for those with missing PAT_BDAY
+  ref_dates <- mdy(date_adms[missing_bday_indices])
+  
+  # Case 1: age == 0
+  zero_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0)
+  dob[missing_bday_indices[zero_age_indices]] <- format(ref_dates[zero_age_indices] - days(sample(1:27, length(zero_age_indices), replace = TRUE)), "%d/%m/%Y")
+  
+  # Case 2: age > 0
+  positive_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0)
+  truncated_ages <- floor(ages[missing_bday_indices][positive_age_indices])
+  dob[missing_bday_indices[positive_age_indices]] <- format(ref_dates[positive_age_indices] - years(truncated_ages) - days(sample(1:170, length(positive_age_indices), replace = TRUE)), "%d/%m/%Y")
+  
+  return(dob)
+}
+
+export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
+  output_dt <- data.table(CASEID = 1:nrow(dt))
+  output_dt[, DOB := generate_dob_vectorized(dt$pat_bdate, dt$pat_age, dt$date_adm)]
+  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
+  output_dt[, DateAdm := format(mdy(dt$date_adm), "%d/%m/%Y")]
+  output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]
+  output_dt[, DateDsc := format(mdy(dt$date_dis), "%d/%m/%Y")]
+  output_dt[, TimeDsc := gsub(":", "", dt$time_dis)]
+  output_dt[, DischT := dt$clin_discharge]
+  output_dt[, AdmWt := dt$pat_bwt]
+  output_dt[, PDx := dt$pdx]
+  
+  # Split icd_list_1 into multiple columns, ensuring 12 elements per row
+  split_icd_codes <- function(icd_str) {
+    codes <- unlist(icd_str)
+    length(codes) <- 12  # Ensuring 12 elements, with NA for missing
+    codes
+  }
+  
+  icd_codes_list <- lapply(dt$clin_icd, split_icd_codes)
+  icd_codes <- do.call(rbind, icd_codes_list)
+  icd_codes <- as.data.table(icd_codes)
+  icd_cols <- paste0("SDx", 1:12)
+  output_dt[, (icd_cols) := icd_codes]
+  
+  # Split icd9_list into multiple columns, ensuring 20 elements per row
+  split_rvs_codes <- function(rvs_str) {
+    codes <- unlist(rvs_str)
+    length(codes) <- 20  # Ensuring 20 elements, with NA for missing
+    codes
+  }
+  
+  rvs_codes_list <- lapply(dt$icd9_list, split_rvs_codes)
+  rvs_codes <- do.call(rbind, rvs_codes_list)
+  rvs_codes <- as.data.table(rvs_codes)
+  proc_cols <- paste0("Proc", 1:20)
+  output_dt[, (proc_cols) := rvs_codes]
+  
+  # Replace NA values with '--'
+  output_dt[is.na(output_dt)] <- '--'
+  
+  # Convert list columns to character if any
+  for (col in names(output_dt)) {
+    if (is.list(output_dt[[col]])) {
+      output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
+    }
+  }
+  
+  # Write the data to a text file
+  fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
+}

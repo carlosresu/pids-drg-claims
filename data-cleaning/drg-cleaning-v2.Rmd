@@ -52,7 +52,7 @@ to_sample <- TRUE
 to_write <- TRUE
 to_group <- TRUE
 to_filter <- TRUE
-to_profvis <- TRUE
+to_profvis <- FALSE
 
 na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
 na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
@@ -276,6 +276,18 @@ if (to_profvis) {
     dt <- process_icd10_mapping(dt)
     # Replace empty strings in character and factor columns with NA
     dt <- replace_empty_with_na(dt)
+}
+```
+### Map Codes
+
+```{r find pdx}
+#Map RVS codes
+if (to_profvis) {
+  profvis({
+    dt <- apply_find_pdx(dt, acc_pdx)
+  })
+} else {
+    dt <- apply_find_pdx(dt, acc_pdx)
 }
 ```
 
