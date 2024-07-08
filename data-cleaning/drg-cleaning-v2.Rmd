@@ -21,10 +21,10 @@ library(lubridate)
 library(docstring)
 library(profvis)
 library(hash)
-library(foreach)
-library(doParallel)
-library(future)
-library(future.apply)
+# library(foreach)
+# library(doParallel)
+# library(future)
+# library(future.apply)
 ```
 
 ## Set Parameters
@@ -86,10 +86,10 @@ cleaned_claims_file <- here(
   paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
 output_txt_file <- here(
   path_to_grouper_output, 
-  paste0("DRG_Grouped", suffix, "_", year_to_load, suffix, ".txt"))
+  paste0("DRG_Grouped", "_", year_to_load, suffix, ".txt"))
 grouper_result_file <- here(
   path_to_grouper_output, 
-  toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, suffix, "Res.TXT")))
+  toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res.TXT")))
 total_rows_file <- here(
   path_to_cache,
   paste0("total_rows_", year_to_load, ".rds")
@@ -298,7 +298,18 @@ if (to_write) {
 }
 ```
 
-### Stop Timer & Calculate Speed
+## Export for Batch Grouper
+
+```{r write}
+if (to_group) {
+  export_for_batch_grouper(dt, year_to_load, output_txt_file)
+}
+
+for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
+batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
+```
+
+## Stop Timer & Calculate Speed
 
 ```{r stop timer}
 # Stop the timer and capture total time
@@ -324,4 +335,42 @@ cat(sprintf("Time spent (total) for %2s rows:  %1.2f sec  (actual)\n", formatted
 cat(sprintf("Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n", formatted_total_rows_dt, time_per_row * 1000))
 cat(sprintf("Time spent (total) for  %2s rows: %2.2f min  (estimate)\n", formatted_total_rows, time_estimate_total_rows / 60))
 ```
-
+```{r upload to bq}
+# id_series:STRING,
+# id_pin:STRING,
+# date_adm:STRING,
+# time_adm:STRING,
+# date_dis:STRING,
+# time_dis:STRING,
+# date_rec:STRING,
+# date_ref:STRING,
+# date_check:STRING,
+# id_hci:STRING,
+# id_hcp:STRING,
+# clin_outpatient:STRING,
+# clin_emergency:STRING,
+# pat_type:STRING,
+# clin_acc:STRING,
+# pat_rel:STRING,
+# pat_bdate:STRING,
+# pat_age:STRING,
+# pat_sex:STRING,
+# pat_bwt:STRING,
+# pat_memcat_parent:STRING,
+# pat_memcat_child:STRING,
+# pat_memcat_subchild:STRING,
+# clin_discharge:STRING,
+# clin_c1:STRING,
+# clin_c2:STRING,
+# claim_status:STRING,
+# claim_payout:STRING,
+# claim_charge:STRING,
+# date_ext:STRING,
+# id_year:STRING,
+# clin_icd:STRING,
+# clin_rvs:STRING,
+# icd9_list:STRING,
+# rvs_unmap_list:STRING,
+# pdx:STRING,
+# pdx_code:STRING
+```
