@@ -36,3 +36,7 @@ rsconnect/
 #git-ignored-files
 git-ignored-files/
 git-ignored-files
+
+#python-code
+python-code
+python-code/
