@@ -21,10 +21,11 @@ library(lubridate)
 library(docstring)
 library(profvis)
 library(hash)
-# library(foreach)
-# library(doParallel)
-# library(future)
-# library(future.apply)
+library(foreach)
+library(doParallel)
+library(parallel)
+library(future)
+library(future.apply)
 ```
 
 ## Set Parameters
@@ -40,7 +41,7 @@ version <- "v2"
 
 ```{r parameters}
 # Parameters
-sample_size <- 1 * 1e5
+sample_size <- 1e3 * 1e3
 
 drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
 
@@ -51,9 +52,9 @@ to_read <- FALSE
 to_sample <- TRUE
 to_write <- TRUE
 to_group <- TRUE
-to_filter <- TRUE
+to_filter <- FALSE #unused
 to_profvis <- FALSE
-to_write <- TRUE
+to_chunk <- TRUE
 
 na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
 na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
@@ -70,11 +71,12 @@ path_to_aux <- "git-ignored-files/aux_files"
 path_to_excel <- "git-ignored-files/Excel"
 path_to_cleaned_claims <- "git-ignored-files/cleaned_claims"
 path_to_grouper_output <- "git-ignored-files/grouper_output"
+path_to_chunks <- "git-ignored-files/chunked_samples"
 
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
 sampled_claims <- here(
   path_to_raw_claims, 
-  paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
+  paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, paste0("_", sample_size), ".csv"))
 full_claims <- here(
   path_to_raw_claims, 
   paste0("claims_extract_CLAIMS_", year_to_load, ".csv"))
@@ -97,6 +99,10 @@ total_rows_file <- here(
 
 # Seed for reproducibility
 set.seed(123)
+
+options(future.globals.maxSize= 1024*1024^2)
+
+global_seed <- 123 #for parallelized operations
 ```
 
 ## Source Data Formats
@@ -145,48 +151,73 @@ acc_pdx <- unique(acc_pdx)
 
 ```{r reading, warning = FALSE}
 if (to_read) {
+  print("Reading the entire file...")
   dt <- read_entire_file(drop_cols)
   
   if (to_sample) {
     if (file.exists(sampled_claims)) {
+      print("Sampled file exists. Reading the sampled file...")
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
+        print(paste("Sampled file does not match sample size. Expected:", sample_size, "Found:", nrow(dt), "Re-sampling..."))
         dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
+          print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
           write_data(dt, sampled_claims)
+        } else {
+          print("to_write is FALSE. Not writing the sample data to file.")
         }
+      } else {
+        print("Sampled file matches sample size.")
       }
     } else {
+      print("Sampled file does not exist. Creating new sample...")
       dt <- sample_data(dt)
       if (to_write) {
+        print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
         write_data(dt, sampled_claims)
+      } else {
+        print("to_write is FALSE. Not writing the sample data to file.")
       }
     }
   }
 } else {
   if (to_sample) {
     if (file.exists(sampled_claims)) {
+      print("Sampled file exists. Reading the sampled file...")
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
+        print(paste("Sampled file does not match sample size. Expected:", sample_size, "Found:", nrow(dt), "Re-sampling..."))
         dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
+          print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
           write_data(dt, sampled_claims)
+        } else {
+          print("to_write is FALSE. Not writing the sample data to file.")
         }
+      } else {
+        print("Sampled file matches sample size.")
       }
     } else {
+      print("Sampled file does not exist. Reading entire file and creating new sample...")
       dt <- read_entire_file(drop_cols)
       dt <- sample_data(dt)
       if (to_write) {
+        print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
         write_data(dt, sampled_claims)
+      } else {
+        print("to_write is FALSE. Not writing the sample data to file.")
       }
     }
   } else {
     if (!file.exists(intermediate_file)) {
       stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
+    } else {
+      print("Using existing intermediate file.")
     }
   }
 }
@@ -203,17 +234,15 @@ if (file.exists(total_rows_file)) {
 
 ### Data Cleaning
 
-```{r data cleaning}
-tic("Total execution time:")
+```{r define main cleaning function}
 clean_data <- function(dt) {
   original_col_order <- colnames(dt)
   
   # Add year column
   dt <- add_year_column(dt, year_to_load)
-  
   # Rename columns
   dt <- rename_columns(dt)
-  
+
   # Process and collapse columns for clin_icd1 to clin_icd12 into clin_icd
   dt <- process_and_collapse_columns(dt, icd_cols, "clin_icd")
   
@@ -222,22 +251,24 @@ clean_data <- function(dt) {
   
   # Remove lumped ICD codes from clin_icd
   dt <- remove_lumped_icd_codes(dt, "clin_icd") # TODO SPEED THIS UP
-  
+
   # Turn clin_icd and clin_rvs into lists
   dt[, clin_icd := split_to_vector(clin_icd)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
   
   # Clean and unlump clin_c1 and clin_c2
   dt <- clean_columns_in_dt(dt, c("clin_c1", "clin_c2"))
+
   dt <- remove_lumped_icd_codes(dt, "clin_c1") # TODO SPEED THIS UP
   dt <- remove_lumped_icd_codes(dt, "clin_c2") # TODO SPEED THIS UP
+  
   dt[, clin_c1 := split_to_vector(clin_c1)]
   dt <- process_icd10_codes(dt, "clin_c1")
   dt[, clin_c2 := split_to_vector(clin_c2)]
   dt <- process_icd10_codes(dt, "clin_c2")
   
-  dt <- append_and_remove_rvs_codes(dt, "clin_c1")
-  dt <- append_and_remove_rvs_codes(dt, "clin_c2")
+  dt <- append_and_remove_rvs_codes(dt, "clin_c1") # TODO SPEED THIS UP
+  dt <- append_and_remove_rvs_codes(dt, "clin_c2") # TODO SPEED THIS UP
   
   dt <- deduplicate_columns(dt, c("clin_c1","clin_c2","clin_icd","clin_rvs"))
   
@@ -251,45 +282,107 @@ clean_data <- function(dt) {
   dt <- process_disposition(dt)
   return(dt)
 }
+```
 
-if (to_profvis) {
-  profvis({
+#### Not chunking
+
+```{r logic if not chunking}
+if (!to_chunk){
+  if (to_profvis) {
+    profvis({
+      tic("Total execution time:")
+      plan(multisession, workers = availableCores() - 1)
+      dt <- clean_data(dt)
+    })
+  } else {
+    tic("Total execution time:")
+    plan(multisession, workers = availableCores() - 1)
     dt <- clean_data(dt)
-  })
-} else {
-  dt <- clean_data(dt)
+  }
+} 
+```
+
+#### Chunking
+
+```{r logic if chunking}
+if (to_chunk){
+  if (to_profvis) {
+    profvis({
+      tic("Total execution time:")
+      num_cores <- max(1, availableCores() - 1)
+      
+      chunk_size <- ceiling(nrow(dt) / num_cores)
+      chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+      
+      # Plan for parallel processing
+      plan(multisession, workers = num_cores)
+      
+      # Process each chunk in parallel
+      processed_chunks <- future_lapply(chunks, process_chunk, future.seed = global_seed)
+      
+      # Combine processed chunks
+      dt <- rbindlist(processed_chunks)
+      
+      dt <- replace_empty_with_na(dt)
+    })
+  } else {
+      tic("Total execution time:")
+      num_cores <- max(1, availableCores() - 1)
+    
+      chunk_size <- ceiling(nrow(dt) / num_cores)
+      chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+      
+      # Plan for parallel processing
+      plan(multisession, workers = num_cores)
+      
+      # Process each chunk in parallel
+      processed_chunks <- future_lapply(chunks, process_chunk, future.seed = global_seed)
+      
+      # Combine processed chunks
+      dt <- rbindlist(processed_chunks)
+      
+      dt <- replace_empty_with_na(dt)
+  }
 }
 ```
 
-### Map Codes
+### If not chunking, map codes and find pdx
+
+#### Map Codes
 
 ```{r map codes}
 #Map RVS codes
-if (to_profvis) {
-  profvis({
-    dt <- process_rvs_code_mapping(dt, rvs_icd9)
-    dt <- process_icd10_mapping(dt)
-    # Replace empty strings in character and factor columns with NA
-    dt <- replace_empty_with_na(dt)
-  })
-} else {
-    dt <- process_rvs_code_mapping(dt, rvs_icd9)
-    dt <- process_icd10_mapping(dt)
-    # Replace empty strings in character and factor columns with NA
-    dt <- replace_empty_with_na(dt)
+if (!to_chunk){
+  if (to_profvis) {
+    profvis({
+      dt <- process_rvs_code_mapping(dt, rvs_icd9)
+      dt <- process_icd10_mapping(dt)
+      # Replace empty strings in character and factor columns with NA
+      dt <- replace_empty_with_na(dt)
+    })
+  } else {
+      dt <- process_rvs_code_mapping(dt, rvs_icd9)
+      dt <- process_icd10_mapping(dt)
+      # Replace empty strings in character and factor columns with NA
+      dt <- replace_empty_with_na(dt)
+  }
 }
 ```
-### Find PDX
+
+#### Find PDx
 
 ```{r find pdx}
 #Map RVS codes
-if (to_profvis) {
-  profvis({
-    dt <- apply_find_pdx(dt, acc_pdx)
-  })
-} else {
-    dt <- apply_find_pdx(dt, acc_pdx)
+if (!to_chunk) {
+  if (to_profvis) {
+    profvis({
+      dt <- apply_find_pdx(dt, acc_pdx)
+    })
+  } else {
+      dt <- apply_find_pdx(dt, acc_pdx)
+  }
 }
+
 ```
 
 ```{r write}
@@ -300,13 +393,20 @@ if (to_write) {
 
 ## Export for Batch Grouper
 
-```{r write}
+```{r group}
 if (to_group) {
-  export_for_batch_grouper(dt, year_to_load, output_txt_file)
+  if (to_profvis) {
+    profvis({
+      export_for_batch_grouper(dt, year_to_load, output_txt_file)
+      for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
+      batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
+    })
+  } else {
+      export_for_batch_grouper(dt, year_to_load, output_txt_file)
+      for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
+      batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
+  }
 }
-
-for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
-batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
 ```
 
 ## Stop Timer & Calculate Speed
@@ -334,43 +434,4 @@ formatted_total_rows <- format_large_numbers(total_rows)
 cat(sprintf("Time spent (total) for %2s rows:  %1.2f sec  (actual)\n", formatted_total_rows_dt, total_time))
 cat(sprintf("Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n", formatted_total_rows_dt, time_per_row * 1000))
 cat(sprintf("Time spent (total) for  %2s rows: %2.2f min  (estimate)\n", formatted_total_rows, time_estimate_total_rows / 60))
-```
-```{r upload to bq}
-# id_series:STRING,
-# id_pin:STRING,
-# date_adm:STRING,
-# time_adm:STRING,
-# date_dis:STRING,
-# time_dis:STRING,
-# date_rec:STRING,
-# date_ref:STRING,
-# date_check:STRING,
-# id_hci:STRING,
-# id_hcp:STRING,
-# clin_outpatient:STRING,
-# clin_emergency:STRING,
-# pat_type:STRING,
-# clin_acc:STRING,
-# pat_rel:STRING,
-# pat_bdate:STRING,
-# pat_age:STRING,
-# pat_sex:STRING,
-# pat_bwt:STRING,
-# pat_memcat_parent:STRING,
-# pat_memcat_child:STRING,
-# pat_memcat_subchild:STRING,
-# clin_discharge:STRING,
-# clin_c1:STRING,
-# clin_c2:STRING,
-# claim_status:STRING,
-# claim_payout:STRING,
-# claim_charge:STRING,
-# date_ext:STRING,
-# id_year:STRING,
-# clin_icd:STRING,
-# clin_rvs:STRING,
-# icd9_list:STRING,
-# rvs_unmap_list:STRING,
-# pdx:STRING,
-# pdx_code:STRING
 ```

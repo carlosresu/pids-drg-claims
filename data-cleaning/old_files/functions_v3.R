@@ -422,76 +422,51 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   #' @param acc_pdx A vector of acceptable PDX codes.
   #' @return A list containing the PDX and its code.
   clin_icd <- unlist(clin_icd)
-  
   if (!is.null(clin_c1) && clin_c1 %in% acc_pdx) {
     return(list(pdx = clin_c1, pdx_code = 1))
   }
   if (!is.null(clin_c2) && clin_c2 %in% acc_pdx) {
     return(list(pdx = clin_c2, pdx_code = 2))
   }
-  
   pdxs <- intersect(clin_icd, acc_pdx)
-  
   if (length(pdxs) == 0) {
     return(list(pdx = NA_character_, pdx_code = 99))
   } else if (length(pdxs) == 1) {
     return(list(pdx = pdxs[1], pdx_code = 3))
   }
-  
-  # Compute similarities once and use the results
-  compute_similarity <- function(code, candidates) {
-    sapply(candidates, function(candidate) {
-      sum(substr(code, 1, nchar(candidate)) == substr(candidate, 1, nchar(candidate)))
-    })
-  }
-  
   for (cr in list(clin_c1, clin_c2)) {
     if (!is.na(cr) && cr != "") {
       starting_letter <- substr(cr, 1, 1)
       starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
-      
       if (length(starting_codes) == 1) {
         return(list(pdx = starting_codes[1], pdx_code = 4))
       }
       if (length(starting_codes) > 1) {
-        similarities <- compute_similarity(cr, starting_codes)
+        similarities <- sapply(starting_codes, check_similarity, y = cr)
         most_similar_pdx <- starting_codes[which.max(similarities)]
         return(list(pdx = most_similar_pdx, pdx_code = 5))
       }
     }
   }
-  
   if (length(pdxs) > 0) {
     return(list(pdx = sample(pdxs, 1), pdx_code = 6))
   }
 }
 
-apply_find_pdx <- function(dt, acc_pdx) {
+apply_find_pdx <- function(dt, acc_pdx, num_cores = availableCores() - 1, seed = 123) {
   #' @description Applies the find_pdx function to each row of a data.table.
   #' @param dt A data.table to process.
   #' @param acc_pdx A vector of acceptable PDX codes.
+  #' @param num_cores The number of cores to use for parallel processing.
+  #' @param seed The seed for random number generation.
   #' @return The modified data.table with PDX information added.
-  dt[, pdx := ifelse(clin_c1 %in% acc_pdx, clin_c1, ifelse(clin_c2 %in% acc_pdx, clin_c2, NA))]
-  dt[, pdx_code := ifelse(clin_c1 %in% acc_pdx, 1, ifelse(clin_c2 %in% acc_pdx, 2, 99))]
-  
-  # Identify rows without a PDX
-  missing_pdx_indices <- which(is.na(dt$pdx))
-  
-  if (length(missing_pdx_indices) > 0) {
-    clin_icd_list <- dt$clin_icd[missing_pdx_indices]
-    
-    result_list <- lapply(clin_icd_list, function(icd_list) {
-      find_pdx(NA, NA, icd_list, acc_pdx)
-    })
-    
-    # Update dt with results
-    dt$pdx[missing_pdx_indices] <- sapply(result_list, `[[`, "pdx")
-    dt$pdx_code[missing_pdx_indices] <- sapply(result_list, `[[`, "pdx_code")
-  }
-  
+  plan(multisession, workers = num_cores)
+  result_list <- future_lapply(seq_len(nrow(dt)), function(i) {
+    find_pdx(dt$clin_c1[i], dt$clin_c2[i], dt$clin_icd[[i]], acc_pdx)
+  }, future.seed = seed)
+  dt[, `:=`(pdx = sapply(result_list, `[[`, "pdx"), pdx_code = sapply(result_list, `[[`, "pdx_code"))]
   return(dt)
 }
-
 
 generate_dob_vectorized <- function(bdays, ages, date_adms) {
   #' @description Generates date of birth (DOB) values vectorized from birthdates, ages, and admission dates.
@@ -554,24 +529,4 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
     }
   }
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
-}
-
-process_chunk <- function(chunk) {
-  #Suppress output
-  sink(tempfile())
-  on.exit(sink(), add = TRUE)
-  
-  # Clean data
-  chunk <- clean_data(chunk)
-  
-  # Map codes
-  chunk <- process_rvs_code_mapping(chunk, rvs_icd9)
-  chunk <- process_icd10_mapping(chunk)
-  
-  chunk <- replace_empty_with_na(chunk)
-  
-  # Find PDX
-  chunk <- apply_find_pdx(chunk, acc_pdx)
-  
-  return(chunk)
 }

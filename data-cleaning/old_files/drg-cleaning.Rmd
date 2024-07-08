@@ -1,217 +1,318 @@
 ---
 title: "DRG Cleaning"
 author: "Carlos Resurreccion"
-date: "2024-06-26"
-output: html_document
+date: "2024-07-01"
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-```{r library}
-# load_or_install <- function(package_name) {
-#   if (!require(package_name, character.only = TRUE)) {
-#     if (package_name == "bigQueryR"){
-#       install.packages("bigQueryR", repos = c(getOption("repos"), 
-#                         "http://cloudyr.github.io/drat"))
-#       library(bigQueryR)
-#     } else{
-#       install.packages(package_name)
-#       library(package_name, character.only = TRUE)
-#     }
-#     
-#   }
-# }
-# 
-# packagelist <- c("tidyverse",
-#                  "googleAuthR",
-#                  "bigQueryR", 
-#                  "googleCloudStorageR", 
-#                  "googleComputeEngineR")
-# 
-# lapply(packagelist, load_or_install)
+## Load Required Libraries
 
-library(tidyverse)
-library(here)
+```{r library}
 library(data.table)
+library(here)
 library(tictoc)
-# library(stringr)
+library(stringr)
+library(stringi)
+library(lubridate)
+library(docstring)
 ```
+
+## Set Parameters
+
+### Year to Load
+
+```{r year to load}
+year_to_load <- "2018"
+```
+
+### Parameters
 
 ```{r parameters}
-year_to_load <- "2021"
-tic(paste0("Start cleaning of ", year_to_load))
-path_to_raw_claims <- "data-cleaning/raw_claims/"
-path_to_excel_files <- "upload-libraries/Excel/"
-# Define columns to be read as character
-character_cols <- c("PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "HCI_PMCC_NO",
-                    "HCP_NO_LIST", "PRIMARY_ILLNESS", "SECONDARY_ILLNESS",
-                    paste0("ICDCODE", c(1:14, 16:170)), "ICCODED15",
-                    paste0("RVSCODE", 1:20), "DATE_ADM", "TIME_ADM",
-                    "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", 
-                    "CHKDT", "PAT_BDAY", "EXTRACTION_DATE")
-integer_cols = c("OUT_PATIENT", "EMERGENCY")
-factor_cols = c("PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", 
-                "MEMCAT_PARENT_DESC", "MEMCAT_CHILD_DESC", 
-                "MEMCAT_SUBCHILD_DESC", "DISPOSITION", "CLAIMS_STATUS")
-numeric_cols = c("PATAGE", "PAT_BWT_KG", "CLAIMS_PAID_AMT", 
-                 "ACR_AMOUNT_ACTUAL")
-na_values <- c('NONE','None','-','--','---','N/A','n/a','nan','NAN') 
-  # removed '' and ' ' from Google Colab notebook
+# Parameters
+sample_size <- 1 * 1e3
+chunk_size <- 1e6
 
-icd_old <- c(paste0("ICDCODE", 1:14), "ICCODED15", paste0("ICDCODE", 16:170))
-icd_new <- paste0("clin_icd", 1:170)
+drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
 
-rvs_old <- paste0("RVSCODE", 1:20)
-rvs_new <- paste0("clin_rvs", 1:20)
+to_read <- FALSE
+to_sample <- TRUE
+to_write <- TRUE
+to_chunk <- FALSE
+to_group <- TRUE
+to_filter <- TRUE
 
-# Define NA-like values, including all possible whitespace characters
-  na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028", "\u2029", "\u202F", "\u205F", "\u3000")
+na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
+na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
+                     "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0",
+                     "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", 
+                     "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028", 
+                     "\u2029", "\u202F", "\u205F", "\u3000")
+
+# File paths
+path_to_raw_claims <- "git-ignored-files/raw_claims"
+path_to_intermediate <- "git-ignored-files/intermediate_claims"
+path_to_cache <- "data-cleaning/cache"
+path_to_aux <- "git-ignored-files/aux_files"
+path_to_excel <- "git-ignored-files/Excel"
+path_to_cleaned_claims <- "git-ignored-files/cleaned_claims"
+path_to_grouper_output <- "git-ignored-files/grouper_output"
+
+suffix <- ifelse(to_sample, "_sampled", "_full")
+chunk_droppable_cols_file <- here(
+  path_to_cache, 
+  paste0("chunk_droppable_cols_", year_to_load, suffix, ".rds"))
+header_file <- here(
+  path_to_cache, 
+  paste0("header_", year_to_load, suffix, ".rds"))
+total_rows_file <- here(
+  path_to_cache, 
+  paste0("total_rows_", year_to_load, suffix, ".rds"))
+sampled_claims <- here(
+  path_to_raw_claims, 
+  paste0("sampled_claims_extract_CLAIMS_", year_to_load, ".csv"))
+full_claims <- here(
+  path_to_raw_claims, 
+  paste0("claims_extract_CLAIMS_", year_to_load, ".csv"))
+intermediate_file <- here(
+  path_to_intermediate, 
+  paste0("intermediate_claims_", year_to_load, "_processed.csv"))
+cleaned_claims_file <- here(
+  path_to_cleaned_claims, 
+  paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
+output_txt_file <- here(
+  path_to_grouper_output, 
+  paste0("DRG_Grouped", suffix, "_", year_to_load, ".txt"))
+grouper_result_file <- here(
+  path_to_grouper_output, 
+  toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, "Res.TXT")))
+
+# Seed for reproducibility
+set.seed(123)
 ```
 
+## Source Data Formats
 
-```{r load data set}
-# For loading the entire dataset
-df <- fread(here(paste0(path_to_raw_claims, "claims_extract_CLAIMS_", year_to_load, ".csv")),
-            colClasses = list(character = character_cols,
-                              integer = integer_cols,
-                              factor = factor_cols,
-                              numeric = numeric_cols
-                              ),
-            na.strings = na_values
-)
-
-#For loading a number of rows only
-# df <- fread(here(paste0(path_to_raw_claims, "claims_extract_CLAIMS_", year_to_load, ".csv")), 
-#             colClasses = list(character = character_cols, 
-#                               integer = integer_cols,
-#                               factor = factor_cols,
-#                               numeric = numeric_cols
-#                               ),
-#             na.strings = na_values,
-#             nrows = 1000000
-# )
+```{r data formats and additional parameters}
+source(here("data-cleaning", "data-formats.R"))
 ```
 
-```{r assign src_yr}
-# Add a column src_yr and set its value to the variable year_to_load
-df[, id_year := as.integer(year_to_load)]
+## Source Functions
+
+```{r}
+source(here("data-cleaning", "functions.R"))
 ```
 
-```{r rename and reorder columns to match metadata}
-# Rename columns
-setnames(df, old = c("id_year", "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "DATE_ADM", 
-                     "TIME_ADM", "DATE_DIS", "TIME_DIS", "DATE_REC", 
-                     "DATE_REF", "CHKDT", "EXTRACTION_DATE", "HCI_PMCC_NO", 
-                     "HCP_NO_LIST", "PATIENT_TYPE", "DEP_REL", "PATSEX", 
-                     "PATAGE", "PAT_BDAY", "PAT_BWT_KG", "MEMCAT_PARENT_DESC", 
-                     "MEMCAT_CHILD_DESC", "MEMCAT_SUBCHILD_DESC", "OUT_PATIENT", 
-                     "EMERGENCY", "ROOM_TYPE", "DISPOSITION", "PRIMARY_ILLNESS", 
-                     "SECONDARY_ILLNESS", "CLAIMS_STATUS", "ACR_AMOUNT_ACTUAL", 
-                     "CLAIMS_PAID_AMT", icd_old, rvs_old),
-             new = c("id_year", "id_series", "id_pin", "date_adm", "time_adm", "date_dis", 
-                     "time_dis", "date_rec", "date_ref", "date_check", "date_ext", 
-                     "id_hci", "id_hcp", "pat_type", "pat_rel", "pat_sex", "pat_age", 
-                     "pat_bdate", "pat_bwt", "pat_memcat_parent", "pat_memcat_child", 
-                     "pat_memcat_subchild", "clin_outpatient", "clin_emergency", 
-                     "clin_acc", "clin_discharge", "clin_pdx", "clin_sdx", 
-                     "claim_status", "claim_charge", "claim_payout", icd_new, rvs_new))
+## Load Mapping Data
 
-setcolorder(df, c("id_year", "id_series", "id_pin", "date_adm", "time_adm", "date_dis", 
-                  "time_dis", "date_rec", "date_ref", "date_check", "date_ext", 
-                  "id_hci", "id_hcp", "pat_type", "pat_rel", "pat_sex", "pat_age", 
-                  "pat_bdate", "pat_bwt", "pat_memcat_parent", "pat_memcat_child", 
-                  "pat_memcat_subchild", "clin_outpatient", "clin_emergency", 
-                  "clin_acc", "clin_discharge", "clin_pdx", "clin_sdx", 
-                  paste0("clin_icd", 1:170), paste0("clin_rvs", 1:20), 
-                  "claim_status", "claim_charge", "claim_payout"))
+```{r load mapping data}
+proc <- fread(here(path_to_excel, "proc.csv"))
+proc[, CODE := as.character(CODE)]
+
+rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"), select = c("rvs", "icd9cm"))
+rvs_icd9[, rvs := as.character(rvs)]
+rvs_icd9[, icd9cm := as.character(icd9cm * 100)]
+rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)], by.x = "icd9cm", by.y = "CODE", all.x = TRUE)
+rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE]
+rvs_icd9 <- rvs_icd9[!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
+
+acr_rvs <- fread(here(path_to_aux, "acr_rvs.csv"))
+
+# Read in the data.table
+tdrg_icd10 <- fread(here(path_to_aux, "i10.csv"))
+
+# Set the key if not already set
+setkey(tdrg_icd10, "CODE")
+
+# Subset and assign the result to acc_pdx
+acc_pdx <- tdrg_icd10[ACCPDX == "Y", CODE]
+
+# Optional: If you want to ensure uniqueness (if CODEs are not unique in tdrg_icd10)
+acc_pdx <- unique(acc_pdx)
 ```
 
+## Read Data
 
-```{r shorten pat_type, memcat_parent, and memcat_child}
-# Update pat_type to shortened versions
-df[, pat_type := recode(pat_type, "MEMBER" = "MEM", "DEPENDENT" = "DEP")]
-# Update pat_memcat_parent to shortened versions
-df[, pat_memcat_parent := recode(pat_memcat_parent, "DIRECT CONTRIBUTOR" = "DIRECT", "INDIRECT CONTRIBUTOR" = "INDIRECT")]
-# Update pat_memcat_child to simplified categories
-df[, pat_memcat_child := recode(pat_memcat_child,
-  `EMPLOYED PRIVATE` = "FORMAL",
-  `SELF-EARNING INDIVIDUAL` = "INFORMAL",
-  `SENIOR CITIZEN` = "SENIOR",
-  `INDIGENT` = "INDIGENT",
-  `LIFETIME MEMBER` = "LIFETIME",
-  `SPONSORED` = "SPONSORED",
-  `MIGRANT WORKER` = "INFORMAL",
-  `EMPLOYED GOVERNMENT` = "FORMAL",
-  `INFORMAL ECONOMY` = "INFORMAL",
-  `HOUSEHOLD HELP/KASAMBAHAY` = "FORMAL",
-  `FOREIGN NATIONAL` = "INFORMAL",
-  `FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD` = "INFORMAL",
-  `SELF EARNING INDIVIDUAL` = "INFORMAL",
-  `FAMILY DRIVER` = "FORMAL"
-)]
-```
+### Reading Data
 
-```{r cast clin_discharge}
-# Cast clin_discharge into integers as per grouper v5 categories
-df[, clin_discharge := fcase(
-  clin_discharge == "IMPROVED", 1L,
-  clin_discharge == "RECOVERED", 1L,
-  clin_discharge == "HOME/DISCHARGED AGAINST MEDICAL ADVICE", 2L,
-  clin_discharge == "ABSCONDED", 3L,
-  clin_discharge == "TRANSFERRED/REFERRED", 4L,
-  clin_discharge == "EXPIRED", 9L,
-  clin_discharge == "UNDEFINED", NA_integer_
-)]
-```
-
-```{r process and collapse icd and rvs columns}
-# Define the function to process and collapse columns
-process_and_collapse_columns <- function(df, cols_to_process, new_col_name) {
-  # Identify and drop empty columns
-  empty_cols <- cols_to_process[sapply(df[, ..cols_to_process], function(col) all(is.na(col) | col %in% na_like_strings))]
-  df[, (empty_cols) := NULL]
-  cols_to_process <- setdiff(cols_to_process, empty_cols)
-
-  # Process each column in cols_to_process in batches
-  batch_size <- 2  # Adjust batch size based on available memory
-  for (i in seq(1, length(cols_to_process), by = batch_size)) {
-    batch_cols <- cols_to_process[i:min(i + batch_size - 1, length(cols_to_process))]
-    
-    for (col in batch_cols) {
-      set(df, j = col, value = iconv(df[[col]], to = "UTF-8", sub = "byte"))
-      set(df, j = col, value = toupper(df[[col]]))
-      set(df, j = col, value = str_trim(df[[col]]))
-      set(df, j = col, value = str_replace_all(df[[col]], " ", ""))
-      set(df, j = col, value = str_replace_all(df[[col]], "\n", ""))
-      set(df, j = col, value = str_replace_all(df[[col]], "[^\\w\\d\\/\\s]+", ""))
-      set(df, j = col, value = ifelse(df[[col]] %in% na_like_strings, NA_character_, df[[col]]))
+```{r reading}
+if (to_read) {
+  dt <- read_entire_file(drop_cols)
+  
+  if (to_sample) {
+    if (file.exists(sampled_claims)) {
+      dt <- read_sampled_file()
+      # Check if the number of rows matches sample_size
+      if (nrow(dt) != sample_size) {
+        dt <- read_entire_file(drop_cols)
+        dt <- sample_data(dt)
+        if (to_write) {
+          write_data(dt, sampled_claims)
+        }
+      }
+    } else {
+      dt <- sample_data(dt)
+      if (to_write) {
+        write_data(dt, sampled_claims)
+      }
     }
   }
-
-  # Collapse columns into a single column
-  df[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
-  df[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|NA", "")]
-  df[, (new_col_name) := str_replace_all(get(new_col_name), "NA\\|\\|", "")]
-  df[, (new_col_name) := str_replace_all(get(new_col_name), "\\|\\|$", "")]
-  df[, (new_col_name) := ifelse(get(new_col_name) == "NA", NA_character_, get(new_col_name))]
-
-  # Drop the original columns
-  df[, (cols_to_process) := NULL]
+} else {
+  if (to_sample) {
+    if (file.exists(sampled_claims)) {
+      dt <- read_sampled_file()
+      # Check if the number of rows matches sample_size
+      if (nrow(dt) != sample_size) {
+        dt <- read_entire_file(drop_cols)
+        dt <- sample_data(dt)
+        if (to_write) {
+          write_data(dt, sampled_claims)
+        }
+      }
+    } else {
+      dt <- read_entire_file(drop_cols)
+      dt <- sample_data(dt)
+      if (to_write) {
+        write_data(dt, sampled_claims)
+      }
+    }
+  } else if (to_chunk) {
+    if (!file.exists(chunk_droppable_cols_file) || !file.exists(header_file) || !file.exists(total_rows_file)) {
+      process_chunks()
+    } else {
+      chunk_droppable_cols <- readRDS(chunk_droppable_cols_file)
+      header <- readRDS(header_file)
+      total_rows <- readRDS(total_rows_file)
+    }
+  } else {
+    if (!file.exists(intermediate_file)) {
+      stop("Cannot proceed: to_read is FALSE, to_sample is FALSE, and to_chunk is FALSE. At least one must be TRUE.")
+    }
+  }
 }
-
-# Assuming df is your data.table
-# Process ICD columns
-icd_cols <- paste0("clin_icd", 1:170)
-process_and_collapse_columns(df, icd_cols, "clin_icd")
-
-# Process RVS columns
-rvs_cols <- paste0("clin_rvs", 1:20)
-process_and_collapse_columns(df, rvs_cols, "clin_rvs")
 ```
 
-```{r write as csv}
-df %>% fwrite(here(paste0("data-cleaning/cleaned_claims/cleaned_claims_extract_CLAIMS_", year_to_load,".csv")))
+### Identify Droppable Columns
+
+```{r identify droppable columns}
+if (to_read || (to_sample && !file.exists(sampled_claims))) {
+  chunk_number <- 1
+  chunk_droppable_cols <- list()
+  header <- names(dt)
+  total_rows <- nrow(dt)
+
+  tic("Processing header row")
+  cols_to_keep <- setdiff(seq_along(header), drop_cols)
+  toc()
+
+  tic("Identifying droppable columns")
+  droppable_cols <- sapply(dt, function(col) all(is.na(col) || col %in% na_like_strings))
+  droppable_cols <- which(droppable_cols)
+  chunk_droppable_cols[[paste0(year_to_load, "_whole")]] <- droppable_cols
+  toc()
+
+  saveRDS(chunk_droppable_cols, chunk_droppable_cols_file)
+  saveRDS(header, header_file)
+  saveRDS(total_rows, total_rows_file)
+}
+```
+
+## Process Data in Chunks
+
+### Process
+
+```{r process data in chunks}
+if (to_sample == FALSE && to_chunk == TRUE) {
+  tic("Processing data in chunks")
+  
+  header <- fread(full_claims, nrows = 1, header = TRUE)
+  total_rows <- fread(full_claims, select = 1L, header = TRUE)[, .N]
+  cols_to_keep <- setdiff(seq_along(header), drop_cols)
+  
+  chunk_number <- 1
+  repeat {
+    skip_rows <- (chunk_number - 1) * chunk_size + 1
+    if (skip_rows > total_rows) break
+    
+    droppable_cols <- process_chunk(chunk_number, skip_rows, cols_to_keep, total_rows, rvs_icd9)
+    if (is.null(droppable_cols)) break
+    
+    chunk_number <- chunk_number + 1
+  }
+  
+  toc()
+}
+```
+
+### Merge Intermediate Files
+
+```{r merge intermediate files}
+if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
+  tic("Merging intermediate files")
+  
+  intermediate_files <- list.files(path_to_intermediate, pattern = "intermediate_chunk_.*\\.csv", full.names = TRUE)
+  dt_list <- lapply(intermediate_files, fread)
+  dt <- rbindlist(dt_list)
+  
+  fwrite(dt, intermediate_file)
+  
+  toc()
+}
+```
+
+## Process Data if Not Chunking
+
+### Process Data
+
+```{r process data if not chunking}
+if (to_chunk == FALSE && exists("dt")) {
+  tic("Process data if not chunking")
+  dt <- process_data(dt, year_to_load, rvs_icd9)
+  
+  if (to_write) {
+    fwrite(dt, intermediate_file)
+  }
+  toc()
+}
+```
+
+### Process for PDx
+
+```{r}
+tic("Process data for likely PDx")
+dt <- process_data_for_pdx(dt, rvs_icd9, path_to_cache, year_to_load)
+
+# Check the results
+dt_select <- dt[, .(PSEUDO_CLAIMSERIES, pdx, pdx_code, PRIMARY_ILLNESS, SECONDARY_ILLNESS, ICD_CODES, RVS_CODES, clin_c1, clin_c2, icd_list)]
+toc()
+```
+
+## Save Cleaned Data File
+
+```{r}
+tic("Save cleaned file")
+if (to_write) {
+  saveRDS(dt, here(path_to_cache, paste0("claims_prepdx_", year_to_load, ".rds")))
+}
+toc()
+```
+
+## Export for Batch Grouper Software
+
+```{r}
+tic("Export for batch grouper")
+if (to_group) {
+  if (to_filter) {
+    # Filter out rows where pdx is NA
+    dt <- dt[!is.na(dt$pdx), ]
+  }
+  export_for_batch_grouper(dt, year_to_load, output_txt_file)
+}
+
+for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
+batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
 toc()
 ```
