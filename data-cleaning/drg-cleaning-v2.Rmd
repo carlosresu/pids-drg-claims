@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load Required Libraries
 
 ```{r library}
+library(tidyverse)
 library(data.table)
 library(here)
 library(tictoc)
@@ -72,6 +73,8 @@ path_to_excel <- "git-ignored-files/Excel"
 path_to_cleaned_claims <- "git-ignored-files/cleaned_claims"
 path_to_grouper_output <- "git-ignored-files/grouper_output"
 path_to_chunks <- "git-ignored-files/chunked_samples"
+
+# Here() let's you find files in your project directory
 
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
 sampled_claims <- here(
