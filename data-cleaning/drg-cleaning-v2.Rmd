@@ -42,7 +42,7 @@ version <- "v2"
 
 ```{r parameters}
 # Parameters
-sample_size <- 1e3 * 1e3
+sample_size <- 250 * 1e3
 
 drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
 
@@ -253,7 +253,7 @@ clean_data <- function(dt) {
   dt <- process_and_collapse_columns(dt, rvs_cols, "clin_rvs")
   
   # Remove lumped ICD codes from clin_icd
-  dt <- remove_lumped_icd_codes(dt, "clin_icd") # TODO SPEED THIS UP
+  dt <- remove_lumped_icd_codes(dt, "clin_icd")
 
   # Turn clin_icd and clin_rvs into lists
   dt[, clin_icd := split_to_vector(clin_icd)]
@@ -262,16 +262,16 @@ clean_data <- function(dt) {
   # Clean and unlump clin_c1 and clin_c2
   dt <- clean_columns_in_dt(dt, c("clin_c1", "clin_c2"))
 
-  dt <- remove_lumped_icd_codes(dt, "clin_c1") # TODO SPEED THIS UP
-  dt <- remove_lumped_icd_codes(dt, "clin_c2") # TODO SPEED THIS UP
+  dt <- remove_lumped_icd_codes(dt, "clin_c1")
+  dt <- remove_lumped_icd_codes(dt, "clin_c2")
   
   dt[, clin_c1 := split_to_vector(clin_c1)]
   dt <- process_icd10_codes(dt, "clin_c1")
   dt[, clin_c2 := split_to_vector(clin_c2)]
   dt <- process_icd10_codes(dt, "clin_c2")
   
-  dt <- append_and_remove_rvs_codes(dt, "clin_c1") # TODO SPEED THIS UP
-  dt <- append_and_remove_rvs_codes(dt, "clin_c2") # TODO SPEED THIS UP
+  dt <- append_and_remove_rvs_codes(dt, "clin_c1")
+  dt <- append_and_remove_rvs_codes(dt, "clin_c2")
   
   dt <- deduplicate_columns(dt, c("clin_c1","clin_c2","clin_icd","clin_rvs"))
   
