@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load Required Libraries
 
 ```{r library}
-library(tidyverse)
+# library(tidyverse)
 library(data.table)
 library(here)
 library(tictoc)
@@ -22,9 +22,9 @@ library(lubridate)
 library(docstring)
 library(profvis)
 library(hash)
-library(foreach)
-library(doParallel)
-library(parallel)
+# library(foreach)
+# library(doParallel)
+# library(parallel)
 library(future)
 library(future.apply)
 ```
