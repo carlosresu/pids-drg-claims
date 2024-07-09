@@ -412,7 +412,9 @@ if (to_write) {
 }
 ```
 
-## Export for Batch Grouper
+## Export
+
+### Export for Batch Grouper
 
 ```{r group}
 if (to_group) {

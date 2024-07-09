@@ -1,0 +1,117 @@
+---
+title: "Compare Python and R Outputs"
+author: "Carlos Resurreccion"
+date: "2024-07-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library}
+# library(tidyverse)
+library(data.table)
+library(here)
+library(tictoc)
+library(stringr)
+library(stringi)
+library(lubridate)
+library(docstring)
+library(profvis)
+library(hash)
+# library(foreach)
+# library(doParallel)
+# library(parallel)
+library(future)
+library(future.apply)
+```
+
+
+```{r parameters}
+year_to_load <- 2018
+to_sample <- TRUE
+version <- "v2"
+suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
+```
+
+```{r read python}
+pdt <- fread(here("git-ignored-files","intermediate-claims", paste0("python_output_", year_to_load,".csv")))
+
+rdt <- fread(here("git-ignored-files","intermediate-claims", paste0("output_", year_to_load, suffix, ".csv")))
+
+# Define a function to safely split strings
+safe_split <- function(x) {
+  if (is.na(x) || x == "") {
+    return(NA_character_)
+  } else {
+    result <- strsplit(as.character(x), "\\|")[[1]]
+    if (length(result) == 0 || all(result == "")) {
+      return(NA_character_)
+    } else {
+      return(result)
+    }
+  }
+}
+
+# Apply the safe_split function to the specified columns
+rdt[, clin_icd := lapply(clin_icd, safe_split)]
+rdt[, clin_rvs := lapply(clin_rvs, safe_split)]
+rdt[, icd9_list := lapply(icd9_list, safe_split)]
+rdt[, rvs_unmap_list := lapply(rvs_unmap_list, safe_split)]
+
+setnames(pdt, old = c("clin_sdx", "clin_proc", "xrvs_unmap", "clin_pdx", "clin_pdx_code"), 
+         new = c("clin_icd", "icd9_list", "rvs_unmap_list", "pdx", "pdx_code"))
+
+# Get column names of both data tables
+columns_rdt <- colnames(rdt)
+columns_pdt <- colnames(pdt)
+
+# Find common columns
+common_columns <- intersect(columns_rdt, columns_pdt)
+
+# Print common columns
+print(common_columns)
+
+# Find uncommon columns in rdt
+uncommon_in_rdt <- setdiff(columns_rdt, columns_pdt)
+
+# Find uncommon columns in pdt
+uncommon_in_pdt <- setdiff(columns_pdt, columns_rdt)
+
+# Print uncommon columns
+cat("Columns in rdt but not in pdt:\n")
+print(uncommon_in_rdt)
+
+cat("\nColumns in pdt but not in rdt:\n")
+print(uncommon_in_pdt)
+
+# Find common columns
+common_columns <- intersect(columns_rdt, columns_pdt)
+
+# Subset each data table to keep only common columns
+rdt <- rdt[, ..common_columns]
+pdt <- pdt[, ..common_columns]
+
+# Print the updated data tables to verify
+print(colnames(rdt))
+
+# Apply the conversion function to the specified columns
+pdt[, clin_icd := lapply(clin_icd, safe_split)]
+pdt[, icd9_list := lapply(icd9_list, safe_split)]
+pdt[, rvs_unmap_list := lapply(rvs_unmap_list, safe_split)]
+
+# Select the desired columns
+rdt <- rdt[, .(id_series, clin_icd, icd9_list, pdx, pdx_code)]
+pdt <- pdt[, .(id_series, clin_icd, icd9_list, pdx, pdx_code)]
+
+# Merge the data tables on id_series
+comparison <- merge(rdt, pdt, by = "id_series", all = TRUE, suffixes = c("_rdt", "_pdt"))
+
+# Identify rows where pdx or pdx_code differ
+differing_rows <- comparison[pdx_rdt != pdx_pdt | pdx_code_rdt != pdx_code_pdt, ]
+
+# Print differing rows
+print(differing_rows)
+
+```
