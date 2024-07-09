@@ -54,8 +54,8 @@ to_sample <- TRUE
 to_write <- FALSE
 to_group <- TRUE
 to_filter <- FALSE #unused
-to_profvis <- FALSE
-to_chunk <- TRUE
+to_profvis <- TRUE
+to_chunk <- FALSE
 
 na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
 na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
@@ -111,13 +111,13 @@ global_seed <- 123 #for parallelized operations
 ## Source Data Formats
 
 ```{r data formats and additional parameters}
-source(here("data-cleaning", "data-formats_v2.R"))
+source(here("data-cleaning", "data-formats.R"))
 ```
 
 ## Source Functions
 
 ```{r}
-source(here("data-cleaning", "functions_v2.R"))
+source(here("data-cleaning", "functions.R"))
 ```
 
 ## Load Mapping Data
@@ -294,12 +294,12 @@ if (!to_chunk){
   if (to_profvis) {
     profvis({
       tic("Total execution time:")
-      plan(multisession, workers = availableCores() - 1)
+      # plan(multisession, workers = availableCores() - 1)
       dt <- clean_data(dt)
     })
   } else {
     tic("Total execution time:")
-    plan(multisession, workers = availableCores() - 1)
+    # plan(multisession, workers = availableCores() - 1)
     dt <- clean_data(dt)
   }
 } 
