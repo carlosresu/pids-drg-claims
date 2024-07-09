@@ -79,7 +79,8 @@ path_to_chunks <- "git-ignored-files/chunked_samples"
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
 sampled_claims <- here(
   path_to_raw_claims, 
-  paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, paste0("_", sample_size), ".csv"))
+  paste0("sampled_claims_extract_CLAIMS_", year_to_load, 
+         suffix, paste0("_", sample_size), ".csv"))
 full_claims <- here(
   path_to_raw_claims, 
   paste0("claims_extract_CLAIMS_", year_to_load, ".csv"))
@@ -126,10 +127,12 @@ source(here("data-cleaning", "functions.R"))
 proc <- fread(here(path_to_excel, "proc.csv"))
 proc[, CODE := as.character(CODE)]
 
-rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"), select = c("rvs", "icd9cm"))
+rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"), 
+                  select = c("rvs", "icd9cm"))
 rvs_icd9[, rvs := as.character(rvs)]
 rvs_icd9[, icd9cm := as.character(icd9cm * 100)]
-rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)], by.x = "icd9cm", by.y = "CODE", all.x = TRUE)
+rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)], 
+                  by.x = "icd9cm", by.y = "CODE", all.x = TRUE)
 rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE]
 rvs_icd9 <- rvs_icd9[!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
 
@@ -144,7 +147,8 @@ setkey(tdrg_icd10, "CODE")
 # Subset and assign the result to acc_pdx
 acc_pdx <- tdrg_icd10[ACCPDX == "Y", CODE]
 
-# Optional: If you want to ensure uniqueness (if CODEs are not unique in tdrg_icd10)
+# Optional: If you want to ensure uniqueness 
+# (if CODEs are not unique in tdrg_icd10)
 acc_pdx <- unique(acc_pdx)
 ```
 
@@ -163,11 +167,13 @@ if (to_read) {
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
-        print(paste("Sampled file does not match sample size. Expected:", sample_size, "Found:", nrow(dt), "Re-sampling..."))
+        print(paste("Sampled file does not match sample size. Expected:", 
+                    sample_size, "Found:", nrow(dt), "Re-sampling..."))
         dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
-          print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
+          print(paste("to_write is TRUE. Writing the new sample data to file:", 
+                      sampled_claims))
           write_data(dt, sampled_claims)
         } else {
           print("to_write is FALSE. Not writing the sample data to file.")
@@ -179,7 +185,8 @@ if (to_read) {
       print("Sampled file does not exist. Creating new sample...")
       dt <- sample_data(dt)
       if (to_write) {
-        print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
+        print(paste("to_write is TRUE. Writing the new sample data to file:", 
+                    sampled_claims))
         write_data(dt, sampled_claims)
       } else {
         print("to_write is FALSE. Not writing the sample data to file.")
@@ -193,11 +200,13 @@ if (to_read) {
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
-        print(paste("Sampled file does not match sample size. Expected:", sample_size, "Found:", nrow(dt), "Re-sampling..."))
+        print(paste("Sampled file does not match sample size. Expected:", 
+                    sample_size, "Found:", nrow(dt), "Re-sampling..."))
         dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
-          print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
+          print(paste("to_write is TRUE. Writing the new sample data to file:", 
+                      sampled_claims))
           write_data(dt, sampled_claims)
         } else {
           print("to_write is FALSE. Not writing the sample data to file.")
@@ -206,11 +215,13 @@ if (to_read) {
         print("Sampled file matches sample size.")
       }
     } else {
-      print("Sampled file does not exist. Reading entire file and creating new sample...")
+      print("Sampled file does not exist.")
+      print("Reading entire file and creating new sample...")
       dt <- read_entire_file(drop_cols)
       dt <- sample_data(dt)
       if (to_write) {
-        print(paste("to_write is TRUE. Writing the new sample data to file:", sampled_claims))
+        print(paste("to_write is TRUE. Writing the new sample data to file:", 
+                    sampled_claims))
         write_data(dt, sampled_claims)
       } else {
         print("to_write is FALSE. Not writing the sample data to file.")
@@ -218,7 +229,8 @@ if (to_read) {
     }
   } else {
     if (!file.exists(intermediate_file)) {
-      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
+      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. 
+           At least one must be TRUE.")
     } else {
       print("Using existing intermediate file.")
     }
@@ -315,13 +327,15 @@ if (to_chunk){
       num_cores <- max(1, availableCores() - 1)
       
       chunk_size <- ceiling(nrow(dt) / num_cores)
-      chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+      chunks <- split(dt, rep(1:num_cores, each = chunk_size, 
+                              length.out = nrow(dt)))
       
       # Plan for parallel processing
       plan(multisession, workers = num_cores)
       
       # Process each chunk in parallel
-      processed_chunks <- future_lapply(chunks, process_chunk, future.seed = global_seed)
+      processed_chunks <- future_lapply(chunks, process_chunk, 
+                                        future.seed = global_seed)
       
       # Combine processed chunks
       dt <- rbindlist(processed_chunks)
@@ -333,13 +347,15 @@ if (to_chunk){
       num_cores <- max(1, availableCores() - 1)
     
       chunk_size <- ceiling(nrow(dt) / num_cores)
-      chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+      chunks <- split(dt, rep(1:num_cores, each = chunk_size, 
+                              length.out = nrow(dt)))
       
       # Plan for parallel processing
       plan(multisession, workers = num_cores)
       
       # Process each chunk in parallel
-      processed_chunks <- future_lapply(chunks, process_chunk, future.seed = global_seed)
+      processed_chunks <- future_lapply(chunks, process_chunk, 
+                                        future.seed = global_seed)
       
       # Combine processed chunks
       dt <- rbindlist(processed_chunks)
@@ -401,13 +417,17 @@ if (to_group) {
   if (to_profvis) {
     profvis({
       export_for_batch_grouper(dt, year_to_load, output_txt_file)
-      for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
-      batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
+      for_batch_grouping <- fread(output_txt_file, 
+                                  sep = "|", na.strings = "--")
+      batch_grouping_result <- fread(grouper_result_file, 
+                                     sep = "|", na.strings = "--")
     })
   } else {
       export_for_batch_grouper(dt, year_to_load, output_txt_file)
-      for_batch_grouping <- fread(output_txt_file, sep = "|", na.strings = "--")
-      batch_grouping_result <- fread(grouper_result_file, sep = "|", na.strings = "--")
+      for_batch_grouping <- fread(output_txt_file, 
+                                  sep = "|", na.strings = "--")
+      batch_grouping_result <- fread(grouper_result_file, 
+                                     sep = "|", na.strings = "--")
   }
 }
 ```
@@ -434,7 +454,10 @@ formatted_total_rows_dt <- format_large_numbers(total_rows_dt)
 formatted_total_rows <- format_large_numbers(total_rows)
 
 # Print the results with aligned decimal points and formatted row numbers
-cat(sprintf("Time spent (total) for %2s rows:  %1.2f sec  (actual)\n", formatted_total_rows_dt, total_time))
-cat(sprintf("Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n", formatted_total_rows_dt, time_per_row * 1000))
-cat(sprintf("Time spent (total) for  %2s rows: %2.2f min  (estimate)\n", formatted_total_rows, time_estimate_total_rows / 60))
+cat(sprintf("Time spent (total) for %2s rows:  %1.2f sec  (actual)\n", 
+            formatted_total_rows_dt, total_time))
+cat(sprintf("Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n", 
+            formatted_total_rows_dt, time_per_row * 1000))
+cat(sprintf("Time spent (total) for  %2s rows: %2.2f min  (estimate)\n", 
+            formatted_total_rows, time_estimate_total_rows / 60))
 ```
