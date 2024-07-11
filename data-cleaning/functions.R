@@ -24,23 +24,23 @@ sample_data <- function(dt) {
   return(dt)
 }
 
-write_data <- function(dt, path) {
-  #' @title Write Data Table to File
-  #' @description Writes a data.table to a specified path.
-  #' @param dt A data.table to write.
-  #' @param path The file path where the data.table should be written.
-  fwrite(dt, path)
-}
+#' write_data <- function(dt, path) {
+#'   #' @title Write Data Table to File
+#'   #' @description Writes a data.table to a specified path.
+#'   #' @param dt A data.table to write.
+#'   #' @param path The file path where the data.table should be written.
+#'   fwrite(dt, path)
+#' }
 
-add_year_column <- function(dt, year_to_load) {
-  #' @title Add Year Column to Data Table
-  #' @description Adds a year column to a data.table.
-  #' @param dt A data.table to modify.
-  #' @param year_to_load The year to add as a new column.
-  #' @return The modified data.table with the added year column.
-  dt[, SRC_YR := as.integer(year_to_load)]
-  return(dt)
-}
+#' add_year_column <- function(dt, year_to_load) {
+#'   #' @title Add Year Column to Data Table
+#'   #' @description Adds a year column to a data.table.
+#'   #' @param dt A data.table to modify.
+#'   #' @param year_to_load The year to add as a new column.
+#'   #' @return The modified data.table with the added year column.
+#'   dt[, SRC_YR := as.integer(year_to_load)]
+#'   return(dt)
+#' }
 
 rename_columns <- function(dt) {
   #' @title Rename Columns in Data Table
@@ -51,14 +51,84 @@ rename_columns <- function(dt) {
   return(dt)
 }
 
-clean_columns <- function(dt) {
-  #' @title Clean Columns in a Data Table
-  #' @description Cleans columns in a data.table by converting to UTF-8, removing spaces, and setting NA values.
-  #' @param dt A data.table to clean.
-  #' @return The cleaned data.table.
-  #' 
+#' clean_columns <- function(dt) {
+#'   #' @title Clean Columns in a Data Table
+#'   #' @description Cleans columns in a data.table by converting to UTF-8, removing spaces, and setting NA values.
+#'   #' @param dt A data.table to clean.
+#'   #' @return The cleaned data.table.
+#'   #' 
+#'   #' @details
+#'   #' This function performs the following operations on each column in the data.table:
+#'   #' - Converts text to UTF-8 encoding.
+#'   #' - Converts text to uppercase.
+#'   #' - Removes spaces and newlines.
+#'   #' - Removes non-alphanumeric characters, except for slashes and spaces.
+#'   #' - Trims leading and trailing whitespace.
+#'   #' - Sets values in `na_like_strings` to `NA_character_`.
+#'   #'
+#'   #' @examples
+#'   #' library(data.table)
+#'   #' dt <- data.table(column1 = c("text with spaces", "text/with/symbols!"),
+#'   #'                  column2 = c("    trim   ", "Na-like-value"))
+#'   #' na_like_strings <- c("Na-like-value") # Define na_like_strings before calling the function
+#'   #' cleaned_dt <- clean_columns(dt)
+#'   #' print(cleaned_dt)
+#'   
+#'   # Ensure the input is a data.table
+#'   if (!is.data.table(dt)) {
+#'     dt <- as.data.table(dt)
+#'   }
+#'   
+#'   # Convert all columns to character type
+#'   dt[] <- lapply(dt, as.character)
+#'   
+#'   # Apply cleaning operations to each column
+#'   dt[] <- lapply(dt, function(col) {
+#'     col <- iconv(col, to = "UTF-8", sub = "byte")
+#'     col <- toupper(col)
+#'     col <- stri_replace_all_regex(col, "[ \n]", "")
+#'     col <- stri_replace_all_regex(col, "[^\\w\\d\\/\\s]+", "")
+#'     col <- stri_trim_both(col)
+#'     col <- ifelse(col %in% na_like_strings, NA_character_, col)
+#'     return(col)
+#'   })
+#'   
+#'   return(dt)
+#' }
+#' 
+#' 
+#' clean_columns_in_dt <- function(dt, cols_to_clean) {
+#'   #' @title Clean Specified Columns in Data Table
+#'   #' @description Cleans specified columns in a data.table.
+#'   #' @param dt A data.table to clean.
+#'   #' @param cols_to_clean A vector of column names to clean.
+#'   #' @return The cleaned data.table.
+#'   #'
+#'   #' @details
+#'   #' This function uses the `clean_columns` function to clean specified columns in the data.table.
+#'   #' It applies the cleaning operations such as converting to UTF-8, removing spaces, and setting NA values.
+#'   #'
+#'   #' @examples
+#'   #' library(data.table)
+#'   #' dt <- data.table(column1 = c("text with spaces", "text/with/symbols!"),
+#'   #'                  column2 = c("    trim   ", "Na-like-value"))
+#'   #' cols_to_clean <- c("column1", "column2")
+#'   #' cleaned_dt <- clean_columns_in_dt(dt, cols_to_clean)
+#'   #' print(cleaned_dt)
+#'   
+#'   dt[, (cols_to_clean) := clean_columns(.SD), .SDcols = cols_to_clean]
+#'   return(dt)
+#' }
+
+clean_column <- function(column_to_clean, na_like_strings) {
+  #' @title Clean a Specified Column
+  #' @description Cleans a specified column by converting to UTF-8, removing spaces, and setting NA values.
+  #' @param column_to_clean A character vector representing the column to clean.
+  #' @param na_like_strings A vector of strings to be treated as NA values.
+  #' @return The cleaned column as a character vector.
+  #'
   #' @details
-  #' This function performs the following operations on each column in the data.table:
+  #' This function performs the following operations on the specified column:
   #' - Converts text to UTF-8 encoding.
   #' - Converts text to uppercase.
   #' - Removes spaces and newlines.
@@ -67,170 +137,187 @@ clean_columns <- function(dt) {
   #' - Sets values in `na_like_strings` to `NA_character_`.
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(column1 = c("text with spaces", "text/with/symbols!"),
-  #'                  column2 = c("    trim   ", "Na-like-value"))
-  #' na_like_strings <- c("Na-like-value") # Define na_like_strings before calling the function
-  #' cleaned_dt <- clean_columns(dt)
-  #' print(cleaned_dt)
+  #' column_to_clean <- c("text with spaces", "text/with/symbols!", "    trim   ", "Na-like-value")
+  #' na_like_strings <- c("Na-like-value")
+  #' cleaned_column <- clean_column(column_to_clean, na_like_strings)
+  #' print(cleaned_column)
   
-  # Ensure the input is a data.table
-  if (!is.data.table(dt)) {
-    dt <- as.data.table(dt)
-  }
+  # Ensure the input is a character vector
+  column_to_clean <- as.character(column_to_clean)
   
-  # Convert all columns to character type
-  dt[] <- lapply(dt, as.character)
+  # Apply cleaning operations to the specified column
+  cleaned_col <- iconv(column_to_clean, to = "UTF-8", sub = "byte")
+  cleaned_col <- toupper(cleaned_col)
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[ \n]", "")
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d\\/\\s]+", "")
+  cleaned_col <- stri_trim_both(cleaned_col)
+  cleaned_col <- ifelse(cleaned_col %in% na_like_strings, NA_character_, cleaned_col)
   
-  # Apply cleaning operations to each column
-  dt[] <- lapply(dt, function(col) {
-    col <- iconv(col, to = "UTF-8", sub = "byte")
-    col <- toupper(col)
-    col <- stri_replace_all_regex(col, "[ \n]", "")
-    col <- stri_replace_all_regex(col, "[^\\w\\d\\/\\s]+", "")
-    col <- stri_trim_both(col)
-    col <- ifelse(col %in% na_like_strings, NA_character_, col)
-    return(col)
-  })
-  
-  return(dt)
+  return(cleaned_col)
 }
 
+#' process_and_collapse_columns <- function(dt, cols_to_process, new_col_name) {
+#'   #' @title Process and Collapse Columns in Data Table
+#'   #' @description Processes and collapses specified columns in a data.table into a new column.
+#'   #' @param dt A data.table to process.
+#'   #' @param cols_to_process A vector of column names to process.
+#'   #' @param new_col_name The name of the new column to create.
+#'   #' @return The modified data.table with the new collapsed column.
+#'   #'
+#'   #' @details
+#'   #' This function performs the following operations:
+#'   #' - Cleans the specified columns using `clean_columns`.
+#'   #' - Collapses the cleaned columns into a single new column, separated by "||".
+#'   #' - Removes any "||NA" and "NA||" patterns from the new column.
+#'   #' - Removes trailing "||" from the new column.
+#'   #' - Sets values in the new column that match `na_like_strings` to `NA_character_`.
+#'   #' - Removes the original columns that were processed.
+#'   #'
+#'   #' @examples
+#'   #' library(data.table)
+#'   #' dt <- data.table(column1 = c("A", "B"), column2 = c("1", "2"))
+#'   #' cols_to_process <- c("column1", "column2")
+#'   #' new_col_name <- "collapsed_column"
+#'   #' processed_dt <- process_and_collapse_columns(dt, cols_to_process, new_col_name)
+#'   #' print(processed_dt)
+#'   
+#'   dt[, (cols_to_process) := clean_columns(.SD), .SDcols = cols_to_process]
+#'   dt[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
+#'   dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "\\|\\|NA", "")]
+#'   dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "NA\\|\\|", "")]
+#'   dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "\\|\\|$", "")]
+#'   dt[, (new_col_name) := ifelse(get(new_col_name) %in% na_like_strings, NA_character_, get(new_col_name))]
+#'   dt[, (cols_to_process) := NULL]
+#'   return(dt)
+#' }
 
-clean_columns_in_dt <- function(dt, cols_to_clean) {
-  #' @title Clean Specified Columns in Data Table
-  #' @description Cleans specified columns in a data.table.
-  #' @param dt A data.table to clean.
-  #' @param cols_to_clean A vector of column names to clean.
-  #' @return The cleaned data.table.
-  #'
-  #' @details
-  #' This function uses the `clean_columns` function to clean specified columns in the data.table.
-  #' It applies the cleaning operations such as converting to UTF-8, removing spaces, and setting NA values.
-  #'
-  #' @examples
-  #' library(data.table)
-  #' dt <- data.table(column1 = c("text with spaces", "text/with/symbols!"),
-  #'                  column2 = c("    trim   ", "Na-like-value"))
-  #' cols_to_clean <- c("column1", "column2")
-  #' cleaned_dt <- clean_columns_in_dt(dt, cols_to_clean)
-  #' print(cleaned_dt)
-  
-  dt[, (cols_to_clean) := clean_columns(.SD), .SDcols = cols_to_clean]
-  return(dt)
-}
-
-process_and_collapse_columns <- function(dt, cols_to_process, new_col_name) {
-  #' @title Process and Collapse Columns in Data Table
-  #' @description Processes and collapses specified columns in a data.table into a new column.
-  #' @param dt A data.table to process.
-  #' @param cols_to_process A vector of column names to process.
-  #' @param new_col_name The name of the new column to create.
-  #' @return The modified data.table with the new collapsed column.
+collapse_columns <- function(cols_to_process, na_like_strings) {
+  #' @title Collapse Columns
+  #' @description Collapses specified columns into a new column.
+  #' @param cols_to_process A list of character vectors representing the columns to process.
+  #' @param na_like_strings A vector of strings to be treated as NA values.
+  #' @return The new collapsed column as a character vector.
   #'
   #' @details
   #' This function performs the following operations:
-  #' - Cleans the specified columns using `clean_columns`.
+  #' - Cleans the specified columns using `clean_column`.
   #' - Collapses the cleaned columns into a single new column, separated by "||".
   #' - Removes any "||NA" and "NA||" patterns from the new column.
   #' - Removes trailing "||" from the new column.
   #' - Sets values in the new column that match `na_like_strings` to `NA_character_`.
-  #' - Removes the original columns that were processed.
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(column1 = c("A", "B"), column2 = c("1", "2"))
-  #' cols_to_process <- c("column1", "column2")
-  #' new_col_name <- "collapsed_column"
-  #' processed_dt <- process_and_collapse_columns(dt, cols_to_process, new_col_name)
-  #' print(processed_dt)
+  #' cols_to_process <- list(c("A", "B"), c("1", "2"))
+  #' na_like_strings <- c("NA", "N/A")
+  #' collapsed_column <- process_and_collapse_columns(cols_to_process, na_like_strings)
+  #' print(collapsed_column)
   
-  dt[, (cols_to_process) := clean_columns(.SD), .SDcols = cols_to_process]
-  dt[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
-  dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "\\|\\|NA", "")]
-  dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "NA\\|\\|", "")]
-  dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "\\|\\|$", "")]
-  dt[, (new_col_name) := ifelse(get(new_col_name) %in% na_like_strings, NA_character_, get(new_col_name))]
-  dt[, (cols_to_process) := NULL]
-  return(dt)
+  # Clean each column in cols_to_process
+  cleaned_columns <- lapply(cols_to_process, function(col) clean_column(col, na_like_strings))
+  
+  # Collapse the cleaned columns into a single new column
+  collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
+  collapsed_column <- ifelse(collapsed_column %in% na_like_strings, NA_character_, collapsed_column)
+  
+  return(collapsed_column)
 }
 
-
-find_lumped_codes <- function(codes) {
-  #' @title Identify Lumped Codes in a Vector
-  #' @description Identifies lumped codes in a vector of codes.
-  #' @param codes A vector of codes to check.
-  #' @return A logical vector indicating which codes are lumped.
-  #'
-  #' @details
-  #' This function checks each code in the vector to see if it meets the criteria for being considered "lumped":
-  #' - The code has more than 4 characters.
-  #' - The code contains more than one alphabetic character.
-  #' - The code contains more than one numeric character.
-  #'
-  #' @examples
-  #' codes <- c("A12", "B1234", "C12D3", NA, "ABCDE")
-  #' lumped <- find_lumped_codes(codes)
-  #' print(lumped)  # Should print logical vector indicating lumped codes
-  
-  sapply(codes, function(code) {
-    if (is.na(code)) {
-      return(FALSE)
-    }
-    nchar(code) > 4 &&
-      str_count(code, "[A-Za-z]") > 1 &&
-      str_count(code, "[0-9]") > 1
-  })
-}
-
-
-replace_NA_as_char <- function(result) {
-  #' @title Replace "NA" Strings with NA Values
-  #' @description Replaces "NA" strings and empty strings with NA values in a vector.
-  #' @param result A vector to process.
-  #' @return The modified vector with "NA" strings and empty strings replaced by NA values.
-  #'
-  #' @details
-  #' This function processes a given vector and replaces all occurrences of the string "NA" and empty strings with actual NA values.
-  #'
-  #' @examples
-  #' result <- c("A", "NA", "", "B", "C")
-  #' modified_result <- replace_NA_as_char(result)
-  #' print(modified_result)  # Should print c("A", NA, NA, "B", "C")
-  
-  result[result == "NA" | result == ""] <- NA_character_
-  return(result)
-}
+#' find_lumped_codes <- function(codes) {
+#'   #' @title Identify Lumped Codes in a Vector
+#'   #' @description Identifies lumped codes in a vector of codes.
+#'   #' @param codes A vector of codes to check.
+#'   #' @return A logical vector indicating which codes are lumped.
+#'   #'
+#'   #' @details
+#'   #' This function checks each code in the vector to see if it meets the criteria for being considered "lumped":
+#'   #' - The code has more than 4 characters.
+#'   #' - The code contains more than one alphabetic character.
+#'   #' - The code contains more than one numeric character.
+#'   #'
+#'   #' @examples
+#'   #' codes <- c("A12", "B1234", "C12D3", NA, "ABCDE")
+#'   #' lumped <- find_lumped_codes(codes)
+#'   #' print(lumped)  # Should print logical vector indicating lumped codes
+#'   
+#'   sapply(codes, function(code) {
+#'     if (is.na(code)) {
+#'       return(FALSE)
+#'     }
+#'     nchar(code) > 4 &&
+#'       str_count(code, "[A-Za-z]") > 1 &&
+#'       str_count(code, "[0-9]") > 1
+#'   })
+#' }
 
 
-remove_lumped_icd_codes <- function(dt, column) {
+#' replace_NA_as_char <- function(result) {
+#'   #' @title Replace "NA" Strings with NA Values
+#'   #' @description Replaces "NA" strings and empty strings with NA values in a vector.
+#'   #' @param result A vector to process.
+#'   #' @return The modified vector with "NA" strings and empty strings replaced by NA values.
+#'   #'
+#'   #' @details
+#'   #' This function processes a given vector and replaces all occurrences of the string "NA" and empty strings with actual NA values.
+#'   #'
+#'   #' @examples
+#'   #' result <- c("A", "NA", "", "B", "C")
+#'   #' modified_result <- replace_NA_as_char(result)
+#'   #' print(modified_result)  # Should print c("A", NA, NA, "B", "C")
+#'   
+#'   result[result == "NA" | result == ""] <- NA_character_
+#'   return(result)
+#' }
+
+
+#' remove_lumped_icd_codes <- function(dt, column) {
+#'   #' @title Remove Lumped ICD Codes
+#'   #' @description Removes lumped ICD codes from a specified column in a data.table.
+#'   #' @param dt A data.table to process.
+#'   #' @param column The name of the column to process.
+#'   #' @return The modified data.table with lumped ICD codes removed.
+#'   #'
+#'   #' @details
+#'   #' This function processes the specified column in the data.table to remove lumped ICD codes by adding "||" between numeric and alphabetic characters.
+#'   #'
+#'   #' @examples
+#'   #' library(data.table)
+#'   #' dt <- data.table(icd_codes = c("A1234B123", "C568D1234", "E901F117"))
+#'   #' dt <- remove_lumped_icd_codes(dt, "icd_codes")
+#'   #' print(dt)  # Should print modified ICD codes with "||" inserted
+#'   
+#'   dt[, (column) := gsub("(?<=\\d)(?=[A-Za-z])", "||", get(column), perl = TRUE)]
+#'   return(dt)
+#' }
+
+remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
-  #' @description Removes lumped ICD codes from a specified column in a data.table.
-  #' @param dt A data.table to process.
-  #' @param column The name of the column to process.
-  #' @return The modified data.table with lumped ICD codes removed.
+  #' @description Removes lumped ICD codes from a specified column.
+  #' @param column A character vector representing the column to process.
+  #' @return The modified column with lumped ICD codes removed.
   #'
   #' @details
-  #' This function processes the specified column in the data.table to remove lumped ICD codes by adding "||" between numeric and alphabetic characters.
+  #' This function processes the specified column to remove lumped ICD codes by adding "||" between numeric and alphabetic characters.
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(icd_codes = c("A1234B123", "C568D1234", "E901F117"))
-  #' dt <- remove_lumped_icd_codes(dt, "icd_codes")
-  #' print(dt)  # Should print modified ICD codes with "||" inserted
+  #' icd_codes <- c("A1234B123", "C568D1234", "E901F117")
+  #' modified_icd_codes <- remove_lumped_icd_codes(icd_codes)
+  #' print(modified_icd_codes)  # Should print modified ICD codes with "||" inserted
   
-  dt[, (column) := gsub("(?<=\\d)(?=[A-Za-z])", "||", get(column), perl = TRUE)]
-  return(dt)
+  modified_column <- gsub("(?<=\\d)(?=[A-Za-z])", "||", column, perl = TRUE)
+  return(modified_column)
 }
 
 replace_empty_with_na <- function(dt) {
   #' @title Replace Empty Strings with NA
-  #' @description Replaces empty strings with NA values in character and factor columns of a data.table.
+  #' @description Replaces empty strings, "NA" strings, and "character(0)" with NA values in character, factor, and list columns of a data.table.
   #' @param dt A data.table to process.
-  #' @return The modified data.table with empty strings replaced by NA values.
+  #' @return The modified data.table with empty strings, "NA" strings, and "character(0)" replaced by NA values.
   #'
   #' @details
-  #' This function processes all character, factor, and list columns in the data.table, replacing empty strings and "NA" strings with actual NA values.
+  #' This function processes all character, factor, and list columns in the data.table, replacing empty strings, "NA" strings, and "character(0)" with actual NA values.
   #'
   #' @examples
   #' library(data.table)
@@ -240,7 +327,7 @@ replace_empty_with_na <- function(dt) {
   
   char_factor_cols <- names(dt)[sapply(dt, function(col) is.character(col) || is.factor(col) || is.list(col))]
   dt[, (char_factor_cols) := lapply(.SD, function(x) {
-    x[x == "" | x == "NA"] <- NA_character_
+    x[x == "" | x == "NA" | x == "character(0)"] <- NA_character_
     if (is.factor(x)) {
       levels(x) <- c(levels(x), NA)
     }
@@ -273,105 +360,96 @@ split_to_vector <- function(column) {
   return(result)
 }
 
-process_icd10_codes <- function(dt, col) {
-  #' @title Process ICD-10 Codes
-  #' @description Processes ICD-10 codes in a specified column of a data.table.
-  #' @param dt A data.table to process.
-  #' @param col The name of the column to process.
-  #' @return The modified data.table with processed ICD-10 codes.
+transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
+  #' @title Transfer Extra ICD-10 Codes to clin_icd
+  #' @description Transfers Extra ICD-10 codes in a specified column of a data.table to the appropriate list column.
+  #' @param clin_icd A list of character vectors representing the clin_icd column.
+  #' @param col A list of character vectors representing the column to process.
+  #' @return A list containing the modified clin_icd and the first elements of col.
   #'
   #' @details
-  #' This function processes the specified column in the data.table by performing the following operations:
+  #' This function processes the specified column by performing the following operations:
   #' - Ensures the column is a list of characters.
   #' - For rows with more than one element, splits and assigns the first element to the specified column.
-  #' - If the column is "clin_c1" or "clin_c2", assigns the first element to the corresponding column.
-  #' - Removes the temporary column used during processing.
+  #' - Returns the modified clin_icd and the first elements of col.
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(clin_icd = list(c("A123", "B456"), c("C789", "D012")), clin_c1 = list(c("X1", "Y2"), c("Z3", "W4")))
-  #' dt <- process_icd10_codes(dt, "clin_c1")
-  #' print(dt)  # Should print modified data.table with processed ICD-10 codes
+  #' clin_icd <- list(c("A123", "B456"), c("C789", "D012"))
+  #' col <- list(c("X1", "Y2"), c("Z3", "W4"))
+  #' result <- transfer_extra_icd10s_to_clin_icd(clin_icd, col)
+  #' print(result$clin_icd)  # Should print modified clin_icd
+  #' print(result$col_first)  # Should print the first elements of col
   
-  dt[, clin_icd := lapply(clin_icd, function(x) if (is.null(x)) character() else x)]
-  dt[lengths(get(col)) > 1, `:=` (
-    clin_icd = mapply(function(icd, c1) c(icd, c1[-1]), clin_icd, get(col), SIMPLIFY = FALSE),
-    tmp_col = lapply(get(col), function(x) x[1])
-  )]
-  if (col == "clin_c1") {
-    dt[tmp_col != "NULL", clin_c1 := tmp_col]
-  } else if (col == "clin_c2") {
-    dt[tmp_col != "NULL", clin_c2 := tmp_col]
-  }
-  dt[, tmp_col := NULL]
-  return(dt)
+  clin_icd <- lapply(clin_icd, function(x) if (is.null(x)) character() else x)
+  col_first <- lapply(col, function(x) x[1])
+  
+  clin_icd <- mapply(function(icd, c1) c(icd, c1[-1]), clin_icd, col, SIMPLIFY = FALSE)
+  
+  return(list(clin_icd = clin_icd, col_first = col_first))
 }
 
 
-process_patient_type <- function(dt) {
-  #' @title Process Patient Type
-  #' @description Processes patient type in a data.table.
-  #' @param dt A data.table to process.
-  #' @return The modified data.table with processed patient type.
+remap_patient_type <- function(pat_type) {
+  #' @title Remap Patient Type
+  #' @description Remaps patient type.
+  #' @param pat_type A character vector representing the patient type column.
+  #' @return The remapped patient type column.
   #'
   #' @details
-  #' This function processes the `pat_type` column in the data.table by mapping:
+  #' This function remaps the `pat_type` column by mapping:
   #' - "MEMBER" to "MEM"
   #' - "DEPENDENT" to "DEP"
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(pat_type = c("MEMBER", "DEPENDENT", "OTHER"))
-  #' dt <- process_patient_type(dt)
-  #' print(dt)  # Should print modified data.table with processed patient type
+  #' pat_type <- c("MEMBER", "DEPENDENT", "OTHER")
+  #' remapped_pat_type <- remap_patient_type(pat_type)
+  #' print(remapped_pat_type)  # Should print remapped patient type
   
-  dt[, pat_type := fcase(
+  remapped_pat_type <- fcase(
     pat_type == "MEMBER", "MEM",
     pat_type == "DEPENDENT", "DEP"
-  )]
-  return(dt)
+  )
+  return(remapped_pat_type)
 }
 
-process_memcat_parent_desc <- function(dt) {
-  #' @title Process Member Category Parent Description
-  #' @description Processes member category parent description in a data.table.
-  #' @param dt A data.table to process.
-  #' @return The modified data.table with processed member category parent description.
+remap_memcat_parent_desc <- function(pat_memcat_parent) {
+  #' @title Remap Member Category Parent Description
+  #' @description Remaps member category parent description.
+  #' @param pat_memcat_parent A character vector representing the member category parent description column.
+  #' @return The remapped member category parent description column.
   #'
   #' @details
-  #' This function processes the `pat_memcat_parent` column in the data.table by mapping:
+  #' This function remaps the `pat_memcat_parent` column by mapping:
   #' - "DIRECT CONTRIBUTOR" to "DIRECT"
   #' - "INDIRECT CONTRIBUTOR" to "INDIRECT"
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(pat_memcat_parent = c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR", "OTHER"))
-  #' dt <- process_memcat_parent_desc(dt)
-  #' print(dt)  # Should print modified data.table with processed member category parent description
+  #' pat_memcat_parent <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR", "OTHER")
+  #' remapped_memcat_parent <- remap_memcat_parent_desc(pat_memcat_parent)
+  #' print(remapped_memcat_parent)  # Should print remapped member category parent description
   
-  dt[, pat_memcat_parent := fcase(
+  remapped_memcat_parent <- fcase(
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
     pat_memcat_parent == "INDIRECT CONTRIBUTOR", "INDIRECT"
-  )]
-  return(dt)
+  )
+  return(remapped_memcat_parent)
 }
 
-process_memcat_child_desc <- function(dt) {
-  #' @title Process Member Category Child Description
-  #' @description Processes member category child description in a data.table.
-  #' @param dt A data.table to process.
-  #' @return The modified data.table with processed member category child description.
+remap_memcat_child_desc <- function(pat_memcat_child) {
+  #' @title Remap Member Category Child Description
+  #' @description Remaps member category child description.
+  #' @param pat_memcat_child A character vector representing the member category child description column.
+  #' @return The remapped member category child description column.
   #'
   #' @details
-  #' This function processes the `pat_memcat_child` column in the data.table by mapping various descriptions to their corresponding codes.
+  #' This function remaps the `pat_memcat_child` column by mapping various descriptions to their corresponding codes.
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(pat_memcat_child = c("EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "OTHER"))
-  #' dt <- process_memcat_child_desc(dt)
-  #' print(dt)  # Should print modified data.table with processed member category child description
+  #' pat_memcat_child <- c("EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "OTHER")
+  #' remapped_memcat_child <- remap_memcat_child_desc(pat_memcat_child)
+  #' print(remapped_memcat_child)  # Should print remapped member category child description
   
-  dt[, pat_memcat_child := fcase(
+  remapped_memcat_child <- fcase(
     pat_memcat_child == "EMPLOYED PRIVATE", "FORMAL",
     pat_memcat_child == "SELF-EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "SENIOR CITIZEN", "SENIOR",
@@ -386,18 +464,19 @@ process_memcat_child_desc <- function(dt) {
     pat_memcat_child == "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD", "INFORMAL",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL"
-  )]
-  return(dt)
+  )
+  return(remapped_memcat_child)
 }
 
-process_disposition <- function(dt) {
-  #' @title Process Clinical Discharge Disposition
-  #' @description Processes clinical discharge disposition in a data.table.
-  #' @param dt A data.table to process.
-  #' @return The modified data.table with processed clinical discharge disposition.
+
+remap_disposition <- function(clin_discharge) {
+  #' @title Remap Clinical Discharge Disposition
+  #' @description Remaps clinical discharge disposition.
+  #' @param clin_discharge A character vector representing the clinical discharge disposition column.
+  #' @return The remapped clinical discharge disposition column.
   #'
   #' @details
-  #' This function processes the `clin_discharge` column in the data.table by mapping various descriptions to their corresponding integer codes:
+  #' This function remaps the `clin_discharge` column by mapping various descriptions to their corresponding integer codes:
   #' - "IMPROVED" and "RECOVERED" to 1
   #' - "HOME/DISCHARGED AGAINST MEDICAL ADVICE" to 2
   #' - "ABSCONDED" to 3
@@ -406,12 +485,11 @@ process_disposition <- function(dt) {
   #' - "UNDEFINED" to NA
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(clin_discharge = c("IMPROVED", "RECOVERED", "EXPIRED", "OTHER"))
-  #' dt <- process_disposition(dt)
-  #' print(dt)  # Should print modified data.table with processed clinical discharge disposition
+  #' clin_discharge <- c("IMPROVED", "RECOVERED", "EXPIRED", "OTHER")
+  #' remapped_discharge <- remap_disposition(clin_discharge)
+  #' print(remapped_discharge)  # Should print remapped clinical discharge disposition
   
-  dt[, clin_discharge := fcase(
+  remapped_discharge <- fcase(
     clin_discharge == "IMPROVED", 1L,
     clin_discharge == "RECOVERED", 1L,
     clin_discharge == "HOME/DISCHARGED AGAINST MEDICAL ADVICE", 2L,
@@ -419,8 +497,8 @@ process_disposition <- function(dt) {
     clin_discharge == "TRANSFERRED/REFERRED", 4L,
     clin_discharge == "EXPIRED", 9L,
     clin_discharge == "UNDEFINED", NA_integer_
-  )]
-  return(dt)
+  )
+  return(remapped_discharge)
 }
 
 # Helper function to split RVS codes into with and without DRG
@@ -704,90 +782,175 @@ process_icd10_mapping <- function(dt) {
 }
 
 
-# Helper function to initialize clin_rvs column
-initialize_clin_rvs <- function(dt) {
-  #' @title Initialize clin_rvs Column
-  #' @description Ensures the clin_rvs column in the data.table is a list of characters.
-  #' @param dt A data.table to process.
-  #' @return The modified data.table with initialized clin_rvs column.
-  dt[, clin_rvs := lapply(clin_rvs, function(x) if (is.null(x)) character() else x)]
-  return(dt)
+#' # Helper function to initialize clin_rvs column
+#' initialize_clin_rvs <- function(dt) {
+#'   #' @title Initialize clin_rvs Column
+#'   #' @description Ensures the clin_rvs column in the data.table is a list of characters.
+#'   #' @param dt A data.table to process.
+#'   #' @return The modified data.table with initialized clin_rvs column.
+#'   dt[, clin_rvs := lapply(clin_rvs, function(x) if (is.null(x)) character() else x)]
+#'   return(dt)
+#' }
+
+#' # Helper function to find and append 5-digit numeric codes
+#' find_and_append_codes <- function(rvs, col_value, regex_5_digit) {
+#'   #' @title Find and Append 5-Digit Codes
+#'   #' @description Finds and appends 5-digit numeric codes from the column value to the rvs list.
+#'   #' @param rvs A list of existing RVS codes.
+#'   #' @param col_value The value from the specified column.
+#'   #' @param regex_5_digit The regular expression to match 5-digit numeric codes.
+#'   #' @return The modified list of RVS codes with 5-digit codes appended.
+#'   matches <- unlist(regmatches(col_value, gregexpr(regex_5_digit, col_value)))
+#'   if (length(matches) > 0) {
+#'     rvs <- c(rvs, matches)
+#'   }
+#'   return(rvs)
+#' }
+#' 
+#' # Helper function to remove 5-digit numeric codes from a column value
+#' remove_5_digit_codes <- function(col_value, regex_5_digit) {
+#'   #' @title Remove 5-Digit Codes
+#'   #' @description Removes 5-digit numeric codes from the column value.
+#'   #' @param col_value The value from the specified column.
+#'   #' @param regex_5_digit The regular expression to match 5-digit numeric codes.
+#'   #' @return The modified column value with 5-digit codes removed.
+#'   gsub(regex_5_digit, "", col_value)
+#' }
+
+# Helper function to find and append 5-digit codes
+find_and_append_codes <- function(clin_rvs, col, regex_5_digit) {
+  codes_to_append <- regmatches(col, gregexpr(regex_5_digit, col))[[1]]
+  clin_rvs <- c(clin_rvs, codes_to_append)
+  return(clin_rvs)
 }
 
-# Helper function to find and append 5-digit numeric codes
-find_and_append_codes <- function(rvs, col_value, regex_5_digit) {
-  #' @title Find and Append 5-Digit Codes
-  #' @description Finds and appends 5-digit numeric codes from the column value to the rvs list.
-  #' @param rvs A list of existing RVS codes.
-  #' @param col_value The value from the specified column.
-  #' @param regex_5_digit The regular expression to match 5-digit numeric codes.
-  #' @return The modified list of RVS codes with 5-digit codes appended.
-  matches <- unlist(regmatches(col_value, gregexpr(regex_5_digit, col_value)))
-  if (length(matches) > 0) {
-    rvs <- c(rvs, matches)
-  }
-  return(rvs)
+# Helper function to remove 5-digit codes
+remove_5_digit_codes <- function(col, regex_5_digit) {
+  col <- gsub(regex_5_digit, "", col)
+  return(col)
 }
 
-# Helper function to remove 5-digit numeric codes from a column value
-remove_5_digit_codes <- function(col_value, regex_5_digit) {
-  #' @title Remove 5-Digit Codes
-  #' @description Removes 5-digit numeric codes from the column value.
-  #' @param col_value The value from the specified column.
-  #' @param regex_5_digit The regular expression to match 5-digit numeric codes.
-  #' @return The modified column value with 5-digit codes removed.
-  gsub(regex_5_digit, "", col_value)
-}
+#' # Main function to append and remove 5-digit numeric codes
+#' append_and_remove_rvs <- function(dt, col) {
+#'   #' @title Append and Remove 5-Digit Codes (i.e. 5-digit RVS procedure codes)
+#'   #' @description Appends and removes 5-digit numeric codes (i.e. 5-digit RVS procedure codes) from a specified column in a data.table.
+#'   #' @param dt A data.table to process.
+#'   #' @param col The name of the column to process.
+#'   #' @return The modified data.table with 5-digit numeric codes appended and removed.
+#'   
+#'   # Initialize clin_rvs column
+#'   # dt <- initialize_clin_rvs(dt)  # unwrapped/deprecated function
+#'   dt[, clin_rvs := lapply(clin_rvs, function(x) if (is.null(x)) character() else x)]
+#'   
+#'   # Regular expression to match 5-digit numeric codes
+#'   regex_5_digit <- "\\b\\d{5}\\b" 
+#'   
+#'   # Append and remove 5-digit numeric codes
+#'   dt[, `:=` (
+#'     clin_rvs = mapply(find_and_append_codes, clin_rvs, get(col), MoreArgs = list(regex_5_digit = regex_5_digit), SIMPLIFY = FALSE),
+#'     tmp_col = lapply(get(col), remove_5_digit_codes, regex_5_digit = regex_5_digit)
+#'   )]
+#'   
+#'   # Update the specified column and remove the temporary column
+#'   dt[, (col) := tmp_col]
+#'   dt[, tmp_col := NULL]
+#'   
+#'   return(dt)
+#' }
 
-# Main function to append and remove 5-digit numeric codes
-append_and_remove_rvs_codes <- function(dt, col) {
+append_and_remove_rvs <- function(clin_rvs, col) {
   #' @title Append and Remove 5-Digit Codes
-  #' @description Appends and removes 5-digit numeric codes from a specified column in a data.table.
-  #' @param dt A data.table to process.
-  #' @param col The name of the column to process.
-  #' @return The modified data.table with 5-digit numeric codes appended and removed.
-  
-  # Initialize clin_rvs column
-  dt <- initialize_clin_rvs(dt)
-  
-  # Regular expression to match 5-digit numeric codes
-  regex_5_digit <- "\\b\\d{5}\\b"
-  
-  # Append and remove 5-digit numeric codes
-  dt[, `:=` (
-    clin_rvs = mapply(find_and_append_codes, clin_rvs, get(col), MoreArgs = list(regex_5_digit = regex_5_digit), SIMPLIFY = FALSE),
-    tmp_col = lapply(get(col), remove_5_digit_codes, regex_5_digit = regex_5_digit)
-  )]
-  
-  # Update the specified column and remove the temporary column
-  dt[, (col) := tmp_col]
-  dt[, tmp_col := NULL]
-  
-  return(dt)
-}
-
-
-deduplicate_columns <- function(dt, columns) {
-  #' @title Deduplicate Columns
-  #' @description Deduplicates specified columns in a data.table.
-  #' @param dt A data.table to process.
-  #' @param columns A vector of column names to deduplicate.
-  #' @return The modified data.table with deduplicated columns.
+  #' @description Appends and removes 5-digit numeric codes (i.e. 5-digit RVS procedure codes) from a specified column.
+  #' @param clin_rvs A list of character vectors representing the clin_rvs column.
+  #' @param col A character vector representing the column to process.
+  #' @return A list containing the modified clin_rvs and the modified col.
   #'
   #' @details
-  #' This function processes each specified column in the data.table and removes duplicate entries within each column.
-  #' The columns to be deduplicated are specified in the `columns` parameter.
+  #' This function performs the following operations:
+  #' - Ensures the clin_rvs column is a list of characters.
+  #' - Finds and appends 5-digit numeric codes from the specified column to the clin_rvs column.
+  #' - Removes 5-digit numeric codes from the specified column.
   #'
   #' @examples
-  #' library(data.table)
-  #' dt <- data.table(col1 = list(c(1, 1, 2), c(2, 3)), col2 = list(c("a", "a", "b"), c("b", "c")))
-  #' deduplicated_dt <- deduplicate_columns(dt, c("col1", "col2"))
-  #' print(deduplicated_dt)  # Should print the data.table with deduplicated columns
+  #' clin_rvs <- list(c("A", "B"), c("C", "D"))
+  #' col <- c("12345 E", "67890 F")
+  #' result <- append_and_remove_rvs(clin_rvs, col)
+  #' print(result$clin_rvs)  # Should print modified clin_rvs with 5-digit codes appended
+  #' print(result$col)  # Should print the modified col with 5-digit codes removed
   
-  for (col in columns) {
-    dt[, (col) := lapply(get(col), unique)]
-  }
-  return(dt)
+  # Ensure the clin_rvs column is a list of characters
+  clin_rvs <- lapply(clin_rvs, function(x) if (is.null(x)) character() else x)
+  
+  # Regular expression to match 5-digit numeric codes
+  regex_5_digit <- "\\b\\d{5}\\b" 
+  
+  # Find and append 5-digit codes, and remove them from the specified column
+  modified_clin_rvs <- mapply(find_and_append_codes, clin_rvs, col, MoreArgs = list(regex_5_digit = regex_5_digit), SIMPLIFY = FALSE)
+  modified_col <- lapply(col, remove_5_digit_codes, regex_5_digit = regex_5_digit)
+  
+  return(list(clin_rvs = modified_clin_rvs, col = unlist(modified_col)))
+}
+
+#' deduplicate_columns <- function(dt, columns) {
+#'   #' @title Deduplicate Columns
+#'   #' @description Deduplicates specified columns in a data.table.
+#'   #' @param dt A data.table to process.
+#'   #' @param columns A vector of column names to deduplicate.
+#'   #' @return The modified data.table with deduplicated columns.
+#'   #'
+#'   #' @details
+#'   #' This function processes each specified column in the data.table and removes duplicate entries within each column.
+#'   #' The columns to be deduplicated are specified in the `columns` parameter.
+#'   #'
+#'   #' @examples
+#'   #' library(data.table)
+#'   #' dt <- data.table(col1 = list(c(1, 1, 2), c(2, 3)), col2 = list(c("a", "a", "b"), c("b", "c")))
+#'   #' deduplicated_dt <- deduplicate_columns(dt, c("col1", "col2"))
+#'   #' print(deduplicated_dt)  # Should print the data.table with deduplicated columns
+#'   
+#'   for (col in columns) {
+#'     dt[, (col) := lapply(get(col), unique)]
+#'   }
+#'   return(dt)
+#' }
+
+deduplicate_and_ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
+  #' @title Deduplicate and Ensure Unique Entries Across Columns
+  #' @description Deduplicates and ensures unique entries across clin_c1, clin_c2, and clin_icd columns within each row.
+  #' @param clin_c1 A list of vectors representing the clin_c1 column.
+  #' @param clin_c2 A list of vectors representing the clin_c2 column.
+  #' @param clin_icd A list of vectors representing the clin_icd column.
+  #' @return A list containing the modified clin_c1, clin_c2, and clin_icd columns.
+  #'
+  #' @details
+  #' This function performs the following operations:
+  #' - Deduplicates each specified column within each row.
+  #' - Ensures that entries in clin_c1 are not found in clin_c2 or clin_icd within each row.
+  #' - Ensures that entries in clin_c2 are not found in clin_c1 or clin_icd within each row.
+  #' - Ensures that entries in clin_icd are not found in clin_c1 or clin_c2 within each row.
+  #'
+  #' @examples
+  #' clin_c1 <- list(c("A", "B", "A", "C"), c("C", "D"))
+  #' clin_c2 <- list(c("B", "E", "C"), c("D", "F"))
+  #' clin_icd <- list(c("A", "G"), c("E", "H"))
+  #' result <- deduplicate_and_ensure_unique(clin_c1, clin_c2, clin_icd)
+  #' print(result$clin_c1)  # Should print modified clin_c1
+  #' print(result$clin_c2)  # Should print modified clin_c2
+  #' print(result$clin_icd)  # Should print modified clin_icd
+  
+  # Deduplicate each column within each row
+  clin_c1 <- lapply(clin_c1, unique)
+  clin_c2 <- lapply(clin_c2, unique)
+  clin_icd <- lapply(clin_icd, unique)
+  
+  # Ensure unique entries across columns within each row
+  unique_clin_icd <- mapply(function(c1, c2, icd) setdiff(icd, union(c1, c2)), clin_c1, clin_c2, clin_icd, SIMPLIFY = FALSE)
+  
+  # Ensure that clin_c1 and clin_c2 are unique within their columns
+  unique_clin_c1 <- mapply(function(c1, c2, icd) setdiff(c1, c2), clin_c1, clin_c2, SIMPLIFY = FALSE)
+  unique_clin_c2 <- mapply(function(c1, c2, icd) setdiff(c2, c1), clin_c1, clin_c2, SIMPLIFY = FALSE)
+  
+  return(list(clin_c1 = unique_clin_c1, clin_c2 = unique_clin_c2, clin_icd = unique_clin_icd))
 }
 
 # Helper function to check if a clinical code is an acceptable PDX
