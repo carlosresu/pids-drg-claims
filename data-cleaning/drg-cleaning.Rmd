@@ -412,40 +412,30 @@ if (to_chunk){
   if (to_profvis) {
     profvis({
       num_cores <- max(1, availableCores() - 1)
-      
       chunk_size <- ceiling(nrow(dt) / num_cores)
       chunks <- split(dt, rep(1:num_cores, each = chunk_size, 
                               length.out = nrow(dt)))
-      
       # Plan for parallel processing
       plan(multisession, workers = num_cores)
-      
       # Process each chunk in parallel
       processed_chunks <- future_lapply(chunks, process_chunk, 
                                         future.seed = global_seed)
-      
       # Combine processed chunks
       dt <- rbindlist(processed_chunks)
-      
       dt <- replace_empty_with_na(dt)
     })
   } else {
       num_cores <- max(1, availableCores() - 1)
-    
       chunk_size <- ceiling(nrow(dt) / num_cores)
       chunks <- split(dt, rep(1:num_cores, each = chunk_size, 
                               length.out = nrow(dt)))
-      
       # Plan for parallel processing
       plan(multisession, workers = num_cores)
-      
       # Process each chunk in parallel
       processed_chunks <- future_lapply(chunks, process_chunk, 
                                         future.seed = global_seed)
-      
       # Combine processed chunks
       dt <- rbindlist(processed_chunks)
-      
       dt <- replace_empty_with_na(dt)
   }
 }
