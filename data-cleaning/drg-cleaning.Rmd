@@ -273,6 +273,7 @@ if (to_group) {
 toc_data <- toc(log = TRUE)
 total_time <- toc_data$toc - toc_data$tic
 ```
+
 ### Calculate Speed
 
 ```{r calculate speed}

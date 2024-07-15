@@ -40,3 +40,4 @@ git-ignored-files
 #python-code
 python-code
 python-code/
+/.quarto/
