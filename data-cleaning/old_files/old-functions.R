@@ -272,3 +272,29 @@
 #'   }
 #'   return(dt)
 #' }
+#' 
+#' replace_empty_with_na <- function(dt) {
+#'   #' @title Replace Empty Strings with NA
+#'   #' @description Replaces empty strings, "NA" strings, and "character(0)" with NA values in character, factor, and list columns of a data.table.
+#'   #' @param dt A data.table to process.
+#'   #' @return The modified data.table with empty strings, "NA" strings, and "character(0)" replaced by NA values.
+#'   #'
+#'   #' @details
+#'   #' This function processes all character, factor, and list columns in the data.table, replacing empty strings, "NA" strings, and "character(0)" with actual NA values.
+#'   #'
+#'   #' @examples
+#'   #' library(data.table)
+#'   #' dt <- data.table(col1 = c("A", "", "C"), col2 = factor(c("X", "", "Z")), col3 = list("NA", "", "B"))
+#'   #' dt <- replace_empty_with_na(dt)
+#'   #' print(dt)  # Should print modified data.table with NA values
+#'   
+#'   char_factor_cols <- names(dt)[sapply(dt, function(col) is.character(col) || is.factor(col) || is.list(col))]
+#'   dt[, (char_factor_cols) := lapply(.SD, function(x) {
+#'     x[x == "" | x == "NA" | x == "character(0)"] <- NA_character_
+#'     if (is.factor(x)) {
+#'       levels(x) <- c(levels(x), NA)
+#'     }
+#'     return(x)
+#'   }), .SDcols = char_factor_cols]
+#'   return(dt)
+}

@@ -27,6 +27,7 @@ library(hash)
 # library(parallel)
 library(future)
 library(future.apply)
+library(knitr)
 ```
 
 ## Set Parameters
@@ -57,7 +58,7 @@ to_group <- TRUE
 to_filter <- FALSE #unused
 to_profvis <- FALSE
 to_chunk <- FALSE
-to_view_checks <- FALSE
+to_view_checks <- TRUE
 
 na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
 na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
@@ -381,7 +382,7 @@ clean_data <- function(dt) {
   dt[, clin_icd := dedup_result$clin_icd]
   
   # Replace empty strings in character and factor columns with NA
-  dt <- replace_empty_with_na(dt)
+  dt <- replace_empty_with_na(dt, to_view_checks)
   
   # Modify factor cols
   dt[, pat_type := remap_patient_type(pat_type)]
@@ -395,7 +396,8 @@ clean_data <- function(dt) {
 
 process_chunk <- function(chunk) {
   #' @title Process Data Chunk
-  #' @description Processes a data chunk by cleaning, mapping codes, replacing empty values, and finding the primary diagnosis (PDX).
+  #' @description Processes a data chunk by cleaning, mapping codes, replacing 
+  #' empty values, and finding the primary diagnosis (PDX).
   #' @param chunk A data.table chunk to process.
   #' @return The processed data.table chunk.
   #'
@@ -471,7 +473,7 @@ if (to_chunk){
                                         future.seed = global_seed)
       # Combine processed chunks
       dt <- rbindlist(processed_chunks)
-      dt <- replace_empty_with_na(dt)
+      dt <- replace_empty_with_na(dt, to_view_checks)
     })
   } else {
       num_cores <- max(1, availableCores() - 1)
@@ -485,7 +487,7 @@ if (to_chunk){
                                         future.seed = global_seed)
       # Combine processed chunks
       dt <- rbindlist(processed_chunks)
-      dt <- replace_empty_with_na(dt)
+      dt <- replace_empty_with_na(dt, to_view_checks)
   }
 }
 ```
@@ -502,13 +504,13 @@ if (!to_chunk){
       dt <- process_rvs_code_mapping(dt, rvs_icd9)
       dt <- process_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
-      dt <- replace_empty_with_na(dt)
+      dt <- replace_empty_with_na(dt, to_view_checks)
     })
   } else {
       dt <- process_rvs_code_mapping(dt, rvs_icd9)
       dt <- process_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
-      dt <- replace_empty_with_na(dt)
+      dt <- replace_empty_with_na(dt, to_view_checks)
   }
 }
 ```
@@ -526,7 +528,6 @@ if (!to_chunk) {
       dt <- apply_find_pdx(dt, acc_pdx)
   }
 }
-
 ```
 
 ```{r write}

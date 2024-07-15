@@ -48,17 +48,7 @@ clean_column <- function(column_to_clean, na_like_strings) {
   #' - Removes non-alphanumeric characters, except for slashes and spaces.
   #' - Trims leading and trailing whitespace.
   #' - Sets values in `na_like_strings` to `NA_character_`.
-  #'
-  #' @examples
-  #' column_to_clean <- c("text with spaces", "text/with/symbols!", "    trim   ", "Na-like-value")
-  #' na_like_strings <- c("Na-like-value")
-  #' cleaned_column <- clean_column(column_to_clean, na_like_strings)
-  #' print(cleaned_column)
-  
-  # Ensure the input is a character vector
   column_to_clean <- as.character(column_to_clean)
-  
-  # Apply cleaning operations to the specified column
   cleaned_col <- iconv(column_to_clean, to = "UTF-8", sub = "byte")
   cleaned_col <- toupper(cleaned_col)
   cleaned_col <- stri_replace_all_regex(cleaned_col, "[ \n]", "")
@@ -75,7 +65,6 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   #' @param cols_to_process A list of character vectors representing the columns to process.
   #' @param na_like_strings A vector of strings to be treated as NA values.
   #' @return The new collapsed column as a character vector.
-  #'
   #' @details
   #' This function performs the following operations:
   #' - Cleans the specified columns using `clean_column`.
@@ -83,49 +72,66 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   #' - Removes any "||NA" and "NA||" patterns from the new column.
   #' - Removes trailing "||" from the new column.
   #' - Sets values in the new column that match `na_like_strings` to `NA_character_`.
-  #'
-  #' @examples
-  #' cols_to_process <- list(c("A", "B"), c("1", "2"))
-  #' na_like_strings <- c("NA", "N/A")
-  #' collapsed_column <- process_and_collapse_columns(cols_to_process, na_like_strings)
-  #' print(collapsed_column)
-  
-  # Clean each column in cols_to_process
   cleaned_columns <- lapply(cols_to_process, function(col) clean_column(col, na_like_strings))
-  
-  # Collapse the cleaned columns into a single new column
   collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
   collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
   collapsed_column <- ifelse(collapsed_column %in% na_like_strings, NA_character_, collapsed_column)
-  
   return(collapsed_column)
 }
 
-replace_empty_with_na <- function(dt) {
+replace_empty_with_na <- function(dt, to_view_checks) {
   #' @title Replace Empty Strings with NA
   #' @description Replaces empty strings, "NA" strings, and "character(0)" with NA values in character, factor, and list columns of a data.table.
   #' @param dt A data.table to process.
+  #' @param to_view_checks A logical value to determine if the summary of replacements should be printed.
   #' @return The modified data.table with empty strings, "NA" strings, and "character(0)" replaced by NA values.
   #'
   #' @details
   #' This function processes all character, factor, and list columns in the data.table, replacing empty strings, "NA" strings, and "character(0)" with actual NA values.
   #'
-  #' @examples
-  #' library(data.table)
-  #' dt <- data.table(col1 = c("A", "", "C"), col2 = factor(c("X", "", "Z")), col3 = list("NA", "", "B"))
-  #' dt <- replace_empty_with_na(dt)
-  #' print(dt)  # Should print modified data.table with NA values
   
   char_factor_cols <- names(dt)[sapply(dt, function(col) is.character(col) || is.factor(col) || is.list(col))]
-  dt[, (char_factor_cols) := lapply(.SD, function(x) {
-    x[x == "" | x == "NA" | x == "character(0)"] <- NA_character_
-    if (is.factor(x)) {
-      levels(x) <- c(levels(x), NA)
+  
+  if (to_view_checks) {
+    replacement_summary <- data.table(
+      Column = character(),
+      Empty_Replaced = integer(),
+      NA_Replaced = integer(),
+      Character0_Replaced = integer()
+    )
+  }
+  
+  for (col_name in char_factor_cols) {
+    col <- dt[[col_name]]
+    if (to_view_checks) {
+      empty_count <- sum(col == "", na.rm = TRUE)
+      na_count <- sum(col == "NA", na.rm = TRUE)
+      char0_count <- sum(col == "character(0)", na.rm = TRUE)
     }
-    return(x)
-  }), .SDcols = char_factor_cols]
+    
+    # Using set to avoid copying
+    dt[get(col_name) == "" | get(col_name) == "NA" | get(col_name) == "character(0)", (col_name) := NA_character_]
+    
+    if (is.factor(col)) {
+      set(dt, j = col_name, value = factor(dt[[col_name]], levels = c(levels(col), NA)))
+    }
+    
+    if (to_view_checks) {
+      replacement_summary <- rbind(replacement_summary, data.table(
+        Column = col_name,
+        Empty_Replaced = empty_count,
+        NA_Replaced = na_count,
+        Character0_Replaced = char0_count
+      ))
+    }
+  }
+  
+  if (to_view_checks) {
+    print(kable(replacement_summary, format = "markdown", col.names = c("Column", "\"\" Replaced", "\"NA\" Replaced", "\"character(0)\" Replaced")))
+  }
+  
   return(dt)
 }
 
