@@ -42,7 +42,7 @@ version <- "v2"
 
 ```{r parameters}
 # Parameters
-sample_size <- 250 * 1e3
+sample_size <- 25 * 1e3
 seed <- 123
 
 drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
@@ -57,7 +57,7 @@ to_group <- TRUE
 to_filter <- FALSE #unused
 to_profvis <- FALSE
 to_chunk <- FALSE
-to_view_checks <- TRUE
+to_view_checks <- FALSE
 
 na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
 na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
@@ -121,7 +121,11 @@ source(here("data-cleaning", "data-formats.R"))
 ## Source Functions
 
 ```{r}
-source(here("data-cleaning", "functions.R"))
+source(here("data-cleaning", "general-functions.R"))
+source(here("data-cleaning", "icd-functions.R"))
+source(here("data-cleaning", "rvs-functions.R"))
+source(here("data-cleaning", "pdx-functions.R"))
+source(here("data-cleaning", "grouper-functions.R"))
 ```
 
 ## Load Mapping Data
@@ -287,7 +291,7 @@ if (file.exists(total_rows_file)) {
 
 ### Data Cleaning
 
-```{r define main cleaning function}
+```{r define main cleaning and chunking functions}
 clean_data <- function(dt) {
   original_col_order <- colnames(dt) # TODO can delete
   
@@ -386,6 +390,51 @@ clean_data <- function(dt) {
   dt[, clin_discharge := remap_disposition(clin_discharge)]
   
   return(dt)
+}
+
+
+process_chunk <- function(chunk) {
+  #' @title Process Data Chunk
+  #' @description Processes a data chunk by cleaning, mapping codes, replacing empty values, and finding the primary diagnosis (PDX).
+  #' @param chunk A data.table chunk to process.
+  #' @return The processed data.table chunk.
+  #'
+  #' @details
+  #' This function performs the following operations on the data chunk:
+  #' - Suppresses console output to keep the environment clean.
+  #' - Cleans the data using the clean_data function.
+  #' - Maps RVS and ICD-10 codes.
+  #' - Replaces empty strings with NA values.
+  #' - Finds the primary diagnosis (PDX) using the apply_find_pdx function.
+  #'
+  #' @examples
+  #' library(data.table)
+  #' chunk <- data.table(...) # Load your data chunk
+  #' processed_chunk <- process_chunk(chunk)
+  #' print(processed_chunk) # Should print the processed data chunk
+  
+  # Suppress output
+  if (to_view_checks) {
+    print("Viewing checks")
+  } else {
+    sink(tempfile())
+    on.exit(sink(), add = TRUE)
+  }
+  
+  # Clean data
+  chunk <- clean_data(chunk)
+  
+  # Map codes
+  chunk <- process_rvs_code_mapping(chunk, rvs_icd9)
+  chunk <- process_icd10_mapping(chunk)
+  
+  # Replace empty strings with NA values
+  chunk <- replace_empty_with_na(chunk)
+  
+  # Find PDX
+  chunk <- apply_find_pdx(chunk, acc_pdx)
+  
+  return(chunk)
 }
 ```
 
