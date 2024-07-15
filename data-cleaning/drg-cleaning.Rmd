@@ -73,19 +73,19 @@ global_seed <- seed #for parallelized operations
 ## Source Data Formats
 
 ```{r data formats and additional parameters}
-source(here("data-cleaning", "data-formats.R"))
-source(here("data-cleaning", "file-paths.R"))
+source(here("data-cleaning", "r_scripts", "data-formats.R"))
+source(here("data-cleaning", "r_scripts", "file-paths.R"))
 ```
 
 ## Source Functions
 
 ```{r}
-source(here("data-cleaning", "general-functions.R"))
-source(here("data-cleaning", "main-functions.R"))
-source(here("data-cleaning", "icd-functions.R"))
-source(here("data-cleaning", "rvs-functions.R"))
-source(here("data-cleaning", "pdx-functions.R"))
-source(here("data-cleaning", "grouper-functions.R"))
+source(here("data-cleaning", "r_scripts", "general-functions.R"))
+source(here("data-cleaning", "r_scripts", "main-functions.R"))
+source(here("data-cleaning", "r_scripts", "icd-functions.R"))
+source(here("data-cleaning", "r_scripts", "rvs-functions.R"))
+source(here("data-cleaning", "r_scripts", "pdx-functions.R"))
+source(here("data-cleaning", "r_scripts", "grouper-functions.R"))
 ```
 
 ## Load Mapping Data
