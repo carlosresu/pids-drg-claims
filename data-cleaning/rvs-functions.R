@@ -42,16 +42,32 @@ print_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
   #' @param rvs_icd9 A data.table containing RVS to ICD-9-CM code mappings.
   #' @param rvs_map_list A list of RVS codes with multiple ICD-9-CM mappings.
   without_drg <- rvs_icd9[!rvs %in% names(rvs_map_list)]
-  cat(sprintf('There are %d RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n', length(unique(without_drg$rvs))))
+  cat(
+    sprintf('There are %d RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n', 
+            length(unique(without_drg$rvs)
+                   )
+            )
+    )
   
   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
-  cat(sprintf('Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n', length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)))
+  cat(sprintf('Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n', 
+              length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)
+              )
+      )
   
   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
-  cat(sprintf('Of these, there are %d (%.2f%%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n', length(multi_mapped_rvs), length(multi_mapped_rvs) * 100 / length(mappable_rvs)))
+  cat(
+    sprintf('Of these, there are %d (%.2f%%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n', 
+            length(multi_mapped_rvs), 
+            length(multi_mapped_rvs) * 100 / length(mappable_rvs)
+            )
+    )
   
   unmappable_rvs <- setdiff(rvss, mappable_rvs)
-  cat(sprintf('There are %d (%.2f%%) with no ICD-9-CM equivalents.\n', length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)))
+  cat(sprintf('There are %d (%.2f%%) with no ICD-9-CM equivalents.\n', 
+              length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)
+              )
+      )
 }
 
 # Main function to process RVS code mappings
@@ -88,7 +104,9 @@ map_rvs_icd9 <- function(dt, rvs_icd9) {
   
   dt2[, icd9_list := lapply(clin_rvs, function(x) {
     codes <- unlist(x)
-    mappable <- codes[!is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))]
+    mappable <- codes[
+      !is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))
+      ]
     if (length(mappable) > 0) {
       unique(unlist(mget(mappable, envir = rvs_map_solo_env)))
     } else {
@@ -98,7 +116,10 @@ map_rvs_icd9 <- function(dt, rvs_icd9) {
   
   dt2[, rvs_unmap_list := lapply(clin_rvs, function(x) {
     codes <- unlist(x)
-    unmappable <- codes[is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA)) & is.na(mget(codes, envir = rvs_map_list_env, ifnotfound = NA))]
+    unmappable <- codes[
+      is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA)) & 
+        is.na(mget(codes, envir = rvs_map_list_env, ifnotfound = NA))
+      ]
     if (length(unmappable) > 0) {
       unique(unmappable)
     } else {
@@ -109,7 +130,8 @@ map_rvs_icd9 <- function(dt, rvs_icd9) {
   # Merge results back into the original data.table
   setkey(dt, id_series)
   setkey(dt2, id_series)
-  dt <- merge(dt, dt2[, .(id_series, icd9_list, rvs_unmap_list)], by = "id_series", all.x = TRUE)
+  dt <- merge(dt, dt2[, .(id_series, icd9_list, rvs_unmap_list)], 
+              by = "id_series", all.x = TRUE)
   
   return(dt)
 }
@@ -127,11 +149,12 @@ remove_5_digit_codes <- function(col, regex_5_digit) {
   return(col)
 }
 
-append_and_remove_rvs <- function(clin_rvs, col) {
+append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   #' @title Append and Remove 5-Digit Codes
   #' @description Appends and removes 5-digit numeric codes (i.e. 5-digit RVS procedure codes) from a specified column.
   #' @param clin_rvs A list of character vectors representing the clin_rvs column.
   #' @param col A character vector representing the column to process.
+  #' @param rvs_icd9 A data.table containing valid RVS codes in the column 'rvs'.
   #' @return A list containing the modified clin_rvs and the modified col.
   #'
   #' @details
@@ -139,12 +162,15 @@ append_and_remove_rvs <- function(clin_rvs, col) {
   #' - Ensures the clin_rvs column is a list of characters.
   #' - Finds and appends 5-digit numeric codes from the specified column to the clin_rvs column.
   #' - Removes 5-digit numeric codes from the specified column.
+  #' - Only appends 5-digit numeric codes that exist in the rvs_icd9$rvs column.
+  #' - Prints the discarded RVS codes that do not exist in the rvs_icd9$rvs column.
   #'
   #' @examples
   #' clin_rvs <- list(c("A", "B"), c("C", "D"))
-  #' col <- c("12345 E", "67890 F")
-  #' result <- append_and_remove_rvs(clin_rvs, col)
-  #' print(result$clin_rvs)  # Should print modified clin_rvs with 5-digit codes appended
+  #' col <- c("12345 E", "67890 F", "11111 G")
+  #' rvs_icd9 <- data.table(rvs = c("12345", "67890"))
+  #' result <- append_and_remove_rvs(clin_rvs, col, rvs_icd9)
+  #' print(result$clin_rvs)  # Should print modified clin_rvs with valid 5-digit codes appended
   #' print(result$col)  # Should print the modified col with 5-digit codes removed
   
   # Ensure the clin_rvs column is a list of characters
@@ -153,9 +179,35 @@ append_and_remove_rvs <- function(clin_rvs, col) {
   # Regular expression to match 5-digit numeric codes
   regex_5_digit <- "\\b\\d{5}\\b" 
   
-  # Find and append 5-digit codes, and remove them from the specified column
-  modified_clin_rvs <- mapply(find_and_append_codes, clin_rvs, col, MoreArgs = list(regex_5_digit = regex_5_digit), SIMPLIFY = FALSE)
+  # Helper function to find and append valid codes, and collect discarded codes
+  find_and_append_valid_codes <- function(clin_rvs_item, col_item, regex_5_digit, valid_codes, discarded_codes) {
+    matches <- regmatches(col_item, gregexpr(regex_5_digit, col_item))
+    valid_matches <- matches[[1]][matches[[1]] %in% valid_codes]
+    discarded_matches <- matches[[1]][!matches[[1]] %in% valid_codes]
+    discarded_codes <<- unique(c(discarded_codes, discarded_matches))
+    updated_clin_rvs <- unique(c(clin_rvs_item, valid_matches))
+    return(updated_clin_rvs)
+  }
+  
+  # Helper function to remove 5-digit codes from the specified column
+  remove_5_digit_codes <- function(col_item, regex_5_digit) {
+    return(gsub(regex_5_digit, "", col_item))
+  }
+  
+  # Extract valid RVS codes
+  valid_rvs_codes <- rvs_icd9$rvs
+  discarded_codes <- character()
+  
+  # Find and append valid 5-digit codes, and remove them from the specified column
+  modified_clin_rvs <- mapply(find_and_append_valid_codes, clin_rvs, col, MoreArgs = list(regex_5_digit = regex_5_digit, valid_codes = valid_rvs_codes, discarded_codes = discarded_codes), SIMPLIFY = FALSE)
   modified_col <- lapply(col, remove_5_digit_codes, regex_5_digit = regex_5_digit)
+  
+  # Print discarded codes
+  if (length(discarded_codes) > 0) {
+    warning("Discarded RVS codes: ", paste(discarded_codes, collapse = ", "))
+  } else {
+    print("No RVS codes discarded")
+  }
   
   return(list(clin_rvs = modified_clin_rvs, col = unlist(modified_col)))
 }

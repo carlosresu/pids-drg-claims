@@ -365,11 +365,11 @@ clean_data <- function(dt) {
   # dt <- append_and_remove_rvs(dt, "clin_c1") # unwrapped/deprecated function
   # dt <- append_and_remove_rvs(dt, "clin_c2") # unwrapped/deprecated function
   
-  clin_c1_rvs_results <- append_and_remove_rvs(dt$clin_rvs, dt$clin_c1)
+  clin_c1_rvs_results <- append_and_remove_rvs(dt$clin_rvs, dt$clin_c1, rvs_icd9)
   dt[, clin_rvs := clin_c1_rvs_results$clin_rvs]
   dt[, clin_c1 := clin_c1_rvs_results$col]
   
-  clin_c2_rvs_results <- append_and_remove_rvs(dt$clin_rvs, dt$clin_c2)
+  clin_c2_rvs_results <- append_and_remove_rvs(dt$clin_rvs, dt$clin_c2, rvs_icd9)
   dt[, clin_rvs := clin_c2_rvs_results$clin_rvs]
   dt[, clin_c2 := clin_c2_rvs_results$col]
   

@@ -297,4 +297,41 @@
 #'     return(x)
 #'   }), .SDcols = char_factor_cols]
 #'   return(dt)
-}
+# }
+
+#' append_and_remove_rvs <- function(clin_rvs, col) {
+#'   #' @title Append and Remove 5-Digit Codes
+#'   #' @description Appends and removes 5-digit numeric codes 
+#'   #' (i.e. 5-digit RVS procedure codes) from a specified column.
+#'   #' @param clin_rvs A list of character vectors representing the clin_rvs column.
+#'   #' @param col A character vector representing the column to process.
+#'   #' @return A list containing the modified clin_rvs and the modified col.
+#'   #'
+#'   #' @details
+#'   #' This function performs the following operations:
+#'   #' - Ensures the clin_rvs column is a list of characters.
+#'   #' - Finds and appends 5-digit numeric codes from the specified column to the 
+#'   #' clin_rvs column.
+#'   #' - Removes 5-digit numeric codes from the specified column.
+#'   #'
+#'   #' @examples
+#'   #' clin_rvs <- list(c("A", "B"), c("C", "D"))
+#'   #' col <- c("12345 E", "67890 F")
+#'   #' result <- append_and_remove_rvs(clin_rvs, col)
+#'   #' print(result$clin_rvs)  # Should print modified clin_rvs with 5-digit codes 
+#'   #' appended
+#'   #' print(result$col)  # Should print the modified col with 5-digit codes 
+#'   #' removed
+#'   
+#'   # Ensure the clin_rvs column is a list of characters
+#'   clin_rvs <- lapply(clin_rvs, function(x) if (is.null(x)) character() else x)
+#'   
+#'   # Regular expression to match 5-digit numeric codes
+#'   regex_5_digit <- "\\b\\d{5}\\b" 
+#'   
+#'   # Find and append 5-digit codes, and remove them from the specified column
+#'   modified_clin_rvs <- mapply(find_and_append_codes, clin_rvs, col, MoreArgs = list(regex_5_digit = regex_5_digit), SIMPLIFY = FALSE)
+#'   modified_col <- lapply(col, remove_5_digit_codes, regex_5_digit = regex_5_digit)
+#'   
+#'   return(list(clin_rvs = modified_clin_rvs, col = unlist(modified_col)))
+#' }
