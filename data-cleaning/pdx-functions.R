@@ -97,37 +97,36 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd) {
   return(list(pdx = NA_character_, pdx_code = 99))
 }
 
-apply_find_pdx <- function(dt, acc_pdx_vector = acc_pdx) {
-  #' @title Apply Find PDX to Data Table
-  #' @description Applies the find_pdx function to each row of a data.table.
-  #' @param dt A data.table to process.
+apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_vector = acc_pdx) {
+  #' @title Apply Find PDX to Specific Columns
+  #' @description Applies the find_pdx function to specific columns and returns PDX and PDX code vectors.
+  #' @param clin_c1 A vector of the first clinical codes.
+  #' @param clin_c2 A vector of the second clinical codes.
+  #' @param clin_icd A list of clinical ICD codes.
   #' @param acc_pdx_vector A vector of acceptable PDX codes.
-  #' @return The modified data.table with PDX information added.
-  #'
-  #' @details
-  #' This function processes each row in the data.table to identify the primary diagnosis (PDX).
-  #' It first attempts to assign PDX based on clin_c1 and clin_c2 columns.
-  #' If no PDX is found, it uses the find_pdx function to determine the PDX from the clin_icd column.
-  #'
+  #' @return A list containing the PDX vector and the PDX code vector.
+  
+  n <- length(clin_c1)
+  pdx <- character(n)
+  pdx_code <- integer(n)
   
   # Assign PDX based on clin_c1 and clin_c2
-  dt[, pdx := ifelse(clin_c1 %in% acc_pdx_vector, clin_c1, ifelse(clin_c2 %in% acc_pdx_vector, clin_c2, NA))]
-  dt[, pdx_code := ifelse(clin_c1 %in% acc_pdx_vector, 1, ifelse(clin_c2 %in% acc_pdx_vector, 2, 99))]
+  pdx[clin_c1 %in% acc_pdx_vector] <- clin_c1[clin_c1 %in% acc_pdx_vector]
+  pdx_code[clin_c1 %in% acc_pdx_vector] <- 1
+  
+  pdx[clin_c2 %in% acc_pdx_vector] <- clin_c2[clin_c2 %in% acc_pdx_vector]
+  pdx_code[clin_c2 %in% acc_pdx_vector] <- 2
   
   # Identify rows without a PDX
-  missing_pdx_indices <- which(is.na(dt$pdx))
+  missing_pdx_indices <- which(pdx == "")
   
   if (length(missing_pdx_indices) > 0) {
-    clin_icd_list <- dt$clin_icd[missing_pdx_indices]
-    
-    result_list <- lapply(clin_icd_list, function(icd_list) {
-      find_pdx(NA, NA, icd_list)
-    })
-    
-    # Update dt with results
-    dt$pdx[missing_pdx_indices] <- sapply(result_list, `[[`, "pdx")
-    dt$pdx_code[missing_pdx_indices] <- sapply(result_list, `[[`, "pdx_code")
+    for (i in missing_pdx_indices) {
+      result <- find_pdx(clin_c1[i], clin_c2[i], clin_icd[[i]])
+      pdx[i] <- result$pdx
+      pdx_code[i] <- result$pdx_code
+    }
   }
   
-  return(dt)
+  return(list(pdx = pdx, pdx_code = pdx_code))
 }

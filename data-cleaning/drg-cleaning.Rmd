@@ -452,7 +452,10 @@ process_chunk <- function(chunk) {
   chunk <- replace_empty_with_na(chunk)
   
   # Find PDX
-  chunk <- apply_find_pdx(chunk)
+  # chunk <- apply_find_pdx(chunk)
+  pdx_result <- apply_find_pdx(chunk$clin_c1, chunk$clin_c2, chunk$clin_icd)
+  chunk$pdx <- pdx_result$pdx
+  chunk$pdx_code <- pdx_result$pdx_code
   
   return(chunk)
 }
@@ -540,10 +543,16 @@ if (!to_chunk){
 if (!to_chunk) {
   if (to_profvis) {
     profvis({
-      dt <- apply_find_pdx(dt)
+      # dt <- apply_find_pdx(dt)
+      pdx_result <- apply_find_pdx(dt$clin_c1, dt$clin_c2, dt$clin_icd)
+      dt$pdx <- pdx_result$pdx
+      dt$pdx_code <- pdx_result$pdx_code
     })
   } else {
-      dt <- apply_find_pdx(dt)
+      # dt <- apply_find_pdx(dt)
+      pdx_result <- apply_find_pdx(dt$clin_c1, dt$clin_c2, dt$clin_icd)
+      dt$pdx <- pdx_result$pdx
+      dt$pdx_code <- pdx_result$pdx_code
   }
 }
 ```
