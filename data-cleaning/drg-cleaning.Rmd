@@ -386,10 +386,26 @@ clean_data <- function(dt) {
   
   # Modify factor cols
   dt[, pat_type := remap_patient_type(pat_type)]
+  if (to_view_checks) {
+    print("Patient Types:")
+    print(unique(dt$pat_type))
+  }
   dt[, pat_memcat_parent := remap_memcat_parent_desc(pat_memcat_parent)]
+  if (to_view_checks) {
+    print("Memcat Parent Types:")
+    print(unique(dt$pat_memcat_parent))
+  }
   dt[, pat_memcat_child := remap_memcat_child_desc(pat_memcat_child)]
+  if (to_view_checks) {
+    print("Memcat Child Types:")
+    print(unique(dt$pat_memcat_child))
+  }
   dt[, clin_discharge := remap_disposition(clin_discharge)]
-  
+  if (to_view_checks) {
+    print("Discharge Types:")
+    print(unique(dt$clin_discharge))
+  }
+
   return(dt)
 }
 
@@ -428,7 +444,7 @@ process_chunk <- function(chunk) {
   
   # Map codes
   chunk <- process_rvs_code_mapping(chunk, rvs_icd9)
-  chunk <- apply_icd10_mapping(chunk)
+  chunk <- implement_icd10_mapping(chunk)
   
   # Replace empty strings with NA values
   chunk <- replace_empty_with_na(chunk)
@@ -502,13 +518,13 @@ if (!to_chunk){
   if (to_profvis) {
     profvis({
       dt <- process_rvs_code_mapping(dt, rvs_icd9)
-      dt <- apply_icd10_mapping(dt)
+      dt <- implement_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
       dt <- replace_empty_with_na(dt, to_view_checks)
     })
   } else {
       dt <- process_rvs_code_mapping(dt, rvs_icd9)
-      dt <- apply_icd10_mapping(dt)
+      dt <- implement_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
       dt <- replace_empty_with_na(dt, to_view_checks)
   }

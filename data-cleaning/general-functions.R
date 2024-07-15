@@ -201,7 +201,7 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
   remapped_memcat_parent <- fcase(
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
     pat_memcat_parent == "INDIRECT CONTRIBUTOR", "INDIRECT"
-  )
+  )  
   return(remapped_memcat_parent)
 }
 
@@ -234,7 +234,7 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child == "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD", "INFORMAL",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL"
-  )
+  )  
   return(remapped_memcat_child)
 }
 
@@ -267,7 +267,7 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge == "TRANSFERRED/REFERRED", 4L,
     clin_discharge == "EXPIRED", 9L,
     clin_discharge == "UNDEFINED", NA_integer_
-  )
+  )  
   return(remapped_discharge)
 }
 

@@ -33,8 +33,8 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
 }
 
 # Helper function to extract unique ICD codes from a data.table
-extract_unique_icd_codes <- function(dt) {
-  #' @title Extract Unique ICD Codes
+get_unique_icd_codes <- function(dt) {
+  #' @title Get Unique ICD Codes
   #' @description Extracts unique ICD codes from a data.table.
   #' @param dt A data.table containing ICD codes.
   #' @return A unique vector of ICD codes.
@@ -44,7 +44,7 @@ extract_unique_icd_codes <- function(dt) {
 }
 
 # Helper function to create an environment for Thai ICD-10 codes
-create_thai_icd10_env <- function(thai_icd10_codes) {
+create_thai_icd10_environment <- function(thai_icd10_codes) {
   #' @title Create Thai ICD-10 Environment
   #' @description Creates an environment for Thai ICD-10 codes.
   #' @param thai_icd10_codes A vector of Thai ICD-10 codes.
@@ -54,8 +54,8 @@ create_thai_icd10_env <- function(thai_icd10_codes) {
 }
 
 # Helper function to identify direct matches of ICD codes in the Thai ICD-10 library
-identify_direct_matches <- function(icds, thai_icd10_env) {
-  #' @title Identify Direct Matches
+find_direct_icd_matches <- function(icds, thai_icd10_env) {
+  #' @title Find Direct ICD Matches
   #' @description Identifies direct matches of ICD codes in the Thai ICD-10 library.
   #' @param icds A vector of ICD codes.
   #' @param thai_icd10_env An environment with Thai ICD-10 codes.
@@ -66,8 +66,8 @@ identify_direct_matches <- function(icds, thai_icd10_env) {
 }
 
 # Helper function to create ICD-10 mapping
-create_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
-  #' @title Create ICD-10 Mapping
+generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
+  #' @title Generate ICD-10 Mapping
   #' @description Creates a mapping of ICD-10 codes to Thai ICD-10 equivalents.
   #' @param icds A vector of ICD codes.
   #' @param thai_icd10_env An environment with Thai ICD-10 codes.
@@ -99,8 +99,8 @@ create_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
 }
 
 # Helper function to map ICD-10 codes in a data.table
-map_icd10_codes <- function(dt, icd10_env) {
-  #' @title Map ICD-10 Codes
+apply_icd10_mapping_to_dt <- function(dt, icd10_env) {
+  #' @title Apply ICD-10 Mapping to Data Table
   #' @description Maps ICD-10 codes in a data.table.
   #' @param dt A data.table containing ICD codes to map.
   #' @param icd10_env An environment with ICD-10 mappings.
@@ -117,27 +117,27 @@ map_icd10_codes <- function(dt, icd10_env) {
 }
 
 # Main function to process ICD-10 mappings
-apply_icd10_mapping <- function(dt) {
-  #' @title Apply ICD-10 Mappings
+implement_icd10_mapping <- function(dt) {
+  #' @title Process ICD-10 Mappings
   #' @description Applies ICD-10 mappings in a data.table using the Thai ICD-10 library.
   #' @param dt A data.table to process.
   #' @return The modified data.table with applied ICD-10 mappings.
   
   # Extract unique ICD codes
-  icds <- extract_unique_icd_codes(dt)
+  icds <- get_unique_icd_codes(dt)
   thai_icd10 <- unique(tdrg_icd10$CODE)
   
   # Create environments for Thai ICD-10 codes and neoplasms
-  thai_icd10_env <- create_thai_icd10_env(thai_icd10)
+  thai_icd10_env <- create_thai_icd10_environment(thai_icd10)
   neoplasms <- unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"])
-  neoplasms_env <- create_thai_icd10_env(neoplasms)
+  neoplasms_env <- create_thai_icd10_environment(neoplasms)
   
   # Identify direct matches
-  direct_match_codes <- identify_direct_matches(icds, thai_icd10_env)
+  direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
   cat(sprintf("There are %d unique entries for ICD-10 codes, of which %d (%.2f%%) are directly in the Thai ICD-10 library\n", length(icds), length(direct_match_codes), length(direct_match_codes) * 100 / length(icds)))
   
   # Create ICD-10 mapping
-  icd_mapping_info <- create_icd10_mapping(icds, thai_icd10_env, neoplasms_env)
+  icd_mapping_info <- generate_icd10_mapping(icds, thai_icd10_env, neoplasms_env)
   icd_mapping <- icd_mapping_info$icd_mapping
   modified_count <- icd_mapping_info$modified_count
   cat(sprintf('The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n', length(icd_mapping)))
@@ -163,7 +163,7 @@ apply_icd10_mapping <- function(dt) {
   icd10_env <- list2env(setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10))
   
   # Map ICD-10 codes in the data.table
-  dt <- map_icd10_codes(dt, icd10_env)
+  dt <- apply_icd10_mapping_to_dt(dt, icd10_env)
   return(dt)
 }
 
