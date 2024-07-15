@@ -163,22 +163,16 @@ remap_patient_type <- function(pat_type) {
   #' @title Remap Patient Type
   #' @description Remaps patient type.
   #' @param pat_type A character vector representing the patient type column.
-  #' @return The remapped patient type column.
-  #'
-  #' @details
-  #' This function remaps the `pat_type` column by mapping:
-  #' - "MEMBER" to "MEM"
-  #' - "DEPENDENT" to "DEP"
-  #'
-  #' @examples
-  #' pat_type <- c("MEMBER", "DEPENDENT", "OTHER")
-  #' remapped_pat_type <- remap_patient_type(pat_type)
-  #' print(remapped_pat_type)  # Should print remapped patient type
-  
+  #' @return The remapped patient type column with warnings for unmapped entries.
+  known_types <- c("MEMBER", "DEPENDENT")
   remapped_pat_type <- fcase(
     pat_type == "MEMBER", "MEM",
     pat_type == "DEPENDENT", "DEP"
   )
+  unknown_types <- setdiff(pat_type, known_types)
+  if (length(unknown_types) > 0) {
+    warning("Unmapped patient types found: ", paste(unknown_types, collapse = ", "))
+  }
   return(remapped_pat_type)
 }
 
@@ -186,22 +180,16 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
   #' @title Remap Member Category Parent Description
   #' @description Remaps member category parent description.
   #' @param pat_memcat_parent A character vector representing the member category parent description column.
-  #' @return The remapped member category parent description column.
-  #'
-  #' @details
-  #' This function remaps the `pat_memcat_parent` column by mapping:
-  #' - "DIRECT CONTRIBUTOR" to "DIRECT"
-  #' - "INDIRECT CONTRIBUTOR" to "INDIRECT"
-  #'
-  #' @examples
-  #' pat_memcat_parent <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR", "OTHER")
-  #' remapped_memcat_parent <- remap_memcat_parent_desc(pat_memcat_parent)
-  #' print(remapped_memcat_parent)  # Should print remapped member category parent description
-  
+  #' @return The remapped member category parent description column with warnings for unmapped entries.
+  known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
   remapped_memcat_parent <- fcase(
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
     pat_memcat_parent == "INDIRECT CONTRIBUTOR", "INDIRECT"
-  )  
+  )
+  unknown_parents <- setdiff(pat_memcat_parent, known_parents)
+  if (length(unknown_parents) > 0) {
+    warning("Unmapped member category parents found: ", paste(unknown_parents, collapse = ", "))
+  }
   return(remapped_memcat_parent)
 }
 
@@ -209,16 +197,14 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
   #' @title Remap Member Category Child Description
   #' @description Remaps member category child description.
   #' @param pat_memcat_child A character vector representing the member category child description column.
-  #' @return The remapped member category child description column.
-  #'
-  #' @details
-  #' This function remaps the `pat_memcat_child` column by mapping various descriptions to their corresponding codes.
-  #'
-  #' @examples
-  #' pat_memcat_child <- c("EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "OTHER")
-  #' remapped_memcat_child <- remap_memcat_child_desc(pat_memcat_child)
-  #' print(remapped_memcat_child)  # Should print remapped member category child description
-  
+  #' @return The remapped member category child description column with warnings for unmapped entries.
+  known_children <- c(
+    "EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "SENIOR CITIZEN", "INDIGENT", 
+    "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT", 
+    "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL", 
+    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD", "SELF EARNING INDIVIDUAL", 
+    "FAMILY DRIVER"
+  )
   remapped_memcat_child <- fcase(
     pat_memcat_child == "EMPLOYED PRIVATE", "FORMAL",
     pat_memcat_child == "SELF-EARNING INDIVIDUAL", "INFORMAL",
@@ -234,31 +220,23 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child == "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD", "INFORMAL",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL"
-  )  
+  )
+  unknown_children <- setdiff(pat_memcat_child, known_children)
+  if (length(unknown_children) > 0) {
+    warning("Unmapped member category children found: ", paste(unknown_children, collapse = ", "))
+  }
   return(remapped_memcat_child)
 }
-
 
 remap_disposition <- function(clin_discharge) {
   #' @title Remap Clinical Discharge Disposition
   #' @description Remaps clinical discharge disposition.
   #' @param clin_discharge A character vector representing the clinical discharge disposition column.
-  #' @return The remapped clinical discharge disposition column.
-  #'
-  #' @details
-  #' This function remaps the `clin_discharge` column by mapping various descriptions to their corresponding integer codes:
-  #' - "IMPROVED" and "RECOVERED" to 1
-  #' - "HOME/DISCHARGED AGAINST MEDICAL ADVICE" to 2
-  #' - "ABSCONDED" to 3
-  #' - "TRANSFERRED/REFERRED" to 4
-  #' - "EXPIRED" to 9
-  #' - "UNDEFINED" to NA
-  #'
-  #' @examples
-  #' clin_discharge <- c("IMPROVED", "RECOVERED", "EXPIRED", "OTHER")
-  #' remapped_discharge <- remap_disposition(clin_discharge)
-  #' print(remapped_discharge)  # Should print remapped clinical discharge disposition
-  
+  #' @return The remapped clinical discharge disposition column with warnings for unmapped entries.
+  known_dispositions <- c(
+    "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE", 
+    "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED"
+  )
   remapped_discharge <- fcase(
     clin_discharge == "IMPROVED", 1L,
     clin_discharge == "RECOVERED", 1L,
@@ -267,7 +245,11 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge == "TRANSFERRED/REFERRED", 4L,
     clin_discharge == "EXPIRED", 9L,
     clin_discharge == "UNDEFINED", NA_integer_
-  )  
+  )
+  unknown_dispositions <- setdiff(clin_discharge, known_dispositions)
+  if (length(unknown_dispositions) > 0) {
+    warning("Unmapped clinical discharge dispositions found: ", paste(unknown_dispositions, collapse = ", "))
+  }
   return(remapped_discharge)
 }
 

@@ -384,22 +384,24 @@ clean_data <- function(dt) {
   # Replace empty strings in character and factor columns with NA
   dt <- replace_empty_with_na(dt, to_view_checks)
   
-  # Modify factor cols
   dt[, pat_type := remap_patient_type(pat_type)]
   if (to_view_checks) {
     print("Patient Types:")
     print(unique(dt$pat_type))
   }
+  
   dt[, pat_memcat_parent := remap_memcat_parent_desc(pat_memcat_parent)]
   if (to_view_checks) {
     print("Memcat Parent Types:")
     print(unique(dt$pat_memcat_parent))
   }
+  
   dt[, pat_memcat_child := remap_memcat_child_desc(pat_memcat_child)]
   if (to_view_checks) {
     print("Memcat Child Types:")
     print(unique(dt$pat_memcat_child))
   }
+  
   dt[, clin_discharge := remap_disposition(clin_discharge)]
   if (to_view_checks) {
     print("Discharge Types:")
