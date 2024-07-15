@@ -129,19 +129,6 @@ map_rvs_icd9 <- function(dt, rvs_icd9) {
   return(dt)
 }
 
-# Helper function to find and append 5-digit codes
-find_and_append_codes <- function(clin_rvs, col, regex_5_digit) {
-  codes_to_append <- regmatches(col, gregexpr(regex_5_digit, col))[[1]]
-  clin_rvs <- c(clin_rvs, codes_to_append)
-  return(clin_rvs)
-}
-
-# Helper function to remove 5-digit codes
-remove_5_digit_codes <- function(col, regex_5_digit) {
-  col <- gsub(regex_5_digit, "", col)
-  return(col)
-}
-
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   #' @title Append and Remove 5-Digit Codes
   #' @description Appends and removes 5-digit numeric codes (i.e. 5-digit RVS procedure codes) from a specified column.
@@ -149,7 +136,7 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   #' @param col A character vector representing the column to process.
   #' @param rvs_icd9 A data.table containing valid RVS codes in the column 'rvs'.
   #' @return A list containing the modified clin_rvs and the modified col.
-  #'
+  #' 
   #' @details
   #' This function performs the following operations:
   #' - Ensures the clin_rvs column is a list of characters.
@@ -157,7 +144,7 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   #' - Removes 5-digit numeric codes from the specified column.
   #' - Only appends 5-digit numeric codes that exist in the rvs_icd9$rvs column.
   #' - Prints the discarded RVS codes that do not exist in the rvs_icd9$rvs column.
-  #'
+  #' 
   #' @examples
   #' clin_rvs <- list(c("A", "B"), c("C", "D"))
   #' col <- c("12345 E", "67890 F", "11111 G")
@@ -172,7 +159,7 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   # Regular expression to match 5-digit numeric codes
   regex_5_digit <- "\\b\\d{5}\\b" 
   
-  # Helper function to find and append valid codes, and collect discarded codes
+  #' Helper function to find and append valid codes, and collect discarded codes
   find_and_append_valid_codes <- function(clin_rvs_item, col_item, regex_5_digit, valid_codes, discarded_codes) {
     matches <- regmatches(col_item, gregexpr(regex_5_digit, col_item))
     valid_matches <- matches[[1]][matches[[1]] %in% valid_codes]

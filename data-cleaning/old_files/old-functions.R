@@ -335,3 +335,17 @@
 #'   
 #'   return(list(clin_rvs = modified_clin_rvs, col = unlist(modified_col)))
 #' }
+#' 
+
+# # Helper function to remove 5-digit codes
+# remove_5_digit_codes <- function(col, regex_5_digit) {
+#   col <- gsub(regex_5_digit, "", col)
+#   return(col)
+# }
+
+# # Helper function to find and append 5-digit codes
+# find_and_append_codes <- function(clin_rvs, col, regex_5_digit) {
+#   codes_to_append <- regmatches(col, gregexpr(regex_5_digit, col))[[1]]
+#   clin_rvs <- c(clin_rvs, codes_to_append)
+#   return(clin_rvs)
+# }
