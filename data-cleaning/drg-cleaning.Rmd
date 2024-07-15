@@ -48,9 +48,9 @@ version <- "v2"
 sample_size <- 2500 * 1e3
 seed <- 123
 
-drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
+drop_cols <- c(paste0("ICDCODE", 13:14), "ICCODED15", paste0("ICDCODE", 16:170))
 
-icd_cols <- paste0("clin_icd",1:12)
+icd_cols <- paste0("clin_icd", 1:12)
 rvs_cols <- paste0("clin_rvs", 1:20)
 
 to_read <- FALSE
