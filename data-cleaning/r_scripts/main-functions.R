@@ -273,7 +273,7 @@ process_chunk <- function(chunk) {
   chunk <- implement_icd10_mapping(chunk)
   
   # Replace empty strings with NA values
-  chunk <- replace_empty_with_na(chunk)
+  chunk <- replace_empty_with_na(chunk, to_view_checks)
   
   # Find PDX
   # chunk <- apply_find_pdx(chunk)
