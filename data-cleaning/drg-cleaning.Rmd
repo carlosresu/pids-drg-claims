@@ -3,6 +3,8 @@ title: "DRG Cleaning"
 author: "Carlos Resurreccion"
 date: "2024-07-01"
 output: pdf_document
+editor_options: 
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -123,6 +125,7 @@ source(here("data-cleaning", "data-formats.R"))
 
 ```{r}
 source(here("data-cleaning", "general-functions.R"))
+source(here("data-cleaning", "main-functions.R"))
 source(here("data-cleaning", "icd-functions.R"))
 source(here("data-cleaning", "rvs-functions.R"))
 source(here("data-cleaning", "pdx-functions.R"))
@@ -164,121 +167,7 @@ acc_pdx <- unique(acc_pdx)
 ### Reading Data
 
 ```{r reading, warning = FALSE}
-if (to_read) {
-  if (to_view_checks) {
-    print("Reading the entire file...")
-  }
-  dt <- read_entire_file(drop_cols)
-  
-  if (to_sample) {
-    if (file.exists(sampled_claims)) {
-      if (to_view_checks) {
-        print("Sampled file exists. Reading the sampled file...")
-      }
-      dt <- read_sampled_file()
-      # Check if the number of rows matches sample_size
-      if (nrow(dt) != sample_size) {
-        if (to_view_checks) {
-          print(paste("Sampled file does not match sample size. Expected:", 
-                    sample_size, "Found:", nrow(dt), "Re-sampling..."))
-        }
-        dt <- read_entire_file(drop_cols)
-        dt <- sample_data(dt)
-        if (to_write) {
-          if (to_view_checks) {
-            print(paste("to_write is TRUE. Writing the new sample data to file:", 
-                      sampled_claims))
-          }
-          fwrite(dt, sampled_claims)
-        } else {
-          if (to_view_checks) {
-            print("to_write is FALSE. Not writing the sample data to file.")
-          }
-        }
-      } else {
-        if (to_view_checks) {
-          print("Sampled file matches sample size.")
-        }
-      }
-    } else {
-      if (to_view_checks) {
-        print("Sampled file does not exist. Creating new sample...")
-      }
-      dt <- sample_data(dt)
-      if (to_write) {
-        if (to_view_checks) {
-          print(paste("to_write is TRUE. Writing the new sample data to file:", 
-                    sampled_claims))
-        }
-        fwrite(dt, sampled_claims)
-      } else {
-        if (to_view_checks) {
-          print("to_write is FALSE. Not writing the sample data to file.")
-        }
-      }
-    }
-  }
-} else {
-  if (to_sample) {
-    if (file.exists(sampled_claims)) {
-      if (to_view_checks) {
-        print("Sampled file exists. Reading the sampled file...")
-      }
-      dt <- read_sampled_file()
-      # Check if the number of rows matches sample_size
-      if (nrow(dt) != sample_size) {
-        if (to_view_checks) {
-          print(paste("Sampled file does not match sample size. Expected:", 
-                    sample_size, "Found:", nrow(dt), "Re-sampling..."))
-        }
-        dt <- read_entire_file(drop_cols)
-        dt <- sample_data(dt)
-        if (to_write) {
-          if (to_view_checks) {
-            print(paste("to_write is TRUE. Writing the new sample data to file:", 
-                      sampled_claims))
-          }
-          fwrite(dt, sampled_claims)
-        } else {
-          if (to_view_checks) {
-            print("to_write is FALSE. Not writing the sample data to file.")
-          }
-        }
-      } else {
-        if (to_view_checks) {
-          print("Sampled file matches sample size.")
-        }
-      }
-    } else {
-      if (to_view_checks) {
-        print("Sampled file does not exist.")
-        print("Reading entire file and creating new sample...")
-      }
-      dt <- read_entire_file(drop_cols)
-      dt <- sample_data(dt)
-      if (to_write) {
-        if (to_view_checks) {
-          print(paste("to_write is TRUE. Writing the new sample data to file:", 
-                    sampled_claims))
-        }
-        fwrite(dt, sampled_claims)
-      } else {
-        if (to_view_checks) {
-          print("to_write is FALSE. Not writing the sample data to file.")
-        }
-      }
-    }
-  } else {
-    if (!file.exists(intermediate_file)) {
-      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. 
-           At least one must be TRUE.")
-    } else {
-      if (to_view_checks) {
-        print("Using existing intermediate file.")
-      }
-    }
-  }
-}
+dt <- main_read_function()
 
 if (file.exists(total_rows_file)) {
   total_rows <- readRDS(total_rows_file)
@@ -335,7 +224,7 @@ clean_data <- function(dt) {
   dt[, clin_c1 := clean_column(dt$clin_c1, na_like_strings)]
   clin_c1_cleaning_comparison <- dt[clin_c1 != clin_c1_orig, .(clin_c1_orig, clin_c1)]
   if (to_view_checks) {
-    View(head(clin_c1_cleaning_comparison)) # Check: Print head of changes
+    print(head(clin_c1_cleaning_comparison)) # Check: Print head of changes
   }
   dt[, clin_c1_orig := NULL]
   
@@ -343,7 +232,7 @@ clean_data <- function(dt) {
   dt[, clin_c2 := clean_column(dt$clin_c2, na_like_strings)]
   clin_c2_cleaning_comparison <- dt[clin_c2 != clin_c2_orig, .(clin_c2_orig, clin_c2)]
   if (to_view_checks) {
-    View(head(clin_c2_cleaning_comparison)) # Check: Print head of changes
+    print(head(clin_c2_cleaning_comparison)) # Check: Print head of changes
   }
   dt[, clin_c2_orig := NULL]
   
@@ -525,13 +414,13 @@ if (!to_chunk){
       dt <- map_rvs_icd9(dt, rvs_icd9)
       dt <- implement_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
-      dt <- replace_empty_with_na(dt, to_view_checks)
+      # dt <- replace_empty_with_na(dt, to_view_checks)
     })
   } else {
       dt <- map_rvs_icd9(dt, rvs_icd9)
       dt <- implement_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
-      dt <- replace_empty_with_na(dt, to_view_checks)
+      # dt <- replace_empty_with_na(dt, to_view_checks)
   }
 }
 ```
