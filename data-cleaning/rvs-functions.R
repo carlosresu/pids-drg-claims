@@ -55,7 +55,7 @@ print_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
 }
 
 # Main function to process RVS code mappings
-process_rvs_code_mapping <- function(dt, rvs_icd9) {
+map_rvs_icd9 <- function(dt, rvs_icd9) {
   #' @title Process RVS Code Mappings
   #' @description Processes RVS code mappings to ICD-9-CM codes in a data.table.
   #' @param dt A data.table to process.

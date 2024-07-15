@@ -445,7 +445,7 @@ process_chunk <- function(chunk) {
   chunk <- clean_data(chunk)
   
   # Map codes
-  chunk <- process_rvs_code_mapping(chunk, rvs_icd9)
+  chunk <- map_rvs_icd9(chunk, rvs_icd9)
   chunk <- implement_icd10_mapping(chunk)
   
   # Replace empty strings with NA values
@@ -519,13 +519,13 @@ if (to_chunk){
 if (!to_chunk){
   if (to_profvis) {
     profvis({
-      dt <- process_rvs_code_mapping(dt, rvs_icd9)
+      dt <- map_rvs_icd9(dt, rvs_icd9)
       dt <- implement_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
       dt <- replace_empty_with_na(dt, to_view_checks)
     })
   } else {
-      dt <- process_rvs_code_mapping(dt, rvs_icd9)
+      dt <- map_rvs_icd9(dt, rvs_icd9)
       dt <- implement_icd10_mapping(dt)
       # Replace empty strings in character and factor columns with NA
       dt <- replace_empty_with_na(dt, to_view_checks)

@@ -125,12 +125,12 @@ implement_icd10_mapping <- function(dt) {
   
   # Extract unique ICD codes
   icds <- get_unique_icd_codes(dt)
-  thai_icd10 <- unique(tdrg_icd10$CODE)
   
   # Create environments for Thai ICD-10 codes and neoplasms
-  thai_icd10_env <- create_thai_icd10_environment(thai_icd10)
-  neoplasms <- unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"])
-  neoplasms_env <- create_thai_icd10_environment(neoplasms)
+  thai_icd10_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10$CODE))
+  neoplasms_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"]))
   
   # Identify direct matches
   direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
@@ -163,8 +163,7 @@ implement_icd10_mapping <- function(dt) {
   icd10_env <- list2env(setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10))
   
   # Map ICD-10 codes in the data.table
-  dt <- apply_icd10_mapping_to_dt(dt, icd10_env)
-  return(dt)
+  return(apply_icd10_mapping_to_dt(dt, icd10_env))
 }
 
 deduplicate_and_ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
