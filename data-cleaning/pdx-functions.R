@@ -109,16 +109,6 @@ apply_find_pdx <- function(dt, acc_pdx_vector = acc_pdx) {
   #' It first attempts to assign PDX based on clin_c1 and clin_c2 columns.
   #' If no PDX is found, it uses the find_pdx function to determine the PDX from the clin_icd column.
   #'
-  #' @examples
-  #' library(data.table)
-  #' dt <- data.table(
-  #'   clin_c1 = c("A123", "B456", NA),
-  #'   clin_c2 = c(NA, "C789", "D012"),
-  #'   clin_icd = list(c("A123", "B456"), c("C789"), c("D012", "E345"))
-  #' )
-  #' acc_pdx <- c("A123", "C789", "E345")
-  #' modified_dt <- apply_find_pdx(dt, acc_pdx)
-  #' print(modified_dt)  # Should print the data.table with PDX information added
   
   # Assign PDX based on clin_c1 and clin_c2
   dt[, pdx := ifelse(clin_c1 %in% acc_pdx_vector, clin_c1, ifelse(clin_c2 %in% acc_pdx_vector, clin_c2, NA))]

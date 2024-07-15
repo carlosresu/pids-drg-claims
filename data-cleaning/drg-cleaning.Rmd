@@ -452,7 +452,7 @@ process_chunk <- function(chunk) {
   chunk <- replace_empty_with_na(chunk)
   
   # Find PDX
-  chunk <- apply_find_pdx(chunk, acc_pdx)
+  chunk <- apply_find_pdx(chunk)
   
   return(chunk)
 }
@@ -540,10 +540,10 @@ if (!to_chunk){
 if (!to_chunk) {
   if (to_profvis) {
     profvis({
-      dt <- apply_find_pdx(dt, acc_pdx)
+      dt <- apply_find_pdx(dt)
     })
   } else {
-      dt <- apply_find_pdx(dt, acc_pdx)
+      dt <- apply_find_pdx(dt)
   }
 }
 ```
