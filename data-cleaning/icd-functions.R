@@ -6,11 +6,6 @@ remove_lumped_icd_codes <- function(column) {
   #'
   #' @details
   #' This function processes the specified column to remove lumped ICD codes by adding "||" between numeric and alphabetic characters.
-  #'
-  #' @examples
-  #' icd_codes <- c("A1234B123", "C568D1234", "E901F117")
-  #' modified_icd_codes <- remove_lumped_icd_codes(icd_codes)
-  #' print(modified_icd_codes)  # Should print modified ICD codes with "||" inserted
   
   modified_column <- gsub("(?<=\\d)(?=[A-Za-z])", "||", column, perl = TRUE)
   return(modified_column)
@@ -28,13 +23,6 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
   #' - Ensures the column is a list of characters.
   #' - For rows with more than one element, splits and assigns the first element to the specified column.
   #' - Returns the modified clin_icd and the first elements of col.
-  #'
-  #' @examples
-  #' clin_icd <- list(c("A123", "B456"), c("C789", "D012"))
-  #' col <- list(c("X1", "Y2"), c("Z3", "W4"))
-  #' result <- transfer_extra_icd10s_to_clin_icd(clin_icd, col)
-  #' print(result$clin_icd)  # Should print modified clin_icd
-  #' print(result$col_first)  # Should print the first elements of col
   
   clin_icd <- lapply(clin_icd, function(x) if (is.null(x)) character() else x)
   col_first <- lapply(col, function(x) x[1])
@@ -192,15 +180,6 @@ deduplicate_and_ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) 
   #' - Ensures that entries in clin_c1 are not found in clin_c2 or clin_icd within each row.
   #' - Ensures that entries in clin_c2 are not found in clin_c1 or clin_icd within each row.
   #' - Ensures that entries in clin_icd are not found in clin_c1 or clin_c2 within each row.
-  #'
-  #' @examples
-  #' clin_c1 <- list(c("A", "B", "A", "C"), c("C", "D"))
-  #' clin_c2 <- list(c("B", "E", "C"), c("D", "F"))
-  #' clin_icd <- list(c("A", "G"), c("E", "H"))
-  #' result <- deduplicate_and_ensure_unique(clin_c1, clin_c2, clin_icd)
-  #' print(result$clin_c1)  # Should print modified clin_c1
-  #' print(result$clin_c2)  # Should print modified clin_c2
-  #' print(result$clin_icd)  # Should print modified clin_icd
   
   # Deduplicate each column within each row
   clin_c1 <- lapply(clin_c1, unique)
