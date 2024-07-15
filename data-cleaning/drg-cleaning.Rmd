@@ -45,7 +45,7 @@ version <- "v2"
 
 ```{r parameters}
 # Parameters
-sample_size <- 25 * 1e3
+sample_size <- 2500 * 1e3
 seed <- 123
 
 drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
@@ -59,7 +59,7 @@ to_write <- TRUE
 to_group <- TRUE
 to_filter <- FALSE #unused
 to_profvis <- FALSE
-to_chunk <- FALSE
+to_chunk <- TRUE
 to_view_checks <- TRUE
 
 # Seed for reproducibility
