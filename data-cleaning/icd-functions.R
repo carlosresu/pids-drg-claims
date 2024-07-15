@@ -104,22 +104,24 @@ map_icd10_codes <- function(dt, icd10_env) {
   #' @description Maps ICD-10 codes in a data.table.
   #' @param dt A data.table containing ICD codes to map.
   #' @param icd10_env An environment with ICD-10 mappings.
-  map_icd10 <- function(codes) {
+  map_icd10_helper <- function(codes) {
     mapped <- mget(codes, icd10_env, ifnotfound = as.list(codes))
     return(unname(unlist(mapped)))
   }
-  dt[, clin_c1 := lapply(clin_c1, map_icd10)]
-  dt[, clin_c2 := lapply(clin_c2, map_icd10)]
-  dt[, clin_icd := lapply(clin_icd, map_icd10)]
+  
+  dt[, clin_c1 := lapply(clin_c1, map_icd10_helper)]
+  dt[, clin_c2 := lapply(clin_c2, map_icd10_helper)]
+  dt[, clin_icd := lapply(clin_icd, map_icd10_helper)]
+  
   return(dt)
 }
 
 # Main function to process ICD-10 mappings
-process_icd10_mapping <- function(dt) {
-  #' @title Process ICD-10 Mappings
-  #' @description Processes ICD-10 mappings in a data.table using the Thai ICD-10 library.
+apply_icd10_mapping <- function(dt) {
+  #' @title Apply ICD-10 Mappings
+  #' @description Applies ICD-10 mappings in a data.table using the Thai ICD-10 library.
   #' @param dt A data.table to process.
-  #' @return The modified data.table with processed ICD-10 mappings.
+  #' @return The modified data.table with applied ICD-10 mappings.
   
   # Extract unique ICD codes
   icds <- extract_unique_icd_codes(dt)
@@ -164,7 +166,6 @@ process_icd10_mapping <- function(dt) {
   dt <- map_icd10_codes(dt, icd10_env)
   return(dt)
 }
-
 
 deduplicate_and_ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @title Deduplicate and Ensure Unique Entries Across Columns
