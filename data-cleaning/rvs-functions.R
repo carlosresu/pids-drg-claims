@@ -47,8 +47,9 @@ print_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
             length(unique(without_drg$rvs))))
   
   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
-  cat(sprintf('Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n', 
-              length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)))
+  cat(
+    sprintf('Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n', 
+            length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)))
   
   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
   cat(
@@ -57,8 +58,9 @@ print_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
             length(multi_mapped_rvs) * 100 / length(mappable_rvs)))
   
   unmappable_rvs <- setdiff(rvss, mappable_rvs)
-  cat(sprintf('There are %d (%.2f%%) with no ICD-9-CM equivalents.\n', 
-              length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)))
+  cat(
+    sprintf('There are %d (%.2f%%) with no ICD-9-CM equivalents.\n', 
+            length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)))
 }
 
 # Main function to process RVS code mappings
