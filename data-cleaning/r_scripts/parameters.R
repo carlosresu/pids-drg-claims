@@ -4,7 +4,11 @@ version <- "v2"
 sample_size <- 25 * 1e3
 seed <- 123
 
-drop_cols <- c(paste0("ICDCODE", 13:14), "ICCODED15", paste0("ICDCODE", 16:170))
+drop_cols <- c(
+    paste0("ICDCODE", 13:14),
+    "ICCODED15",
+    paste0("ICDCODE", 16:170)
+)
 icd_cols <- paste0("clin_icd", 1:12)
 rvs_cols <- paste0("clin_rvs", 1:20)
 
@@ -19,6 +23,6 @@ to_view_checks <- TRUE
 
 set.seed(seed)
 
-options(future.globals.maxSize = 1024 * 1024 ^ 2)
+options(future.globals.maxSize = 1024 * 1024^2)
 
-global_seed <- seed #for parallelized operations
+global_seed <- seed # for parallelized operations

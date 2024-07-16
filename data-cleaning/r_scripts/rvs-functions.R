@@ -18,10 +18,10 @@ create_rvs_map_lists <- function(with_drg) {
   with_drg <- with_drg[order(rvs, -is_drg)]
   unique_rvs <- unique(with_drg$rvs)
   rvs_grouped <- split(with_drg, with_drg$rvs)
-  
+
   rvs_map_list <- list()
   rvs_map_solo <- list()
-  
+
   for (r in unique_rvs) {
     sub <- rvs_grouped[[r]]
     if (nrow(sub) == 1) {
@@ -30,7 +30,7 @@ create_rvs_map_lists <- function(with_drg) {
       rvs_map_list[[r]] <- sub$icd9cm
     }
   }
-  
+
   return(list(rvs_map_list = rvs_map_list, rvs_map_solo = rvs_map_solo))
 }
 
@@ -43,100 +43,122 @@ print_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
   #' @param rvs_map_list A list of RVS codes with multiple ICD-9-CM mappings.
   without_drg <- rvs_icd9[!rvs %in% names(rvs_map_list)]
   cat(
-    sprintf('There are %d RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n', 
-            length(unique(without_drg$rvs))))
-  
+    sprintf(
+      "There are %d",
+      length(unique(without_drg$rvs))
+    ),
+    "RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n"
+  )
+
   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
   cat(
-    sprintf('Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n', 
-            length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)))
-  
+    sprintf(
+      "Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n",
+      length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)
+    )
+  )
+
   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
   cat(
-    sprintf('Of these, there are %d (%.2f%%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n', 
-            length(multi_mapped_rvs), 
-            length(multi_mapped_rvs) * 100 / length(mappable_rvs)))
-  
+    sprintf(
+      "Of these, there are %d (%.2f%%)",
+      length(multi_mapped_rvs),
+      length(multi_mapped_rvs) * 100 / length(mappable_rvs)
+    ),
+    "with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n"
+  )
+
   unmappable_rvs <- setdiff(rvss, mappable_rvs)
   cat(
-    sprintf('There are %d (%.2f%%) with no ICD-9-CM equivalents.\n', 
-            length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)))
+    sprintf(
+      "There are %d (%.2f%%) with no ICD-9-CM equivalents.\n",
+      length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)
+    )
+  )
 }
 
 # Main function to process RVS code mappings
 map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   #' @title Process RVS Code Mappings
   #' @description Processes RVS code mappings to ICD-9-CM codes.
-  #' @param clin_rvs A list of character vectors representing clinical RVS codes.
+  #' @param clin_rvs A list of character vectors representing
+  #' clinical RVS codes.
   #' @param rvs_icd9 A data.table containing RVS to ICD-9-CM code mappings.
   #' @return A list of ICD-9-CM code mappings for each RVS code.
-  
+
   # Split RVS codes into with and without DRG
   split_codes <- split_rvs_codes(rvs_icd9)
   with_drg <- split_codes$with_drg
   without_drg <- split_codes$without_drg
-  
+
   # Create RVS to ICD-9-CM mapping lists
   rvs_maps <- create_rvs_map_lists(with_drg)
   rvs_map_list <- rvs_maps$rvs_map_list
   rvs_map_solo <- rvs_maps$rvs_map_solo
-  
+
   # Get unique RVS codes from claims
   rvss <- unique(unlist(clin_rvs))
   rvss <- intersect(rvss, rvs_icd9$rvs)
-  
+
   # Print summary statistics
   print_summary_statistics(rvss, rvs_icd9, rvs_map_list)
-  
+
   # Process claims data
   rvs_map_solo_env <- as.environment(rvs_map_solo)
   rvs_map_list_env <- as.environment(rvs_map_list)
-  
+
   icd9_list <- lapply(clin_rvs, function(x) {
     codes <- unlist(x)
     mappable <- codes[
       !is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))
-      ]
+    ]
     if (length(mappable) > 0) {
       unique(unlist(mget(mappable, envir = rvs_map_solo_env)))
     } else {
       NA_character_
     }
   })
-  
+
   return(icd9_list)
 }
 
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   #' @title Append and Remove 5-Digit Codes
-  #' @description Appends and removes 5-digit numeric codes (i.e. 5-digit RVS procedure codes) from a specified column.
-  #' @param clin_rvs A list of character vectors representing the clin_rvs column.
+  #' @description Appends and removes 5-digit numeric codes (i.e.
+  #' 5-digit RVS procedure codes) from a specified column.
+  #' @param clin_rvs A list of character vectors representing the clin_
+  #' rvs column.
   #' @param col A character vector representing the column to process.
-  #' @param rvs_icd9 A data.table containing valid RVS codes in the column 'rvs'.
+  #' @param rvs_icd9 A data.table containing valid RVS codes in the
+  #' column 'rvs'.
   #' @return A list containing the modified clin_rvs and the modified col.
-  #' 
+  #'
   #' @details
   #' This function performs the following operations:
   #' - Ensures the clin_rvs column is a list of characters.
-  #' - Finds and appends 5-digit numeric codes from the specified column to the clin_rvs column.
+  #' - Finds and appends 5-digit numeric codes from the specified column
+  #' to the clin_rvs column.
   #' - Removes 5-digit numeric codes from the specified column.
   #' - Only appends 5-digit numeric codes that exist in the rvs_icd9$rvs column.
-  #' - Prints the discarded RVS codes that do not exist in the rvs_icd9$rvs column.
-  #' 
+  #' - Prints the discarded RVS codes that do not exist in the
+  #' rvs_icd9$rvs column.
+  #'
   #' @examples
   #' clin_rvs <- list(c("A", "B"), c("C", "D"))
   #' col <- c("12345 E", "67890 F", "11111 G")
   #' rvs_icd9 <- data.table(rvs = c("12345", "67890"))
   #' result <- append_and_remove_rvs(clin_rvs, col, rvs_icd9)
-  #' print(result$clin_rvs)  # Should print modified clin_rvs with valid 5-digit codes appended
-  #' print(result$col)  # Should print the modified col with 5-digit codes removed
-  
+  #' print(result$clin_rvs)  # Should print modified clin_rvs with valid
+  #' 5-digit codes appended
+  #' print(result$col)  # Should print the modified col with 5-digit
+  #' codes removed
+
   # Ensure the clin_rvs column is a list of characters
   clin_rvs <- lapply(clin_rvs, function(x) if (is.null(x)) character() else x)
-  
+
   # Regular expression to match 5-digit numeric codes
-  regex_5_digit <- "\\b\\d{5}\\b" 
-  
+  regex_5_digit <- "\\b\\d{5}\\b"
+
   #' Helper function to find and append valid codes, and collect discarded codes
   find_and_append_valid_codes <- function(clin_rvs_item, col_item, regex_5_digit, valid_codes, discarded_codes) {
     matches <- regmatches(col_item, gregexpr(regex_5_digit, col_item))
@@ -146,26 +168,38 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
     updated_clin_rvs <- unique(c(clin_rvs_item, valid_matches))
     return(updated_clin_rvs)
   }
-  
+
   # Helper function to remove 5-digit codes from the specified column
   remove_5_digit_codes <- function(col_item, regex_5_digit) {
     return(gsub(regex_5_digit, "", col_item))
   }
-  
+
   # Extract valid RVS codes
   valid_rvs_codes <- rvs_icd9$rvs
   discarded_codes <- character()
-  
-  # Find and append valid 5-digit codes, and remove them from the specified column
-  modified_clin_rvs <- mapply(find_and_append_valid_codes, clin_rvs, col, MoreArgs = list(regex_5_digit = regex_5_digit, valid_codes = valid_rvs_codes, discarded_codes = discarded_codes), SIMPLIFY = FALSE)
-  modified_col <- lapply(col, remove_5_digit_codes, regex_5_digit = regex_5_digit)
-  
+
+  # Find and append valid 5-digit codes, and remove them from the
+  # specified column
+  modified_clin_rvs <- mapply(
+    find_and_append_valid_codes, clin_rvs, col,
+    MoreArgs = list(
+      regex_5_digit = regex_5_digit,
+      valid_codes = valid_rvs_codes,
+      discarded_codes = discarded_codes
+    ),
+    SIMPLIFY = FALSE
+  )
+  modified_col <- lapply(
+    col, remove_5_digit_codes,
+    regex_5_digit = regex_5_digit
+  )
+
   # Print discarded codes
   if (length(discarded_codes) > 0) {
     warning("Discarded RVS codes: ", paste(discarded_codes, collapse = ", "))
   } else {
     print("No RVS codes discarded")
   }
-  
+
   return(list(clin_rvs = modified_clin_rvs, col = unlist(modified_col)))
 }
