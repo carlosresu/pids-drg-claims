@@ -1,3 +1,5 @@
+source(here("data-cleaning", "r_scripts", "libraries.R"))
+
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
   #' @description Removes lumped ICD codes from a specified column.
@@ -172,27 +174,28 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
   # Identify direct matches
   direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
   cat(sprintf(
-    "There are %d unique entries for ICD-10 codes, of which %d (%.2f%%) are directly in the Thai ICD-10 library\n",
-    length(icds), length(direct_match_codes), length(direct_match_codes) * 100 / length(icds)
-  ))
+    "There are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
+    length(icds), length(direct_match_codes),
+    length(direct_match_codes) * 100 / length(icds)
+  ), " are directly in the Thai ICD-10 library\n")
 
   # Create ICD-10 mapping
   icd_mapping_info <- generate_icd10_mapping(icds, thai_icd10_env, neoplasms_env)
   icd_mapping <- icd_mapping_info$icd_mapping
   modified_count <- icd_mapping_info$modified_count
   cat(sprintf(
-    "The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n",
+    "The modifications led to a total of %d",
     length(icd_mapping)
-  ))
+  ), "codes being mapped to an equivalent in the Thai ICD10 library.\n")
   cat(sprintf("Out of these, %d were modified to match.\n", modified_count))
 
   # Identify unmatched ICD codes
   unmatched_icds <- setdiff(icds, names(icd_mapping))
   if (length(unmatched_icds) > 0) {
     cat(sprintf(
-      "There are %d codes that could not be mapped to the Thai ICD10 library:\n",
+      "There are %d",
       length(unmatched_icds)
-    ))
+    ), "codes that could not be mapped to the Thai ICD10 library:\n")
     unmatched_sources <- data.table(
       code = unmatched_icds,
       source = NA_character_

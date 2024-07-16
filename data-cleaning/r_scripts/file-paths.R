@@ -1,3 +1,5 @@
+source(here("data-cleaning", "r_scripts", "libraries.R"))
+
 path_to_raw_claims <- "git-ignored-files/raw-claims"
 path_to_intermediate <- "git-ignored-files/intermediate-claims"
 path_to_cache <- "data-cleaning/cache"

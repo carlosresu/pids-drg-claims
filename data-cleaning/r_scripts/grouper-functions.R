@@ -1,3 +1,5 @@
+source(here("data-cleaning", "r_scripts", "libraries.R"))
+
 generate_dob_vectorized <- function(bdays, ages, date_adms) {
   #' @title Generate Date of Birth (DOB) Vectorized
   #' @description Generates date of birth (DOB) values vectorized
