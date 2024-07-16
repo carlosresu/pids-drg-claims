@@ -64,12 +64,12 @@ print_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
 }
 
 # Main function to process RVS code mappings
-map_rvs_icd9 <- function(dt, rvs_icd9) {
+map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   #' @title Process RVS Code Mappings
-  #' @description Processes RVS code mappings to ICD-9-CM codes in a data.table.
-  #' @param dt A data.table to process.
+  #' @description Processes RVS code mappings to ICD-9-CM codes.
+  #' @param clin_rvs A list of character vectors representing clinical RVS codes.
   #' @param rvs_icd9 A data.table containing RVS to ICD-9-CM code mappings.
-  #' @return The modified data.table with processed RVS to ICD-9-CM code mappings.
+  #' @return A list of ICD-9-CM code mappings for each RVS code.
   
   # Split RVS codes into with and without DRG
   split_codes <- split_rvs_codes(rvs_icd9)
@@ -82,20 +82,17 @@ map_rvs_icd9 <- function(dt, rvs_icd9) {
   rvs_map_solo <- rvs_maps$rvs_map_solo
   
   # Get unique RVS codes from claims
-  rvss <- unique(unlist(dt$clin_rvs))
+  rvss <- unique(unlist(clin_rvs))
   rvss <- intersect(rvss, rvs_icd9$rvs)
   
   # Print summary statistics
   print_summary_statistics(rvss, rvs_icd9, rvs_map_list)
   
   # Process claims data
-  dt2 <- dt[lengths(clin_rvs) > 0]
-  dt2 <- dt2[, .(clin_rvs), by = .(id_series)]
-  
   rvs_map_solo_env <- as.environment(rvs_map_solo)
   rvs_map_list_env <- as.environment(rvs_map_list)
   
-  dt2[, icd9_list := lapply(clin_rvs, function(x) {
+  icd9_list <- lapply(clin_rvs, function(x) {
     codes <- unlist(x)
     mappable <- codes[
       !is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))
@@ -105,28 +102,9 @@ map_rvs_icd9 <- function(dt, rvs_icd9) {
     } else {
       NA_character_
     }
-  })]
+  })
   
-  dt2[, rvs_unmap_list := lapply(clin_rvs, function(x) {
-    codes <- unlist(x)
-    unmappable <- codes[
-      is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA)) & 
-        is.na(mget(codes, envir = rvs_map_list_env, ifnotfound = NA))
-      ]
-    if (length(unmappable) > 0) {
-      unique(unmappable)
-    } else {
-      NA_character_
-    }
-  })]
-  
-  # Merge results back into the original data.table
-  setkey(dt, id_series)
-  setkey(dt2, id_series)
-  dt <- merge(dt, dt2[, .(id_series, icd9_list, rvs_unmap_list)], 
-              by = "id_series", all.x = TRUE)
-  
-  return(dt)
+  return(icd9_list)
 }
 
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {

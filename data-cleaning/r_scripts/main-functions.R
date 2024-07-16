@@ -263,9 +263,20 @@ process_chunk <- function(chunk) {
   # Clean data
   chunk <- clean_data(chunk)
   
-  # Map codes
-  chunk <- map_rvs_icd9(chunk, rvs_icd9)
-  chunk <- implement_icd10_mapping(chunk)
+  # Map RVS codes
+  chunk[, icd9_list := map_rvs_icd9(clin_rvs, rvs_icd9)]
+
+  # Map ICD codes
+  clin_c1 <- chunk$clin_c1
+  clin_c2 <- chunk$clin_c2
+  clin_icd <- chunk$clin_icd
+
+  mapped_columns <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
+
+  # Save the results back to the data.table
+  dt[, clin_c1 := mapped_columns$clin_c1]
+  dt[, clin_c2 := mapped_columns$clin_c2]
+  dt[, clin_icd := mapped_columns$clin_icd]
   
   # Replace empty strings with NA values
   chunk <- replace_empty_with_na(chunk, to_view_checks)

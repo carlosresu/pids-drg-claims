@@ -1,11 +1,11 @@
-path_to_raw_claims <- "drg-pipeline/git-ignored-files/raw-claims"
-path_to_intermediate <- "drg-pipeline/git-ignored-files/intermediate-claims"
-path_to_cache <- "drg-pipeline/data-cleaning/cache"
-path_to_aux <- "drg-pipeline/git-ignored-files/aux-files"
-path_to_excel <- "drg-pipeline/git-ignored-files/Excel"
-path_to_cleaned_claims <- "drg-pipeline/git-ignored-files/cleaned-claims"
-path_to_grouper_output <- "drg-pipeline/git-ignored-files/grouper-output"
-path_to_chunks <- "drg-pipeline/git-ignored-files/chunked-samples"
+path_to_raw_claims <- "git-ignored-files/raw-claims"
+path_to_intermediate <- "git-ignored-files/intermediate-claims"
+path_to_cache <- "data-cleaning/cache"
+path_to_aux <- "git-ignored-files/aux-files"
+path_to_excel <- "git-ignored-files/Excel"
+path_to_cleaned_claims <- "git-ignored-files/cleaned-claims"
+path_to_grouper_output <- "git-ignored-files/grouper-output"
+path_to_chunks <- "git-ignored-files/chunked-samples"
 
 # Here() let's you find files in your project directory
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)

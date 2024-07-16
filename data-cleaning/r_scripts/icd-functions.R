@@ -32,13 +32,15 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
   return(list(clin_icd = clin_icd, col_first = col_first))
 }
 
-# Helper function to extract unique ICD codes from a data.table
-get_unique_icd_codes <- function(dt) {
+# Helper function to extract unique ICD codes from specific columns
+get_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @title Get Unique ICD Codes
-  #' @description Extracts unique ICD codes from a data.table.
-  #' @param dt A data.table containing ICD codes.
+  #' @description Extracts unique ICD codes from specific columns.
+  #' @param clin_c1 A list of character vectors containing ICD codes.
+  #' @param clin_c2 A list of character vectors containing ICD codes.
+  #' @param clin_icd A list of character vectors containing ICD codes.
   #' @return A unique vector of ICD codes.
-  icds <- unique(c(unlist(dt$clin_c1), unlist(dt$clin_c2), unlist(dt$clin_icd)))
+  icds <- unique(c(unlist(clin_c1), unlist(clin_c2), unlist(clin_icd)))
   icds <- icds[!is.na(icds)]
   return(icds)
 }
@@ -98,39 +100,43 @@ generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
   return(list(icd_mapping = icd_mapping, modified_count = modified_count))
 }
 
-# Helper function to map ICD-10 codes in a data.table
-apply_icd10_mapping_to_dt <- function(dt, icd10_env) {
-  #' @title Apply ICD-10 Mapping to Data Table
-  #' @description Maps ICD-10 codes in a data.table.
-  #' @param dt A data.table containing ICD codes to map.
+# Helper function to map ICD-10 codes in specific columns
+apply_icd10_mapping_to_columns <- function(clin_c1, clin_c2, clin_icd, icd10_env) {
+  #' @title Apply ICD-10 Mapping to Columns
+  #' @description Maps ICD-10 codes in specific columns.
+  #' @param clin_c1 A list of character vectors containing ICD codes.
+  #' @param clin_c2 A list of character vectors containing ICD codes.
+  #' @param clin_icd A list of character vectors containing ICD codes.
   #' @param icd10_env An environment with ICD-10 mappings.
+  #' @return A list of modified columns with applied ICD-10 mappings.
   map_icd10_helper <- function(codes) {
     mapped <- mget(codes, icd10_env, ifnotfound = as.list(codes))
     return(unname(unlist(mapped)))
   }
   
-  dt[, clin_c1 := lapply(clin_c1, map_icd10_helper)]
-  dt[, clin_c2 := lapply(clin_c2, map_icd10_helper)]
-  dt[, clin_icd := lapply(clin_icd, map_icd10_helper)]
+  clin_c1_mapped <- lapply(clin_c1, map_icd10_helper)
+  clin_c2_mapped <- lapply(clin_c2, map_icd10_helper)
+  clin_icd_mapped <- lapply(clin_icd, map_icd10_helper)
   
-  return(dt)
+  return(list(clin_c1 = clin_c1_mapped, clin_c2 = clin_c2_mapped, clin_icd = clin_icd_mapped))
 }
 
 # Main function to process ICD-10 mappings
-implement_icd10_mapping <- function(dt) {
+implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
   #' @title Process ICD-10 Mappings
-  #' @description Applies ICD-10 mappings in a data.table using the Thai ICD-10 library.
-  #' @param dt A data.table to process.
-  #' @return The modified data.table with applied ICD-10 mappings.
+  #' @description Applies ICD-10 mappings to specific columns using the Thai ICD-10 library.
+  #' @param clin_c1 A list of character vectors containing ICD codes.
+  #' @param clin_c2 A list of character vectors containing ICD codes.
+  #' @param clin_icd A list of character vectors containing ICD codes.
+  #' @param tdrg_icd10 A data.table containing Thai ICD-10 codes.
+  #' @return A list of modified columns with applied ICD-10 mappings.
   
   # Extract unique ICD codes
-  icds <- get_unique_icd_codes(dt)
+  icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
   
   # Create environments for Thai ICD-10 codes and neoplasms
-  thai_icd10_env <- create_thai_icd10_environment(
-    unique(tdrg_icd10$CODE))
-  neoplasms_env <- create_thai_icd10_environment(
-    unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"]))
+  thai_icd10_env <- create_thai_icd10_environment(unique(tdrg_icd10$CODE))
+  neoplasms_env <- create_thai_icd10_environment(unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"]))
   
   # Identify direct matches
   direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
@@ -151,19 +157,22 @@ implement_icd10_mapping <- function(dt) {
       code = unmatched_icds,
       source = NA_character_
     )
-    for (col in c("clin_c1", "clin_c2", "clin_icd")) {
-      unmatched_sources[code %in% unlist(dt[[col]]), source := col]
+    
+    for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
+      col_values <- get(col_name)
+      unmatched_sources[code %in% unlist(col_values), source := col_name]
     }
+    
     print(unmatched_sources)
   }
   
   # Create ICD-10 mapping data.table and environment
   icd10_map <- data.table(phl_icd10 = names(icd_mapping), tdrg_icd10 = unlist(icd_mapping))
-  fwrite(icd10_map, here(path_to_cache, paste0("icd10_map_file_", year_to_load, ".csv")))
+  fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))  # Adjust the file path as needed
   icd10_env <- list2env(setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10))
   
-  # Map ICD-10 codes in the data.table
-  return(apply_icd10_mapping_to_dt(dt, icd10_env))
+  # Map ICD-10 codes in the specific columns
+  return(apply_icd10_mapping_to_columns(clin_c1, clin_c2, clin_icd, icd10_env))
 }
 
 deduplicate_and_ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
