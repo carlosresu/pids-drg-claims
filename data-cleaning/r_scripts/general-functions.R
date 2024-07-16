@@ -158,13 +158,22 @@ replace_empty_with_na <- function(dt, to_view_checks) {
   }
 
   if (to_view_checks) {
-    print(kable(replacement_summary,
-      format = "markdown",
-      col.names = c(
-        "Column", "\"\" Replaced",
-        "\"NA\" Replaced", "\"character(0)\" Replaced"
-      )
-    ))
+    # Filter out rows where all counts are zero
+    replacement_summary <- replacement_summary[
+      Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
+    ]
+
+    if (nrow(replacement_summary) > 0) {
+      print(kable(replacement_summary,
+        format = "markdown",
+        col.names = c(
+          "Column", "\"\" Replaced",
+          "\"NA\" Replaced", "\"character(0)\" Replaced"
+        )
+      ))
+    } else {
+      cat("No replacements were made.\n")
+    }
   }
 
   return(dt)

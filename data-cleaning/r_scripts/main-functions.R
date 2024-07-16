@@ -132,22 +132,24 @@ main_read_function <- function() {
 }
 
 clean_data <- function(dt) {
-  # original_col_order <- colnames(dt) # TODO can delete
-
   # Add year column
   dt[, SRC_YR := as.integer(year_to_load)]
-  # unwrapped/deprecated the old function
+
   # Rename columns
   setnames(dt, old = old_colnames, new = new_colnames)
-  # unwrapped/deprecated the old function
-  # Check: Print new colnames
+
+  # Check if all columns were successfully renamed
+  if (!all(new_colnames %in% colnames(dt))) {
+    missing_cols <- setdiff(new_colnames, colnames(dt))
+    warning("Failed to rename the following columns: ", paste(missing_cols, collapse = ", "))
+    stop("Column renaming failed.")
+  }
+
   if (to_view_checks) {
-    print(colnames(dt))
     print("Successfully renamed columns; All expected columns exist")
   }
+
   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
-  # dt <- process_and_collapse_columns(dt, icd_cols, "clin_icd")
-  # unwrapped/deprecated the old function
   dt[, clin_icd := collapse_columns(
     mget(paste0("clin_icd", 1:12),
       envir = as.environment(dt)
@@ -157,8 +159,6 @@ clean_data <- function(dt) {
   dt[, paste0("clin_icd", 1:12) := NULL]
 
   # Collapse columns clin_rvs1 to clin_rvs20 into clin_rvs
-  # dt <- process_and_collapse_columns(dt, rvs_cols, "clin_rvs")
-  # unwrapped/deprecated the old function
   dt[, clin_rvs := collapse_columns(
     mget(paste0("clin_rvs", 1:20),
       envir = as.environment(dt)
@@ -168,8 +168,6 @@ clean_data <- function(dt) {
   dt[, paste0("clin_rvs", 1:20) := NULL]
 
   # Remove lumped ICD codes from clin_icd
-  # dt <- remove_lumped_icd_codes(dt, "clin_icd")
-  # unwrapped/deprecated the old function
   dt[, clin_icd := remove_lumped_icd_codes(dt$clin_icd)]
 
   # Turn clin_icd and clin_rvs into lists
@@ -177,10 +175,6 @@ clean_data <- function(dt) {
   dt[, clin_rvs := split_to_vector(clin_rvs)]
 
   # Clean and unlump clin_c1 and clin_c2
-  # dt <- clean_columns_in_dt(dt, c("clin_c1", "clin_c2"))
-  # unwrapped/deprecated function
-
-  # Clean columns (new):
   dt[, clin_c1_orig := clin_c1]
   dt[, clin_c1 := clean_column(dt$clin_c1, na_like_strings)]
   clin_c1_cleaning_comparison <- dt[
@@ -207,7 +201,6 @@ clean_data <- function(dt) {
   dt[, clin_c2 := remove_lumped_icd_codes(dt$clin_c2)]
 
   dt[, clin_c1 := split_to_vector(clin_c1)]
-  # dt <- process_icd10_codes(dt, "clin_c1")  # unwrapped/deprecated function
   clin_c1_result <- transfer_extra_icd10s_to_clin_icd(
     dt$clin_icd, dt$clin_c1
   )
@@ -215,16 +208,9 @@ clean_data <- function(dt) {
   dt[, clin_c1 := clin_c1_result$col_first]
 
   dt[, clin_c2 := split_to_vector(clin_c2)]
-  # dt <- process_icd10_codes(dt, "clin_c2")
-  # unwrapped/deprecated function
   clin_c2_result <- transfer_extra_icd10s_to_clin_icd(dt$clin_icd, dt$clin_c2)
   dt[, clin_icd := clin_c2_result$clin_icd]
   dt[, clin_c2 := clin_c2_result$col_first]
-
-  # dt <- append_and_remove_rvs(dt, "clin_c1")
-  # unwrapped/deprecated function
-  # dt <- append_and_remove_rvs(dt, "clin_c2")
-  # unwrapped/deprecated function
 
   clin_c1_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$clin_c1, rvs_icd9
@@ -249,32 +235,81 @@ clean_data <- function(dt) {
   # Replace empty strings in character and factor columns with NA
   dt <- replace_empty_with_na(dt, to_view_checks)
 
-  dt[, pat_type := remap_patient_type(pat_type)]
-  if (to_view_checks) {
+  warning_thrown <- FALSE
+
+  dt[, pat_type := {
+    tryCatch(
+      {
+        remap_patient_type(pat_type)
+      },
+      warning = function(w) {
+        warning_thrown <<- TRUE
+        invokeRestart("muffleWarning")
+      }
+    )
+  }]
+  if (warning_thrown && to_view_checks) {
     print("Patient Types:")
     print(unique(dt$pat_type))
   }
 
-  dt[, pat_memcat_parent := remap_memcat_parent_desc(pat_memcat_parent)]
-  if (to_view_checks) {
+  warning_thrown <- FALSE
+
+  dt[, pat_memcat_parent := {
+    tryCatch(
+      {
+        remap_memcat_parent_desc(pat_memcat_parent)
+      },
+      warning = function(w) {
+        warning_thrown <<- TRUE
+        invokeRestart("muffleWarning")
+      }
+    )
+  }]
+  if (warning_thrown && to_view_checks) {
     print("Memcat Parent Types:")
     print(unique(dt$pat_memcat_parent))
   }
 
-  dt[, pat_memcat_child := remap_memcat_child_desc(pat_memcat_child)]
-  if (to_view_checks) {
+  warning_thrown <- FALSE
+
+  dt[, pat_memcat_child := {
+    tryCatch(
+      {
+        remap_memcat_child_desc(pat_memcat_child)
+      },
+      warning = function(w) {
+        warning_thrown <<- TRUE
+        invokeRestart("muffleWarning")
+      }
+    )
+  }]
+  if (warning_thrown && to_view_checks) {
     print("Memcat Child Types:")
     print(unique(dt$pat_memcat_child))
   }
 
-  dt[, clin_discharge := remap_disposition(clin_discharge)]
-  if (to_view_checks) {
+  warning_thrown <- FALSE
+
+  dt[, clin_discharge := {
+    tryCatch(
+      {
+        remap_disposition(clin_discharge)
+      },
+      warning = function(w) {
+        warning_thrown <<- TRUE
+        invokeRestart("muffleWarning")
+      }
+    )
+  }]
+  if (warning_thrown && to_view_checks) {
     print("Discharge Types:")
     print(unique(dt$clin_discharge))
   }
 
   return(dt)
 }
+
 
 
 process_chunk <- function(chunk) {
@@ -316,7 +351,8 @@ process_chunk <- function(chunk) {
     clin_c1,
     clin_c2,
     clin_icd,
-    tdrg_icd10
+    tdrg_icd10,
+    rows_to_show = 10
   )
 
   # Save the results back to the data.table

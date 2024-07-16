@@ -20,7 +20,7 @@ to_write <- TRUE
 to_group <- TRUE
 to_filter <- FALSE # unused
 to_profvis <- FALSE
-to_chunk <- TRUE
+to_chunk <- FALSE
 to_view_checks <- TRUE
 
 set.seed(seed)
