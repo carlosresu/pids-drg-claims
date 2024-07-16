@@ -118,7 +118,7 @@ main_read_function <- function() {
 }
 
 clean_data <- function(dt) {
-  original_col_order <- colnames(dt) # TODO can delete
+  # original_col_order <- colnames(dt) # TODO can delete
   
   # Add year column
   dt[, SRC_YR := as.integer(year_to_load)] # unwrapped/deprecated the old function
@@ -271,12 +271,15 @@ process_chunk <- function(chunk) {
   clin_c2 <- chunk$clin_c2
   clin_icd <- chunk$clin_icd
 
-  mapped_columns <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
+  mapped_columns <- implement_icd10_mapping(clin_c1,
+                                            clin_c2,
+                                            clin_icd,
+                                            tdrg_icd10)
 
   # Save the results back to the data.table
-  dt[, clin_c1 := mapped_columns$clin_c1]
-  dt[, clin_c2 := mapped_columns$clin_c2]
-  dt[, clin_icd := mapped_columns$clin_icd]
+  chunk[, clin_c1 := mapped_columns$clin_c1]
+  chunk[, clin_c2 := mapped_columns$clin_c2]
+  chunk[, clin_icd := mapped_columns$clin_icd]
   
   # Replace empty strings with NA values
   chunk <- replace_empty_with_na(chunk, to_view_checks)
