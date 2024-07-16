@@ -206,11 +206,6 @@ split_to_vector <- function(column) {
 }
 
 remap_patient_type <- function(pat_type) {
-  #' @title Remap Patient Type
-  #' @description Remaps patient type.
-  #' @param pat_type A character vector representing the patient type column.
-  #' @return The remapped patient type column with warnings for unmapped
-  #' entries.
   known_types <- c("MEMBER", "DEPENDENT")
   remapped_pat_type <- fcase(
     pat_type == "MEMBER", "MEM",
@@ -220,22 +215,10 @@ remap_patient_type <- function(pat_type) {
     pat_type[!is.na(pat_type)],
     known_types
   )
-  if (length(unknown_types) > 0) {
-    warning(
-      "Unmapped patient types found: ",
-      paste(unknown_types, collapse = ", ")
-    )
-  }
-  return(remapped_pat_type)
+  list(remapped = remapped_pat_type, unmapped = unknown_types)
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
-  #' @title Remap Member Category Parent Description
-  #' @description Remaps member category parent description.
-  #' @param pat_memcat_parent A character vector representing
-  #' the member category parent description column.
-  #' @return The remapped member category parent description column
-  #' with warnings for unmapped entries.
   known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
   remapped_memcat_parent <- fcase(
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
@@ -245,22 +228,10 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
     pat_memcat_parent[!is.na(pat_memcat_parent)],
     known_parents
   )
-  if (length(unknown_parents) > 0) {
-    warning(
-      "Unmapped member category parents found: ",
-      paste(unknown_parents, collapse = ", ")
-    )
-  }
-  return(remapped_memcat_parent)
+  list(remapped = remapped_memcat_parent, unmapped = unknown_parents)
 }
 
 remap_memcat_child_desc <- function(pat_memcat_child) {
-  #' @title Remap Member Category Child Description
-  #' @description Remaps member category child description.
-  #' @param pat_memcat_child A character vector representing the member category
-  #' child description column.
-  #' @return The remapped member category child description column with warnings
-  #' for unmapped entries.
   known_children <- c(
     "EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "SENIOR CITIZEN", "INDIGENT",
     "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
@@ -289,22 +260,10 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child[!is.na(pat_memcat_child)],
     known_children
   )
-  if (length(unknown_children) > 0) {
-    warning(
-      "Unmapped member category children found: ",
-      paste(unknown_children, collapse = ", ")
-    )
-  }
-  return(remapped_memcat_child)
+  list(remapped = remapped_memcat_child, unmapped = unknown_children)
 }
 
 remap_disposition <- function(clin_discharge) {
-  #' @title Remap Clinical Discharge Disposition
-  #' @description Remaps clinical discharge disposition.
-  #' @param clin_discharge A character vector representing the clinical
-  #' discharge disposition column.
-  #' @return The remapped clinical discharge disposition column with
-  #' warnings for unmapped entries.
   known_dispositions <- c(
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
     "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED"
@@ -322,14 +281,9 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge[!is.na(clin_discharge)],
     known_dispositions
   )
-  if (length(unknown_dispositions) > 0) {
-    warning(
-      "Unmapped clinical discharge dispositions found: ",
-      paste(unknown_dispositions, collapse = ", ")
-    )
-  }
-  return(remapped_discharge)
+  list(remapped = remapped_discharge, unmapped = unknown_dispositions)
 }
+
 
 format_large_numbers <- function(x) {
   #' @title Format Large Numbers

@@ -134,74 +134,31 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   #' @param rvs_icd9 A data.table containing valid RVS codes in the
   #' column 'rvs'.
   #' @return A list containing the modified clin_rvs and the modified col.
-  #'
-  #' @details
-  #' This function performs the following operations:
-  #' - Ensures the clin_rvs column is a list of characters.
-  #' - Finds and appends 5-digit numeric codes from the specified column
-  #' to the clin_rvs column.
-  #' - Removes 5-digit numeric codes from the specified column.
-  #' - Only appends 5-digit numeric codes that exist in the rvs_icd9$rvs column.
-  #' - Prints the discarded RVS codes that do not exist in the
-  #' rvs_icd9$rvs column.
-  #'
-  #' @examples
-  #' clin_rvs <- list(c("A", "B"), c("C", "D"))
-  #' col <- c("12345 E", "67890 F", "11111 G")
-  #' rvs_icd9 <- data.table(rvs = c("12345", "67890"))
-  #' result <- append_and_remove_rvs(clin_rvs, col, rvs_icd9)
-  #' print(result$clin_rvs)  # Should print modified clin_rvs with valid
-  #' 5-digit codes appended
-  #' print(result$col)  # Should print the modified col with 5-digit
-  #' codes removed
 
-  # Ensure the clin_rvs column is a list of characters
-  clin_rvs <- lapply(clin_rvs, function(x) if (is.null(x)) character() else x)
+  # Create a data.table for efficient processing
+  dt <- data.table(clin_rvs = clin_rvs, col = col)
 
-  # Regular expression to match 5-digit numeric codes
+  # Extract valid RVS codes and define the regex pattern for 5-digit codes
+  valid_rvs_codes <- rvs_icd9$rvs
   regex_5_digit <- "\\b\\d{5}\\b"
 
-  #' Helper function to find and append valid codes, and collect discarded codes
-  find_and_append_valid_codes <- function(clin_rvs_item, col_item, regex_5_digit, valid_codes, discarded_codes) {
-    matches <- regmatches(col_item, gregexpr(regex_5_digit, col_item))
-    valid_matches <- matches[[1]][matches[[1]] %in% valid_codes]
-    discarded_matches <- matches[[1]][!matches[[1]] %in% valid_codes]
-    discarded_codes <<- unique(c(discarded_codes, discarded_matches))
-    updated_clin_rvs <- unique(c(clin_rvs_item, valid_matches))
-    return(updated_clin_rvs)
-  }
+  # Find and append valid 5-digit codes
+  dt[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
+  dt[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+  dt[, clin_rvs := lapply(seq_along(clin_rvs), function(i) unique(c(clin_rvs[[i]], dt$valid_matches[[i]])))]
 
-  # Helper function to remove 5-digit codes from the specified column
-  remove_5_digit_codes <- function(col_item, regex_5_digit) {
-    return(gsub(regex_5_digit, "", col_item))
-  }
+  # Remove 5-digit codes from the specified column
+  dt[, col := lapply(col, function(x) gsub(regex_5_digit, "", x))]
 
-  # Extract valid RVS codes
-  valid_rvs_codes <- rvs_icd9$rvs
-  discarded_codes <- character()
-
-  # Find and append valid 5-digit codes, and remove them from the
-  # specified column
-  modified_clin_rvs <- mapply(
-    find_and_append_valid_codes, clin_rvs, col,
-    MoreArgs = list(
-      regex_5_digit = regex_5_digit,
-      valid_codes = valid_rvs_codes,
-      discarded_codes = discarded_codes
-    ),
-    SIMPLIFY = FALSE
-  )
-  modified_col <- lapply(
-    col, remove_5_digit_codes,
-    regex_5_digit = regex_5_digit
-  )
-
-  # Print discarded codes
+  # Find invalid RVS codes and display a warning if any are found
+  dt[, invalid_matches := lapply(matches, function(x) x[!x %in% valid_rvs_codes])]
+  discarded_codes <- unique(unlist(dt$invalid_matches))
   if (length(discarded_codes) > 0) {
     warning("Discarded RVS codes: ", paste(discarded_codes, collapse = ", "))
   } else {
     print("No RVS codes discarded")
   }
 
-  return(list(clin_rvs = modified_clin_rvs, col = unlist(modified_col)))
+  # Return the modified clin_rvs and col
+  return(list(clin_rvs = dt$clin_rvs, col = dt$col))
 }

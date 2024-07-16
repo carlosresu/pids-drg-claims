@@ -199,6 +199,7 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
       ]
     }
 
+    unmatched_sources <- unmatched_sources[order(-count)]
     print(kable(head(unmatched_sources, rows_to_show),
       format = "markdown",
       caption = "Unmapped ICD Codes"
@@ -221,8 +222,8 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
 }
 
 
-ensure_unique_icd_codes <- function(
-    clin_c1, clin_c2, clin_icd) {
+
+ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @title Deduplicate and Ensure Unique Entries Across Columns
   #' @description Deduplicates and ensures unique entries across
   #' clin_c1, clin_c2, and clin_icd columns within each row.
@@ -231,29 +232,37 @@ ensure_unique_icd_codes <- function(
   #' @param clin_icd A list of vectors representing the clin_icd column.
   #' @return A list containing the modified clin_c1, clin_c2,
   #' and clin_icd columns.
-  clin_c1 <- lapply(clin_c1, unique)
-  clin_c2 <- lapply(clin_c2, unique)
-  clin_icd <- lapply(clin_icd, unique)
 
-  unique_clin_icd <- mapply(function(c1, c2, icd) {
-    setdiff(icd, union(c1, c2))
-  }, clin_c1, clin_c2, clin_icd, SIMPLIFY = FALSE)
-
-  unique_clin_c1 <- mapply(function(c1, c2, icd) {
-    setdiff(c1, c2)
-  }, clin_c1, clin_c2, SIMPLIFY = FALSE)
-  unique_clin_c2 <- mapply(function(c1, c2, icd) {
-    setdiff(c2, c1)
-  }, clin_c1, clin_c2, SIMPLIFY = FALSE)
-
-  return(
-    list(
-      clin_c1 = unique_clin_c1,
-      clin_c2 = unique_clin_c2,
-      clin_icd = unique_clin_icd
-    )
+  # Convert lists to data.table for efficient processing
+  dt <- data.table(
+    clin_c1 = clin_c1,
+    clin_c2 = clin_c2,
+    clin_icd = clin_icd
   )
+
+  # Deduplicate each column
+  dt[, clin_c1 := lapply(clin_c1, unique)]
+  dt[, clin_c2 := lapply(clin_c2, unique)]
+  dt[, clin_icd := lapply(clin_icd, unique)]
+
+  # Remove entries in clin_icd that are in clin_c1 or clin_c2
+  dt[, clin_icd := Map(function(c1, c2, icd) {
+    setdiff(icd, union(c1, c2))
+  }, clin_c1, clin_c2, clin_icd)]
+
+  # Remove entries in clin_c1 that are in clin_c2
+  dt[, clin_c1 := Map(function(c1, c2) {
+    setdiff(c1, c2)
+  }, clin_c1, clin_c2)]
+
+  # Remove entries in clin_c2 that are in clin_c1
+  dt[, clin_c2 := Map(function(c1, c2) {
+    setdiff(c2, c1)
+  }, clin_c1, clin_c2)]
+
+  return(list(clin_c1 = dt$clin_c1, clin_c2 = dt$clin_c2, clin_icd = dt$clin_icd))
 }
+
 
 generate_comparison_table <- function(original, modified) {
   original_unlisted <- unlist(original, use.names = FALSE)
@@ -291,7 +300,8 @@ pad_list_elements <- function(list1, list2) {
   return(list(list1, list2))
 }
 
-map_then_compare_icd_mappings <- function(tdrg_icd10, rows_to_show = Inf) {
+map_then_compare_icd_mappings <- function(
+    tdrg_icd10, rows_to_show = Inf, invalid_rows_to_show = Inf) {
   # Ensure the dt variable is in the global environment
   if (!exists("dt", envir = .GlobalEnv)) {
     stop("The global variable 'dt' does not exist.")
@@ -304,7 +314,7 @@ map_then_compare_icd_mappings <- function(tdrg_icd10, rows_to_show = Inf) {
   mapped_columns <- implement_icd10_mapping(
     original_dt$clin_c1, original_dt$clin_c2,
     original_dt$clin_icd, tdrg_icd10,
-    rows_to_show = 10
+    rows_to_show = rows_to_show
   )
 
   # Update the global dt with mapped columns
@@ -348,4 +358,39 @@ map_then_compare_icd_mappings <- function(tdrg_icd10, rows_to_show = Inf) {
     format = "markdown",
     caption = "Comparison of ICD Codes Before and After Mapping"
   ))
+
+  # Check if all resulting ICD codes are in either the
+  # Thai library or the PhilHealth library
+  all_icds <- unique(
+    c(unlist(dt$clin_c1), unlist(dt$clin_c2), unlist(dt$clin_icd))
+  )
+  valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
+  invalid_icds <- setdiff(all_icds, valid_icds)
+  invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
+
+  if (length(invalid_icds) > 0) {
+    invalid_icds_table <- data.table(
+      code = invalid_icds,
+      count = sapply(
+        invalid_icds,
+        function(icd) {
+          sum(c(
+            unlist(dt$clin_c1),
+            unlist(dt$clin_c2),
+            unlist(dt$clin_icd)
+          ) == icd, na.rm = TRUE)
+        }
+      )
+    )
+
+    invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
+    invalid_icds_table <- invalid_icds_table[order(-count)]
+
+    print(kable(head(invalid_icds_table, invalid_rows_to_show),
+      format = "markdown",
+      caption = "Invalid ICD Codes Not Found in Thai or PhilHealth Libraries"
+    ))
+  } else {
+    cat("All resulting ICD codes are valid and present in the libraries.\n")
+  }
 }

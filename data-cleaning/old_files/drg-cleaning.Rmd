@@ -97,13 +97,13 @@ set.seed(123)
 ## Source Data Formats
 
 ```{r data formats and additional parameters}
-source(here("data-cleaning", "data-formats.R"))
+source(here("data-cleaning", "r_scripts", "data-formats.R"))
 ```
 
 ## Source Functions
 
 ```{r}
-source(here("data-cleaning", "functions.R"))
+source(here("data-cleaning", "r_scripts", "functions.R"))
 ```
 
 ## Load Mapping Data

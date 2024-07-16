@@ -237,17 +237,14 @@ clean_data <- function(dt) {
 
   warning_thrown <- FALSE
 
-  dt[, pat_type := {
-    tryCatch(
-      {
-        remap_patient_type(pat_type)
-      },
-      warning = function(w) {
-        warning_thrown <<- TRUE
-        invokeRestart("muffleWarning")
-      }
-    )
-  }]
+  # Remap and check for patient type
+  result <- remap_patient_type(dt$pat_type)
+  dt$pat_type <- result$remapped
+  if (length(result$unmapped) > 0 && to_view_checks) {
+    warning_thrown <- TRUE
+    print("Unmapped Patient Types:")
+    print(result$unmapped)
+  }
   if (warning_thrown && to_view_checks) {
     print("Patient Types:")
     print(unique(dt$pat_type))
@@ -255,17 +252,14 @@ clean_data <- function(dt) {
 
   warning_thrown <- FALSE
 
-  dt[, pat_memcat_parent := {
-    tryCatch(
-      {
-        remap_memcat_parent_desc(pat_memcat_parent)
-      },
-      warning = function(w) {
-        warning_thrown <<- TRUE
-        invokeRestart("muffleWarning")
-      }
-    )
-  }]
+  # Remap and check for member category parent
+  result <- remap_memcat_parent_desc(dt$pat_memcat_parent)
+  dt$pat_memcat_parent <- result$remapped
+  if (length(result$unmapped) > 0 && to_view_checks) {
+    warning_thrown <- TRUE
+    print("Unmapped Memcat Parent Types:")
+    print(result$unmapped)
+  }
   if (warning_thrown && to_view_checks) {
     print("Memcat Parent Types:")
     print(unique(dt$pat_memcat_parent))
@@ -273,17 +267,14 @@ clean_data <- function(dt) {
 
   warning_thrown <- FALSE
 
-  dt[, pat_memcat_child := {
-    tryCatch(
-      {
-        remap_memcat_child_desc(pat_memcat_child)
-      },
-      warning = function(w) {
-        warning_thrown <<- TRUE
-        invokeRestart("muffleWarning")
-      }
-    )
-  }]
+  # Remap and check for member category child
+  result <- remap_memcat_child_desc(dt$pat_memcat_child)
+  dt$pat_memcat_child <- result$remapped
+  if (length(result$unmapped) > 0 && to_view_checks) {
+    warning_thrown <- TRUE
+    print("Unmapped Memcat Child Types:")
+    print(result$unmapped)
+  }
   if (warning_thrown && to_view_checks) {
     print("Memcat Child Types:")
     print(unique(dt$pat_memcat_child))
@@ -291,26 +282,20 @@ clean_data <- function(dt) {
 
   warning_thrown <- FALSE
 
-  dt[, clin_discharge := {
-    tryCatch(
-      {
-        remap_disposition(clin_discharge)
-      },
-      warning = function(w) {
-        warning_thrown <<- TRUE
-        invokeRestart("muffleWarning")
-      }
-    )
-  }]
+  # Remap and check for clinical discharge disposition
+  result <- remap_disposition(dt$clin_discharge)
+  dt$clin_discharge <- result$remapped
+  if (length(result$unmapped) > 0 && to_view_checks) {
+    warning_thrown <- TRUE
+    print("Unmapped Discharge Types:")
+    print(result$unmapped)
+  }
   if (warning_thrown && to_view_checks) {
     print("Discharge Types:")
     print(unique(dt$clin_discharge))
   }
-
   return(dt)
 }
-
-
 
 process_chunk <- function(chunk) {
   #' @title Process Data Chunk
