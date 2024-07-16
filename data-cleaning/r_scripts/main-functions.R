@@ -251,11 +251,6 @@ process_chunk <- function(chunk) {
   #' - Replaces empty strings with NA values.
   #' - Finds the primary diagnosis (PDX) using the apply_find_pdx function.
   #'
-  #' @examples
-  #' library(data.table)
-  #' chunk <- data.table(...) # Load your data chunk
-  #' processed_chunk <- process_chunk(chunk)
-  #' print(processed_chunk) # Should print the processed data chunk
   
   # Suppress output
   if (to_view_checks) {

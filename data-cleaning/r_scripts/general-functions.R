@@ -169,7 +169,7 @@ remap_patient_type <- function(pat_type) {
     pat_type == "MEMBER", "MEM",
     pat_type == "DEPENDENT", "DEP"
   )
-  unknown_types <- setdiff(pat_type, known_types)
+  unknown_types <- setdiff(pat_type[!is.na(pat_type)], known_types)
   if (length(unknown_types) > 0) {
     warning("Unmapped patient types found: ", paste(unknown_types, collapse = ", "))
   }
@@ -186,7 +186,7 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
     pat_memcat_parent == "INDIRECT CONTRIBUTOR", "INDIRECT"
   )
-  unknown_parents <- setdiff(pat_memcat_parent, known_parents)
+  unknown_parents <- setdiff(pat_memcat_parent[!is.na(pat_memcat_parent)], known_parents)
   if (length(unknown_parents) > 0) {
     warning("Unmapped member category parents found: ", paste(unknown_parents, collapse = ", "))
   }
@@ -221,7 +221,7 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL"
   )
-  unknown_children <- setdiff(pat_memcat_child, known_children)
+  unknown_children <- setdiff(pat_memcat_child[!is.na(pat_memcat_child)], known_children)
   if (length(unknown_children) > 0) {
     warning("Unmapped member category children found: ", paste(unknown_children, collapse = ", "))
   }
@@ -246,7 +246,7 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge == "EXPIRED", 9L,
     clin_discharge == "UNDEFINED", NA_integer_
   )
-  unknown_dispositions <- setdiff(clin_discharge, known_dispositions)
+  unknown_dispositions <- setdiff(clin_discharge[!is.na(clin_discharge)], known_dispositions)
   if (length(unknown_dispositions) > 0) {
     warning("Unmapped clinical discharge dispositions found: ", paste(unknown_dispositions, collapse = ", "))
   }
