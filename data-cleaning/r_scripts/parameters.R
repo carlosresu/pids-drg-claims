@@ -3,8 +3,9 @@ source(here("data-cleaning", "r_scripts", "libraries.R"))
 year_to_load <- "2018"
 version <- "v2"
 
-sample_size <- 1 * 1e3
+sample_size <- 25 * 1e3
 seed <- 123
+rows_to_show <- 10
 
 drop_cols <- c(
     paste0("ICDCODE", 13:14),
@@ -22,6 +23,7 @@ to_filter <- FALSE # unused
 to_profvis <- FALSE
 to_chunk <- TRUE
 to_view_checks <- TRUE
+to_view_checks_parallelized <- TRUE
 
 set.seed(seed)
 

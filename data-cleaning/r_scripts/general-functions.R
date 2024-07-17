@@ -1,10 +1,6 @@
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 read_entire_file <- function(drop_cols) {
-  #' @title Read Entire Claims Data File
-  #' @description Reads the entire claims data file, dropping specified columns.
-  #' @param drop_cols A vector of column names to drop.
-  #' @return A data.table containing the claims data.
   dt <- fread(full_claims,
     na.strings = na_values, drop = drop_cols,
     colClasses = col_classes
@@ -13,47 +9,21 @@ read_entire_file <- function(drop_cols) {
 }
 
 read_sampled_file <- function() {
-  #' @title Read Sampled Claims Data File
-  #' @description Reads the sampled claims data file.
-  #' @return A data.table containing the sampled claims data.
   dt <- fread(sampled_claims, na.strings = na_values, colClasses = col_classes)
   return(dt)
 }
 
 sample_data <- function(dt) {
-  #' @title Sample Data from a Data Table
-  #' @description Samples a given data.table.
-  #' @param dt A data.table to sample from.
-  #' @return A sampled data.table.
   dt <- dt[sample(.N, min(sample_size, .N))]
   return(dt)
 }
 
 rename_columns <- function(dt) {
-  #' @title Rename Columns in Data Table
-  #' @description Renames columns in a data.table.
-  #' @param dt A data.table with columns to rename.
-  #' @return The modified data.table with renamed columns.
   setnames(dt, old = old_colnames, new = new_colnames)
   return(dt)
 }
 
 clean_column <- function(column_to_clean, na_like_strings) {
-  #' @title Clean a Specified Column
-  #' @description Cleans a specified column by converting to UTF-8,
-  #' removing spaces, and setting NA values.
-  #' @param column_to_clean A character vector representing the column to clean.
-  #' @param na_like_strings A vector of strings to be treated as NA values.
-  #' @return The cleaned column as a character vector.
-  #'
-  #' @details
-  #' This function performs the following operations on the specified column:
-  #' - Converts text to UTF-8 encoding.
-  #' - Converts text to uppercase.
-  #' - Removes spaces and newlines.
-  #' - Removes non-alphanumeric characters, except for slashes and spaces.
-  #' - Trims leading and trailing whitespace.
-  #' - Sets values in `na_like_strings` to `NA_character_`.
   column_to_clean <- as.character(column_to_clean)
   cleaned_col <- iconv(column_to_clean, to = "UTF-8", sub = "byte")
   cleaned_col <- toupper(cleaned_col)
@@ -68,21 +38,6 @@ clean_column <- function(column_to_clean, na_like_strings) {
 }
 
 collapse_columns <- function(cols_to_process, na_like_strings) {
-  #' @title Collapse Columns
-  #' @description Collapses specified columns into a new column.
-  #' @param cols_to_process A list of character vectors representing
-  #' the columns to process.
-  #' @param na_like_strings A vector of strings to be treated as NA values.
-  #' @return The new collapsed column as a character vector.
-  #' @details
-  #' This function performs the following operations:
-  #' - Cleans the specified columns using `clean_column`.
-  #' - Collapses the cleaned columns into a single new column,
-  #' separated by "||".
-  #' - Removes any "||NA" and "NA||" patterns from the new column.
-  #' - Removes trailing "||" from the new column.
-  #' - Sets values in the new column that match `na_like_strings`
-  #' to `NA_character_`.
   cleaned_columns <- lapply(cols_to_process, function(col) {
     clean_column(col, na_like_strings)
   })
@@ -97,34 +52,17 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
 }
 
 replace_empty_with_na <- function(dt, to_view_checks) {
-  #' @title Replace Empty Strings with NA
-  #' @description Replaces empty strings, "NA" strings, and "character(0)"
-  #' with NA values in character, factor, and list columns of a data.table.
-  #' @param dt A data.table to process.
-  #' @param to_view_checks A logical value to determine if the summary of
-  #' replacements should be printed.
-  #' @return The modified data.table with empty strings, "NA" strings, and
-  #' "character(0)" replaced by NA values.
-  #'
-  #' @details
-  #' This function processes all character, factor, and list columns in the
-  #' data.table, replacing empty strings, "NA" strings, and "character(0)"
-  #' with actual NA values.
-  #'
-
   char_factor_cols <- names(dt)[sapply(
     dt,
     function(col) is.character(col) || is.factor(col) || is.list(col)
   )]
 
-  if (to_view_checks) {
-    replacement_summary <- data.table(
-      Column = character(),
-      Empty_Replaced = integer(),
-      NA_Replaced = integer(),
-      Character0_Replaced = integer()
-    )
-  }
+  replacement_summary <- data.table(
+    Column = character(),
+    Empty_Replaced = integer(),
+    NA_Replaced = integer(),
+    Character0_Replaced = integer()
+  )
 
   for (col_name in char_factor_cols) {
     col <- dt[[col_name]]
@@ -142,9 +80,7 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     ]
 
     if (is.factor(col)) {
-      set(dt, j = col_name, value = factor(dt[[col_name]],
-        levels = c(levels(col), NA)
-      ))
+      set(dt, j = col_name, value = factor(dt[[col_name]], levels = c(levels(col), NA)))
     }
 
     if (to_view_checks) {
@@ -162,39 +98,15 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     replacement_summary <- replacement_summary[
       Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
     ]
-
-    if (nrow(replacement_summary) > 0) {
-      print(kable(replacement_summary,
-        format = "markdown",
-        col.names = c(
-          "Column", "\"\" Replaced",
-          "\"NA\" Replaced", "\"character(0)\" Replaced"
-        )
-      ))
-    } else {
-      cat("No replacements were made.\n")
-    }
+    # print("Replacement Summary:")
+    # print(replacement_summary)
   }
 
-  return(dt)
+  return(list(data = dt, replacement_summary = replacement_summary))
 }
 
-split_to_vector <- function(column) {
-  #' @title Split Column to Vector
-  #' @description Splits strings in a column by "||" and handles NA values.
-  #' @param column A column to split.
-  #' @return A list of vectors resulting from the split.
-  #'
-  #' @details
-  #' This function splits each string in the column by the delimiter "||"
-  #' and converts the result into a list of vectors. NA values are
-  #' handled appropriately.
-  #'
-  #' @examples
-  #' column <- c("A||B||C", "D||E", NA)
-  #' result <- split_to_vector(column)
-  #' print(result)  # Should print list of vectors
 
+split_to_vector <- function(column) {
   result <- lapply(column, function(x) {
     if (is.na(x)) {
       return(NA_character_)
@@ -286,27 +198,6 @@ remap_disposition <- function(clin_discharge) {
 
 
 format_large_numbers <- function(x) {
-  #' @title Format Large Numbers
-  #' @description Formats large numbers with appropriate suffixes
-  #' (e.g., k for thousands, m for millions, b for billions).
-  #' @param x A numeric value to format.
-  #' @return A formatted string representing the large number.
-  #'
-  #' @details
-  #' This function takes a numeric value and formats it with appropriate
-  #' suffixes based on its magnitude:
-  #' - Adds 'b' for billions.
-  #' - Adds 'm' for millions.
-  #' - Adds 'k' for thousands.
-  #' If the number is less than 1,000, it returns the number as a string without
-  #' any suffix.
-  #'
-  #' @examples
-  #' format_large_numbers(1234567890)  # Should return "1.2b"
-  #' format_large_numbers(1234567)     # Should return "1.2m"
-  #' format_large_numbers(1234)        # Should return "1.2k"
-  #' format_large_numbers(123)         # Should return "123"
-
   if (x >= 1e9) {
     return(sprintf("%.1fb", x / 1e9))
   } else if (x >= 1e6) {
@@ -316,4 +207,68 @@ format_large_numbers <- function(x) {
   } else {
     return(as.character(x))
   }
+}
+
+combine_comparison_tables <- function(
+    summaries, comparison_field, rows_to_show = 10) {
+  comparison_list <- lapply(
+    summaries, function(summary) summary[[comparison_field]]
+  )
+  combined_comparison <- rbindlist(comparison_list)
+
+  if (nrow(combined_comparison) == 0) {
+    return(
+      data.table(
+        old_code = character(),
+        new_code = character(),
+        count = integer()
+      )
+    )
+  }
+
+  combined_comparison <- combined_comparison[
+    , .(count = .N),
+    by = .(
+      old_code = get(names(combined_comparison)[1]),
+      new_code = get(names(combined_comparison)[2])
+    )
+  ]
+  combined_comparison <- combined_comparison[order(-count)]
+  combined_comparison <- head(combined_comparison, rows_to_show)
+
+  return(combined_comparison)
+}
+
+combine_discarded_rvs_tables <- function(summaries, field, rows_to_show = 10) {
+  discarded_list <- lapply(summaries, function(summary) summary[[field]])
+  combined_discarded <- rbindlist(discarded_list, fill = TRUE)
+
+  if (nrow(combined_discarded) == 0) {
+    return(data.table(CODE = character(), count = integer()))
+  }
+
+  combined_discarded <- combined_discarded[, .(count = sum(N)), by = CODE]
+  combined_discarded <- combined_discarded[order(-count)]
+  combined_discarded <- head(combined_discarded, rows_to_show)
+
+  return(combined_discarded)
+}
+
+combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
+  replace_empty_list <- lapply(summaries, function(summary) summary[[field]])
+  combined_replace_empty <- rbindlist(replace_empty_list, fill = TRUE)
+
+  if (nrow(combined_replace_empty) == 0) {
+    return(data.table(Column = character(), Empty_Replaced = integer(), NA_Replaced = integer(), Character0_Replaced = integer()))
+  }
+
+  combined_replace_empty <- combined_replace_empty[, .(
+    Empty_Replaced = sum(Empty_Replaced, na.rm = TRUE),
+    NA_Replaced = sum(NA_Replaced, na.rm = TRUE),
+    Character0_Replaced = sum(Character0_Replaced, na.rm = TRUE)
+  ), by = Column]
+  combined_replace_empty <- combined_replace_empty[order(-Empty_Replaced, -NA_Replaced, -Character0_Replaced)]
+  combined_replace_empty <- head(combined_replace_empty, rows_to_show)
+
+  return(combined_replace_empty)
 }

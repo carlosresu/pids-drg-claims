@@ -1,11 +1,6 @@
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-# Helper function to find PDX from clinical ICD codes
 find_pdx_from_icd <- function(clin_icd) {
-  #' @title Find PDX from ICD Codes
-  #' @description Finds the PDX from a list of clinical ICD codes.
-  #' @param clin_icd A list of clinical ICD codes.
-  #' @return A list containing the PDX and its code number.
   pdxs <- intersect(clin_icd, acc_pdx)
   result <- if (length(pdxs) == 0) { # Check if no acceptable PDX codes
     # are found
@@ -20,14 +15,7 @@ find_pdx_from_icd <- function(clin_icd) {
   return(result)
 }
 
-# Helper function to find the most similar PDX
 find_most_similar_pdx <- function(code, pdxs) {
-  #' @title Find Most Similar PDX
-  #' @description Finds the most similar PDX from a list of PDX codes
-  #' based on a given code.
-  #' @param code A clinical code to compare.
-  #' @param pdxs A list of PDX codes to compare against.
-  #' @return A list containing the most similar PDX and its code number.
   starting_letter <- substr(code, 1, 1)
   starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
 
@@ -56,16 +44,7 @@ find_most_similar_pdx <- function(code, pdxs) {
   return(result)
 }
 
-# Main function to find the primary diagnosis (PDX)
 find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  #' @title Find Primary Diagnosis (PDX)
-  #' @description Finds the primary diagnosis (PDX) in a given set of clinical codes.
-  #' @param clin_c1 The first clinical code.
-  #' @param clin_c2 The second clinical code.
-  #' @param clin_icd A list of clinical ICD codes.
-  #' @param acc_pdx A vector of acceptable PDX codes.
-  #' @return A list containing the PDX and its code number.
-
   clin_icd <- unlist(clin_icd)
 
   # Helper function to check if a clinical code is an acceptable PDX
@@ -108,17 +87,7 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   return(pdx_result)
 }
 
-# Function to apply the find_pdx function to specific columns
 apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  #' @title Apply Find PDX to Specific Columns
-  #' @description Applies the find_pdx function to specific
-  #' columns and returns PDX and PDX code vectors.
-  #' @param clin_c1 A vector of the first clinical codes.
-  #' @param clin_c2 A vector of the second clinical codes.
-  #' @param clin_icd A list of clinical ICD codes.
-  #' @param acc_pdx A vector of acceptable PDX codes.
-  #' @return A list containing the PDX vector and the PDX code vector.
-
   n <- length(clin_c1)
   pdx <- character(n)
   pdx_code <- integer(n)

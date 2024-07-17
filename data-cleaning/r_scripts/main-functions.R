@@ -142,11 +142,12 @@ clean_data <- function(dt) {
   if (!all(new_colnames %in% colnames(dt))) {
     missing_cols <- setdiff(new_colnames, colnames(dt))
     warning("Failed to rename the following columns: ", paste(missing_cols, collapse = ", "))
+    rename_success <- FALSE
     stop("Column renaming failed.")
   }
 
   if (to_view_checks) {
-    print("Successfully renamed columns; All expected columns exist")
+    rename_success <- TRUE
   }
 
   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
@@ -182,7 +183,9 @@ clean_data <- function(dt) {
     .(clin_c1_orig, clin_c1)
   ]
   if (to_view_checks) {
-    print(head(clin_c1_cleaning_comparison)) # Check: Print head of changes
+    clin_c1_cleaning_comparison <- clin_c1_cleaning_comparison
+  } else {
+    clin_c1_cleaning_comparison <- data.table()
   }
   dt[, clin_c1_orig := NULL]
 
@@ -193,7 +196,9 @@ clean_data <- function(dt) {
     .(clin_c2_orig, clin_c2)
   ]
   if (to_view_checks) {
-    print(head(clin_c2_cleaning_comparison)) # Check: Print head of changes
+    clin_c2_cleaning_comparison <- clin_c2_cleaning_comparison
+  } else {
+    clin_c2_cleaning_comparison <- data.table()
   }
   dt[, clin_c2_orig := NULL]
 
@@ -217,12 +222,14 @@ clean_data <- function(dt) {
   )
   dt[, clin_rvs := clin_c1_rvs_results$clin_rvs]
   dt[, clin_c1 := clin_c1_rvs_results$col]
+  clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
 
   clin_c2_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$clin_c2, rvs_icd9
   )
   dt[, clin_rvs := clin_c2_rvs_results$clin_rvs]
   dt[, clin_c2 := clin_c2_rvs_results$col]
+  clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
 
   dt[, clin_rvs := lapply(clin_rvs, unique)]
   dedup_result <- ensure_unique_icd_codes(
@@ -233,7 +240,14 @@ clean_data <- function(dt) {
   dt[, clin_icd := dedup_result$clin_icd]
 
   # Replace empty strings in character and factor columns with NA
-  dt <- replace_empty_with_na(dt, to_view_checks)
+  replace_result <- replace_empty_with_na(dt, to_view_checks)
+  dt <- replace_result$data
+  clean_replace_empty <- replace_result$replacement_summary
+
+  pat_unmap <- NULL
+  parent_unmap <- NULL
+  child_unmap <- NULL
+  discharge_unmap <- NULL
 
   warning_thrown <- FALSE
 
@@ -244,10 +258,7 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Patient Types:")
     print(result$unmapped)
-  }
-  if (warning_thrown && to_view_checks) {
-    print("Patient Types:")
-    print(unique(dt$pat_type))
+    pat_unmap <- result$unmapped
   }
 
   warning_thrown <- FALSE
@@ -259,10 +270,7 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Memcat Parent Types:")
     print(result$unmapped)
-  }
-  if (warning_thrown && to_view_checks) {
-    print("Memcat Parent Types:")
-    print(unique(dt$pat_memcat_parent))
+    parent_unmap <- result$unmapped
   }
 
   warning_thrown <- FALSE
@@ -274,10 +282,7 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Memcat Child Types:")
     print(result$unmapped)
-  }
-  if (warning_thrown && to_view_checks) {
-    print("Memcat Child Types:")
-    print(unique(dt$pat_memcat_child))
+    child_unmap <- result$unmapped
   }
 
   warning_thrown <- FALSE
@@ -289,31 +294,25 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Discharge Types:")
     print(result$unmapped)
-  }
-  if (warning_thrown && to_view_checks) {
-    print("Discharge Types:")
-    print(unique(dt$clin_discharge))
+    discharge_unmap <- result$unmapped
   }
 
-  return(dt)
+  return(list(
+    data = dt,
+    rename_success = rename_success,
+    compone = clin_c1_cleaning_comparison,
+    comptwo = clin_c2_cleaning_comparison,
+    unmapone = pat_unmap,
+    unmaptwo = parent_unmap,
+    unmapthree = child_unmap,
+    unmapfour = discharge_unmap,
+    discard_rvs_one = clin_c1_discarded_rvs,
+    discard_rvs_two = clin_c2_discarded_rvs,
+    clean_replace_empty = clean_replace_empty
+  ))
 }
 
-process_chunk <- function(chunk) {
-  #' @title Process Data Chunk
-  #' @description Processes a data chunk by cleaning, mapping codes, replacing
-  #' empty values, and finding the primary diagnosis (PDX).
-  #' @param chunk A data.table chunk to process.
-  #' @return The processed data.table chunk.
-  #'
-  #' @details
-  #' This function performs the following operations on the data chunk:
-  #' - Suppresses console output to keep the environment clean.
-  #' - Cleans the data using the clean_data function.
-  #' - Maps RVS and ICD-10 codes.
-  #' - Replaces empty strings with NA values.
-  #' - Finds the primary diagnosis (PDX) using the apply_find_pdx function.
-  #'
-
+process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   # Suppress output
   if (to_view_checks) {
     print("Viewing checks")
@@ -323,10 +322,26 @@ process_chunk <- function(chunk) {
   }
 
   # Clean data
-  chunk <- clean_data(chunk)
+  clean_result <- clean_data(chunk)
+  chunk <- clean_result$data
 
-  # Map RVS codes
-  chunk[, icd9_list := map_rvs_icd9(clin_rvs, rvs_icd9)]
+  # Store chunk summaries
+  summary <- list()
+  summary$rename_success <- clean_result$rename_success
+  summary$compone <- clean_result$compone
+  summary$comptwo <- clean_result$comptwo
+  summary$unmapone <- clean_result$unmapone
+  summary$unmaptwo <- clean_result$unmaptwo
+  summary$unmapthree <- clean_result$unmapthree
+  summary$unmapfour <- clean_result$unmapfour
+  summary$discard_rvs_one <- clean_result$discard_rvs_one
+  summary$discard_rvs_two <- clean_result$discard_rvs_two
+  summary$clean_replace_empty <- clean_result$clean_replace_empty
+
+  # Map RVS codes and collect summary statistics
+  rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
+  chunk[, icd9_list := rvs_mapping_result$icd9_list]
+  summary$rvs_mapping_summary <- rvs_mapping_result$summary_statistics
 
   # Map ICD codes
   clin_c1 <- chunk$clin_c1
@@ -338,7 +353,7 @@ process_chunk <- function(chunk) {
     clin_c2,
     clin_icd,
     tdrg_icd10,
-    rows_to_show = 10
+    rows_to_show = Inf
   )
 
   # Save the results back to the data.table
@@ -346,14 +361,107 @@ process_chunk <- function(chunk) {
   chunk[, clin_c2 := mapped_columns$clin_c2]
   chunk[, clin_icd := mapped_columns$clin_icd]
 
-  # Replace empty strings with NA values
-  chunk <- replace_empty_with_na(chunk, to_view_checks)
+  # Replace empty strings with NA values again after mapping
+  chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
+  chunk <- chunk_replace_result$data
+  summary$chunk_replace_empty <- chunk_replace_result$replacement_summary
 
   # Find PDX
-  # chunk <- apply_find_pdx(chunk)
-  pdx_result <- apply_find_pdx(chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx)
+  pdx_result <- apply_find_pdx(
+    chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
+  )
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
-  return(chunk)
+  # Collect ICD-10 mapping statistics
+  summary$total_unique_icd_count <- mapped_columns$var1
+  summary$direct_match_count <- mapped_columns$var2
+  summary$modified_count <- mapped_columns$var5
+  summary$total_mapped_count <- mapped_columns$var4
+  summary$unmapped_icd_count <- mapped_columns$var6
+  summary$unmapped_icds <- mapped_columns$var7
+
+  # Debug: Print the summary to verify fields
+  print("Summary fields:")
+  print(names(summary))
+
+  return(list(chunk = chunk, summary = summary))
+}
+
+parallelize_and_summarize <- function(dt, num_cores, to_view_checks, global_seed, rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx) {
+  chunk_size <- ceiling(nrow(dt) / num_cores)
+  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+
+  # Plan for parallel processing
+  plan(multisession, workers = num_cores)
+
+  # Process each chunk in parallel
+  parallel_results <- future_lapply(
+    chunks, process_chunk,
+    to_view_checks = to_view_checks,
+    rvs_icd9 = rvs_icd9,
+    tdrg_icd10 = tdrg_icd10,
+    acc_pdx = acc_pdx,
+    future.seed = global_seed
+  )
+
+  # Combine processed chunks
+  processed_chunks <- lapply(parallel_results, function(res) res$chunk)
+  dt <- rbindlist(processed_chunks)
+
+  # Combine summaries
+  summaries <- lapply(parallel_results, function(res) res$summary)
+
+  # Debugging: Print the structure of summaries
+  print("Structure of summaries:")
+  str(summaries)
+
+  consolidated_summary <- list(
+    rename_success = all(sapply(summaries, function(s) s$rename_success)),
+    compone = combine_comparison_tables(summaries, "compone", rows_to_show),
+    comptwo = combine_comparison_tables(summaries, "comptwo", rows_to_show),
+    unmapone = unique(unlist(lapply(summaries, function(s) s$unmapone))),
+    unmaptwo = unique(unlist(lapply(summaries, function(s) s$unmaptwo))),
+    unmapthree = unique(unlist(lapply(summaries, function(s) s$unmapthree))),
+    unmapfour = unique(unlist(lapply(summaries, function(s) s$unmapfour))),
+    discard_rvs_one = combine_discarded_rvs_tables(summaries, "discard_rvs_one", rows_to_show),
+    discard_rvs_two = combine_discarded_rvs_tables(summaries, "discard_rvs_two", rows_to_show),
+    clean_replace_empty = combine_replace_empty_tables(summaries, "clean_replace_empty", rows_to_show = Inf),
+    chunk_replace_empty = combine_replace_empty_tables(summaries, "chunk_replace_empty", rows_to_show = Inf)
+  )
+
+  # Aggregate summary statistics
+  rvss <- unique(unlist(dt$clin_rvs))
+  total_rvs_count <- length(rvss)
+  rvs_map_list <- create_rvs_map_lists(split_rvs_codes(rvs_icd9)$with_drg)$rvs_map_list
+
+  without_drg_count <- length(unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs))
+  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+  mappable_rvs_count <- length(mappable_rvs)
+  mappable_rvs_percentage <- (mappable_rvs_count / length(rvss)) * 100
+
+  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+  multi_mapped_rvs_count <- length(multi_mapped_rvs)
+  multi_mapped_rvs_percentage <- (multi_mapped_rvs_count / mappable_rvs_count) * 100
+
+  unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+  unmappable_rvs_count <- length(unmappable_rvs)
+  unmappable_rvs_percentage <- (unmappable_rvs_count / length(rvss)) * 100
+
+  aggregate_statistics <- list(
+    total_rvs_count = total_rvs_count,
+    without_drg_count = without_drg_count,
+    mappable_rvs_count = mappable_rvs_count,
+    mappable_rvs_percentage = mappable_rvs_percentage,
+    multi_mapped_rvs_count = multi_mapped_rvs_count,
+    multi_mapped_rvs_percentage = multi_mapped_rvs_percentage,
+    unmappable_rvs_count = unmappable_rvs_count,
+    unmappable_rvs_percentage = unmappable_rvs_percentage
+  )
+
+  # Combine ICD-10 mapping statistics
+  icd10_stats <- aggregate_icd10_stats(summaries)
+  aggregate_statistics <- c(aggregate_statistics, icd10_stats)
+
+  return(list(dt = dt, consolidated_summary = consolidated_summary, aggregate_statistics = aggregate_statistics))
 }
