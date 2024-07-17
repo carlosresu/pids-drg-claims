@@ -1,22 +1,5 @@
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-# Helper function to check if a clinical code is an acceptable PDX
-assess_pdx_code <- function(code, code_num) {
-  #' @title Check PDX Code
-  #' @description Checks if a clinical code is an acceptable PDX.
-  #' @param code A clinical code to check.
-  #' @param code_num The code number to return if the code is acceptable.
-  #' @return A list containing the PDX and its code number, or NA if not
-  #' acceptable.
-  result <- if (!is.null(code) && code %in% acc_pdx) { # Check if code is
-    # not NULL and is in the list of acceptable PDX codes
-    list(pdx = code, pdx_code = code_num)
-  } else {
-    list(pdx = NA_character_, pdx_code = NA_integer_)
-  }
-  return(result)
-}
-
 # Helper function to find PDX from clinical ICD codes
 find_pdx_from_icd <- function(clin_icd) {
   #' @title Find PDX from ICD Codes
@@ -74,42 +57,50 @@ find_most_similar_pdx <- function(code, pdxs) {
 }
 
 # Main function to find the primary diagnosis (PDX)
-find_pdx <- function(clin_c1, clin_c2, clin_icd) {
+find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   #' @title Find Primary Diagnosis (PDX)
-  #' @description Finds the primary diagnosis (PDX) in a given
-  #' set of clinical codes.
+  #' @description Finds the primary diagnosis (PDX) in a given set of clinical codes.
   #' @param clin_c1 The first clinical code.
   #' @param clin_c2 The second clinical code.
   #' @param clin_icd A list of clinical ICD codes.
+  #' @param acc_pdx A vector of acceptable PDX codes.
   #' @return A list containing the PDX and its code number.
 
   clin_icd <- unlist(clin_icd)
 
-  # Check if clin_c1 or clin_c2 is an acceptable PDX
-  pdx_check <- assess_pdx_code(clin_c1, 1)
-  if (!is.na(pdx_check$pdx)) {
-    return(pdx_check)
-  } # Return if clin_c1 is an acceptable PDX
+  # Helper function to check if a clinical code is an acceptable PDX
+  assess_pdx_code <- function(code, code_num, acc_pdx) {
+    if (!is.null(code) && code %in% acc_pdx) {
+      return(list(pdx = code, pdx_code = code_num))
+    } else {
+      return(list(pdx = NA_character_, pdx_code = NA_integer_))
+    }
+  }
 
-  pdx_check <- assess_pdx_code(clin_c2, 2)
+  # Check if clin_c1 or clin_c2 is an acceptable PDX
+  pdx_check <- assess_pdx_code(clin_c1, 1, acc_pdx)
   if (!is.na(pdx_check$pdx)) {
     return(pdx_check)
-  } # Return if clin_c2 is an acceptable PDX
+  }
+
+  pdx_check <- assess_pdx_code(clin_c2, 2, acc_pdx)
+  if (!is.na(pdx_check$pdx)) {
+    return(pdx_check)
+  }
 
   # Find PDX from clinical ICD codes
   pdx_result <- find_pdx_from_icd(clin_icd)
   if (!is.na(pdx_result$pdx)) {
     return(pdx_result)
-  } # Return if a PDX is found from the ICD codes
+  }
 
   # Find the most similar PDX based on clin_c1 or clin_c2
   for (cr in list(clin_c1, clin_c2)) {
-    if (!is.na(cr) && cr != "") { # Check if clin_c1 or clin_c2
-      # is not NA or empty
+    if (!is.na(cr) && cr != "") {
       most_similar_pdx <- find_most_similar_pdx(cr, pdx_result$pdx)
       if (!is.na(most_similar_pdx$pdx)) {
         return(most_similar_pdx)
-      } # Return if a similar PDX is found
+      }
     }
   }
 
@@ -117,13 +108,15 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd) {
   return(pdx_result)
 }
 
-apply_find_pdx <- function(clin_c1, clin_c2, clin_icd) {
+# Function to apply the find_pdx function to specific columns
+apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   #' @title Apply Find PDX to Specific Columns
   #' @description Applies the find_pdx function to specific
   #' columns and returns PDX and PDX code vectors.
   #' @param clin_c1 A vector of the first clinical codes.
   #' @param clin_c2 A vector of the second clinical codes.
   #' @param clin_icd A list of clinical ICD codes.
+  #' @param acc_pdx A vector of acceptable PDX codes.
   #' @return A list containing the PDX vector and the PDX code vector.
 
   n <- length(clin_c1)
@@ -140,10 +133,13 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd) {
   # Identify rows without a PDX
   missing_pdx_indices <- which(is.na(pdx) | pdx == "")
 
-  if (length(missing_pdx_indices) > 0) { # Check if there are rows
-    # without a PDX
+  if (length(missing_pdx_indices) > 0) {
+    # Check if there are rows without a PDX
     for (i in missing_pdx_indices) {
-      result <- find_pdx(clin_c1[i], clin_c2[i], clin_icd[[i]])
+      result <- find_pdx(clin_c1[i], clin_c2[i], clin_icd[[i]], acc_pdx)
+      if (!is.na(result$pdx) && !(result$pdx %in% acc_pdx)) {
+        stop(sprintf("Invalid PDX code found: %s", result$pdx))
+      }
       pdx[i] <- result$pdx
       pdx_code[i] <- result$pdx_code
     }

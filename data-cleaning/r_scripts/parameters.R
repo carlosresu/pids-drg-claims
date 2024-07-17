@@ -3,7 +3,7 @@ source(here("data-cleaning", "r_scripts", "libraries.R"))
 year_to_load <- "2018"
 version <- "v2"
 
-sample_size <- 100 * 1e3
+sample_size <- 1 * 1e3
 seed <- 123
 
 drop_cols <- c(
