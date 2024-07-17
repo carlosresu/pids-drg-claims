@@ -20,12 +20,12 @@ suppressPackageStartupMessages({
 })
 # print("Packages loaded successfully.")
 
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 year_to_load <- "2018"
 version <- "v2"
 
-sample_size <- 25 * 1e3
+sample_size <- 250 * 1e3
 seed <- 123
 rows_to_show <- 10
 
@@ -1075,7 +1075,7 @@ clean_data <- function(dt) {
   ))
 }
 
-process_chunk <- function(chunk, to_view_checks) {
+process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   # Suppress output
   if (to_view_checks) {
     print("Viewing checks")
@@ -1101,8 +1101,10 @@ process_chunk <- function(chunk, to_view_checks) {
   summary$discard_rvs_two <- clean_result$discard_rvs_two
   summary$clean_replace_empty <- clean_result$clean_replace_empty
 
-  # Map RVS codes
-  chunk[, icd9_list := map_rvs_icd9(clin_rvs, rvs_icd9)]
+  # Map RVS codes and collect summary statistics
+  rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
+  chunk[, icd9_list := rvs_mapping_result$icd9_list]
+  summary <- c(summary, rvs_mapping_result$summary_statistics)
 
   # Map ICD codes
   clin_c1 <- chunk$clin_c1
@@ -1123,10 +1125,9 @@ process_chunk <- function(chunk, to_view_checks) {
   chunk[, clin_icd := mapped_columns$clin_icd]
 
   # Replace empty strings with NA values again after mapping
-  # chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
-  # chunk <- chunk_replace_result$data
-  # summary$chunk_replace_empty <- chunk_replace_result$replacement_summary
-  summary$chunk_replace_empty <- data.table()
+  chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
+  chunk <- chunk_replace_result$data
+  summary$chunk_replace_empty <- chunk_replace_result$replacement_summary
 
   # Find PDX
   pdx_result <- apply_find_pdx(
@@ -1137,6 +1138,7 @@ process_chunk <- function(chunk, to_view_checks) {
 
   return(list(chunk = chunk, summary = summary))
 }
+
 
 
 find_pdx_from_icd <- function(clin_icd) {
@@ -1312,6 +1314,53 @@ print_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
   ))
 }
 
+collect_summary_statistics <- function(rvss, rvs_icd9, rvs_map_list) {
+  without_drg <- rvs_icd9[!rvs %in% names(rvs_map_list)]
+  without_drg_count <- length(unique(without_drg$rvs))
+
+  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+  mappable_rvs_count <- length(mappable_rvs)
+  mappable_rvs_percentage <- length(mappable_rvs) * 100 / length(rvss)
+
+  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+  multi_mapped_rvs_count <- length(multi_mapped_rvs)
+  multi_mapped_rvs_percentage <- length(multi_mapped_rvs) * 100 / length(mappable_rvs)
+
+  unmappable_rvs <- setdiff(rvss, mappable_rvs)
+  unmappable_rvs_count <- length(unmappable_rvs)
+  unmappable_rvs_percentage <- length(unmappable_rvs) * 100 / length(rvss)
+
+  return(list(
+    without_drg_count = without_drg_count,
+    mappable_rvs_count = mappable_rvs_count,
+    mappable_rvs_percentage = mappable_rvs_percentage,
+    multi_mapped_rvs_count = multi_mapped_rvs_count,
+    multi_mapped_rvs_percentage = multi_mapped_rvs_percentage,
+    unmappable_rvs_count = unmappable_rvs_count,
+    unmappable_rvs_percentage = unmappable_rvs_percentage
+  ))
+}
+
+compute_statistics <- function(dt, rvs_icd9, rvs_map_list) {
+  with_thai <- rvs_icd9[is_thai == TRUE]
+  without_thai <- rvs_icd9[!rvs %in% with_thai$rvs]
+
+  cat(sprintf("There are %d RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n", length(unique(without_thai$rvs))))
+
+  rvss <- unique(unlist(dt$clin_rvs))
+  cat(sprintf("There are %d unique RVS codes that appear in the claims.\n", length(rvss)))
+
+  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+  cat(sprintf("Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n", length(mappable_rvs), (length(mappable_rvs) * 100 / length(rvss))))
+
+  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+  cat(sprintf("Of these, there are %d (%.2f%%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n", length(multi_mapped_rvs), (length(multi_mapped_rvs) * 100 / length(mappable_rvs))))
+
+  unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+  cat(sprintf("There are %d (%.2f%%) with no ICD-9-CM equivalents.\n", length(unmappable_rvs), (length(unmappable_rvs) * 100 / length(rvss))))
+}
+
+
 get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
   lapply(clin_rvs, function(x) {
     codes <- unlist(x)
@@ -1330,15 +1379,10 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   split_codes <- split_rvs_codes(rvs_icd9)
   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
 
-  rvss <- unique(unlist(clin_rvs))
-  rvss <- intersect(rvss, rvs_icd9$rvs)
-
-  print_summary_statistics(rvss, rvs_icd9, rvs_maps$rvs_map_list)
-
   rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
   icd9_list <- get_icd9_codes(clin_rvs, rvs_map_solo_env)
 
-  return(icd9_list)
+  return(list(icd9_list = icd9_list, rvs_map_list = rvs_maps$rvs_map_list))
 }
 
 find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
@@ -1450,7 +1494,7 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
   return(combined_replace_empty)
 }
 
-parallelize_and_summarize <- function(dt, num_cores, to_view_checks, global_seed, rows_to_show) {
+parallelize_and_summarize <- function(dt, num_cores, to_view_checks, global_seed, rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
   chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
@@ -1458,7 +1502,14 @@ parallelize_and_summarize <- function(dt, num_cores, to_view_checks, global_seed
   plan(multisession, workers = num_cores)
 
   # Process each chunk in parallel
-  parallel_results <- future_lapply(chunks, process_chunk, to_view_checks = to_view_checks, future.seed = global_seed)
+  parallel_results <- future_lapply(
+    chunks, process_chunk,
+    to_view_checks = to_view_checks,
+    rvs_icd9 = rvs_icd9,
+    tdrg_icd10 = tdrg_icd10,
+    acc_pdx = acc_pdx,
+    future.seed = global_seed
+  )
 
   # Combine processed chunks
   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
@@ -1480,5 +1531,34 @@ parallelize_and_summarize <- function(dt, num_cores, to_view_checks, global_seed
     chunk_replace_empty = combine_replace_empty_tables(summaries, "chunk_replace_empty", rows_to_show = Inf)
   )
 
-  return(list(dt = dt, consolidated_summary = consolidated_summary))
+  # Aggregate summary statistics
+  rvss <- unique(unlist(dt$clin_rvs))
+  total_rvs_count <- length(rvss)
+  rvs_map_list <- create_rvs_map_lists(split_rvs_codes(rvs_icd9)$with_drg)$rvs_map_list
+
+  without_drg_count <- length(unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs))
+  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+  mappable_rvs_count <- length(mappable_rvs)
+  mappable_rvs_percentage <- (mappable_rvs_count / length(rvss)) * 100
+
+  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+  multi_mapped_rvs_count <- length(multi_mapped_rvs)
+  multi_mapped_rvs_percentage <- (multi_mapped_rvs_count / mappable_rvs_count) * 100
+
+  unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+  unmappable_rvs_count <- length(unmappable_rvs)
+  unmappable_rvs_percentage <- (unmappable_rvs_count / length(rvss)) * 100
+
+  aggregate_statistics <- list(
+    total_rvs_count = total_rvs_count,
+    without_drg_count = without_drg_count,
+    mappable_rvs_count = mappable_rvs_count,
+    mappable_rvs_percentage = mappable_rvs_percentage,
+    multi_mapped_rvs_count = multi_mapped_rvs_count,
+    multi_mapped_rvs_percentage = multi_mapped_rvs_percentage,
+    unmappable_rvs_count = unmappable_rvs_count,
+    unmappable_rvs_percentage = unmappable_rvs_percentage
+  )
+
+  return(list(dt = dt, consolidated_summary = consolidated_summary, aggregate_statistics = aggregate_statistics))
 }
