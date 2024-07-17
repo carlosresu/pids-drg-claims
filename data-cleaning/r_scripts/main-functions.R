@@ -351,7 +351,7 @@ process_chunk <- function(chunk) {
 
   # Find PDX
   # chunk <- apply_find_pdx(chunk)
-  pdx_result <- apply_find_pdx(chunk$clin_c1, chunk$clin_c2, chunk$clin_icd)
+  pdx_result <- apply_find_pdx(chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx)
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
