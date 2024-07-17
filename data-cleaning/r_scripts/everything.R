@@ -25,7 +25,7 @@ source(here("data-cleaning", "r_scripts", "libraries.R"))
 year_to_load <- "2018"
 version <- "v2"
 
-sample_size <- 1 * 1e3
+sample_size <- 25 * 1e3
 seed <- 123
 
 drop_cols <- c(
@@ -916,11 +916,12 @@ clean_data <- function(dt) {
   if (!all(new_colnames %in% colnames(dt))) {
     missing_cols <- setdiff(new_colnames, colnames(dt))
     warning("Failed to rename the following columns: ", paste(missing_cols, collapse = ", "))
+    rename_success <- FALSE
     stop("Column renaming failed.")
   }
 
   if (to_view_checks) {
-    print("Successfully renamed columns; All expected columns exist")
+    rename_success <- TRUE
   }
 
   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
@@ -956,7 +957,10 @@ clean_data <- function(dt) {
     .(clin_c1_orig, clin_c1)
   ]
   if (to_view_checks) {
-    print(head(clin_c1_cleaning_comparison)) # Check: Print head of changes
+    clin_c1_cleaning_comparison <- clin_c1_cleaning_comparison # Check: Print head of changes
+    print(clin_c1_cleaning_comparison)
+  } else if (!to_view_checks) {
+    clin_c1_cleaning_comparison <- data.table()
   }
   dt[, clin_c1_orig := NULL]
 
@@ -967,7 +971,10 @@ clean_data <- function(dt) {
     .(clin_c2_orig, clin_c2)
   ]
   if (to_view_checks) {
-    print(head(clin_c2_cleaning_comparison)) # Check: Print head of changes
+    clin_c2_cleaning_comparison <- clin_c2_cleaning_comparison # Check: Print head of changes
+    print(clin_c2_cleaning_comparison)
+  } else if (!to_view_checks) {
+    clin_c2_cleaning_comparison <- data.table()
   }
   dt[, clin_c2_orig := NULL]
 
@@ -1009,6 +1016,11 @@ clean_data <- function(dt) {
   # Replace empty strings in character and factor columns with NA
   dt <- replace_empty_with_na(dt, to_view_checks)
 
+  pat_unmap <- NULL
+  parent_unmap <- NULL
+  child_unmap <- NULL
+  discharge_unmap <- NULL
+
   warning_thrown <- FALSE
 
   # Remap and check for patient type
@@ -1018,11 +1030,12 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Patient Types:")
     print(result$unmapped)
+    pat_unmap <- result$unmapped
   }
-  if (warning_thrown && to_view_checks) {
-    print("Patient Types:")
-    print(unique(dt$pat_type))
-  }
+  # if (warning_thrown && to_view_checks) {
+  #   print("Patient Types:")
+  #   print(unique(dt$pat_type))
+  # }
 
   warning_thrown <- FALSE
 
@@ -1033,11 +1046,12 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Memcat Parent Types:")
     print(result$unmapped)
+    parent_unmap <- result$unmapped
   }
-  if (warning_thrown && to_view_checks) {
-    print("Memcat Parent Types:")
-    print(unique(dt$pat_memcat_parent))
-  }
+  # if (warning_thrown && to_view_checks) {
+  #   print("Memcat Parent Types:")
+  #   print(unique(dt$pat_memcat_parent))
+  # }
 
   warning_thrown <- FALSE
 
@@ -1048,11 +1062,12 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Memcat Child Types:")
     print(result$unmapped)
+    child_unmap <- result$unmapped
   }
-  if (warning_thrown && to_view_checks) {
-    print("Memcat Child Types:")
-    print(unique(dt$pat_memcat_child))
-  }
+  # if (warning_thrown && to_view_checks) {
+  #   print("Memcat Child Types:")
+  #   print(unique(dt$pat_memcat_child))
+  # }
 
   warning_thrown <- FALSE
 
@@ -1063,13 +1078,23 @@ clean_data <- function(dt) {
     warning_thrown <- TRUE
     print("Unmapped Discharge Types:")
     print(result$unmapped)
+    discharge_unmap <- result$unmapped
   }
-  if (warning_thrown && to_view_checks) {
-    print("Discharge Types:")
-    print(unique(dt$clin_discharge))
-  }
+  # if (warning_thrown && to_view_checks) {
+  #   print("Discharge Types:")
+  #   print(unique(dt$clin_discharge))
+  # }
 
-  return(dt)
+  return(list(
+    data = dt,
+    rename_success = rename_success,
+    compone = clin_c1_cleaning_comparison,
+    comptwo = clin_c2_cleaning_comparison,
+    unmapone = pat_unmap,
+    unmaptwo = parent_unmap,
+    unmapthree = child_unmap,
+    unmapfour = discharge_unmap
+  ))
 }
 
 process_chunk <- function(chunk) {
@@ -1082,7 +1107,18 @@ process_chunk <- function(chunk) {
   }
 
   # Clean data
-  chunk <- clean_data(chunk)
+  clean_result <- clean_data(chunk)
+  chunk <- clean_result$data
+
+  # store chunk summaries
+  summary <- list()
+  summary$rename_success <- clean_result$rename_success
+  summary$compone <- clean_result$compone
+  summary$comptwo <- clean_result$comptwo
+  summary$unmapone <- clean_result$unmapone
+  summary$unmaptwo <- clean_result$unmaptwo
+  summary$unmapthree <- clean_result$unmapthree
+  summary$unmapfour <- clean_result$unmapfour
 
   # Map RVS codes
   chunk[, icd9_list := map_rvs_icd9(clin_rvs, rvs_icd9)]
@@ -1114,7 +1150,7 @@ process_chunk <- function(chunk) {
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
-  return(chunk)
+  return(list(chunk = chunk, summary = summary))
 }
 
 find_pdx_from_icd <- function(clin_icd) {
@@ -1356,4 +1392,19 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   warn_invalid_rvs(dt, valid_rvs_codes)
 
   return(list(clin_rvs = dt$clin_rvs, col = dt$col))
+}
+
+combine_comparison_tables <- function(summaries, comparison_field, rows_to_show = 10) {
+  comparison_list <- lapply(summaries, function(summary) summary[[comparison_field]])
+  combined_comparison <- rbindlist(comparison_list)
+
+  if (nrow(combined_comparison) == 0) {
+    return(data.table(old_code = character(), new_code = character(), count = integer()))
+  }
+
+  combined_comparison <- combined_comparison[, .(count = .N), by = .(old_code = get(names(combined_comparison)[1]), new_code = get(names(combined_comparison)[2]))]
+  combined_comparison <- combined_comparison[order(-count)]
+  combined_comparison <- head(combined_comparison, rows_to_show)
+
+  return(combined_comparison)
 }
