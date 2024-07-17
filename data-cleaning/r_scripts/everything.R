@@ -27,6 +27,7 @@ version <- "v2"
 
 sample_size <- 25 * 1e3
 seed <- 123
+rows_to_show <- 10
 
 drop_cols <- c(
   paste0("ICDCODE", 13:14),
@@ -958,7 +959,7 @@ clean_data <- function(dt) {
   ]
   if (to_view_checks) {
     clin_c1_cleaning_comparison <- clin_c1_cleaning_comparison # Check: Print head of changes
-    print(clin_c1_cleaning_comparison)
+    # print(clin_c1_cleaning_comparison)
   } else if (!to_view_checks) {
     clin_c1_cleaning_comparison <- data.table()
   }
@@ -972,7 +973,7 @@ clean_data <- function(dt) {
   ]
   if (to_view_checks) {
     clin_c2_cleaning_comparison <- clin_c2_cleaning_comparison # Check: Print head of changes
-    print(clin_c2_cleaning_comparison)
+    # print(clin_c2_cleaning_comparison)
   } else if (!to_view_checks) {
     clin_c2_cleaning_comparison <- data.table()
   }
@@ -1376,8 +1377,13 @@ warn_invalid_rvs <- function(dt, valid_rvs_codes) {
   )]
   discarded_codes <- unlist(dt$invalid_matches)
   if (length(discarded_codes) > 0) {
-    discarded_table <- data.table(CODE = discarded_codes)[, .N, by = CODE][order(-N)]
-    print(kable(discarded_table, col.names = c("CODE", "Counts"), format = "markdown"))
+    discarded_table <- data.table(
+      CODE = discarded_codes
+    )[, .N, by = CODE][order(-N)]
+    print(kable(
+      discarded_table,
+      col.names = c("CODE", "Counts"), format = "markdown"
+    ))
   } else {
     print("No RVS codes discarded")
   }
@@ -1394,15 +1400,30 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   return(list(clin_rvs = dt$clin_rvs, col = dt$col))
 }
 
-combine_comparison_tables <- function(summaries, comparison_field, rows_to_show = 10) {
-  comparison_list <- lapply(summaries, function(summary) summary[[comparison_field]])
+combine_comparison_tables <- function(
+    summaries, comparison_field, rows_to_show = 10) {
+  comparison_list <- lapply(
+    summaries, function(summary) summary[[comparison_field]]
+  )
   combined_comparison <- rbindlist(comparison_list)
 
   if (nrow(combined_comparison) == 0) {
-    return(data.table(old_code = character(), new_code = character(), count = integer()))
+    return(
+      data.table(
+        old_code = character(),
+        new_code = character(),
+        count = integer()
+      )
+    )
   }
 
-  combined_comparison <- combined_comparison[, .(count = .N), by = .(old_code = get(names(combined_comparison)[1]), new_code = get(names(combined_comparison)[2]))]
+  combined_comparison <- combined_comparison[
+    , .(count = .N),
+    by = .(
+      old_code = get(names(combined_comparison)[1]),
+      new_code = get(names(combined_comparison)[2])
+    )
+  ]
   combined_comparison <- combined_comparison[order(-count)]
   combined_comparison <- head(combined_comparison, rows_to_show)
 
