@@ -219,14 +219,12 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     function(col) is.character(col) || is.factor(col) || is.list(col)
   )]
 
-  if (to_view_checks) {
-    replacement_summary <- data.table(
-      Column = character(),
-      Empty_Replaced = integer(),
-      NA_Replaced = integer(),
-      Character0_Replaced = integer()
-    )
-  }
+  replacement_summary <- data.table(
+    Column = character(),
+    Empty_Replaced = integer(),
+    NA_Replaced = integer(),
+    Character0_Replaced = integer()
+  )
 
   for (col_name in char_factor_cols) {
     col <- dt[[col_name]]
@@ -244,9 +242,7 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     ]
 
     if (is.factor(col)) {
-      set(dt, j = col_name, value = factor(dt[[col_name]],
-        levels = c(levels(col), NA)
-      ))
+      set(dt, j = col_name, value = factor(dt[[col_name]], levels = c(levels(col), NA)))
     }
 
     if (to_view_checks) {
@@ -264,22 +260,13 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     replacement_summary <- replacement_summary[
       Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
     ]
-
-    if (nrow(replacement_summary) > 0) {
-      print(kable(replacement_summary,
-        format = "markdown",
-        col.names = c(
-          "Column", "\"\" Replaced",
-          "\"NA\" Replaced", "\"character(0)\" Replaced"
-        )
-      ))
-    } else {
-      cat("No replacements were made.\n")
-    }
+    # print("Replacement Summary:")
+    # print(replacement_summary)
   }
 
-  return(dt)
+  return(list(data = dt, replacement_summary = replacement_summary))
 }
+
 
 split_to_vector <- function(column) {
   result <- lapply(column, function(x) {
@@ -959,9 +946,8 @@ clean_data <- function(dt) {
     .(clin_c1_orig, clin_c1)
   ]
   if (to_view_checks) {
-    clin_c1_cleaning_comparison <- clin_c1_cleaning_comparison # Check: Print head of changes
-    # print(clin_c1_cleaning_comparison)
-  } else if (!to_view_checks) {
+    clin_c1_cleaning_comparison <- clin_c1_cleaning_comparison
+  } else {
     clin_c1_cleaning_comparison <- data.table()
   }
   dt[, clin_c1_orig := NULL]
@@ -973,9 +959,8 @@ clean_data <- function(dt) {
     .(clin_c2_orig, clin_c2)
   ]
   if (to_view_checks) {
-    clin_c2_cleaning_comparison <- clin_c2_cleaning_comparison # Check: Print head of changes
-    # print(clin_c2_cleaning_comparison)
-  } else if (!to_view_checks) {
+    clin_c2_cleaning_comparison <- clin_c2_cleaning_comparison
+  } else {
     clin_c2_cleaning_comparison <- data.table()
   }
   dt[, clin_c2_orig := NULL]
@@ -1018,7 +1003,9 @@ clean_data <- function(dt) {
   dt[, clin_icd := dedup_result$clin_icd]
 
   # Replace empty strings in character and factor columns with NA
-  dt <- replace_empty_with_na(dt, to_view_checks)
+  replace_result <- replace_empty_with_na(dt, to_view_checks)
+  dt <- replace_result$data
+  clean_replace_empty <- replace_result$replacement_summary
 
   pat_unmap <- NULL
   parent_unmap <- NULL
@@ -1036,10 +1023,6 @@ clean_data <- function(dt) {
     print(result$unmapped)
     pat_unmap <- result$unmapped
   }
-  # if (warning_thrown && to_view_checks) {
-  #   print("Patient Types:")
-  #   print(unique(dt$pat_type))
-  # }
 
   warning_thrown <- FALSE
 
@@ -1052,10 +1035,6 @@ clean_data <- function(dt) {
     print(result$unmapped)
     parent_unmap <- result$unmapped
   }
-  # if (warning_thrown && to_view_checks) {
-  #   print("Memcat Parent Types:")
-  #   print(unique(dt$pat_memcat_parent))
-  # }
 
   warning_thrown <- FALSE
 
@@ -1068,10 +1047,6 @@ clean_data <- function(dt) {
     print(result$unmapped)
     child_unmap <- result$unmapped
   }
-  # if (warning_thrown && to_view_checks) {
-  #   print("Memcat Child Types:")
-  #   print(unique(dt$pat_memcat_child))
-  # }
 
   warning_thrown <- FALSE
 
@@ -1084,10 +1059,6 @@ clean_data <- function(dt) {
     print(result$unmapped)
     discharge_unmap <- result$unmapped
   }
-  # if (warning_thrown && to_view_checks) {
-  #   print("Discharge Types:")
-  #   print(unique(dt$clin_discharge))
-  # }
 
   return(list(
     data = dt,
@@ -1099,7 +1070,8 @@ clean_data <- function(dt) {
     unmapthree = child_unmap,
     unmapfour = discharge_unmap,
     discard_rvs_one = clin_c1_discarded_rvs,
-    discard_rvs_two = clin_c2_discarded_rvs
+    discard_rvs_two = clin_c2_discarded_rvs,
+    clean_replace_empty = clean_replace_empty
   ))
 }
 
@@ -1116,7 +1088,7 @@ process_chunk <- function(chunk, to_view_checks) {
   clean_result <- clean_data(chunk)
   chunk <- clean_result$data
 
-  # store chunk summaries
+  # Store chunk summaries
   summary <- list()
   summary$rename_success <- clean_result$rename_success
   summary$compone <- clean_result$compone
@@ -1127,6 +1099,7 @@ process_chunk <- function(chunk, to_view_checks) {
   summary$unmapfour <- clean_result$unmapfour
   summary$discard_rvs_one <- clean_result$discard_rvs_one
   summary$discard_rvs_two <- clean_result$discard_rvs_two
+  summary$clean_replace_empty <- clean_result$clean_replace_empty
 
   # Map RVS codes
   chunk[, icd9_list := map_rvs_icd9(clin_rvs, rvs_icd9)]
@@ -1149,11 +1122,13 @@ process_chunk <- function(chunk, to_view_checks) {
   chunk[, clin_c2 := mapped_columns$clin_c2]
   chunk[, clin_icd := mapped_columns$clin_icd]
 
-  # Replace empty strings with NA values
-  chunk <- replace_empty_with_na(chunk, to_view_checks)
+  # Replace empty strings with NA values again after mapping
+  # chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
+  # chunk <- chunk_replace_result$data
+  # summary$chunk_replace_empty <- chunk_replace_result$replacement_summary
+  summary$chunk_replace_empty <- data.table()
 
   # Find PDX
-  # chunk <- apply_find_pdx(chunk)
   pdx_result <- apply_find_pdx(
     chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
   )
@@ -1162,6 +1137,7 @@ process_chunk <- function(chunk, to_view_checks) {
 
   return(list(chunk = chunk, summary = summary))
 }
+
 
 find_pdx_from_icd <- function(clin_icd) {
   pdxs <- intersect(clin_icd, acc_pdx)
@@ -1453,4 +1429,56 @@ combine_discarded_rvs_tables <- function(summaries, field, rows_to_show = 10) {
   combined_discarded <- head(combined_discarded, rows_to_show)
 
   return(combined_discarded)
+}
+
+combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
+  replace_empty_list <- lapply(summaries, function(summary) summary[[field]])
+  combined_replace_empty <- rbindlist(replace_empty_list, fill = TRUE)
+
+  if (nrow(combined_replace_empty) == 0) {
+    return(data.table(Column = character(), Empty_Replaced = integer(), NA_Replaced = integer(), Character0_Replaced = integer()))
+  }
+
+  combined_replace_empty <- combined_replace_empty[, .(
+    Empty_Replaced = sum(Empty_Replaced, na.rm = TRUE),
+    NA_Replaced = sum(NA_Replaced, na.rm = TRUE),
+    Character0_Replaced = sum(Character0_Replaced, na.rm = TRUE)
+  ), by = Column]
+  combined_replace_empty <- combined_replace_empty[order(-Empty_Replaced, -NA_Replaced, -Character0_Replaced)]
+  combined_replace_empty <- head(combined_replace_empty, rows_to_show)
+
+  return(combined_replace_empty)
+}
+
+parallelize_and_summarize <- function(dt, num_cores, to_view_checks, global_seed, rows_to_show) {
+  chunk_size <- ceiling(nrow(dt) / num_cores)
+  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+
+  # Plan for parallel processing
+  plan(multisession, workers = num_cores)
+
+  # Process each chunk in parallel
+  parallel_results <- future_lapply(chunks, process_chunk, to_view_checks = to_view_checks, future.seed = global_seed)
+
+  # Combine processed chunks
+  processed_chunks <- lapply(parallel_results, function(res) res$chunk)
+  dt <- rbindlist(processed_chunks)
+
+  # Combine summaries
+  summaries <- lapply(parallel_results, function(res) res$summary)
+  consolidated_summary <- list(
+    rename_success = all(sapply(summaries, function(s) s$rename_success)),
+    compone = combine_comparison_tables(summaries, "compone", rows_to_show),
+    comptwo = combine_comparison_tables(summaries, "comptwo", rows_to_show),
+    unmapone = unique(unlist(lapply(summaries, function(s) s$unmapone))),
+    unmaptwo = unique(unlist(lapply(summaries, function(s) s$unmaptwo))),
+    unmapthree = unique(unlist(lapply(summaries, function(s) s$unmapthree))),
+    unmapfour = unique(unlist(lapply(summaries, function(s) s$unmapfour))),
+    discard_rvs_one = combine_discarded_rvs_tables(summaries, "discard_rvs_one", rows_to_show),
+    discard_rvs_two = combine_discarded_rvs_tables(summaries, "discard_rvs_two", rows_to_show),
+    clean_replace_empty = combine_replace_empty_tables(summaries, "clean_replace_empty", rows_to_show = Inf),
+    chunk_replace_empty = combine_replace_empty_tables(summaries, "chunk_replace_empty", rows_to_show = Inf)
+  )
+
+  return(list(dt = dt, consolidated_summary = consolidated_summary))
 }
