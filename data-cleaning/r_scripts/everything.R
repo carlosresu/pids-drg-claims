@@ -45,6 +45,7 @@ to_filter <- FALSE # unused
 to_profvis <- FALSE
 to_chunk <- TRUE
 to_view_checks <- TRUE
+to_view_checks_parallelized <- TRUE
 
 set.seed(seed)
 
@@ -999,12 +1000,14 @@ clean_data <- function(dt) {
   )
   dt[, clin_rvs := clin_c1_rvs_results$clin_rvs]
   dt[, clin_c1 := clin_c1_rvs_results$col]
+  clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
 
   clin_c2_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$clin_c2, rvs_icd9
   )
   dt[, clin_rvs := clin_c2_rvs_results$clin_rvs]
   dt[, clin_c2 := clin_c2_rvs_results$col]
+  clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
 
   dt[, clin_rvs := lapply(clin_rvs, unique)]
   dedup_result <- ensure_unique_icd_codes(
@@ -1094,11 +1097,13 @@ clean_data <- function(dt) {
     unmapone = pat_unmap,
     unmaptwo = parent_unmap,
     unmapthree = child_unmap,
-    unmapfour = discharge_unmap
+    unmapfour = discharge_unmap,
+    discard_rvs_one = clin_c1_discarded_rvs,
+    discard_rvs_two = clin_c2_discarded_rvs
   ))
 }
 
-process_chunk <- function(chunk) {
+process_chunk <- function(chunk, to_view_checks) {
   # Suppress output
   if (to_view_checks) {
     print("Viewing checks")
@@ -1120,6 +1125,8 @@ process_chunk <- function(chunk) {
   summary$unmaptwo <- clean_result$unmaptwo
   summary$unmapthree <- clean_result$unmapthree
   summary$unmapfour <- clean_result$unmapfour
+  summary$discard_rvs_one <- clean_result$discard_rvs_one
+  summary$discard_rvs_two <- clean_result$discard_rvs_two
 
   # Map RVS codes
   chunk[, icd9_list := map_rvs_icd9(clin_rvs, rvs_icd9)]
@@ -1147,7 +1154,9 @@ process_chunk <- function(chunk) {
 
   # Find PDX
   # chunk <- apply_find_pdx(chunk)
-  pdx_result <- apply_find_pdx(chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx)
+  pdx_result <- apply_find_pdx(
+    chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
+  )
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
@@ -1371,22 +1380,17 @@ remove_5_digit_codes <- function(col) {
   lapply(col, function(x) gsub(regex_5_digit, "", x))
 }
 
-warn_invalid_rvs <- function(dt, valid_rvs_codes) {
-  dt[, invalid_matches := lapply(
-    matches, function(x) x[!x %in% valid_rvs_codes]
-  )]
-  discarded_codes <- unlist(dt$invalid_matches)
+warn_invalid_rvs <- function(matches, valid_rvs_codes) {
+  invalid_matches <- lapply(matches, function(x) x[!x %in% valid_rvs_codes])
+  discarded_codes <- unlist(invalid_matches)
   if (length(discarded_codes) > 0) {
     discarded_table <- data.table(
       CODE = discarded_codes
     )[, .N, by = CODE][order(-N)]
-    print(kable(
-      discarded_table,
-      col.names = c("CODE", "Counts"), format = "markdown"
-    ))
   } else {
-    print("No RVS codes discarded")
+    discarded_table <- data.table()
   }
+  return(discarded_table)
 }
 
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
@@ -1395,9 +1399,15 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
 
   find_and_append_valid_rvs(dt, valid_rvs_codes)
   dt[, col := remove_5_digit_codes(col)]
-  warn_invalid_rvs(dt, valid_rvs_codes)
+  discarded_rvs <- warn_invalid_rvs(dt$matches, valid_rvs_codes)
 
-  return(list(clin_rvs = dt$clin_rvs, col = dt$col))
+  return(
+    list(
+      clin_rvs = dt$clin_rvs,
+      col = dt$col,
+      discarded_rvs = discarded_rvs
+    )
+  )
 }
 
 combine_comparison_tables <- function(
@@ -1428,4 +1438,19 @@ combine_comparison_tables <- function(
   combined_comparison <- head(combined_comparison, rows_to_show)
 
   return(combined_comparison)
+}
+
+combine_discarded_rvs_tables <- function(summaries, field, rows_to_show = 10) {
+  discarded_list <- lapply(summaries, function(summary) summary[[field]])
+  combined_discarded <- rbindlist(discarded_list, fill = TRUE)
+
+  if (nrow(combined_discarded) == 0) {
+    return(data.table(CODE = character(), count = integer()))
+  }
+
+  combined_discarded <- combined_discarded[, .(count = sum(N)), by = CODE]
+  combined_discarded <- combined_discarded[order(-count)]
+  combined_discarded <- head(combined_discarded, rows_to_show)
+
+  return(combined_discarded)
 }
