@@ -272,3 +272,17 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
 
   return(combined_replace_empty)
 }
+
+# Function to combine and sum the counts for comparison table
+combine_icd_comparison_table <- function(tables) {
+  combined_table <- rbindlist(tables)
+  combined_table <- combined_table[, .(count = sum(count)), by = .(old_code, new_code)]
+  combined_table[order(-count)]
+}
+
+# Function to combine and sum the counts for invalid ICD codes table
+combine_invalid_icd_table <- function(tables) {
+  combined_table <- rbindlist(tables)
+  combined_table <- combined_table[, .(count = sum(count)), by = code]
+  combined_table[order(-count)]
+}
