@@ -78,52 +78,160 @@ path_to_chunks <- "git-ignored-files/chunked-samples"
 
 # Here() let's you find files in your project directory
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
-sampled_claims <- here(
-  path_to_raw_claims,
-  paste0(
-    "sampled_claims_extract_CLAIMS_", year_to_load,
-    suffix, paste0("_", sample_size), ".csv"
-  )
-)
-full_claims <- here(
-  path_to_raw_claims,
-  paste0("claims_extract_CLAIMS_", year_to_load, ".csv")
-)
-intermediate_file <- here(
-  path_to_intermediate,
-  paste0("intermediate_claims_", year_to_load, "_processed", suffix, ".csv")
-)
-cleaned_claims_file <- here(
-  path_to_cleaned_claims,
-  paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv")
-)
-output_txt_file <- here(
-  path_to_grouper_output,
-  paste0("DRG_Grouped", "_", year_to_load, suffix, ".txt")
-)
-grouper_result_file <- here(
-  path_to_grouper_output,
-  toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res.TXT"))
-)
-total_rows_file <- here(
-  path_to_cache,
-  paste0("total_rows_", year_to_load, ".rds")
-)
+
+sampled_claims_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0(
+      "sampled_claims_extract_CLAIMS_", year_to_load,
+      suffix, paste0("_", sample_size)
+    )
+  } else {
+    paste0(
+      "sampled_claims_extract_CLAIMS_", year_to_load,
+      suffix, paste0("_", sample_size), "_part_",
+      part, "_of_", split_chunks
+    )
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".csv")
+  }
+  return(here(path_to_raw_claims, filename))
+}
+
+full_claims_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0("claims_extract_CLAIMS_", year_to_load)
+  } else {
+    paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_chunks)
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".csv")
+  }
+
+  return(here(path_to_raw_claims, filename))
+}
+
+intermediate_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0("intermediate_claims_", year_to_load, "_processed", suffix)
+  } else {
+    paste0("intermediate_claims_", year_to_load, "_processed", suffix, "_part_", part, "_of_", split_chunks)
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".csv")
+  }
+  return(here(path_to_intermediate, filename))
+}
+
+cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix)
+  } else {
+    paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, "_part_", part, "_of_", split_chunks)
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".csv")
+  }
+  return(here(path_to_cleaned_claims, filename))
+}
+
+output_txt_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0("DRG_Grouped", "_", year_to_load, suffix)
+  } else {
+    paste0("DRG_Grouped", "_", year_to_load, suffix, "_part_", part, "_of_", split_chunks)
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".txt")
+  }
+  return(here(path_to_grouper_output, filename))
+}
+
+grouper_result_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res"))
+  } else {
+    toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res_", part, "_of_", split_chunks))
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".TXT")
+  }
+  return(here(path_to_grouper_output, filename))
+}
+
+total_rows_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0("total_rows_", year_to_load)
+  } else {
+    paste0("total_rows_", year_to_load, "_part_", part, "_of_", split_chunks)
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".rds")
+  }
+  return(here(path_to_cache, filename))
+}
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-read_entire_file <- function(drop_cols) {
-  dt <- fread(full_claims,
-    na.strings = na_values, drop = drop_cols,
-    colClasses = col_classes
-  )
+handle_sampling <- function(dt = NULL) {
+  sampled_file <- sampled_claims_file(part)
+
+  if (file.exists(sampled_file)) {
+    if (to_view_checks) {
+      print("Sampled file exists. Reading the sampled file...")
+    }
+    dt <- read_sampled_file(sampled_file)
+    # Check if the number of rows matches sample_size
+    if (nrow(dt) != sample_size) {
+      if (to_view_checks) {
+        print(paste(
+          "Sampled file does not match sample size. Expected:",
+          sample_size, "Found:", nrow(dt), "Re-sampling..."
+        ))
+      }
+      dt <- resample_data()
+    } else if (to_view_checks) {
+      print("Sampled file matches sample size.")
+    }
+  } else {
+    if (to_view_checks) {
+      print("Sampled file does not exist. Creating new sample...")
+    }
+    dt <- resample_data()
+  }
+
   return(dt)
 }
 
-read_sampled_file <- function() {
-  dt <- fread(sampled_claims, na.strings = na_values, colClasses = col_classes)
+resample_data <- function() {
+  dt <- read_entire_file(full_claims_file(part))
+  dt <- sample_data(dt)
+  if (to_write) {
+    if (to_view_checks) {
+      print(paste(
+        "to_write is TRUE. Writing the new sample data to file:",
+        sampled_claims_file(part)
+      ))
+    }
+    fwrite(dt, sampled_claims_file(part))
+  } else if (to_view_checks) {
+    print("to_write is FALSE. Not writing the sample data to file.")
+  }
   return(dt)
 }
 
+# Function to read the entire file or a specific chunk
+read_entire_file <- function(file) {
+  dt <- fread(file, na.strings = na_values, drop = drop_cols, colClasses = "character")
+  return(dt)
+}
+
+# Function to read a sampled file
+read_sampled_file <- function(file) {
+  dt <- fread(file, na.strings = na_values, drop = drop_cols, colClasses = "character")
+  return(dt)
+}
+
+# Function to sample data
 sample_data <- function(dt) {
   dt <- dt[sample(.N, min(sample_size, .N))]
   return(dt)
@@ -383,10 +491,27 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
 
   return(combined_replace_empty)
 }
+
+# Function to combine and sum the counts for comparison table
+combine_icd_comparison_table <- function(tables) {
+  combined_table <- rbindlist(tables)
+  combined_table <- combined_table[, .(count = sum(count)), by = .(old_code, new_code)]
+  combined_table[order(-count)]
+}
+
+# Function to combine and sum the counts for invalid ICD codes table
+combine_invalid_icd_table <- function(tables) {
+  combined_table <- rbindlist(tables)
+  combined_table <- combined_table[, .(count = sum(count)), by = code]
+  combined_table[order(-count)]
+}
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 generate_dob_vectorized <- function(bdays, ages, date_adms) {
   require(lubridate)
+
+  # Ensure ages are numeric
+  ages <- as.numeric(ages)
 
   dob <- rep(NA_character_, length(ages))
 
@@ -402,9 +527,7 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   ref_dates <- mdy(date_adms[missing_bday_indices])
 
   # Handle cases where ages are zero
-  zero_age_indices <- which(
-    !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
-  )
+  zero_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0)
   dob[missing_bday_indices[zero_age_indices]] <- format(
     ref_dates[zero_age_indices] - days(
       sample(
@@ -429,6 +552,7 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
 
   return(dob)
 }
+
 
 generate_dob_column <- function(dt) {
   generate_dob_vectorized(dt$pat_bdate, dt$pat_age, dt$date_adm)
@@ -617,7 +741,6 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
     }
 
     unmatched_sources <- unmatched_sources[order(-count)]
-    print(kable(head(unmatched_sources, rows_to_show), format = "markdown", caption = "Unmapped ICD Codes"))
   } else {
     unmatched_sources <- data.table()
   }
@@ -628,19 +751,62 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
 
   mapped_columns <- apply_icd10_mapping_to_columns(clin_c1, clin_c2, clin_icd, icd10_env)
 
+  # Generate comparison table
+  original_data <- list(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
+  modified_data <- list(clin_c1 = mapped_columns$clin_c1, clin_c2 = mapped_columns$clin_c2, clin_icd = mapped_columns$clin_icd)
+
+  padded_data <- lapply(names(original_data), function(name) pad_list_elements(original_data[[name]], modified_data[[name]]))
+
+  comparison_table <- rbind(
+    generate_comparison_table(padded_data[[1]][[1]], padded_data[[1]][[2]]),
+    generate_comparison_table(padded_data[[2]][[1]], padded_data[[2]][[2]]),
+    generate_comparison_table(padded_data[[3]][[1]], padded_data[[3]][[2]])
+  )
+
+  comparison_table <- comparison_table[order(-count)]
+
+  # Check if all resulting ICD codes are in either the Thai library or the PhilHealth library
+  all_icds <- unique(c(unlist(mapped_columns$clin_c1), unlist(mapped_columns$clin_c2), unlist(mapped_columns$clin_icd)))
+  valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
+  invalid_icds <- setdiff(all_icds, valid_icds)
+  invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
+
+  if (length(invalid_icds) > 0) {
+    invalid_icds_table <- data.table(
+      code = invalid_icds,
+      count = sapply(
+        invalid_icds,
+        function(icd) {
+          sum(c(
+            unlist(mapped_columns$clin_c1),
+            unlist(mapped_columns$clin_c2),
+            unlist(mapped_columns$clin_icd)
+          ) == icd, na.rm = TRUE)
+        }
+      )
+    )
+
+    invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
+    invalid_icds_table <- invalid_icds_table[order(-count)]
+  } else {
+    invalid_icds_table <- data.table()
+  }
+
   return(list(
     clin_c1 = mapped_columns$clin_c1,
     clin_c2 = mapped_columns$clin_c2,
     clin_icd = mapped_columns$clin_icd,
     var1 = length(icds),
     var2 = length(direct_match_codes),
-    # var3 = length(direct_match_codes) * 100 / length(icds),
     var4 = length(icd_mapping),
     var5 = modified_count,
     var6 = length(unmatched_icds),
-    var7 = unmatched_sources
+    var7 = unmatched_sources,
+    comparison_table = comparison_table,
+    invalid_icds_table = invalid_icds_table
   ))
 }
+
 
 ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   # Convert lists to data.table for efficient processing
@@ -846,136 +1012,36 @@ suppressPackageStartupMessages({
 # print("Packages loaded successfully.")
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-main_read_function <- function() {
-  if (to_read) {
-    if (to_view_checks) {
-      print("Reading the entire file...")
-    }
-    dt <- read_entire_file(drop_cols)
-
-    if (to_sample) {
-      if (file.exists(sampled_claims)) {
-        if (to_view_checks) {
-          print("Sampled file exists. Reading the sampled file...")
-        }
-        dt <- read_sampled_file()
-        # Check if the number of rows matches sample_size
-        if (nrow(dt) != sample_size) {
-          if (to_view_checks) {
-            print(paste(
-              "Sampled file does not match sample size. Expected:",
-              sample_size, "Found:", nrow(dt), "Re-sampling..."
-            ))
-          }
-          dt <- read_entire_file(drop_cols)
-          dt <- sample_data(dt)
-          if (to_write) {
-            if (to_view_checks) {
-              print(paste(
-                "to_write is TRUE. Writing the new sample data to file:",
-                sampled_claims
-              ))
-            }
-            fwrite(dt, sampled_claims)
-          } else {
-            if (to_view_checks) {
-              print("to_write is FALSE. Not writing the sample data to file.")
-            }
-          }
-        } else {
-          if (to_view_checks) {
-            print("Sampled file matches sample size.")
-          }
-        }
-      } else {
-        if (to_view_checks) {
-          print("Sampled file does not exist. Creating new sample...")
-        }
-        dt <- sample_data(dt)
-        if (to_write) {
-          if (to_view_checks) {
-            print(paste(
-              "to_write is TRUE. Writing the new sample data to file:",
-              sampled_claims
-            ))
-          }
-          fwrite(dt, sampled_claims)
-        } else {
-          if (to_view_checks) {
-            print("to_write is FALSE. Not writing the sample data to file.")
-          }
-        }
+main_read_function <- function(file = NA) {
+  if (is.na(file)) {
+    if (to_read) {
+      file <- full_claims_file(part)
+      if (to_view_checks) {
+        print("Reading the entire file...")
+        print(paste("Full claims file path:", file))
       }
+      dt <- read_entire_file(file)
+
+      if (to_sample) {
+        dt <- handle_sampling(dt)
+      }
+    } else if (to_sample) {
+      dt <- handle_sampling()
+    } else {
+      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
     }
   } else {
-    if (to_sample) {
-      if (file.exists(sampled_claims)) {
-        if (to_view_checks) {
-          print("Sampled file exists. Reading the sampled file...")
-        }
-        dt <- read_sampled_file()
-        # Check if the number of rows matches sample_size
-        if (nrow(dt) != sample_size) {
-          if (to_view_checks) {
-            print(paste(
-              "Sampled file does not match sample size. Expected:",
-              sample_size, "Found:", nrow(dt), "Re-sampling..."
-            ))
-          }
-          dt <- read_entire_file(drop_cols)
-          dt <- sample_data(dt)
-          if (to_write) {
-            if (to_view_checks) {
-              print(paste(
-                "to_write is TRUE. Writing the new sample data to file:",
-                sampled_claims
-              ))
-            }
-            fwrite(dt, sampled_claims)
-          } else {
-            if (to_view_checks) {
-              print("to_write is FALSE. Not writing the sample data to file.")
-            }
-          }
-        } else {
-          if (to_view_checks) {
-            print("Sampled file matches sample size.")
-          }
-        }
-      } else {
-        if (to_view_checks) {
-          print("Sampled file does not exist.")
-          print("Reading entire file and creating new sample...")
-        }
-        dt <- read_entire_file(drop_cols)
-        dt <- sample_data(dt)
-        if (to_write) {
-          if (to_view_checks) {
-            print(paste(
-              "to_write is TRUE. Writing the new sample data to file:",
-              sampled_claims
-            ))
-          }
-          fwrite(dt, sampled_claims)
-        } else {
-          if (to_view_checks) {
-            print("to_write is FALSE. Not writing the sample data to file.")
-          }
-        }
-      }
-    } else {
-      if (!file.exists(intermediate_file)) {
-        stop("Cannot proceed: to_read is FALSE and to_sample is FALSE.
-           At least one must be TRUE.")
-      } else {
-        if (to_view_checks) {
-          print("Using existing intermediate file.")
-        }
-      }
-    }
+    print(paste("Reading specified file:", file))
+    dt <- fread(file,
+      na.strings = na_values,
+      drop = drop_cols, colClasses = "character"
+    )
+    print(paste("Number of rows read:", nrow(dt))) # Add this line
   }
+
   return(dt)
 }
+
 
 clean_data <- function(dt) {
   # Add year column
@@ -1105,8 +1171,8 @@ clean_data <- function(dt) {
   dt$pat_type <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    print("Unmapped Patient Types:")
-    print(result$unmapped)
+    # print("Unmapped Patient Types:")
+    # print(result$unmapped)
     pat_unmap <- result$unmapped
   }
 
@@ -1117,8 +1183,8 @@ clean_data <- function(dt) {
   dt$pat_memcat_parent <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    print("Unmapped Memcat Parent Types:")
-    print(result$unmapped)
+    # print("Unmapped Memcat Parent Types:")
+    # print(result$unmapped)
     parent_unmap <- result$unmapped
   }
 
@@ -1129,8 +1195,8 @@ clean_data <- function(dt) {
   dt$pat_memcat_child <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    print("Unmapped Memcat Child Types:")
-    print(result$unmapped)
+    # print("Unmapped Memcat Child Types:")
+    # print(result$unmapped)
     child_unmap <- result$unmapped
   }
 
@@ -1141,8 +1207,8 @@ clean_data <- function(dt) {
   dt$clin_discharge <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    print("Unmapped Discharge Types:")
-    print(result$unmapped)
+    # print("Unmapped Discharge Types:")
+    # print(result$unmapped)
     discharge_unmap <- result$unmapped
   }
 
@@ -1165,7 +1231,7 @@ process_chunk <- function(
     chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   # Suppress output
   if (to_view_checks) {
-    print("Viewing checks")
+    # print("Viewing checks")
   } else {
     sink(tempfile())
     on.exit(sink(), add = TRUE)
@@ -1230,26 +1296,22 @@ process_chunk <- function(
   summary$total_mapped_count <- mapped_columns$var4
   summary$unmapped_icd_count <- mapped_columns$var6
   summary$unmapped_icds <- mapped_columns$var7
+  summary$comparison_table <- mapped_columns$comparison_table
+  summary$invalid_icds_table <- mapped_columns$invalid_icds_table
 
   # Debug: Print the summary to verify fields
-  print("Summary fields:")
-  print(names(summary))
+  # print("Summary fields:")
+  # print(names(summary))
 
   return(list(chunk = chunk, summary = summary))
 }
+
 
 parallelize_and_summarize <- function(
     dt, num_cores, to_view_checks, global_seed,
     rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
-
-  chunks <- split(
-    dt,
-    rep(1:num_cores,
-      each = chunk_size,
-      length.out = nrow(dt)
-    )
-  )
+  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
   # Plan for parallel processing
   plan(multisession, workers = num_cores)
@@ -1271,14 +1333,8 @@ parallelize_and_summarize <- function(
   # Combine summaries
   summaries <- lapply(parallel_results, function(res) res$summary)
 
-  # Debugging: Print the structure of summaries
-  # print("Structure of summaries:")
-  # str(summaries)
-
   consolidated_summary <- list(
-    rename_success = all(
-      sapply(summaries, function(s) s$rename_success)
-    ),
+    rename_success = all(sapply(summaries, function(s) s$rename_success)),
     ICD_replacements_1 = combine_comparison_tables(
       summaries, "ICD_replacements_1", rows_to_show
     ),
@@ -1310,6 +1366,12 @@ parallelize_and_summarize <- function(
     empty_strings_replaced_2 = combine_replace_empty_tables(
       summaries, "empty_strings_replaced_2",
       rows_to_show = Inf
+    ),
+    icd_comparison_table = combine_icd_comparison_table(
+      lapply(summaries, function(s) s$comparison_table)
+    ),
+    invalid_icds_table = combine_invalid_icd_table(
+      lapply(summaries, function(s) s$invalid_icds_table)
     )
   )
 
@@ -1320,9 +1382,9 @@ parallelize_and_summarize <- function(
     split_rvs_codes(rvs_icd9)$with_drg
   )$rvs_map_list
 
-  without_drg_count <- length(unique(
-    rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs
-  ))
+  without_drg_count <- length(
+    unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
+  )
   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
   mappable_rvs_count <- length(mappable_rvs)
   mappable_rvs_percentage <- (mappable_rvs_count / length(rvss)) * 100
@@ -1421,40 +1483,117 @@ print_aggregate_summary_stats <- function(aggregate_statistics, rows_to_show) {
       aggregate_statistics$unmapped_icd_count
     ), "be mapped to the Thai ICD10 library:\n"
   )
-  print(head(aggregate_statistics$combined_unmapped_icds, rows_to_show))
+  # print(head(aggregate_statistics$combined_unmapped_icds, rows_to_show))
 }
-source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-year_to_load <- "2018"
-version <- "v2"
+print_summary_tables <- function(result, rows_to_show) {
+  dt <- result$dt
+  consolidated_summary <- result$consolidated_summary
+  aggregate_statistics <- result$aggregate_statistics
 
-sample_size <- 25 * 1e3
-seed <- 123
-rows_to_show <- 10
+  # Print the consolidated summary
+  cat("Rename Success:\n", consolidated_summary$rename_success, "\n\n")
 
-drop_cols <- c(
-    paste0("ICDCODE", 13:14),
-    "ICCODED15",
-    paste0("ICDCODE", 16:170)
-)
-icd_cols <- paste0("clin_icd", 1:12)
-rvs_cols <- paste0("clin_rvs", 1:20)
+  if (nrow(consolidated_summary$ICD_replacements_1) > 0) {
+    print(kable(head(consolidated_summary$ICD_replacements_1, rows_to_show),
+      format = "markdown",
+      caption = "ICD Replacements 1"
+    ))
+  } else {
+    cat("\nNo ICD replacements found in the first set.\n\n")
+  }
 
-to_read <- FALSE
-to_sample <- TRUE
-to_write <- TRUE
-to_group <- TRUE
-to_filter <- FALSE # unused
-to_profvis <- FALSE
-to_chunk <- FALSE
-to_view_checks <- TRUE
-to_view_checks_parallelized <- TRUE
+  if (nrow(consolidated_summary$ICD_replacements_2) > 0) {
+    print(kable(head(consolidated_summary$ICD_replacements_2, rows_to_show),
+      format = "markdown",
+      caption = "ICD Replacements 2"
+    ))
+  } else {
+    cat("\nNo ICD replacements found in the second set.\n\n")
+  }
 
-set.seed(seed)
+  if (is.null(consolidated_summary$pat_type_unmapped)) {
+    cat("Patient Type Unmapped: NULL\n\n")
+  } else {
+    cat("Patient Type Unmapped:\n", consolidated_summary$pat_type_unmapped, "\n\n")
+  }
 
-options(future.globals.maxSize = 1024 * 1024^2)
+  if (is.null(consolidated_summary$memcat_parent_unmapped)) {
+    cat("Memcat Parent Unmapped: NULL\n\n")
+  } else {
+    cat("Memcat Parent Unmapped:\n", consolidated_summary$memcat_parent_unmapped, "\n\n")
+  }
 
-global_seed <- seed # for parallelized operations
+  if (is.null(consolidated_summary$memcat_child_unmapped)) {
+    cat("Memcat Child Unmapped: NULL\n\n")
+  } else {
+    cat("Memcat Child Unmapped:\n", consolidated_summary$memcat_child_unmapped, "\n\n")
+  }
+
+  if (is.null(consolidated_summary$discharge_unmapped)) {
+    cat("Discharge Unmapped: NULL\n\n")
+  } else {
+    cat("Discharge Unmapped:\n", consolidated_summary$discharge_unmapped, "\n\n")
+  }
+
+  if (nrow(consolidated_summary$discard_rvs_one) > 0) {
+    print(kable(head(consolidated_summary$discard_rvs_one, rows_to_show),
+      format = "markdown",
+      caption = "Discarded RVS Codes One"
+    ))
+  } else {
+    cat("\nNo RVS codes discarded in the first set.\n\n")
+  }
+
+  if (nrow(consolidated_summary$discard_rvs_two) > 0) {
+    print(kable(head(consolidated_summary$discard_rvs_two, rows_to_show),
+      format = "markdown",
+      caption = "Discarded RVS Codes Two"
+    ))
+  } else {
+    cat("\nNo RVS codes discarded in the second set.\n\n")
+  }
+
+  if (nrow(consolidated_summary$empty_strings_replaced_1) > 0) {
+    print(kable(head(consolidated_summary$empty_strings_replaced_1, rows_to_show),
+      format = "markdown",
+      caption = "Empty Strings Replaced (First Set)"
+    ))
+  } else {
+    cat("\nNo empty strings replaced in the first set.\n\n")
+  }
+
+  if (nrow(consolidated_summary$empty_strings_replaced_2) > 0) {
+    print(kable(head(consolidated_summary$empty_strings_replaced_2, rows_to_show),
+      format = "markdown",
+      caption = "Empty Strings Replaced (Second Set)"
+    ))
+  } else {
+    cat("\nNo empty strings replaced in the second set.\n\n")
+  }
+
+  # Print aggregate summary statistics
+  print_aggregate_summary_stats(aggregate_statistics, rows_to_show)
+
+  # Print comparison table and invalid ICDs table within the consolidated summary
+  if (nrow(consolidated_summary$icd_comparison_table) > 0) {
+    print(kable(head(consolidated_summary$icd_comparison_table, rows_to_show),
+      format = "markdown",
+      caption = "Comparison of ICD Codes Before and After Mapping"
+    ))
+  } else {
+    cat("\nNo ICD codes changed during mapping.\n\n")
+  }
+
+  if (nrow(consolidated_summary$invalid_icds_table) > 0) {
+    print(kable(head(consolidated_summary$invalid_icds_table, rows_to_show),
+      format = "markdown",
+      caption = "Invalid ICD Codes Not Found in Thai or PhilHealth Libraries"
+    ))
+  } else {
+    cat("\nAll resulting ICD codes are valid and present in the libraries.\n\n")
+  }
+}
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 find_pdx_from_icd <- function(clin_icd) {
@@ -1687,6 +1826,29 @@ compute_statistics <- function(dt, rvs_icd9, rvs_map_list) {
 
   unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
   cat(sprintf("There are %d (%.2f%%) with no ICD-9-CM equivalents.\n", length(unmappable_rvs), (length(unmappable_rvs) * 100 / length(rvss))))
+}
+# Function to read and save partial data with header row
+read_and_save_partial <- function(start_row, end_row, part_num) {
+  header <- fread(full_claims_file(), nrows = 1, header = TRUE)
+  skip_rows <- if (part_num == 1) start_row else start_row - 1
+  dt <- fread(full_claims_file(),
+    na.strings = na_values,
+    colClasses = "character",
+    nrows = end_row - start_row + 1,
+    skip = skip_rows,
+    header = FALSE
+  )
+  setnames(dt, colnames(header))
+  partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
+  print(paste("Saving partial file:", partial_file_path))
+  fwrite(dt, partial_file_path, quote = TRUE)
+  if (to_sample) {
+    sampled_file_path <- sampled_claims_file(part_num)
+    print(paste("Creating sampled file:", sampled_file_path))
+    sampled_dt <- dt[sample(.N, min(sample_size, .N))]
+    setnames(sampled_dt, colnames(header))
+    fwrite(sampled_dt, sampled_file_path, quote = TRUE)
+  }
 }
 # id_series:STRING,
 # id_pin:STRING,

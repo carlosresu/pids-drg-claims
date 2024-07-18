@@ -1,18 +1,65 @@
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-read_entire_file <- function(drop_cols) {
-  dt <- fread(full_claims,
-    na.strings = na_values, drop = drop_cols,
-    colClasses = col_classes
-  )
+handle_sampling <- function(dt = NULL) {
+  sampled_file <- sampled_claims_file(part)
+
+  if (file.exists(sampled_file)) {
+    if (to_view_checks) {
+      print("Sampled file exists. Reading the sampled file...")
+    }
+    dt <- read_sampled_file(sampled_file)
+    # Check if the number of rows matches sample_size
+    if (nrow(dt) != sample_size) {
+      if (to_view_checks) {
+        print(paste(
+          "Sampled file does not match sample size. Expected:",
+          sample_size, "Found:", nrow(dt), "Re-sampling..."
+        ))
+      }
+      dt <- resample_data()
+    } else if (to_view_checks) {
+      print("Sampled file matches sample size.")
+    }
+  } else {
+    if (to_view_checks) {
+      print("Sampled file does not exist. Creating new sample...")
+    }
+    dt <- resample_data()
+  }
+
   return(dt)
 }
 
-read_sampled_file <- function() {
-  dt <- fread(sampled_claims, na.strings = na_values, colClasses = col_classes)
+resample_data <- function() {
+  dt <- read_entire_file(full_claims_file(part))
+  dt <- sample_data(dt)
+  if (to_write) {
+    if (to_view_checks) {
+      print(paste(
+        "to_write is TRUE. Writing the new sample data to file:",
+        sampled_claims_file(part)
+      ))
+    }
+    fwrite(dt, sampled_claims_file(part))
+  } else if (to_view_checks) {
+    print("to_write is FALSE. Not writing the sample data to file.")
+  }
   return(dt)
 }
 
+# Function to read the entire file or a specific chunk
+read_entire_file <- function(file) {
+  dt <- fread(file, na.strings = na_values, drop = drop_cols, colClasses = "character")
+  return(dt)
+}
+
+# Function to read a sampled file
+read_sampled_file <- function(file) {
+  dt <- fread(file, na.strings = na_values, drop = drop_cols, colClasses = "character")
+  return(dt)
+}
+
+# Function to sample data
 sample_data <- function(dt) {
   dt <- dt[sample(.N, min(sample_size, .N))]
   return(dt)

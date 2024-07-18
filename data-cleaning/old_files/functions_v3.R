@@ -2,14 +2,14 @@ read_entire_file <- function(drop_cols) {
   #' @description Reads the entire claims data file, dropping specified columns.
   #' @param drop_cols A vector of column names to drop.
   #' @return A data.table containing the claims data.
-  dt <- fread(full_claims, na.strings = na_values, drop = drop_cols, colClasses = col_classes)
+  dt <- fread(full_claims_file, na.strings = na_values, drop = drop_cols, colClasses = col_classes)
   return(dt)
 }
 
 read_sampled_file <- function() {
   #' @description Reads the sampled claims data file.
   #' @return A data.table containing the sampled claims data.
-  dt <- fread(sampled_claims, na.strings = na_values, colClasses = col_classes)
+  dt <- fread(sampled_claims_file, na.strings = na_values, colClasses = col_classes)
   return(dt)
 }
 
@@ -154,7 +154,7 @@ process_icd10_codes <- function(dt, col) {
   #' @param col The name of the column to process.
   #' @return The modified data.table with processed ICD-10 codes.
   dt[, clin_icd := lapply(clin_icd, function(x) if (is.null(x)) character() else x)]
-  dt[lengths(get(col)) > 1, `:=` (
+  dt[lengths(get(col)) > 1, `:=`(
     clin_icd = mapply(function(icd, c1) c(icd, c1[-1]), clin_icd, get(col), SIMPLIFY = FALSE),
     tmp_col = lapply(get(col), function(x) x[1])
   )]
@@ -235,7 +235,7 @@ process_rvs_code_mapping <- function(dt, rvs_icd9) {
   #' @return The modified data.table with processed RVS to ICD-9-CM code mappings.
   with_drg <- rvs_icd9[is_drg == TRUE]
   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]
-  cat(sprintf('There are %d RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n', length(unique(without_drg$rvs))))
+  cat(sprintf("There are %d RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n", length(unique(without_drg$rvs))))
   rvs_map_list <- list()
   rvs_map_solo <- list()
   with_drg <- with_drg[order(rvs, -is_drg)]
@@ -251,13 +251,13 @@ process_rvs_code_mapping <- function(dt, rvs_icd9) {
   }
   rvss <- unique(unlist(dt$clin_rvs))
   rvss <- intersect(rvss, acr_rvs$rvs)
-  cat(sprintf('There are %d unique RVS codes that appear in the claims.\n', length(rvss)))
+  cat(sprintf("There are %d unique RVS codes that appear in the claims.\n", length(rvss)))
   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
-  cat(sprintf('Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n', length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)))
+  cat(sprintf("Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n", length(mappable_rvs), length(mappable_rvs) * 100 / length(rvss)))
   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
-  cat(sprintf('Of these, there are %d (%.2f%%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n', length(multi_mapped_rvs), length(multi_mapped_rvs) * 100 / length(mappable_rvs)))
+  cat(sprintf("Of these, there are %d (%.2f%%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n", length(multi_mapped_rvs), length(multi_mapped_rvs) * 100 / length(mappable_rvs)))
   unmappable_rvs <- setdiff(rvss, mappable_rvs)
-  cat(sprintf('There are %d (%.2f%%) with no ICD-9-CM equivalents.\n', length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)))
+  cat(sprintf("There are %d (%.2f%%) with no ICD-9-CM equivalents.\n", length(unmappable_rvs), length(unmappable_rvs) * 100 / length(rvss)))
   dt2 <- dt[lengths(clin_rvs) > 0]
   dt2_info <- dt2[, .N, by = id_series]
   dt2 <- dt2[, .(clin_rvs), by = .(id_series)]
@@ -337,11 +337,11 @@ process_icd10_mapping <- function(dt) {
       }
     }
   }
-  cat(sprintf('The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n', length(icd_mapping)))
-  cat(sprintf('Out of these, %d were modified to match.\n', modified_count))
+  cat(sprintf("The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n", length(icd_mapping)))
+  cat(sprintf("Out of these, %d were modified to match.\n", modified_count))
   unmatched_icds <- setdiff(icds, names(icd_mapping))
   if (length(unmatched_icds) > 0) {
-    cat(sprintf('There are %d codes that could not be mapped to the Thai ICD10 library:\n', length(unmatched_icds)))
+    cat(sprintf("There are %d codes that could not be mapped to the Thai ICD10 library:\n", length(unmatched_icds)))
     unmatched_sources <- data.table(
       code = unmatched_icds,
       source = NA_character_
@@ -371,7 +371,7 @@ append_and_remove_rvs_codes <- function(dt, col) {
   #' @return The modified data.table with 5-digit numeric codes appended and removed.
   dt[, clin_rvs := lapply(clin_rvs, function(x) if (is.null(x)) character() else x)]
   regex_5_digit <- "\\b\\d{5}\\b"
-  dt[, `:=` (
+  dt[, `:=`(
     clin_rvs = mapply(function(rvs, col_value) {
       matches <- unlist(regmatches(col_value, gregexpr(regex_5_digit, col_value)))
       if (length(matches) > 0) {
@@ -522,7 +522,7 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   rvs_codes <- as.data.table(rvs_codes)
   proc_cols <- paste0("Proc", 1:20)
   output_dt[, (proc_cols) := rvs_codes]
-  output_dt[is.na(output_dt)] <- '--'
+  output_dt[is.na(output_dt)] <- "--"
   for (col in names(output_dt)) {
     if (is.list(output_dt[[col]])) {
       output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")

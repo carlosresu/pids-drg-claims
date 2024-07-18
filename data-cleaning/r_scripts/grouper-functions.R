@@ -3,6 +3,9 @@ source(here("data-cleaning", "r_scripts", "libraries.R"))
 generate_dob_vectorized <- function(bdays, ages, date_adms) {
   require(lubridate)
 
+  # Ensure ages are numeric
+  ages <- as.numeric(ages)
+
   dob <- rep(NA_character_, length(ages))
 
   # Use provided birthdates where available
@@ -17,9 +20,7 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   ref_dates <- mdy(date_adms[missing_bday_indices])
 
   # Handle cases where ages are zero
-  zero_age_indices <- which(
-    !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
-  )
+  zero_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0)
   dob[missing_bday_indices[zero_age_indices]] <- format(
     ref_dates[zero_age_indices] - days(
       sample(
@@ -44,6 +45,7 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
 
   return(dob)
 }
+
 
 generate_dob_column <- function(dt) {
   generate_dob_vectorized(dt$pat_bdate, dt$pat_age, dt$date_adm)

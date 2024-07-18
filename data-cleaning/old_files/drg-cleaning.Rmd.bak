@@ -128,7 +128,7 @@ dt <- main_read_function()
 if (file.exists(total_rows_file)) {
   total_rows <- readRDS(total_rows_file)
 } else {
-  total_rows <- fread(full_claims, select = 1L, header = TRUE)[, .N]
+  total_rows <- fread(full_claims_file, select = 1L, header = TRUE)[, .N]
   saveRDS(total_rows, file = total_rows_file)
 }
 ```

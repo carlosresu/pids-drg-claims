@@ -1,10 +1,10 @@
 read_entire_file <- function(drop_cols) {
-  dt <- fread(full_claims, na.strings = na_values, drop = drop_cols, colClasses = col_classes)
+  dt <- fread(full_claims_file, na.strings = na_values, drop = drop_cols, colClasses = col_classes)
   return(dt)
 }
 
 read_sampled_file <- function() {
-  dt <- fread(sampled_claims, na.strings = na_values, colClasses = col_classes)
+  dt <- fread(sampled_claims_file, na.strings = na_values, colClasses = col_classes)
   return(dt)
 }
 
@@ -32,28 +32,28 @@ clean_columns <- function(dt) {
   if (!is.data.table(dt)) {
     dt <- as.data.table(dt)
   }
-  
+
   # Convert all columns to character
   dt[] <- lapply(dt, as.character)
-  
+
   # Apply transformations in a vectorized manner
   dt[] <- lapply(dt, function(col) {
-    col <- iconv(col, to = "UTF-8", sub = "byte")  # Convert to UTF-8
-    col <- toupper(col)  # Convert to uppercase
-    
+    col <- iconv(col, to = "UTF-8", sub = "byte") # Convert to UTF-8
+    col <- toupper(col) # Convert to uppercase
+
     # Combine multiple string replacements into one call
-    col <- stri_replace_all_regex(col, "[ \n]", "")  # Remove spaces and newlines
-    col <- stri_replace_all_regex(col, "[^\\w\\d\\/\\s]+", "")  # Remove non-alphanumeric characters
-    
+    col <- stri_replace_all_regex(col, "[ \n]", "") # Remove spaces and newlines
+    col <- stri_replace_all_regex(col, "[^\\w\\d\\/\\s]+", "") # Remove non-alphanumeric characters
+
     # Trim spaces from both sides
     col <- stri_trim_both(col)
-    
+
     # Replace NA-like strings with NA
     col <- ifelse(col %in% na_like_strings, NA_character_, col)
-    
+
     return(col)
   })
-  
+
   return(dt)
 }
 
@@ -96,7 +96,7 @@ remove_lumped_icd_codes <- function(dt, column) {
 replace_empty_with_na <- function(dt) {
   # Identify character and factor columns
   char_factor_cols <- names(dt)[sapply(dt, function(x) is.character(x) || is.factor(x))]
-  
+
   # Replace in character and factor columns
   for (col in char_factor_cols) {
     dt[, (col) := {
@@ -105,44 +105,46 @@ replace_empty_with_na <- function(dt) {
       col_data
     }]
   }
-  
+
   # Identify list columns
   list_cols <- names(dt)[sapply(dt, is.list)]
-  
+
   # Replace in list columns
   for (col in list_cols) {
     dt[, (col) := lapply(get(col), function(x) {
-      if (is.null(x)) return(NA_character_)
+      if (is.null(x)) {
+        return(NA_character_)
+      }
       x <- ifelse(x == "" | x == "NA", NA_character_, x)
       x
     })]
   }
-  
+
   return(dt)
 }
 
 split_to_vector <- function(column) {
   # Handle NA values
   na_indices <- is.na(column)
-  
+
   # Perform strsplit on non-NA values
   split_result <- strsplit(column[!na_indices], "||", fixed = TRUE)
-  
+
   # Reinsert NA values into the split result
   result <- vector("list", length(column))
   result[!na_indices] <- split_result
   result[na_indices] <- NA_character_
-  
+
   # Convert single-item lists to vectors
   result <- lapply(result, function(x) if (length(x) == 1) x[[1]] else x)
-  
+
   return(result)
 }
 
 
 process_icd10_codes <- function(dt, col) {
   dt[, clin_icd := lapply(clin_icd, function(x) if (is.null(x)) character() else x)]
-  dt[lengths(get(col)) > 1, `:=` (
+  dt[lengths(get(col)) > 1, `:=`(
     clin_icd = mapply(function(icd, c1) c(icd, c1[-1]), clin_icd, get(col), SIMPLIFY = FALSE),
     tmp_col = lapply(get(col), function(x) x[1])
   )]
@@ -208,11 +210,11 @@ process_rvs_code_mapping <- function(dt, rvs_icd9) {
   # Split the rvs_icd9 into two parts based on whether they have DRG use
   with_drg <- rvs_icd9[is_drg == TRUE]
   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]
-  
+
   # Create environment for faster lookups
   rvs_map_solo_env <- new.env(hash = TRUE, parent = emptyenv())
   rvs_map_list_env <- new.env(hash = TRUE, parent = emptyenv())
-  
+
   # Fill environments with mappings
   for (r in unique(with_drg$rvs)) {
     sub <- with_drg[rvs == r]
@@ -222,21 +224,24 @@ process_rvs_code_mapping <- function(dt, rvs_icd9) {
       assign(r, sub$icd9cm, envir = rvs_map_list_env)
     }
   }
-  
+
   # Process each row of dt
   dt <- dt[, .(id_series, clin_rvs)]
-  dt <- dt[, {
-    codes <- unlist(clin_rvs)
-    codes <- as.character(codes) # Ensure codes is a character vector
-    
-    # Map the codes
-    mapped_icd9 <- unique(unlist(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA)))
-    unmapped_rvs <- codes[is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA)) & is.na(mget(codes, envir = rvs_map_list_env, ifnotfound = NA))]
-    
-    # Output mapped ICD9 codes and unmapped RVS codes
-    .(icd9_list = list(mapped_icd9), rvs_unmap_list = list(unmapped_rvs))
-  }, by = id_series]
-  
+  dt <- dt[,
+    {
+      codes <- unlist(clin_rvs)
+      codes <- as.character(codes) # Ensure codes is a character vector
+
+      # Map the codes
+      mapped_icd9 <- unique(unlist(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA)))
+      unmapped_rvs <- codes[is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA)) & is.na(mget(codes, envir = rvs_map_list_env, ifnotfound = NA))]
+
+      # Output mapped ICD9 codes and unmapped RVS codes
+      .(icd9_list = list(mapped_icd9), rvs_unmap_list = list(unmapped_rvs))
+    },
+    by = id_series
+  ]
+
   # Merge the results back to the original dt
   dt <- merge(dt, dt, by = "id_series", all.x = TRUE)
   return(dt)
@@ -310,23 +315,25 @@ process_icd10_mapping <- function(dt) {
 
 append_and_remove_rvs_codes <- function(dt, col) {
   regex_5_digit <- "\\b\\d{5}\\b"
-  
+
   # Detect and append 5-digit numeric codes
   matches_list <- regmatches(dt[[col]], gregexpr(regex_5_digit, dt[[col]]))
-  
+
   # Append matches to clin_rvs
   dt[, clin_rvs := Map(c, clin_rvs, matches_list)]
-  
+
   # Remove 5-digit numeric codes from the original column
   dt[, (col) := gsub(regex_5_digit, "", dt[[col]])]
-  
+
   return(dt)
 }
 
 deduplicate_columns <- function(dt, columns) {
   for (col in columns) {
     dt[, (col) := lapply(.SD[[1]], function(x) {
-      if (is.null(x)) return(NA)
+      if (is.null(x)) {
+        return(NA)
+      }
       unique(x)
     }), .SDcols = col]
   }
@@ -347,27 +354,27 @@ check_similarity <- function(x, y) {
 
 find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   clin_icd <- unlist(clin_icd)
-  
+
   if (!is.null(clin_c1) && clin_c1 %in% acc_pdx) {
     return(list(pdx = clin_c1, pdx_code = 1))
   }
   if (!is.null(clin_c2) && clin_c2 %in% acc_pdx) {
     return(list(pdx = clin_c2, pdx_code = 2))
   }
-  
+
   pdxs <- intersect(clin_icd, acc_pdx)
-  
+
   if (length(pdxs) == 0) {
     return(list(pdx = NA_character_, pdx_code = 99))
   } else if (length(pdxs) == 1) {
     return(list(pdx = pdxs[1], pdx_code = 3))
   }
-  
+
   for (cr in list(clin_c1, clin_c2)) {
     if (!is.na(cr) && cr != "") {
       starting_letter <- substr(cr, 1, 1)
       starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
-      
+
       if (length(starting_codes) == 1) {
         return(list(pdx = starting_codes[1], pdx_code = 4))
       }
@@ -378,7 +385,7 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
       }
     }
   }
-  
+
   if (length(pdxs) > 0) {
     return(list(pdx = sample(pdxs, 1), pdx_code = 6))
   }
@@ -388,32 +395,32 @@ apply_find_pdx <- function(dt, acc_pdx, num_cores = availableCores() - 1, seed =
   result_list <- future_lapply(seq_len(nrow(dt)), function(i) {
     find_pdx(dt$clin_c1[i], dt$clin_c2[i], dt$clin_icd[[i]], acc_pdx)
   }, future.seed = seed)
-  
+
   dt[, `:=`(pdx = sapply(result_list, `[[`, "pdx"), pdx_code = sapply(result_list, `[[`, "pdx_code"))]
-  
+
   return(dt)
 }
 
 generate_dob_vectorized <- function(bdays, ages, date_adms) {
   require(lubridate)
-  dob <- rep(NA_character_, length(ages))  # Initialize dob vector
-  dob[!is.na(bdays) & bdays != ""] <- format(mdy(bdays[!is.na(bdays) & bdays != ""]), "%d/%m/%Y")  # Use PAT_BDAY where available
-  
+  dob <- rep(NA_character_, length(ages)) # Initialize dob vector
+  dob[!is.na(bdays) & bdays != ""] <- format(mdy(bdays[!is.na(bdays) & bdays != ""]), "%d/%m/%Y") # Use PAT_BDAY where available
+
   # Indices where PAT_BDAY is not available
   missing_bday_indices <- which(is.na(bdays) | bdays == "")
-  
+
   # Use age and date_adm to generate DOB for those with missing PAT_BDAY
   ref_dates <- mdy(date_adms[missing_bday_indices])
-  
+
   # Case 1: age == 0
   zero_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0)
   dob[missing_bday_indices[zero_age_indices]] <- format(ref_dates[zero_age_indices] - days(sample(1:27, length(zero_age_indices), replace = TRUE)), "%d/%m/%Y")
-  
+
   # Case 2: age > 0
   positive_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0)
   truncated_ages <- floor(ages[missing_bday_indices][positive_age_indices])
   dob[missing_bday_indices[positive_age_indices]] <- format(ref_dates[positive_age_indices] - years(truncated_ages) - days(sample(1:170, length(positive_age_indices), replace = TRUE)), "%d/%m/%Y")
-  
+
   return(dob)
 }
 
@@ -428,43 +435,43 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   output_dt[, DischT := dt$clin_discharge]
   output_dt[, AdmWt := dt$pat_bwt]
   output_dt[, PDx := dt$pdx]
-  
+
   # Split icd_list_1 into multiple columns, ensuring 12 elements per row
   split_icd_codes <- function(icd_str) {
     codes <- unlist(icd_str)
-    length(codes) <- 12  # Ensuring 12 elements, with NA for missing
+    length(codes) <- 12 # Ensuring 12 elements, with NA for missing
     codes
   }
-  
+
   icd_codes_list <- lapply(dt$clin_icd, split_icd_codes)
   icd_codes <- do.call(rbind, icd_codes_list)
   icd_codes <- as.data.table(icd_codes)
   icd_cols <- paste0("SDx", 1:12)
   output_dt[, (icd_cols) := icd_codes]
-  
+
   # Split icd9_list into multiple columns, ensuring 20 elements per row
   split_rvs_codes <- function(rvs_str) {
     codes <- unlist(rvs_str)
-    length(codes) <- 20  # Ensuring 20 elements, with NA for missing
+    length(codes) <- 20 # Ensuring 20 elements, with NA for missing
     codes
   }
-  
+
   rvs_codes_list <- lapply(dt$icd9_list, split_rvs_codes)
   rvs_codes <- do.call(rbind, rvs_codes_list)
   rvs_codes <- as.data.table(rvs_codes)
   proc_cols <- paste0("Proc", 1:20)
   output_dt[, (proc_cols) := rvs_codes]
-  
+
   # Replace NA values with '--'
-  output_dt[is.na(output_dt)] <- '--'
-  
+  output_dt[is.na(output_dt)] <- "--"
+
   # Convert list columns to character if any
   for (col in names(output_dt)) {
     if (is.list(output_dt[[col]])) {
       output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
     }
   }
-  
+
   # Write the data to a text file
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
 }

@@ -36,7 +36,7 @@ year_to_load <- "2018"
 sample_size <- 1 * 1e3
 chunk_size <- 1e6
 
-drop_cols <- c(paste0("ICDCODE",13:14),"ICCODED15",paste0("ICDCODE",16:170))
+drop_cols <- c(paste0("ICDCODE", 13:14), "ICCODED15", paste0("ICDCODE", 16:170))
 
 to_read <- FALSE
 to_sample <- TRUE
@@ -45,12 +45,14 @@ to_chunk <- FALSE
 to_group <- TRUE
 to_filter <- TRUE
 
-na_values <- c('NONE', 'None', '-', '--', '---', 'N/A', 'n/a', 'nan', 'NAN')
-na_like_strings <- c("", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a", 
-                     "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0",
-                     "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005", 
-                     "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028", 
-                     "\u2029", "\u202F", "\u205F", "\u3000")
+na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
+na_like_strings <- c(
+  "", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a",
+  "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0",
+  "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005",
+  "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028",
+  "\u2029", "\u202F", "\u205F", "\u3000"
+)
 
 # File paths
 path_to_raw_claims <- "git-ignored-files/raw_claims"
@@ -63,32 +65,41 @@ path_to_grouper_output <- "git-ignored-files/grouper_output"
 
 suffix <- ifelse(to_sample, "_sampled", "_full")
 chunk_droppable_cols_file <- here(
-  path_to_cache, 
-  paste0("chunk_droppable_cols_", year_to_load, suffix, ".rds"))
+  path_to_cache,
+  paste0("chunk_droppable_cols_", year_to_load, suffix, ".rds")
+)
 header_file <- here(
-  path_to_cache, 
-  paste0("header_", year_to_load, suffix, ".rds"))
+  path_to_cache,
+  paste0("header_", year_to_load, suffix, ".rds")
+)
 total_rows_file <- here(
-  path_to_cache, 
-  paste0("total_rows_", year_to_load, suffix, ".rds"))
-sampled_claims <- here(
-  path_to_raw_claims, 
-  paste0("sampled_claims_extract_CLAIMS_", year_to_load, ".csv"))
-full_claims <- here(
-  path_to_raw_claims, 
-  paste0("claims_extract_CLAIMS_", year_to_load, ".csv"))
+  path_to_cache,
+  paste0("total_rows_", year_to_load, suffix, ".rds")
+)
+sampled_claims_file <- here(
+  path_to_raw_claims,
+  paste0("sampled_claims_extract_CLAIMS_", year_to_load, ".csv")
+)
+full_claims_file <- here(
+  path_to_raw_claims,
+  paste0("claims_extract_CLAIMS_", year_to_load, ".csv")
+)
 intermediate_file <- here(
-  path_to_intermediate, 
-  paste0("intermediate_claims_", year_to_load, "_processed.csv"))
+  path_to_intermediate,
+  paste0("intermediate_claims_", year_to_load, "_processed.csv")
+)
 cleaned_claims_file <- here(
-  path_to_cleaned_claims, 
-  paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv"))
+  path_to_cleaned_claims,
+  paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, ".csv")
+)
 output_txt_file <- here(
-  path_to_grouper_output, 
-  paste0("DRG_Grouped", suffix, "_", year_to_load, ".txt"))
+  path_to_grouper_output,
+  paste0("DRG_Grouped", suffix, "_", year_to_load, ".txt")
+)
 grouper_result_file <- here(
-  path_to_grouper_output, 
-  toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, "Res.TXT")))
+  path_to_grouper_output,
+  toupper(paste0("DRG_Grouped", suffix, "_", year_to_load, "Res.TXT"))
+)
 
 # Seed for reproducibility
 set.seed(123)
@@ -141,42 +152,42 @@ acc_pdx <- unique(acc_pdx)
 ```{r reading}
 if (to_read) {
   dt <- read_entire_file(drop_cols)
-  
+
   if (to_sample) {
-    if (file.exists(sampled_claims)) {
+    if (file.exists(sampled_claims_file)) {
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
         dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
-          write_data(dt, sampled_claims)
+          write_data(dt, sampled_claims_file)
         }
       }
     } else {
       dt <- sample_data(dt)
       if (to_write) {
-        write_data(dt, sampled_claims)
+        write_data(dt, sampled_claims_file)
       }
     }
   }
 } else {
   if (to_sample) {
-    if (file.exists(sampled_claims)) {
+    if (file.exists(sampled_claims_file)) {
       dt <- read_sampled_file()
       # Check if the number of rows matches sample_size
       if (nrow(dt) != sample_size) {
         dt <- read_entire_file(drop_cols)
         dt <- sample_data(dt)
         if (to_write) {
-          write_data(dt, sampled_claims)
+          write_data(dt, sampled_claims_file)
         }
       }
     } else {
       dt <- read_entire_file(drop_cols)
       dt <- sample_data(dt)
       if (to_write) {
-        write_data(dt, sampled_claims)
+        write_data(dt, sampled_claims_file)
       }
     }
   } else if (to_chunk) {
@@ -198,7 +209,7 @@ if (to_read) {
 ### Identify Droppable Columns
 
 ```{r identify droppable columns}
-if (to_read || (to_sample && !file.exists(sampled_claims))) {
+if (to_read || (to_sample && !file.exists(sampled_claims_file))) {
   chunk_number <- 1
   chunk_droppable_cols <- list()
   header <- names(dt)
@@ -227,22 +238,22 @@ if (to_read || (to_sample && !file.exists(sampled_claims))) {
 ```{r process data in chunks}
 if (to_sample == FALSE && to_chunk == TRUE) {
   tic("Processing data in chunks")
-  
-  header <- fread(full_claims, nrows = 1, header = TRUE)
-  total_rows <- fread(full_claims, select = 1L, header = TRUE)[, .N]
+
+  header <- fread(full_claims_file, nrows = 1, header = TRUE)
+  total_rows <- fread(full_claims_file, select = 1L, header = TRUE)[, .N]
   cols_to_keep <- setdiff(seq_along(header), drop_cols)
-  
+
   chunk_number <- 1
   repeat {
     skip_rows <- (chunk_number - 1) * chunk_size + 1
     if (skip_rows > total_rows) break
-    
+
     droppable_cols <- process_chunk(chunk_number, skip_rows, cols_to_keep, total_rows, rvs_icd9)
     if (is.null(droppable_cols)) break
-    
+
     chunk_number <- chunk_number + 1
   }
-  
+
   toc()
 }
 ```
@@ -252,13 +263,13 @@ if (to_sample == FALSE && to_chunk == TRUE) {
 ```{r merge intermediate files}
 if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
   tic("Merging intermediate files")
-  
+
   intermediate_files <- list.files(path_to_intermediate, pattern = "intermediate_chunk_.*\\.csv", full.names = TRUE)
   dt_list <- lapply(intermediate_files, fread)
   dt <- rbindlist(dt_list)
-  
+
   fwrite(dt, intermediate_file)
-  
+
   toc()
 }
 ```
@@ -271,7 +282,7 @@ if (to_sample == FALSE && to_chunk == TRUE && to_write == TRUE) {
 if (to_chunk == FALSE && exists("dt")) {
   tic("Process data if not chunking")
   dt <- process_data(dt, year_to_load, rvs_icd9)
-  
+
   if (to_write) {
     fwrite(dt, intermediate_file)
   }
