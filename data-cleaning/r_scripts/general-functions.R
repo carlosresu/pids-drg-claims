@@ -49,13 +49,19 @@ resample_data <- function() {
 
 # Function to read the entire file or a specific chunk
 read_entire_file <- function(file) {
-  dt <- fread(file, na.strings = na_values, drop = drop_cols, colClasses = "character")
+  dt <- fread(file,
+    na.strings = na_values,
+    drop = drop_cols, colClasses = "character"
+  )
   return(dt)
 }
 
 # Function to read a sampled file
 read_sampled_file <- function(file) {
-  dt <- fread(file, na.strings = na_values, drop = drop_cols, colClasses = "character")
+  dt <- fread(file,
+    na.strings = na_values,
+    drop = drop_cols, colClasses = "character"
+  )
   return(dt)
 }
 
@@ -127,7 +133,10 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     ]
 
     if (is.factor(col)) {
-      set(dt, j = col_name, value = factor(dt[[col_name]], levels = c(levels(col), NA)))
+      set(dt, j = col_name, value = factor(
+        dt[[col_name]],
+        levels = c(levels(col), NA)
+      ))
     }
 
     if (to_view_checks) {
@@ -256,7 +265,8 @@ format_large_numbers <- function(x) {
   }
 }
 
-combine_comparison_tables <- function(summaries, comparison_field, rows_to_show = 10) {
+combine_comparison_tables <- function(
+    summaries, comparison_field, rows_to_show = 10) {
   comparison_list <- lapply(summaries, function(summary) {
     summary_data <- summary[[comparison_field]]
     if (!is.null(summary_data) && nrow(summary_data) > 0) {
@@ -268,10 +278,16 @@ combine_comparison_tables <- function(summaries, comparison_field, rows_to_show 
   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
 
   if (nrow(combined_comparison) == 0) {
-    return(data.table(old_code = character(), new_code = character(), count = integer()))
+    return(data.table(
+      old_code = character(),
+      new_code = character(), count = integer()
+    ))
   }
 
-  combined_comparison <- combined_comparison[, .(count = sum(count, na.rm = TRUE)), by = .(old_code, new_code)]
+  combined_comparison <- combined_comparison[,
+    .(count = sum(count, na.rm = TRUE)),
+    by = .(old_code, new_code)
+  ]
   combined_comparison <- combined_comparison[order(-count)]
   combined_comparison <- head(combined_comparison, rows_to_show)
 
@@ -300,7 +316,12 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
   combined_replace_empty <- rbindlist(replace_empty_list, fill = TRUE)
 
   if (nrow(combined_replace_empty) == 0) {
-    return(data.table(Column = character(), Empty_Replaced = integer(), NA_Replaced = integer(), Character0_Replaced = integer()))
+    return(data.table(
+      Column = character(),
+      Empty_Replaced = integer(),
+      NA_Replaced = integer(),
+      Character0_Replaced = integer()
+    ))
   }
 
   combined_replace_empty <- combined_replace_empty[, .(
@@ -308,7 +329,9 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
     NA_Replaced = sum(NA_Replaced, na.rm = TRUE),
     Character0_Replaced = sum(Character0_Replaced, na.rm = TRUE)
   ), by = Column]
-  combined_replace_empty <- combined_replace_empty[order(-Empty_Replaced, -NA_Replaced, -Character0_Replaced)]
+  combined_replace_empty <- combined_replace_empty[
+    order(-Empty_Replaced, -NA_Replaced, -Character0_Replaced)
+  ]
   combined_replace_empty <- head(combined_replace_empty, rows_to_show)
 
   return(combined_replace_empty)
@@ -318,7 +341,10 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
 combine_icd_comparison_table <- function(tables) {
   combined_table <- rbindlist(tables, fill = TRUE)
   # print(colnames(combined_table))
-  combined_table <- combined_table[, .(count = sum(count, na.rm = TRUE)), by = .(old_code, new_code)]
+  combined_table <- combined_table[,
+    .(count = sum(count, na.rm = TRUE)),
+    by = .(old_code, new_code)
+  ]
   combined_table <- combined_table[order(-count)]
   return(combined_table)
 }
@@ -330,9 +356,15 @@ combine_invalid_icd_table <- function(tables) {
   combined_table[order(-count)]
 }
 
-combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
+combine_all_parts_summaries <- function(
+    all_parts_summaries, rows_to_show = 10) {
   combined_summary <- list(
-    rename_success = all(sapply(all_parts_summaries, function(summary) summary$rename_success)),
+    rename_success = all(
+      sapply(
+        all_parts_summaries,
+        function(summary) summary$rename_success
+      )
+    ),
     ICD_replacements_1 = combine_comparison_tables(
       all_parts_summaries, "ICD_replacements_1", rows_to_show
     ),
@@ -340,16 +372,28 @@ combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) 
       all_parts_summaries, "ICD_replacements_2", rows_to_show
     ),
     pat_type_unmapped = unique(
-      unlist(lapply(all_parts_summaries, function(summary) summary$pat_type_unmapped))
+      unlist(lapply(
+        all_parts_summaries,
+        function(summary) summary$pat_type_unmapped
+      ))
     ),
     memcat_parent_unmapped = unique(
-      unlist(lapply(all_parts_summaries, function(summary) summary$memcat_parent_unmapped))
+      unlist(lapply(
+        all_parts_summaries,
+        function(summary) summary$memcat_parent_unmapped
+      ))
     ),
     memcat_child_unmapped = unique(
-      unlist(lapply(all_parts_summaries, function(summary) summary$memcat_child_unmapped))
+      unlist(lapply(
+        all_parts_summaries,
+        function(summary) summary$memcat_child_unmapped
+      ))
     ),
     discharge_unmapped = unique(
-      unlist(lapply(all_parts_summaries, function(summary) summary$discharge_unmapped))
+      unlist(lapply(
+        all_parts_summaries,
+        function(summary) summary$discharge_unmapped
+      ))
     ),
     discard_rvs_one = combine_discarded_rvs_tables(
       all_parts_summaries, "discard_rvs_one", rows_to_show
@@ -364,10 +408,16 @@ combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) 
       all_parts_summaries, "empty_strings_replaced_2", rows_to_show
     ),
     icd_comparison_table = combine_icd_comparison_table(
-      lapply(all_parts_summaries, function(summary) summary$icd_comparison_table)
+      lapply(
+        all_parts_summaries,
+        function(summary) summary$icd_comparison_table
+      )
     ),
     invalid_icds_table = combine_invalid_icd_table(
-      lapply(all_parts_summaries, function(summary) summary$invalid_icds_table)
+      lapply(
+        all_parts_summaries,
+        function(summary) summary$invalid_icds_table
+      )
     )
   )
 
@@ -376,28 +426,88 @@ combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) 
 
 combine_all_parts_statistics <- function(all_parts_statistics) {
   total_statistics <- list(
-    total_rvs_count = sum(sapply(all_parts_statistics, function(stat) stat$total_rvs_count)),
-    without_drg_count = sum(sapply(all_parts_statistics, function(stat) stat$without_drg_count)),
-    mappable_rvs_count = sum(sapply(all_parts_statistics, function(stat) stat$mappable_rvs_count)),
-    mappable_rvs_percentage = sum(sapply(all_parts_statistics, function(stat) stat$mappable_rvs_count)) /
-      sum(sapply(all_parts_statistics, function(stat) stat$total_rvs_count)) * 100,
-    multi_mapped_rvs_count = sum(sapply(all_parts_statistics, function(stat) stat$multi_mapped_rvs_count)),
-    multi_mapped_rvs_percentage = sum(sapply(all_parts_statistics, function(stat) stat$multi_mapped_rvs_count)) /
-      sum(sapply(all_parts_statistics, function(stat) stat$mappable_rvs_count)) * 100,
-    unmappable_rvs_count = sum(sapply(all_parts_statistics, function(stat) stat$unmappable_rvs_count)),
-    unmappable_rvs_percentage = sum(sapply(all_parts_statistics, function(stat) stat$unmappable_rvs_count)) /
-      sum(sapply(all_parts_statistics, function(stat) stat$total_rvs_count)) * 100,
-    total_unique_icd_count = sum(sapply(all_parts_statistics, function(stat) stat$total_unique_icd_count)),
-    direct_match_count = sum(sapply(all_parts_statistics, function(stat) stat$direct_match_count)),
-    direct_match_percentage = sum(sapply(all_parts_statistics, function(stat) stat$direct_match_count)) /
-      sum(sapply(all_parts_statistics, function(stat) stat$total_unique_icd_count)) * 100,
-    total_mapped_count = sum(sapply(all_parts_statistics, function(stat) stat$total_mapped_count)),
-    modified_count = sum(sapply(all_parts_statistics, function(stat) stat$modified_count)),
-    unmapped_icd_count = sum(sapply(all_parts_statistics, function(stat) stat$unmapped_icd_count))
+    total_rvs_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$total_rvs_count
+    )),
+    without_drg_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$without_drg_count
+    )),
+    mappable_rvs_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$mappable_rvs_count
+    )),
+    mappable_rvs_percentage = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$mappable_rvs_count
+    )) /
+      sum(sapply(
+        all_parts_statistics,
+        function(stat) stat$total_rvs_count
+      )) * 100,
+    multi_mapped_rvs_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$multi_mapped_rvs_count
+    )),
+    multi_mapped_rvs_percentage = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$multi_mapped_rvs_count
+    )) /
+      sum(sapply(
+        all_parts_statistics,
+        function(stat) stat$mappable_rvs_count
+      )) * 100,
+    unmappable_rvs_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$unmappable_rvs_count
+    )),
+    unmappable_rvs_percentage = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$unmappable_rvs_count
+    )) /
+      sum(sapply(
+        all_parts_statistics,
+        function(stat) stat$total_rvs_count
+      )) * 100,
+    total_unique_icd_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$total_unique_icd_count
+    )),
+    direct_match_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$direct_match_count
+    )),
+    direct_match_percentage = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$direct_match_count
+    )) /
+      sum(sapply(
+        all_parts_statistics,
+        function(stat) stat$total_unique_icd_count
+      )) * 100,
+    total_mapped_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$total_mapped_count
+    )),
+    modified_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$modified_count
+    )),
+    unmapped_icd_count = sum(sapply(
+      all_parts_statistics,
+      function(stat) stat$unmapped_icd_count
+    ))
   )
 
-  combined_unmapped_icds <- rbindlist(lapply(all_parts_statistics, function(stat) stat$combined_unmapped_icds))
-  total_statistics$combined_unmapped_icds <- combined_unmapped_icds[, .(count = sum(count)), by = code][order(-count)]
+  combined_unmapped_icds <- rbindlist(lapply(
+    all_parts_statistics,
+    function(stat) stat$combined_unmapped_icds
+  ))
+  total_statistics$combined_unmapped_icds <- combined_unmapped_icds[,
+    .(count = sum(count)),
+    by = code
+  ][order(-count)]
 
   return(total_statistics)
 }

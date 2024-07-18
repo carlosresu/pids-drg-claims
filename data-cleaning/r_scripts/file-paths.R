@@ -35,7 +35,10 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("claims_extract_CLAIMS_", year_to_load)
   } else {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_chunks)
+    paste0(
+      "claims_extract_CLAIMS_", year_to_load,
+      "_part_", part, "_of_", split_chunks
+    )
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -48,7 +51,10 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("intermediate_claims_", year_to_load, "_processed", suffix)
   } else {
-    paste0("intermediate_claims_", year_to_load, "_processed", suffix, "_part_", part, "_of_", split_chunks)
+    paste0(
+      "intermediate_claims_", year_to_load,
+      "_processed", suffix, "_part_", part, "_of_", split_chunks
+    )
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -60,7 +66,10 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix)
   } else {
-    paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix, "_part_", part, "_of_", split_chunks)
+    paste0(
+      "cleaned_claims_extract_CLAIMS_",
+      year_to_load, suffix, "_part_", part, "_of_", split_chunks
+    )
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -72,7 +81,10 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("DRG_Grouped", "_", year_to_load, suffix)
   } else {
-    paste0("DRG_Grouped", "_", year_to_load, suffix, "_part_", part, "_of_", split_chunks)
+    paste0(
+      "DRG_Grouped", "_", year_to_load, suffix,
+      "_part_", part, "_of_", split_chunks
+    )
   }
   if (fileext) {
     filename <- paste0(filename, ".txt")
@@ -84,7 +96,10 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res"))
   } else {
-    toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res_", part, "_of_", split_chunks))
+    toupper(paste0(
+      "DRG_Grouped", "_", year_to_load,
+      suffix, "Res_", part, "_of_", split_chunks
+    ))
   }
   if (fileext) {
     filename <- paste0(filename, ".TXT")
@@ -96,7 +111,10 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("total_rows_", year_to_load)
   } else {
-    paste0("total_rows_", year_to_load, "_part_", part, "_of_", split_chunks)
+    paste0(
+      "total_rows_", year_to_load, "_part_",
+      part, "_of_", split_chunks
+    )
   }
   if (fileext) {
     filename <- paste0(filename, ".rds")

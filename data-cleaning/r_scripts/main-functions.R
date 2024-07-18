@@ -72,8 +72,10 @@ clean_data <- function(dt) {
   dt[, clin_icd := split_to_vector(clin_icd)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
 
-  # Ensure clean_column function and na_like_strings are correctly defined and applied
-  dt[, clin_c1_orig := dt$clin_c1] # Ensure clin_c1_orig captures original values
+  # Ensure clean_column function and na_like_
+  # strings are correctly defined and applied
+  dt[, clin_c1_orig := dt$clin_c1]
+  # Ensure clin_c1_orig captures original values
   dt[, clin_c1 := clean_column(clin_c1, na_like_strings)] # Clean clin_c1
 
   # Generate cleaning comparison table
@@ -283,7 +285,9 @@ parallelize_and_summarize <- function(
     dt, num_cores, to_view_checks, global_seed,
     rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
-  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+  chunks <- split(dt, rep(1:num_cores,
+    each = chunk_size, length.out = nrow(dt)
+  ))
 
   if (to_parallelize) {
     # Plan for parallel processing
@@ -500,25 +504,37 @@ print_summary_tables <- function(result, rows_to_show) {
   if (is.null(consolidated_summary$pat_type_unmapped)) {
     cat("Patient Type Unmapped: NULL\n\n")
   } else {
-    cat("Patient Type Unmapped:\n", consolidated_summary$pat_type_unmapped, "\n\n")
+    cat(
+      "Patient Type Unmapped:\n",
+      consolidated_summary$pat_type_unmapped, "\n\n"
+    )
   }
 
   if (is.null(consolidated_summary$memcat_parent_unmapped)) {
     cat("Memcat Parent Unmapped: NULL\n\n")
   } else {
-    cat("Memcat Parent Unmapped:\n", consolidated_summary$memcat_parent_unmapped, "\n\n")
+    cat(
+      "Memcat Parent Unmapped:\n",
+      consolidated_summary$memcat_parent_unmapped, "\n\n"
+    )
   }
 
   if (is.null(consolidated_summary$memcat_child_unmapped)) {
     cat("Memcat Child Unmapped: NULL\n\n")
   } else {
-    cat("Memcat Child Unmapped:\n", consolidated_summary$memcat_child_unmapped, "\n\n")
+    cat(
+      "Memcat Child Unmapped:\n",
+      consolidated_summary$memcat_child_unmapped, "\n\n"
+    )
   }
 
   if (is.null(consolidated_summary$discharge_unmapped)) {
     cat("Discharge Unmapped: NULL\n\n")
   } else {
-    cat("Discharge Unmapped:\n", consolidated_summary$discharge_unmapped, "\n\n")
+    cat(
+      "Discharge Unmapped:\n",
+      consolidated_summary$discharge_unmapped, "\n\n"
+    )
   }
 
   if (nrow(consolidated_summary$discard_rvs_one) > 0) {
@@ -540,7 +556,10 @@ print_summary_tables <- function(result, rows_to_show) {
   }
 
   if (nrow(consolidated_summary$empty_strings_replaced_1) > 0) {
-    print(kable(head(consolidated_summary$empty_strings_replaced_1, rows_to_show),
+    print(kable(
+      head(
+        consolidated_summary$empty_strings_replaced_1, rows_to_show
+      ),
       format = "markdown",
       caption = "Empty Strings Replaced (First Set)"
     ))
@@ -549,7 +568,10 @@ print_summary_tables <- function(result, rows_to_show) {
   }
 
   if (nrow(consolidated_summary$empty_strings_replaced_2) > 0) {
-    print(kable(head(consolidated_summary$empty_strings_replaced_2, rows_to_show),
+    print(kable(
+      head(
+        consolidated_summary$empty_strings_replaced_2, rows_to_show
+      ),
       format = "markdown",
       caption = "Empty Strings Replaced (Second Set)"
     ))
@@ -560,7 +582,8 @@ print_summary_tables <- function(result, rows_to_show) {
   # Print aggregate summary statistics
   print_aggregate_summary_stats(aggregate_statistics, rows_to_show)
 
-  # Print comparison table and invalid ICDs table within the consolidated summary
+  # Print comparison table and invalid
+  # ICDs table within the consolidated summary
   if (nrow(consolidated_summary$icd_comparison_table) > 0) {
     print(kable(head(consolidated_summary$icd_comparison_table, rows_to_show),
       format = "markdown",

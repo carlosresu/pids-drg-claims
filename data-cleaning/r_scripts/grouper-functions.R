@@ -20,7 +20,9 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   ref_dates <- mdy(date_adms[missing_bday_indices])
 
   # Handle cases where ages are zero
-  zero_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0)
+  zero_age_indices <- which(
+    !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
+  )
   dob[missing_bday_indices[zero_age_indices]] <- format(
     ref_dates[zero_age_indices] - days(
       sample(

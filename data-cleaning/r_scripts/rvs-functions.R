@@ -101,17 +101,33 @@ compute_statistics <- function(dt, rvs_icd9, rvs_map_list) {
   with_thai <- rvs_icd9[is_thai == TRUE]
   without_thai <- rvs_icd9[!rvs %in% with_thai$rvs]
 
-  cat(sprintf("There are %d RVS codes without an ICD-9CM equivalent recognized by the TDRG ICD9CM\n", length(unique(without_thai$rvs))))
+  cat(sprintf(
+    "There are %d RVS codes without an",
+    length(unique(without_thai$rvs))
+  ), "ICD-9CM equivalent recognized by the TDRG ICD9CM\n")
 
   rvss <- unique(unlist(dt$clin_rvs))
-  cat(sprintf("There are %d unique RVS codes that appear in the claims.\n", length(rvss)))
+  cat(sprintf(
+    "There are %d unique RVS codes that appear in the claims.\n",
+    length(rvss)
+  ))
 
   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
-  cat(sprintf("Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n", length(mappable_rvs), (length(mappable_rvs) * 100 / length(rvss))))
+  cat(sprintf(
+    "Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n",
+    length(mappable_rvs), (length(mappable_rvs) * 100 / length(rvss))
+  ))
 
   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
-  cat(sprintf("Of these, there are %d (%.2f%%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n", length(multi_mapped_rvs), (length(multi_mapped_rvs) * 100 / length(mappable_rvs))))
+  cat(sprintf(
+    "Of these, there are %d (%.2f%%) with more than one ICD9",
+    length(multi_mapped_rvs),
+    (length(multi_mapped_rvs) * 100 / length(mappable_rvs))
+  ), "equivalent recognized by the Thai ICD9 library.\n")
 
   unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
-  cat(sprintf("There are %d (%.2f%%) with no ICD-9-CM equivalents.\n", length(unmappable_rvs), (length(unmappable_rvs) * 100 / length(rvss))))
+  cat(sprintf(
+    "There are %d (%.2f%%) with no ICD-9-CM equivalents.\n",
+    length(unmappable_rvs), (length(unmappable_rvs) * 100 / length(rvss))
+  ))
 }

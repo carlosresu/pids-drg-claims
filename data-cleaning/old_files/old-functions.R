@@ -15,13 +15,13 @@
 #'   dt[, SRC_YR := as.integer(year_to_load)]
 #'   return(dt)
 #' }
-#' 
+#'
 #' clean_columns <- function(dt) {
 #'   #' @title Clean Columns in a Data Table
 #'   #' @description Cleans columns in a data.table by converting to UTF-8, removing spaces, and setting NA values.
 #'   #' @param dt A data.table to clean.
 #'   #' @return The cleaned data.table.
-#'   #' 
+#'   #'
 #'   #' @details
 #'   #' This function performs the following operations on each column in the data.table:
 #'   #' - Converts text to UTF-8 encoding.
@@ -38,15 +38,15 @@
 #'   #' na_like_strings <- c("Na-like-value") # Define na_like_strings before calling the function
 #'   #' cleaned_dt <- clean_columns(dt)
 #'   #' print(cleaned_dt)
-#'   
+#'
 #'   # Ensure the input is a data.table
 #'   if (!is.data.table(dt)) {
 #'     dt <- as.data.table(dt)
 #'   }
-#'   
+#'
 #'   # Convert all columns to character type
 #'   dt[] <- lapply(dt, as.character)
-#'   
+#'
 #'   # Apply cleaning operations to each column
 #'   dt[] <- lapply(dt, function(col) {
 #'     col <- iconv(col, to = "UTF-8", sub = "byte")
@@ -57,11 +57,11 @@
 #'     col <- ifelse(col %in% na_like_strings, NA_character_, col)
 #'     return(col)
 #'   })
-#'   
+#'
 #'   return(dt)
 #' }
-#' 
-#' 
+#'
+#'
 #' clean_columns_in_dt <- function(dt, cols_to_clean) {
 #'   #' @title Clean Specified Columns in Data Table
 #'   #' @description Cleans specified columns in a data.table.
@@ -80,7 +80,7 @@
 #'   #' cols_to_clean <- c("column1", "column2")
 #'   #' cleaned_dt <- clean_columns_in_dt(dt, cols_to_clean)
 #'   #' print(cleaned_dt)
-#'   
+#'
 #'   dt[, (cols_to_clean) := clean_columns(.SD), .SDcols = cols_to_clean]
 #'   return(dt)
 #' }
@@ -109,7 +109,7 @@
 #'   #' new_col_name <- "collapsed_column"
 #'   #' processed_dt <- process_and_collapse_columns(dt, cols_to_process, new_col_name)
 #'   #' print(processed_dt)
-#'   
+#'
 #'   dt[, (cols_to_process) := clean_columns(.SD), .SDcols = cols_to_process]
 #'   dt[, (new_col_name) := do.call(paste, c(.SD, sep = "||")), .SDcols = cols_to_process]
 #'   dt[, (new_col_name) := stri_replace_all_regex(get(new_col_name), "\\|\\|NA", "")]
@@ -136,7 +136,7 @@
 #'   #' codes <- c("A12", "B1234", "C12D3", NA, "ABCDE")
 #'   #' lumped <- find_lumped_codes(codes)
 #'   #' print(lumped)  # Should print logical vector indicating lumped codes
-#'   
+#'
 #'   sapply(codes, function(code) {
 #'     if (is.na(code)) {
 #'       return(FALSE)
@@ -161,7 +161,7 @@
 #'   #' result <- c("A", "NA", "", "B", "C")
 #'   #' modified_result <- replace_NA_as_char(result)
 #'   #' print(modified_result)  # Should print c("A", NA, NA, "B", "C")
-#'   
+#'
 #'   result[result == "NA" | result == ""] <- NA_character_
 #'   return(result)
 #' }
@@ -182,7 +182,7 @@
 #'   #' dt <- data.table(icd_codes = c("A1234B123", "C568D1234", "E901F117"))
 #'   #' dt <- remove_lumped_icd_codes(dt, "icd_codes")
 #'   #' print(dt)  # Should print modified ICD codes with "||" inserted
-#'   
+#'
 #'   dt[, (column) := gsub("(?<=\\d)(?=[A-Za-z])", "||", get(column), perl = TRUE)]
 #'   return(dt)
 #' }
@@ -211,7 +211,7 @@
 #'   }
 #'   return(rvs)
 #' }
-#' 
+#'
 #' # Helper function to remove 5-digit numeric codes from a column value
 #' remove_5_digit_codes <- function(col_value, regex_5_digit) {
 #'   #' @title Remove 5-Digit Codes
@@ -221,7 +221,7 @@
 #'   #' @return The modified column value with 5-digit codes removed.
 #'   gsub(regex_5_digit, "", col_value)
 #' }
-#' 
+#'
 #' # Main function to append and remove 5-digit numeric codes
 #' append_and_remove_rvs <- function(dt, col) {
 #'   #' @title Append and Remove 5-Digit Codes (i.e. 5-digit RVS procedure codes)
@@ -229,24 +229,24 @@
 #'   #' @param dt A data.table to process.
 #'   #' @param col The name of the column to process.
 #'   #' @return The modified data.table with 5-digit numeric codes appended and removed.
-#'   
+#'
 #'   # Initialize clin_rvs column
 #'   # dt <- initialize_clin_rvs(dt)  # unwrapped/deprecated function
 #'   dt[, clin_rvs := lapply(clin_rvs, function(x) if (is.null(x)) character() else x)]
-#'   
+#'
 #'   # Regular expression to match 5-digit numeric codes
-#'   regex_5_digit <- "\\b\\d{5}\\b" 
-#'   
+#'   regex_5_digit <- "\\b\\d{5}\\b"
+#'
 #'   # Append and remove 5-digit numeric codes
 #'   dt[, `:=` (
 #'     clin_rvs = mapply(find_and_append_codes, clin_rvs, get(col), MoreArgs = list(regex_5_digit = regex_5_digit), SIMPLIFY = FALSE),
 #'     tmp_col = lapply(get(col), remove_5_digit_codes, regex_5_digit = regex_5_digit)
 #'   )]
-#'   
+#'
 #'   # Update the specified column and remove the temporary column
 #'   dt[, (col) := tmp_col]
 #'   dt[, tmp_col := NULL]
-#'   
+#'
 #'   return(dt)
 #' }
 
@@ -266,13 +266,13 @@
 #'   #' dt <- data.table(col1 = list(c(1, 1, 2), c(2, 3)), col2 = list(c("a", "a", "b"), c("b", "c")))
 #'   #' deduplicated_dt <- deduplicate_columns(dt, c("col1", "col2"))
 #'   #' print(deduplicated_dt)  # Should print the data.table with deduplicated columns
-#'   
+#'
 #'   for (col in columns) {
 #'     dt[, (col) := lapply(get(col), unique)]
 #'   }
 #'   return(dt)
 #' }
-#' 
+#'
 #' replace_empty_with_na <- function(dt) {
 #'   #' @title Replace Empty Strings with NA
 #'   #' @description Replaces empty strings, "NA" strings, and "character(0)" with NA values in character, factor, and list columns of a data.table.
@@ -287,7 +287,7 @@
 #'   #' dt <- data.table(col1 = c("A", "", "C"), col2 = factor(c("X", "", "Z")), col3 = list("NA", "", "B"))
 #'   #' dt <- replace_empty_with_na(dt)
 #'   #' print(dt)  # Should print modified data.table with NA values
-#'   
+#'
 #'   char_factor_cols <- names(dt)[sapply(dt, function(col) is.character(col) || is.factor(col) || is.list(col))]
 #'   dt[, (char_factor_cols) := lapply(.SD, function(x) {
 #'     x[x == "" | x == "NA" | x == "character(0)"] <- NA_character_
@@ -301,7 +301,7 @@
 
 #' append_and_remove_rvs <- function(clin_rvs, col) {
 #'   #' @title Append and Remove 5-Digit Codes
-#'   #' @description Appends and removes 5-digit numeric codes 
+#'   #' @description Appends and removes 5-digit numeric codes
 #'   #' (i.e. 5-digit RVS procedure codes) from a specified column.
 #'   #' @param clin_rvs A list of character vectors representing the clin_rvs column.
 #'   #' @param col A character vector representing the column to process.
@@ -310,7 +310,7 @@
 #'   #' @details
 #'   #' This function performs the following operations:
 #'   #' - Ensures the clin_rvs column is a list of characters.
-#'   #' - Finds and appends 5-digit numeric codes from the specified column to the 
+#'   #' - Finds and appends 5-digit numeric codes from the specified column to the
 #'   #' clin_rvs column.
 #'   #' - Removes 5-digit numeric codes from the specified column.
 #'   #'
@@ -318,24 +318,24 @@
 #'   #' clin_rvs <- list(c("A", "B"), c("C", "D"))
 #'   #' col <- c("12345 E", "67890 F")
 #'   #' result <- append_and_remove_rvs(clin_rvs, col)
-#'   #' print(result$clin_rvs)  # Should print modified clin_rvs with 5-digit codes 
+#'   #' print(result$clin_rvs)  # Should print modified clin_rvs with 5-digit codes
 #'   #' appended
-#'   #' print(result$col)  # Should print the modified col with 5-digit codes 
+#'   #' print(result$col)  # Should print the modified col with 5-digit codes
 #'   #' removed
-#'   
+#'
 #'   # Ensure the clin_rvs column is a list of characters
 #'   clin_rvs <- lapply(clin_rvs, function(x) if (is.null(x)) character() else x)
-#'   
+#'
 #'   # Regular expression to match 5-digit numeric codes
-#'   regex_5_digit <- "\\b\\d{5}\\b" 
-#'   
+#'   regex_5_digit <- "\\b\\d{5}\\b"
+#'
 #'   # Find and append 5-digit codes, and remove them from the specified column
 #'   modified_clin_rvs <- mapply(find_and_append_codes, clin_rvs, col, MoreArgs = list(regex_5_digit = regex_5_digit), SIMPLIFY = FALSE)
 #'   modified_col <- lapply(col, remove_5_digit_codes, regex_5_digit = regex_5_digit)
-#'   
+#'
 #'   return(list(clin_rvs = modified_clin_rvs, col = unlist(modified_col)))
 #' }
-#' 
+#'
 
 # # Helper function to remove 5-digit codes
 # remove_5_digit_codes <- function(col, regex_5_digit) {
@@ -348,4 +348,97 @@
 #   codes_to_append <- regmatches(col, gregexpr(regex_5_digit, col))[[1]]
 #   clin_rvs <- c(clin_rvs, codes_to_append)
 #   return(clin_rvs)
+# }
+
+# map_then_compare_icd_mappings <- function(tdrg_icd10, rows_to_show = Inf, invalid_rows_to_show = Inf) {
+#   # Ensure the dt variable is in the global environment
+#   if (!exists("dt", envir = .GlobalEnv)) {
+#     stop("The global variable 'dt' does not exist.")
+#   }
+
+#   # Store the original data for comparison
+#   original_dt <- data.table::copy(dt)
+
+#   # Process ICD-10 mappings
+#   mapped_columns <- implement_icd10_mapping(
+#     original_dt$clin_c1, original_dt$clin_c2,
+#     original_dt$clin_icd, tdrg_icd10,
+#     rows_to_show = rows_to_show
+#   )
+
+#   # Update the global dt with mapped columns
+#   dt$clin_c1 <- mapped_columns$clin_c1
+#   dt$clin_c2 <- mapped_columns$clin_c2
+#   dt$clin_icd <- mapped_columns$clin_icd
+
+#   # Ensure unique ICD codes
+#   unique_icd_codes <- ensure_unique_icd_codes(
+#     dt$clin_c1, dt$clin_c2, dt$clin_icd
+#   )
+#   dt$clin_c1 <- unique_icd_codes$clin_c1
+#   dt$clin_c2 <- unique_icd_codes$clin_c2
+#   dt$clin_icd <- unique_icd_codes$clin_icd
+
+#   # Pad lists to ensure they have the same length
+#   padded_c1 <- pad_list_elements(original_dt$clin_c1, dt$clin_c1)
+#   original_dt$clin_c1 <- padded_c1[[1]]
+#   dt$clin_c1 <- padded_c1[[2]]
+
+#   padded_c2 <- pad_list_elements(original_dt$clin_c2, dt$clin_c2)
+#   original_dt$clin_c2 <- padded_c2[[1]]
+#   dt$clin_c2 <- padded_c2[[2]]
+
+#   padded_icd <- pad_list_elements(original_dt$clin_icd, dt$clin_icd)
+#   original_dt$clin_icd <- padded_icd[[1]]
+#   dt$clin_icd <- padded_icd[[2]]
+
+#   # Generate comparison table
+#   comparison_table <- rbind(
+#     generate_comparison_table(original_dt$clin_c1, dt$clin_c1),
+#     generate_comparison_table(original_dt$clin_c2, dt$clin_c2),
+#     generate_comparison_table(original_dt$clin_icd, dt$clin_icd)
+#   )
+
+#   # Sort the comparison table by count in descending order
+#   comparison_table <- comparison_table[order(-count)]
+
+#   # Print the kable output with a specified number of rows
+#   print(kable(head(comparison_table, rows_to_show),
+#     format = "markdown",
+#     caption = "Comparison of ICD Codes Before and After Mapping"
+#   ))
+
+#   # Check if all resulting ICD codes are in either the Thai library or the PhilHealth library
+#   all_icds <- unique(
+#     c(unlist(dt$clin_c1), unlist(dt$clin_c2), unlist(dt$clin_icd))
+#   )
+#   valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
+#   invalid_icds <- setdiff(all_icds, valid_icds)
+#   invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
+
+#   if (length(invalid_icds) > 0) {
+#     invalid_icds_table <- data.table(
+#       code = invalid_icds,
+#       count = sapply(
+#         invalid_icds,
+#         function(icd) {
+#           sum(c(
+#             unlist(dt$clin_c1),
+#             unlist(dt$clin_c2),
+#             unlist(dt$clin_icd)
+#           ) == icd, na.rm = TRUE)
+#         }
+#       )
+#     )
+
+#     invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
+#     invalid_icds_table <- invalid_icds_table[order(-count)]
+
+#     print(kable(head(invalid_icds_table, invalid_rows_to_show),
+#       format = "markdown",
+#       caption = "Invalid ICD Codes Not Found in Thai or PhilHealth Libraries"
+#     ))
+#   } else {
+#     cat("All resulting ICD codes are valid and present in the libraries.\n")
+#   }
 # }

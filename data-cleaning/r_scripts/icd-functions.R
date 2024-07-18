@@ -68,7 +68,8 @@ generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
 }
 
 # Helper function to map ICD-10 codes to columns
-apply_icd10_mapping_to_columns <- function(clin_c1, clin_c2, clin_icd, icd10_env) {
+apply_icd10_mapping_to_columns <- function(
+    clin_c1, clin_c2, clin_icd, icd10_env) {
   map_icd10_helper <- function(codes) {
     mapped <- mget(codes, icd10_env, ifnotfound = as.list(codes))
     return(unname(unlist(mapped)))
@@ -87,11 +88,16 @@ apply_icd10_mapping_to_columns <- function(clin_c1, clin_c2, clin_icd, icd10_env
   )
 }
 
-implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows_to_show = Inf) {
+implement_icd10_mapping <- function(
+    clin_c1, clin_c2, clin_icd, tdrg_icd10, rows_to_show = Inf) {
   icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
 
-  thai_icd10_env <- create_thai_icd10_environment(unique(tdrg_icd10$CODE))
-  neoplasms_env <- create_thai_icd10_environment(unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"]))
+  thai_icd10_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10$CODE)
+  )
+  neoplasms_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"])
+  )
 
   direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
   cat(
@@ -103,24 +109,37 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
     " are directly in the Thai ICD-10 library\n"
   )
 
-  icd_mapping_info <- generate_icd10_mapping(icds, thai_icd10_env, neoplasms_env)
+  icd_mapping_info <- generate_icd10_mapping(
+    icds, thai_icd10_env, neoplasms_env
+  )
   icd_mapping <- icd_mapping_info$icd_mapping
   modified_count <- icd_mapping_info$modified_count
   cat(sprintf(
-    "The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n",
+    "The modifications led to a total of %d",
     length(icd_mapping)
-  ))
+  ), " codes being mapped to an equivalent in the Thai ICD10 library.\n")
   cat(sprintf("Out of these, %d were modified to match.\n", modified_count))
 
   unmatched_icds <- setdiff(icds, names(icd_mapping))
   if (length(unmatched_icds) > 0) {
-    cat(sprintf("There are %d codes that could not be mapped to the Thai ICD10 library:\n", length(unmatched_icds)))
-    unmatched_sources <- data.table(code = unmatched_icds, source = NA_character_, count = 0)
+    cat(sprintf(
+      "There are %d codes that could not",
+      length(unmatched_icds)
+    ), "be mapped to the Thai ICD10 library:\n")
+    unmatched_sources <- data.table(
+      code = unmatched_icds, source = NA_character_, count = 0
+    )
 
     for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
       col_values <- get(col_name)
-      unmatched_sources[code %in% unlist(col_values), source := col_name]
-      unmatched_sources[code %in% unlist(col_values), count := count + table(unlist(col_values))[code]]
+      unmatched_sources[
+        code %in% unlist(col_values),
+        source := col_name
+      ]
+      unmatched_sources[
+        code %in% unlist(col_values),
+        count := count + table(unlist(col_values))[code]
+      ]
     }
 
     unmatched_sources <- unmatched_sources[order(-count)]
@@ -128,17 +147,43 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
     unmatched_sources <- data.table()
   }
 
-  icd10_map <- data.table(phl_icd10 = names(icd_mapping), tdrg_icd10 = unlist(icd_mapping))
-  fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
-  icd10_env <- list2env(setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10))
+  icd10_map <- data.table(
+    phl_icd10 = names(icd_mapping),
+    tdrg_icd10 = unlist(icd_mapping)
+  )
+  fwrite(icd10_map, paste0(
+    "cache/icd10_map_file_",
+    year_to_load, ".csv"
+  ))
+  icd10_env <- list2env(setNames(
+    as.list(icd10_map$tdrg_icd10),
+    icd10_map$phl_icd10
+  ))
 
-  mapped_columns <- apply_icd10_mapping_to_columns(clin_c1, clin_c2, clin_icd, icd10_env)
+  mapped_columns <- apply_icd10_mapping_to_columns(
+    clin_c1, clin_c2, clin_icd, icd10_env
+  )
 
   # Generate comparison table
-  original_data <- list(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
-  modified_data <- list(clin_c1 = mapped_columns$clin_c1, clin_c2 = mapped_columns$clin_c2, clin_icd = mapped_columns$clin_icd)
+  original_data <- list(
+    clin_c1 = clin_c1,
+    clin_c2 = clin_c2, clin_icd = clin_icd
+  )
+  modified_data <- list(
+    clin_c1 = mapped_columns$clin_c1,
+    clin_c2 = mapped_columns$clin_c2,
+    clin_icd = mapped_columns$clin_icd
+  )
 
-  padded_data <- lapply(names(original_data), function(name) pad_list_elements(original_data[[name]], modified_data[[name]]))
+  padded_data <- lapply(
+    names(original_data),
+    function(name) {
+      pad_list_elements(
+        original_data[[name]],
+        modified_data[[name]]
+      )
+    }
+  )
 
   comparison_table <- rbind(
     generate_comparison_table(padded_data[[1]][[1]], padded_data[[1]][[2]]),
@@ -148,8 +193,12 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
 
   comparison_table <- comparison_table[order(-count)]
 
-  # Check if all resulting ICD codes are in either the Thai library or the PhilHealth library
-  all_icds <- unique(c(unlist(mapped_columns$clin_c1), unlist(mapped_columns$clin_c2), unlist(mapped_columns$clin_icd)))
+  # Check if all resulting ICD codes are in either the
+  # Thai library or the PhilHealth library
+  all_icds <- unique(c(
+    unlist(mapped_columns$clin_c1),
+    unlist(mapped_columns$clin_c2), unlist(mapped_columns$clin_icd)
+  ))
   valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
   invalid_icds <- setdiff(all_icds, valid_icds)
   invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
@@ -202,13 +251,19 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   dt[, clin_icd := lapply(clin_icd, unique)]
 
   # Remove entries in clin_icd that are in clin_c1 or clin_c2
-  dt[, clin_icd := Map(function(c1, c2, icd) setdiff(icd, union(c1, c2)), clin_c1, clin_c2, clin_icd)]
+  dt[, clin_icd := Map(function(c1, c2, icd) {
+    setdiff(icd, union(c1, c2))
+  }, clin_c1, clin_c2, clin_icd)]
 
   # Remove entries in clin_c1 that are in clin_c2
-  dt[, clin_c1 := Map(function(c1, c2) setdiff(c1, c2), clin_c1, clin_c2)]
+  dt[, clin_c1 := Map(function(c1, c2) {
+    setdiff(c1, c2)
+  }, clin_c1, clin_c2)]
 
   # Remove entries in clin_c2 that are in clin_c1
-  dt[, clin_c2 := Map(function(c1, c2) setdiff(c2, c1), clin_c1, clin_c2)]
+  dt[, clin_c2 := Map(function(c1, c2) {
+    setdiff(c2, c1)
+  }, clin_c1, clin_c2)]
 
   return(list(clin_c1 = dt$clin_c1, clin_c2 = dt$clin_c2, clin_icd = dt$clin_icd))
 }
@@ -217,9 +272,15 @@ generate_comparison_table <- function(original, modified) {
   original_unlisted <- unlist(original, use.names = FALSE)
   modified_unlisted <- unlist(modified, use.names = FALSE)
 
-  comparison <- data.table(old_code = original_unlisted, new_code = modified_unlisted)
+  comparison <- data.table(
+    old_code = original_unlisted,
+    new_code = modified_unlisted
+  )
 
-  comparison <- comparison[old_code != new_code, .(count = .N), by = .(old_code, new_code)]
+  comparison <- comparison[old_code != new_code,
+    .(count = .N),
+    by = .(old_code, new_code)
+  ]
 
   return(comparison)
 }
@@ -243,99 +304,6 @@ pad_list_elements <- function(list1, list2) {
   return(list(list1, list2))
 }
 
-# map_then_compare_icd_mappings <- function(tdrg_icd10, rows_to_show = Inf, invalid_rows_to_show = Inf) {
-#   # Ensure the dt variable is in the global environment
-#   if (!exists("dt", envir = .GlobalEnv)) {
-#     stop("The global variable 'dt' does not exist.")
-#   }
-
-#   # Store the original data for comparison
-#   original_dt <- data.table::copy(dt)
-
-#   # Process ICD-10 mappings
-#   mapped_columns <- implement_icd10_mapping(
-#     original_dt$clin_c1, original_dt$clin_c2,
-#     original_dt$clin_icd, tdrg_icd10,
-#     rows_to_show = rows_to_show
-#   )
-
-#   # Update the global dt with mapped columns
-#   dt$clin_c1 <- mapped_columns$clin_c1
-#   dt$clin_c2 <- mapped_columns$clin_c2
-#   dt$clin_icd <- mapped_columns$clin_icd
-
-#   # Ensure unique ICD codes
-#   unique_icd_codes <- ensure_unique_icd_codes(
-#     dt$clin_c1, dt$clin_c2, dt$clin_icd
-#   )
-#   dt$clin_c1 <- unique_icd_codes$clin_c1
-#   dt$clin_c2 <- unique_icd_codes$clin_c2
-#   dt$clin_icd <- unique_icd_codes$clin_icd
-
-#   # Pad lists to ensure they have the same length
-#   padded_c1 <- pad_list_elements(original_dt$clin_c1, dt$clin_c1)
-#   original_dt$clin_c1 <- padded_c1[[1]]
-#   dt$clin_c1 <- padded_c1[[2]]
-
-#   padded_c2 <- pad_list_elements(original_dt$clin_c2, dt$clin_c2)
-#   original_dt$clin_c2 <- padded_c2[[1]]
-#   dt$clin_c2 <- padded_c2[[2]]
-
-#   padded_icd <- pad_list_elements(original_dt$clin_icd, dt$clin_icd)
-#   original_dt$clin_icd <- padded_icd[[1]]
-#   dt$clin_icd <- padded_icd[[2]]
-
-#   # Generate comparison table
-#   comparison_table <- rbind(
-#     generate_comparison_table(original_dt$clin_c1, dt$clin_c1),
-#     generate_comparison_table(original_dt$clin_c2, dt$clin_c2),
-#     generate_comparison_table(original_dt$clin_icd, dt$clin_icd)
-#   )
-
-#   # Sort the comparison table by count in descending order
-#   comparison_table <- comparison_table[order(-count)]
-
-#   # Print the kable output with a specified number of rows
-#   print(kable(head(comparison_table, rows_to_show),
-#     format = "markdown",
-#     caption = "Comparison of ICD Codes Before and After Mapping"
-#   ))
-
-#   # Check if all resulting ICD codes are in either the Thai library or the PhilHealth library
-#   all_icds <- unique(
-#     c(unlist(dt$clin_c1), unlist(dt$clin_c2), unlist(dt$clin_icd))
-#   )
-#   valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
-#   invalid_icds <- setdiff(all_icds, valid_icds)
-#   invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
-
-#   if (length(invalid_icds) > 0) {
-#     invalid_icds_table <- data.table(
-#       code = invalid_icds,
-#       count = sapply(
-#         invalid_icds,
-#         function(icd) {
-#           sum(c(
-#             unlist(dt$clin_c1),
-#             unlist(dt$clin_c2),
-#             unlist(dt$clin_icd)
-#           ) == icd, na.rm = TRUE)
-#         }
-#       )
-#     )
-
-#     invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
-#     invalid_icds_table <- invalid_icds_table[order(-count)]
-
-#     print(kable(head(invalid_icds_table, invalid_rows_to_show),
-#       format = "markdown",
-#       caption = "Invalid ICD Codes Not Found in Thai or PhilHealth Libraries"
-#     ))
-#   } else {
-#     cat("All resulting ICD codes are valid and present in the libraries.\n")
-#   }
-# }
-
 aggregate_icd10_stats <- function(summaries) {
   # Check the structure of summaries
   if (length(summaries) == 0) {
@@ -345,29 +313,59 @@ aggregate_icd10_stats <- function(summaries) {
     stop("All elements in summaries should be lists.")
   }
 
-  required_fields <- c("total_unique_icd_count", "direct_match_count", "modified_count", "total_mapped_count", "unmapped_icd_count", "unmapped_icds")
+  required_fields <- c(
+    "total_unique_icd_count", "direct_match_count",
+    "modified_count", "total_mapped_count",
+    "unmapped_icd_count", "unmapped_icds"
+  )
   for (i in seq_along(summaries)) {
     summary <- summaries[[i]]
     missing_fields <- setdiff(required_fields, names(summary))
     if (length(missing_fields) > 0) {
-      stop(sprintf("Summary %d is missing fields: %s", i, paste(missing_fields, collapse = ", ")))
+      stop(sprintf(
+        "Summary %d is missing fields: %s", i,
+        paste(missing_fields, collapse = ", ")
+      ))
     }
   }
 
-  total_unique_icd_count <- sum(sapply(summaries, function(res) res$total_unique_icd_count))
-  direct_match_count <- sum(sapply(summaries, function(res) res$direct_match_count))
-  modified_count <- sum(sapply(summaries, function(res) res$modified_count))
-  total_mapped_count <- sum(sapply(summaries, function(res) res$total_mapped_count))
-  unmapped_icd_count <- sum(sapply(summaries, function(res) res$unmapped_icd_count))
+  total_unique_icd_count <- sum(sapply(
+    summaries,
+    function(res) res$total_unique_icd_count
+  ))
+  direct_match_count <- sum(sapply(
+    summaries,
+    function(res) res$direct_match_count
+  ))
+  modified_count <- sum(sapply(
+    summaries,
+    function(res) res$modified_count
+  ))
+  total_mapped_count <- sum(sapply(
+    summaries,
+    function(res) res$total_mapped_count
+  ))
+  unmapped_icd_count <- sum(sapply(
+    summaries,
+    function(res) res$unmapped_icd_count
+  ))
 
-  unmapped_icds_list <- lapply(summaries, function(res) res$unmapped_icds)
+  unmapped_icds_list <- lapply(
+    summaries,
+    function(res) res$unmapped_icds
+  )
   combined_unmapped_icds <- rbindlist(unmapped_icds_list, fill = TRUE)
-  combined_unmapped_icds <- combined_unmapped_icds[, .(count = sum(count)), by = code][order(-count)]
+  combined_unmapped_icds <- combined_unmapped_icds[,
+    .(count = sum(count)),
+    by = code
+  ][order(-count)]
 
   return(list(
     total_unique_icd_count = total_unique_icd_count,
     direct_match_count = direct_match_count,
-    direct_match_percentage = ifelse(total_unique_icd_count > 0, (direct_match_count / total_unique_icd_count) * 100, 0),
+    direct_match_percentage = ifelse(total_unique_icd_count > 0,
+      (direct_match_count / total_unique_icd_count) * 100, 0
+    ),
     total_mapped_count = total_mapped_count,
     modified_count = modified_count,
     unmapped_icd_count = unmapped_icd_count,
