@@ -72,6 +72,8 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
     discarded_table <- data.table(
       CODE = discarded_codes
     )[, .N, by = CODE][order(-N)]
+    # Change column names here
+    names(discarded_table) <- c("CODE", "count")
   } else {
     discarded_table <- data.table()
   }

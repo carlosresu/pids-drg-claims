@@ -191,6 +191,7 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows
 }
 
 
+
 ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   # Convert lists to data.table for efficient processing
   dt <- data.table(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
@@ -223,6 +224,7 @@ generate_comparison_table <- function(original, modified) {
   return(comparison)
 }
 
+
 pad_list_elements <- function(list1, list2) {
   max_length <- max(lengths(list1), lengths(list2))
 
@@ -241,98 +243,98 @@ pad_list_elements <- function(list1, list2) {
   return(list(list1, list2))
 }
 
-map_then_compare_icd_mappings <- function(tdrg_icd10, rows_to_show = Inf, invalid_rows_to_show = Inf) {
-  # Ensure the dt variable is in the global environment
-  if (!exists("dt", envir = .GlobalEnv)) {
-    stop("The global variable 'dt' does not exist.")
-  }
+# map_then_compare_icd_mappings <- function(tdrg_icd10, rows_to_show = Inf, invalid_rows_to_show = Inf) {
+#   # Ensure the dt variable is in the global environment
+#   if (!exists("dt", envir = .GlobalEnv)) {
+#     stop("The global variable 'dt' does not exist.")
+#   }
 
-  # Store the original data for comparison
-  original_dt <- data.table::copy(dt)
+#   # Store the original data for comparison
+#   original_dt <- data.table::copy(dt)
 
-  # Process ICD-10 mappings
-  mapped_columns <- implement_icd10_mapping(
-    original_dt$clin_c1, original_dt$clin_c2,
-    original_dt$clin_icd, tdrg_icd10,
-    rows_to_show = rows_to_show
-  )
+#   # Process ICD-10 mappings
+#   mapped_columns <- implement_icd10_mapping(
+#     original_dt$clin_c1, original_dt$clin_c2,
+#     original_dt$clin_icd, tdrg_icd10,
+#     rows_to_show = rows_to_show
+#   )
 
-  # Update the global dt with mapped columns
-  dt$clin_c1 <- mapped_columns$clin_c1
-  dt$clin_c2 <- mapped_columns$clin_c2
-  dt$clin_icd <- mapped_columns$clin_icd
+#   # Update the global dt with mapped columns
+#   dt$clin_c1 <- mapped_columns$clin_c1
+#   dt$clin_c2 <- mapped_columns$clin_c2
+#   dt$clin_icd <- mapped_columns$clin_icd
 
-  # Ensure unique ICD codes
-  unique_icd_codes <- ensure_unique_icd_codes(
-    dt$clin_c1, dt$clin_c2, dt$clin_icd
-  )
-  dt$clin_c1 <- unique_icd_codes$clin_c1
-  dt$clin_c2 <- unique_icd_codes$clin_c2
-  dt$clin_icd <- unique_icd_codes$clin_icd
+#   # Ensure unique ICD codes
+#   unique_icd_codes <- ensure_unique_icd_codes(
+#     dt$clin_c1, dt$clin_c2, dt$clin_icd
+#   )
+#   dt$clin_c1 <- unique_icd_codes$clin_c1
+#   dt$clin_c2 <- unique_icd_codes$clin_c2
+#   dt$clin_icd <- unique_icd_codes$clin_icd
 
-  # Pad lists to ensure they have the same length
-  padded_c1 <- pad_list_elements(original_dt$clin_c1, dt$clin_c1)
-  original_dt$clin_c1 <- padded_c1[[1]]
-  dt$clin_c1 <- padded_c1[[2]]
+#   # Pad lists to ensure they have the same length
+#   padded_c1 <- pad_list_elements(original_dt$clin_c1, dt$clin_c1)
+#   original_dt$clin_c1 <- padded_c1[[1]]
+#   dt$clin_c1 <- padded_c1[[2]]
 
-  padded_c2 <- pad_list_elements(original_dt$clin_c2, dt$clin_c2)
-  original_dt$clin_c2 <- padded_c2[[1]]
-  dt$clin_c2 <- padded_c2[[2]]
+#   padded_c2 <- pad_list_elements(original_dt$clin_c2, dt$clin_c2)
+#   original_dt$clin_c2 <- padded_c2[[1]]
+#   dt$clin_c2 <- padded_c2[[2]]
 
-  padded_icd <- pad_list_elements(original_dt$clin_icd, dt$clin_icd)
-  original_dt$clin_icd <- padded_icd[[1]]
-  dt$clin_icd <- padded_icd[[2]]
+#   padded_icd <- pad_list_elements(original_dt$clin_icd, dt$clin_icd)
+#   original_dt$clin_icd <- padded_icd[[1]]
+#   dt$clin_icd <- padded_icd[[2]]
 
-  # Generate comparison table
-  comparison_table <- rbind(
-    generate_comparison_table(original_dt$clin_c1, dt$clin_c1),
-    generate_comparison_table(original_dt$clin_c2, dt$clin_c2),
-    generate_comparison_table(original_dt$clin_icd, dt$clin_icd)
-  )
+#   # Generate comparison table
+#   comparison_table <- rbind(
+#     generate_comparison_table(original_dt$clin_c1, dt$clin_c1),
+#     generate_comparison_table(original_dt$clin_c2, dt$clin_c2),
+#     generate_comparison_table(original_dt$clin_icd, dt$clin_icd)
+#   )
 
-  # Sort the comparison table by count in descending order
-  comparison_table <- comparison_table[order(-count)]
+#   # Sort the comparison table by count in descending order
+#   comparison_table <- comparison_table[order(-count)]
 
-  # Print the kable output with a specified number of rows
-  print(kable(head(comparison_table, rows_to_show),
-    format = "markdown",
-    caption = "Comparison of ICD Codes Before and After Mapping"
-  ))
+#   # Print the kable output with a specified number of rows
+#   print(kable(head(comparison_table, rows_to_show),
+#     format = "markdown",
+#     caption = "Comparison of ICD Codes Before and After Mapping"
+#   ))
 
-  # Check if all resulting ICD codes are in either the Thai library or the PhilHealth library
-  all_icds <- unique(
-    c(unlist(dt$clin_c1), unlist(dt$clin_c2), unlist(dt$clin_icd))
-  )
-  valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
-  invalid_icds <- setdiff(all_icds, valid_icds)
-  invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
+#   # Check if all resulting ICD codes are in either the Thai library or the PhilHealth library
+#   all_icds <- unique(
+#     c(unlist(dt$clin_c1), unlist(dt$clin_c2), unlist(dt$clin_icd))
+#   )
+#   valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
+#   invalid_icds <- setdiff(all_icds, valid_icds)
+#   invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
 
-  if (length(invalid_icds) > 0) {
-    invalid_icds_table <- data.table(
-      code = invalid_icds,
-      count = sapply(
-        invalid_icds,
-        function(icd) {
-          sum(c(
-            unlist(dt$clin_c1),
-            unlist(dt$clin_c2),
-            unlist(dt$clin_icd)
-          ) == icd, na.rm = TRUE)
-        }
-      )
-    )
+#   if (length(invalid_icds) > 0) {
+#     invalid_icds_table <- data.table(
+#       code = invalid_icds,
+#       count = sapply(
+#         invalid_icds,
+#         function(icd) {
+#           sum(c(
+#             unlist(dt$clin_c1),
+#             unlist(dt$clin_c2),
+#             unlist(dt$clin_icd)
+#           ) == icd, na.rm = TRUE)
+#         }
+#       )
+#     )
 
-    invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
-    invalid_icds_table <- invalid_icds_table[order(-count)]
+#     invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
+#     invalid_icds_table <- invalid_icds_table[order(-count)]
 
-    print(kable(head(invalid_icds_table, invalid_rows_to_show),
-      format = "markdown",
-      caption = "Invalid ICD Codes Not Found in Thai or PhilHealth Libraries"
-    ))
-  } else {
-    cat("All resulting ICD codes are valid and present in the libraries.\n")
-  }
-}
+#     print(kable(head(invalid_icds_table, invalid_rows_to_show),
+#       format = "markdown",
+#       caption = "Invalid ICD Codes Not Found in Thai or PhilHealth Libraries"
+#     ))
+#   } else {
+#     cat("All resulting ICD codes are valid and present in the libraries.\n")
+#   }
+# }
 
 aggregate_icd10_stats <- function(summaries) {
   # Check the structure of summaries

@@ -19,12 +19,12 @@ main_read_function <- function(file = NA) {
       stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
     }
   } else {
-    print(paste("Reading specified file:", file))
+    # print(paste("Reading specified file:", file))
     dt <- fread(file,
       na.strings = na_values,
       drop = drop_cols, colClasses = "character"
     )
-    print(paste("Number of rows read:", nrow(dt))) # Add this line
+    # print(paste("Number of rows read:", nrow(dt))) # Add this line
   }
 
   return(dt)
@@ -49,24 +49,18 @@ clean_data <- function(dt) {
     stop("Column renaming failed.")
   }
 
-  if (to_view_checks) {
-    rename_success <- TRUE
-  }
+  rename_success <- TRUE
 
   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
   dt[, clin_icd := collapse_columns(
-    mget(paste0("clin_icd", 1:12),
-      envir = as.environment(dt)
-    ),
+    mget(paste0("clin_icd", 1:12), envir = as.environment(dt)),
     na_like_strings
   )]
   dt[, paste0("clin_icd", 1:12) := NULL]
 
   # Collapse columns clin_rvs1 to clin_rvs20 into clin_rvs
   dt[, clin_rvs := collapse_columns(
-    mget(paste0("clin_rvs", 1:20),
-      envir = as.environment(dt)
-    ),
+    mget(paste0("clin_rvs", 1:20), envir = as.environment(dt)),
     na_like_strings
   )]
   dt[, paste0("clin_rvs", 1:20) := NULL]
@@ -78,31 +72,33 @@ clean_data <- function(dt) {
   dt[, clin_icd := split_to_vector(clin_icd)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
 
-  # Clean and unlump clin_c1 and clin_c2
-  dt[, clin_c1_orig := clin_c1]
-  dt[, clin_c1 := clean_column(dt$clin_c1, na_like_strings)]
+  # Ensure clean_column function and na_like_strings are correctly defined and applied
+  dt[, clin_c1_orig := dt$clin_c1] # Ensure clin_c1_orig captures original values
+  dt[, clin_c1 := clean_column(clin_c1, na_like_strings)] # Clean clin_c1
+
+  # Generate cleaning comparison table
   clin_c1_cleaning_comparison <- dt[
     clin_c1 != clin_c1_orig,
-    .(clin_c1_orig, clin_c1)
+    .(old_code = clin_c1_orig, new_code = clin_c1, count = .N),
+    by = .(clin_c1_orig, clin_c1)
   ]
-  if (to_view_checks) {
-    clin_c1_cleaning_comparison <- clin_c1_cleaning_comparison
-  } else {
-    clin_c1_cleaning_comparison <- data.table()
-  }
+
+  # Optionally remove clin_c1_orig from dt if no longer needed
   dt[, clin_c1_orig := NULL]
 
-  dt[, clin_c2_orig := clin_c2]
-  dt[, clin_c2 := clean_column(dt$clin_c2, na_like_strings)]
+  dt[, clin_c2_orig := dt$clin_c2] # Capture original clin_c2
+
+  # Clean clin_c2 within the data.table context
+  dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
+
+  # Create cleaning comparison table
   clin_c2_cleaning_comparison <- dt[
-    clin_c2 != clin_c2_orig,
-    .(clin_c2_orig, clin_c2)
+    clin_c2 != clin_c2_orig, # Compare cleaned clin_c2 with original
+    .(old_code = clin_c2_orig, new_code = clin_c2, count = .N),
+    by = .(clin_c2_orig, clin_c2)
   ]
-  if (to_view_checks) {
-    clin_c2_cleaning_comparison <- clin_c2_cleaning_comparison
-  } else {
-    clin_c2_cleaning_comparison <- data.table()
-  }
+
+  # Optionally remove clin_c2_orig from dt if no longer needed
   dt[, clin_c2_orig := NULL]
 
   dt[, clin_c1 := remove_lumped_icd_codes(dt$clin_c1)]
@@ -159,8 +155,6 @@ clean_data <- function(dt) {
   dt$pat_type <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    # print("Unmapped Patient Types:")
-    # print(result$unmapped)
     pat_unmap <- result$unmapped
   }
 
@@ -171,8 +165,6 @@ clean_data <- function(dt) {
   dt$pat_memcat_parent <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    # print("Unmapped Memcat Parent Types:")
-    # print(result$unmapped)
     parent_unmap <- result$unmapped
   }
 
@@ -183,8 +175,6 @@ clean_data <- function(dt) {
   dt$pat_memcat_child <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    # print("Unmapped Memcat Child Types:")
-    # print(result$unmapped)
     child_unmap <- result$unmapped
   }
 
@@ -195,8 +185,6 @@ clean_data <- function(dt) {
   dt$clin_discharge <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
     warning_thrown <- TRUE
-    # print("Unmapped Discharge Types:")
-    # print(result$unmapped)
     discharge_unmap <- result$unmapped
   }
 
@@ -287,32 +275,39 @@ process_chunk <- function(
   summary$comparison_table <- mapped_columns$comparison_table
   summary$invalid_icds_table <- mapped_columns$invalid_icds_table
 
-  # Debug: Print the summary to verify fields
-  # print("Summary fields:")
-  # print(names(summary))
-
   return(list(chunk = chunk, summary = summary))
 }
 
 
 parallelize_and_summarize <- function(
     dt, num_cores, to_view_checks, global_seed,
-    rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx) {
+    rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
   chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
-  # Plan for parallel processing
-  plan(multisession, workers = num_cores)
+  if (to_parallelize) {
+    # Plan for parallel processing
+    plan(multisession, workers = num_cores)
 
-  # Process each chunk in parallel
-  parallel_results <- future_lapply(
-    chunks, process_chunk,
-    to_view_checks = to_view_checks,
-    rvs_icd9 = rvs_icd9,
-    tdrg_icd10 = tdrg_icd10,
-    acc_pdx = acc_pdx,
-    future.seed = global_seed
-  )
+    # Process each chunk in parallel
+    parallel_results <- future_lapply(
+      chunks, process_chunk,
+      to_view_checks = to_view_checks,
+      rvs_icd9 = rvs_icd9,
+      tdrg_icd10 = tdrg_icd10,
+      acc_pdx = acc_pdx,
+      future.seed = global_seed
+    )
+  } else {
+    # Process each chunk sequentially
+    parallel_results <- lapply(
+      chunks, process_chunk,
+      to_view_checks = to_view_checks,
+      rvs_icd9 = rvs_icd9,
+      tdrg_icd10 = tdrg_icd10,
+      acc_pdx = acc_pdx
+    )
+  }
 
   # Combine processed chunks
   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
@@ -409,6 +404,8 @@ parallelize_and_summarize <- function(
     )
   )
 }
+
+
 
 print_aggregate_summary_stats <- function(aggregate_statistics, rows_to_show) {
   cat(
