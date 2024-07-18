@@ -21,7 +21,7 @@ to_write <- TRUE
 to_group <- TRUE
 to_filter <- FALSE # unused
 to_profvis <- FALSE
-to_chunk <- TRUE
+to_chunk <- TRUE # doesn't work if false; not chunking is deprecated.
 to_view_checks <- TRUE
 to_view_checks_parallelized <- TRUE
 

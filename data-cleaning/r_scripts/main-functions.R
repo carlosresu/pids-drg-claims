@@ -392,120 +392,189 @@ process_chunk <- function(
   return(list(chunk = chunk, summary = summary))
 }
 
-parallelize_and_summarize <- function(
-    dt, num_cores, to_view_checks, global_seed,
-    rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx) {
-  chunk_size <- ceiling(nrow(dt) / num_cores)
-  chunks <- split(
-    dt,
-    rep(1:num_cores, each = chunk_size, length.out = nrow(dt))
+# parallelize_and_summarize <- function(
+#     dt, num_cores, to_view_checks, global_seed,
+#     rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx) {
+#   chunk_size <- ceiling(nrow(dt) / num_cores)
+
+#   chunks <- split(
+#     dt,
+#     rep(1:num_cores,
+#       each = chunk_size,
+#       length.out = nrow(dt)
+#     )
+#   )
+
+#   # Plan for parallel processing
+#   plan(multisession, workers = num_cores)
+
+#   # Process each chunk in parallel
+#   parallel_results <- future_lapply(
+#     chunks, process_chunk,
+#     to_view_checks = to_view_checks,
+#     rvs_icd9 = rvs_icd9,
+#     tdrg_icd10 = tdrg_icd10,
+#     acc_pdx = acc_pdx,
+#     future.seed = global_seed
+#   )
+
+#   # Combine processed chunks
+#   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
+#   dt <- rbindlist(processed_chunks)
+
+#   # Combine summaries
+#   summaries <- lapply(parallel_results, function(res) res$summary)
+
+#   # Debugging: Print the structure of summaries
+#   # print("Structure of summaries:")
+#   # str(summaries)
+
+#   consolidated_summary <- list(
+#     rename_success = all(
+#       sapply(summaries, function(s) s$rename_success)
+#     ),
+#     ICD_replacements_1 = combine_comparison_tables(
+#       summaries, "ICD_replacements_1", rows_to_show
+#     ),
+#     ICD_replacements_2 = combine_comparison_tables(
+#       summaries, "ICD_replacements_2", rows_to_show
+#     ),
+#     pat_type_unmapped = unique(
+#       unlist(lapply(summaries, function(s) s$pat_type_unmapped))
+#     ),
+#     memcat_parent_unmapped = unique(
+#       unlist(lapply(summaries, function(s) s$memcat_parent_unmapped))
+#     ),
+#     memcat_child_unmapped = unique(
+#       unlist(lapply(summaries, function(s) s$memcat_child_unmapped))
+#     ),
+#     discharge_unmapped = unique(
+#       unlist(lapply(summaries, function(s) s$discharge_unmapped))
+#     ),
+#     discard_rvs_one = combine_discarded_rvs_tables(
+#       summaries, "discard_rvs_one", rows_to_show
+#     ),
+#     discard_rvs_two = combine_discarded_rvs_tables(
+#       summaries, "discard_rvs_two", rows_to_show
+#     ),
+#     empty_strings_replaced_1 = combine_replace_empty_tables(
+#       summaries, "empty_strings_replaced_1",
+#       rows_to_show = Inf
+#     ),
+#     empty_strings_replaced_2 = combine_replace_empty_tables(
+#       summaries, "empty_strings_replaced_2",
+#       rows_to_show = Inf
+#     )
+#   )
+
+#   # Aggregate summary statistics
+#   rvss <- unique(unlist(dt$clin_rvs))
+#   total_rvs_count <- length(rvss)
+#   rvs_map_list <- create_rvs_map_lists(
+#     split_rvs_codes(rvs_icd9)$with_drg
+#   )$rvs_map_list
+
+#   without_drg_count <- length(unique(
+#     rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs
+#   ))
+#   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+#   mappable_rvs_count <- length(mappable_rvs)
+#   mappable_rvs_percentage <- (mappable_rvs_count / length(rvss)) * 100
+
+#   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+#   multi_mapped_rvs_count <- length(multi_mapped_rvs)
+#   multi_mapped_rvs_percentage <- (
+#     multi_mapped_rvs_count / mappable_rvs_count) * 100
+
+#   unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+#   unmappable_rvs_count <- length(unmappable_rvs)
+#   unmappable_rvs_percentage <- (unmappable_rvs_count / length(rvss)) * 100
+
+#   aggregate_statistics <- list(
+#     total_rvs_count = total_rvs_count,
+#     without_drg_count = without_drg_count,
+#     mappable_rvs_count = mappable_rvs_count,
+#     mappable_rvs_percentage = mappable_rvs_percentage,
+#     multi_mapped_rvs_count = multi_mapped_rvs_count,
+#     multi_mapped_rvs_percentage = multi_mapped_rvs_percentage,
+#     unmappable_rvs_count = unmappable_rvs_count,
+#     unmappable_rvs_percentage = unmappable_rvs_percentage
+#   )
+
+#   # Combine ICD-10 mapping statistics
+#   icd10_stats <- aggregate_icd10_stats(summaries)
+#   aggregate_statistics <- c(aggregate_statistics, icd10_stats)
+
+#   return(
+#     list(
+#       dt = dt,
+#       consolidated_summary = consolidated_summary,
+#       aggregate_statistics = aggregate_statistics
+#     )
+#   )
+# }
+
+
+print_aggregate_summary_stats <- function(aggregate_statistics, rows_to_show) {
+  cat(
+    sprintf(
+      "There are %d RVS codes without an ICD-9CM",
+      aggregate_statistics$without_drg_count
+    ), "equivalent recognized by the TDRG ICD9CM\n"
   )
-
-  # Plan for parallel processing
-  plan(multisession, workers = num_cores)
-
-  # Process each chunk in parallel
-  parallel_results <- future_lapply(
-    chunks, process_chunk,
-    to_view_checks = to_view_checks,
-    rvs_icd9 = rvs_icd9,
-    tdrg_icd10 = tdrg_icd10,
-    acc_pdx = acc_pdx,
-    future.seed = global_seed
-  )
-
-  # Combine processed chunks
-  processed_chunks <- lapply(parallel_results, function(res) res$chunk)
-  dt <- rbindlist(processed_chunks)
-
-  # Combine summaries
-  summaries <- lapply(parallel_results, function(res) res$summary)
-
-  # Debugging: Print the structure of summaries
-  # print("Structure of summaries:")
-  # str(summaries)
-
-  consolidated_summary <- list(
-    rename_success = all(
-      sapply(summaries, function(s) s$rename_success)
-    ),
-    ICD_replacements_1 = combine_comparison_tables(
-      summaries, "ICD_replacements_1", rows_to_show
-    ),
-    ICD_replacements_2 = combine_comparison_tables(
-      summaries, "ICD_replacements_2", rows_to_show
-    ),
-    pat_type_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$pat_type_unmapped))
-    ),
-    memcat_parent_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$memcat_parent_unmapped))
-    ),
-    memcat_child_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$memcat_child_unmapped))
-    ),
-    discharge_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$discharge_unmapped))
-    ),
-    discard_rvs_one = combine_discarded_rvs_tables(
-      summaries, "discard_rvs_one", rows_to_show
-    ),
-    discard_rvs_two = combine_discarded_rvs_tables(
-      summaries, "discard_rvs_two", rows_to_show
-    ),
-    empty_strings_replaced_1 = combine_replace_empty_tables(
-      summaries, "empty_strings_replaced_1",
-      rows_to_show = Inf
-    ),
-    empty_strings_replaced_2 = combine_replace_empty_tables(
-      summaries, "empty_strings_replaced_2",
-      rows_to_show = Inf
+  cat(
+    sprintf(
+      "There are %d unique RVS codes that appear in the claims.\n",
+      aggregate_statistics$total_rvs_count
     )
   )
-
-  # Aggregate summary statistics
-  rvss <- unique(unlist(dt$clin_rvs))
-  total_rvs_count <- length(rvss)
-  rvs_map_list <- create_rvs_map_lists(
-    split_rvs_codes(rvs_icd9)$with_drg
-  )$rvs_map_list
-
-  without_drg_count <- length(unique(
-    rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs
-  ))
-  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
-  mappable_rvs_count <- length(mappable_rvs)
-  mappable_rvs_percentage <- (mappable_rvs_count / length(rvss)) * 100
-
-  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
-  multi_mapped_rvs_count <- length(multi_mapped_rvs)
-  multi_mapped_rvs_percentage <- (
-    multi_mapped_rvs_count / mappable_rvs_count) * 100
-
-  unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
-  unmappable_rvs_count <- length(unmappable_rvs)
-  unmappable_rvs_percentage <- (unmappable_rvs_count / length(rvss)) * 100
-
-  aggregate_statistics <- list(
-    total_rvs_count = total_rvs_count,
-    without_drg_count = without_drg_count,
-    mappable_rvs_count = mappable_rvs_count,
-    mappable_rvs_percentage = mappable_rvs_percentage,
-    multi_mapped_rvs_count = multi_mapped_rvs_count,
-    multi_mapped_rvs_percentage = multi_mapped_rvs_percentage,
-    unmappable_rvs_count = unmappable_rvs_count,
-    unmappable_rvs_percentage = unmappable_rvs_percentage
-  )
-
-  # Combine ICD-10 mapping statistics
-  icd10_stats <- aggregate_icd10_stats(summaries)
-  aggregate_statistics <- c(aggregate_statistics, icd10_stats)
-
-  return(
-    list(
-      dt = dt,
-      consolidated_summary = consolidated_summary,
-      aggregate_statistics = aggregate_statistics
+  cat(
+    sprintf(
+      "Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n",
+      aggregate_statistics$mappable_rvs_count,
+      aggregate_statistics$mappable_rvs_percentage
     )
   )
+  cat(
+    sprintf(
+      "Of these, there are %d (%.2f%%)",
+      aggregate_statistics$multi_mapped_rvs_count,
+      aggregate_statistics$multi_mapped_rvs_percentage
+    ), "with more than one ICD9 equivalent",
+    "recognized by the Thai ICD9 library.\n"
+  )
+  cat(
+    sprintf(
+      "There are %d (%.2f%%) with no ICD-9-CM equivalents.\n\n\n",
+      aggregate_statistics$unmappable_rvs_count,
+      aggregate_statistics$unmappable_rvs_percentage
+    )
+  )
+  cat(
+    sprintf(
+      "There are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
+      aggregate_statistics$total_unique_icd_count,
+      aggregate_statistics$direct_match_count,
+      aggregate_statistics$direct_match_percentage
+    ), "are directly in the Thai ICD-10 library\n"
+  )
+  cat(
+    sprintf(
+      "The modifications led to a total of %d codes ",
+      aggregate_statistics$total_mapped_count
+    ), "being mapped to an equivalent in the Thai ICD10 library.\n"
+  )
+  cat(
+    sprintf(
+      "Out of these, %d were modified to match.\n",
+      aggregate_statistics$modified_count
+    )
+  )
+  cat(
+    sprintf(
+      "There are %d codes that could not",
+      aggregate_statistics$unmapped_icd_count
+    ), "be mapped to the Thai ICD10 library:\n"
+  )
+  print(head(aggregate_statistics$combined_unmapped_icds, rows_to_show))
 }

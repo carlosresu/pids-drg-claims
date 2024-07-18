@@ -1242,9 +1242,13 @@ parallelize_and_summarize <- function(
     dt, num_cores, to_view_checks, global_seed,
     rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
+
   chunks <- split(
     dt,
-    rep(1:num_cores, each = chunk_size, length.out = nrow(dt))
+    rep(1:num_cores,
+      each = chunk_size,
+      length.out = nrow(dt)
+    )
   )
 
   # Plan for parallel processing
@@ -1355,6 +1359,70 @@ parallelize_and_summarize <- function(
     )
   )
 }
+
+print_aggregate_summary_stats <- function(aggregate_statistics, rows_to_show) {
+  cat(
+    sprintf(
+      "There are %d RVS codes without an ICD-9CM",
+      aggregate_statistics$without_drg_count
+    ), "equivalent recognized by the TDRG ICD9CM\n"
+  )
+  cat(
+    sprintf(
+      "There are %d unique RVS codes that appear in the claims.\n",
+      aggregate_statistics$total_rvs_count
+    )
+  )
+  cat(
+    sprintf(
+      "Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n",
+      aggregate_statistics$mappable_rvs_count,
+      aggregate_statistics$mappable_rvs_percentage
+    )
+  )
+  cat(
+    sprintf(
+      "Of these, there are %d (%.2f%%)",
+      aggregate_statistics$multi_mapped_rvs_count,
+      aggregate_statistics$multi_mapped_rvs_percentage
+    ), "with more than one ICD9 equivalent",
+    "recognized by the Thai ICD9 library.\n"
+  )
+  cat(
+    sprintf(
+      "There are %d (%.2f%%) with no ICD-9-CM equivalents.\n\n\n",
+      aggregate_statistics$unmappable_rvs_count,
+      aggregate_statistics$unmappable_rvs_percentage
+    )
+  )
+  cat(
+    sprintf(
+      "There are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
+      aggregate_statistics$total_unique_icd_count,
+      aggregate_statistics$direct_match_count,
+      aggregate_statistics$direct_match_percentage
+    ), "are directly in the Thai ICD-10 library\n"
+  )
+  cat(
+    sprintf(
+      "The modifications led to a total of %d codes ",
+      aggregate_statistics$total_mapped_count
+    ), "being mapped to an equivalent in the Thai ICD10 library.\n"
+  )
+  cat(
+    sprintf(
+      "Out of these, %d were modified to match.\n",
+      aggregate_statistics$modified_count
+    )
+  )
+  cat(
+    sprintf(
+      "There are %d codes that could not",
+      aggregate_statistics$unmapped_icd_count
+    ), "be mapped to the Thai ICD10 library:\n"
+  )
+  print(head(aggregate_statistics$combined_unmapped_icds, rows_to_show))
+}
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 year_to_load <- "2018"
@@ -1378,7 +1446,7 @@ to_write <- TRUE
 to_group <- TRUE
 to_filter <- FALSE # unused
 to_profvis <- FALSE
-to_chunk <- TRUE
+to_chunk <- FALSE
 to_view_checks <- TRUE
 to_view_checks_parallelized <- TRUE
 
