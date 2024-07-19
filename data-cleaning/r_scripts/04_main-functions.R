@@ -570,8 +570,9 @@ print_summary_tables <- function(result, rows_to_show) {
   }
 }
 
+# Function to split and save chunks
 split_and_save_chunks <- function() {
-  if (to_split && !is_partial_file(part)) {
+  if (to_split) {
     rows_per_part <- ceiling(total_rows / split_chunks)
     for (part in 1:split_chunks) {
       chunk_file <- if (to_sample) {
@@ -580,7 +581,10 @@ split_and_save_chunks <- function() {
         full_claims_file(part)
       }
 
+      print(paste("Checking file:", chunk_file))  # Debugging statement
+
       if (!file.exists(chunk_file)) {
+        print(paste("File does not exist. Creating file:", chunk_file))  # Debugging statement
         start_row <- (part - 1) * rows_per_part + 1
         end_row <- min(part * rows_per_part, total_rows)
         read_and_save_partial(start_row, end_row, part)
@@ -591,57 +595,20 @@ split_and_save_chunks <- function() {
   }
 }
 
-
-# read_and_process_chunk <- function(part) {
-#   # Determine the correct chunk file based on sampling condition
-#   if (to_sample) {
-#     # Ensure the correct, existing sampled file is used
-#     chunk_file <- sampled_claims_file(part)
-#   } else {
-#     chunk_file <- full_claims_file(part)
-#   }
-
-#   # Check if the chunk file exists
-#   if (!file_exists(chunk_file)) {
-#     stop(paste("File does not exist:", chunk_file))
-#   }
-
-#   # Read the chunk file into a data table
-#   dt <- fread(chunk_file, na.strings = na_values, colClasses = "character")
-
-#   # Check if dt is empty and provide informative messages
-#   if (is.null(dt) || nrow(dt) == 0) {
-#     stop(paste("Data table is empty for part:", part, "file:", chunk_file))
-#   }
-
-#   dt <- dt[, (drop_cols) := NULL]
-
-#   return(dt)
-# }
-
+# Function to read and process chunks
 read_and_process_chunk <- function(part) {
-  # Determine the correct chunk file based on sampling condition
-  if (to_sample) {
-    # Ensure the correct, existing sampled file is used
-    chunk_file <- sampled_claims_file(part)
+  chunk_file <- if (to_sample) {
+    sampled_claims_file(part)
   } else {
-    chunk_file <- full_claims_file(part)
+    full_claims_file(part)
   }
 
-  # Check if the chunk file exists
   if (!file_exists(chunk_file)) {
     stop(paste("File does not exist:", chunk_file))
   }
 
-  # Read the chunk file into a data table using the provided function
   dt <- read_entire_file(chunk_file, initial_read = is_partial_file(part))
 
-  # Check if dt is empty and provide informative messages
-  if (is.null(dt) || nrow(dt) == 0) {
-    stop(paste("Data table is empty for part:", part, "file:", chunk_file))
-  }
-
-  # Handle sampling if required
   if (to_sample) {
     dt <- handle_sampling(dt)
   }
