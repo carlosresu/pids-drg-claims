@@ -134,7 +134,8 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
     "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
-    "SELF EARNING INDIVIDUAL", "FAMILY DRIVER"
+    "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY", 
+    "PROFESSIONAL PRACTITIONER"
   )
   remapped_memcat_child <- fcase(
     pat_memcat_child == "EMPLOYED PRIVATE", "FORMAL",
@@ -151,7 +152,9 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child == "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
     "INFORMAL",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
-    pat_memcat_child == "FAMILY DRIVER", "FORMAL"
+    pat_memcat_child == "FAMILY DRIVER", "FORMAL",
+    pat_memcat_child == "FORMAL ECONOMY", "FORMAL", # added this myself
+    pat_memcat_child == "PROFESSIONAL PRACTITIONER", "INFORMAL" # added this myself
   )
   unknown_children <- setdiff(
     pat_memcat_child[!is.na(pat_memcat_child)],
