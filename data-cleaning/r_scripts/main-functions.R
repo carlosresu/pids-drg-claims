@@ -378,8 +378,6 @@ parallelize_and_summarize <- function(
   )
 }
 
-
-
 print_aggregate_summary_stats <- function(aggregate_statistics, rows_to_show) {
   cat(
     sprintf(
@@ -571,3 +569,167 @@ print_summary_tables <- function(result, rows_to_show) {
     cat("\nAll resulting ICD codes are valid and present in the libraries.\n\n")
   }
 }
+
+split_and_save_chunks <- function() {
+  if (to_split) {
+    rows_per_part <- ceiling(total_rows / split_chunks)
+    for (part in 1:split_chunks) {
+      chunk_file <- if (to_sample) {
+        sampled_claims_file(part)
+      } else {
+        full_claims_file(part)
+      }
+
+      if (!file.exists(chunk_file)) {
+        start_row <- (part - 1) * rows_per_part + 1
+        end_row <- min(part * rows_per_part, total_rows)
+        read_and_save_partial(start_row, end_row, part)
+      } else {
+        # print(paste("File already exists:", chunk_file))
+      }
+    }
+  }
+}
+
+read_and_process_chunk <- function(part) {
+  chunk_file <- if (to_sample) {
+    sampled_claims_file(part)
+  } else {
+    full_claims_file(part)
+  }
+
+  if (!file.exists(chunk_file)) {
+    print(paste("File does not exist. Creating file:", chunk_file))
+    rows_per_part <- ceiling(total_rows / split_chunks)
+    start_row <- (part - 1) * rows_per_part + 1
+    end_row <- min(part * rows_per_part, total_rows)
+    read_and_save_partial(start_row, end_row, part)
+  }
+
+  dt <- main_read_function(file = chunk_file)
+  return(dt)
+}
+
+parallelize_and_summarize_data <- function(part, dt) {
+  if (to_profvis) {
+    p <- profvis({
+      if (to_chunk) {
+        num_cores <- max(1, availableCores() - 1)
+
+        suppress_interim_output({
+          result <- parallelize_and_summarize(
+            dt, num_cores,
+            to_view_checks = to_view_checks_parallelized, global_seed,
+            rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
+          )
+        })
+
+        dt <- result$dt
+        all_parts_summaries[[part]] <<- result$consolidated_summary
+        all_parts_statistics[[part]] <<- result$aggregate_statistics
+
+        # Print summary tables for individual parts
+        # print_summary_tables(result, rows_to_show)
+      } else {
+        stop("Error: to_chunk must be TRUE; not chunking is deprecated.")
+      }
+    })
+    htmlwidgets::saveWidget(
+      p,
+      file = here(
+        "git-ignored-files", "profvis",
+        paste0(
+          "parallelized_part_",
+          paste0(part, "_of_", split_chunks), "_.html"
+        )
+      ),
+      selfcontained = TRUE
+    )
+  } else {
+    if (to_chunk) {
+      num_cores <- max(1, availableCores() - 1)
+
+      suppress_interim_output({
+        result <- parallelize_and_summarize(
+          dt, num_cores,
+          to_view_checks = to_view_checks_parallelized, global_seed,
+          rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
+        )
+      })
+
+      dt <- result$dt
+      all_parts_summaries[[part]] <<- result$consolidated_summary
+      all_parts_statistics[[part]] <<- result$aggregate_statistics
+
+      # Print summary tables for individual parts
+      # print_summary_tables(result, rows_to_show)
+    } else {
+      stop("Error: to_chunk must be TRUE; not chunking is deprecated.")
+    }
+  }
+  return(dt)
+}
+
+write_intermediate_file <- function(part, dt) {
+  if (to_write) {
+    fwrite(dt, intermediate_file(part, fileext = TRUE))
+  }
+}
+
+group_data <- function(part, dt) {
+  if (to_group) {
+    if (to_profvis) {
+      p <- profvis({
+        export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
+        for_batch_grouping <- fread(output_txt_file(part),
+                                    sep = "|", na.strings = "--"
+        )
+        if (file.exists(grouper_result_file(part))) {
+          batch_grouping_result <- fread(grouper_result_file(part),
+                                         sep = "|", na.strings = "--"
+          )
+        }
+      })
+      htmlwidgets::saveWidget(
+        p,
+        file = here(
+          "git-ignored-files", "profvis",
+          paste0(
+            "export_for_grouper_part_",
+            paste0(part, "_of_", split_chunks), "_.html"
+          )
+        ),
+        selfcontained = TRUE
+      )
+    } else {
+      export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
+      for_batch_grouping <- fread(output_txt_file(part),
+                                  sep = "|", na.strings = "--"
+      )
+      if (file.exists(grouper_result_file(part))) {
+        batch_grouping_result <- fread(grouper_result_file(part),
+                                       sep = "|", na.strings = "--"
+        )
+      }
+    }
+  }
+}
+
+combine_and_print_summaries <- function() {
+  final_combined_summary <- combine_all_parts_summaries(
+    all_parts_summaries, rows_to_show
+  )
+  final_combined_statistics <- combine_all_parts_statistics(
+    all_parts_statistics
+  )
+
+  print_summary_tables(
+    list(
+      dt = NULL,
+      consolidated_summary = final_combined_summary,
+      aggregate_statistics = final_combined_statistics
+    ),
+    rows_to_show
+  )
+}
+

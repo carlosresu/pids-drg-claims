@@ -59,6 +59,7 @@ read_entire_file <- function(file, initial_read = TRUE) {
                 header = FALSE,
                 skip = 1
     )
+    setnames(dt, names(header))
   } else {
     dt <- fread(file,
                 na.strings = na_values,
@@ -68,9 +69,15 @@ read_entire_file <- function(file, initial_read = TRUE) {
     )
     setnames(dt, names(header))
     dt <- dt[, (drop_cols) := NULL]
-    dt <- setDT(lapply(dt, function(x, classes) set(x, j = names(classes), value = classes), col_classes_after_drop))
+    for (col in names(col_classes_after_drop)) {
+      dt[[col]] <- switch(col_classes_after_drop[[col]],
+                          "character" = as.character(dt[[col]]),
+                          "factor" = as.factor(dt[[col]]),
+                          "integer" = as.integer(dt[[col]]),
+                          "numeric" = as.numeric(dt[[col]]),
+                          dt[[col]])
+    }
   }
-  setnames(dt, names(header))
   return(dt)
 }
 
@@ -85,7 +92,14 @@ read_sampled_file <- function(file) {
   )
   setnames(dt, names(header))
   dt <- dt[, (drop_cols) := NULL]
-  dt <- setDT(lapply(dt, function(x, classes) set(x, j = names(classes), value = classes), col_classes_after_drop))
+  for (col in names(col_classes_after_drop)) {
+    dt[[col]] <- switch(col_classes_after_drop[[col]],
+                        "character" = as.character(dt[[col]]),
+                        "factor" = as.factor(dt[[col]]),
+                        "integer" = as.integer(dt[[col]]),
+                        "numeric" = as.numeric(dt[[col]]),
+                        dt[[col]])
+  }
   return(dt)
 }
 
