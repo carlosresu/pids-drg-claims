@@ -571,7 +571,7 @@ print_summary_tables <- function(result, rows_to_show) {
 }
 
 split_and_save_chunks <- function() {
-  if (to_split) {
+  if (to_split && !is_partial_file(part)) {
     rows_per_part <- ceiling(total_rows / split_chunks)
     for (part in 1:split_chunks) {
       chunk_file <- if (to_sample) {
@@ -585,133 +585,71 @@ split_and_save_chunks <- function() {
         end_row <- min(part * rows_per_part, total_rows)
         read_and_save_partial(start_row, end_row, part)
       } else {
-        # print(paste("File already exists:", chunk_file))
+        print(paste("File already exists:", chunk_file))
       }
     }
   }
 }
 
+
 read_and_process_chunk <- function(part) {
-  chunk_file <- if (to_sample) {
-    sampled_claims_file(part)
+  # Determine the correct chunk file based on sampling condition
+  if (to_sample) {
+    # Ensure the correct, existing sampled file is used
+    chunk_file <- sampled_claims_file(part)
   } else {
-    full_claims_file(part)
+    chunk_file <- full_claims_file(part)
   }
 
-  if (!file.exists(chunk_file)) {
-    print(paste("File does not exist. Creating file:", chunk_file))
-    rows_per_part <- ceiling(total_rows / split_chunks)
-    start_row <- (part - 1) * rows_per_part + 1
-    end_row <- min(part * rows_per_part, total_rows)
-    read_and_save_partial(start_row, end_row, part)
+  # Check if the chunk file exists
+  if (!file_exists(chunk_file)) {
+    stop(paste("File does not exist:", chunk_file))
   }
 
-  dt <- main_read_function(file = chunk_file)
+  # Read the chunk file into a data table
+  dt <- fread(chunk_file, na.strings = na_values, colClasses = "character")
+
+  # Check if dt is empty and provide informative messages
+  if (is.null(dt) || nrow(dt) == 0) {
+    stop(paste("Data table is empty for part:", part, "file:", chunk_file))
+  }
+
   return(dt)
 }
 
 parallelize_and_summarize_data <- function(part, dt) {
-  if (to_profvis) {
-    p <- profvis({
-      if (to_chunk) {
-        num_cores <- max(1, availableCores() - 1)
-
-        suppress_interim_output({
-          result <- parallelize_and_summarize(
-            dt, num_cores,
-            to_view_checks = to_view_checks_parallelized, global_seed,
-            rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
-          )
-        })
-
-        dt <- result$dt
-        all_parts_summaries[[part]] <<- result$consolidated_summary
-        all_parts_statistics[[part]] <<- result$aggregate_statistics
-
-        # Print summary tables for individual parts
-        # print_summary_tables(result, rows_to_show)
-      } else {
-        stop("Error: to_chunk must be TRUE; not chunking is deprecated.")
-      }
+  if (to_chunk) {
+    num_cores <- max(1, availableCores() - 1)
+    suppress_interim_output({
+      result <- parallelize_and_summarize(
+        dt, num_cores,
+        to_view_checks = to_view_checks_parallelized, global_seed,
+        rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
+      )
     })
-    htmlwidgets::saveWidget(
-      p,
-      file = here(
-        "git-ignored-files", "profvis",
-        paste0(
-          "parallelized_part_",
-          paste0(part, "_of_", split_chunks), "_.html"
-        )
-      ),
-      selfcontained = TRUE
-    )
+
+    dt <- result$dt
+    all_parts_summaries[[part]] <<- result$consolidated_summary
+    all_parts_statistics[[part]] <<- result$aggregate_statistics
   } else {
-    if (to_chunk) {
-      num_cores <- max(1, availableCores() - 1)
-
-      suppress_interim_output({
-        result <- parallelize_and_summarize(
-          dt, num_cores,
-          to_view_checks = to_view_checks_parallelized, global_seed,
-          rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
-        )
-      })
-
-      dt <- result$dt
-      all_parts_summaries[[part]] <<- result$consolidated_summary
-      all_parts_statistics[[part]] <<- result$aggregate_statistics
-
-      # Print summary tables for individual parts
-      # print_summary_tables(result, rows_to_show)
-    } else {
-      stop("Error: to_chunk must be TRUE; not chunking is deprecated.")
-    }
+    stop("Error: to_chunk must be TRUE; not chunking is deprecated.")
   }
   return(dt)
+}
+
+group_data <- function(part, dt) {
+  if (to_group) {
+    export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
+    for_batch_grouping <- fread(output_txt_file(part), sep = "|", na.strings = "--")
+    if (file.exists(grouper_result_file(part))) {
+      batch_grouping_result <- fread(grouper_result_file(part), sep = "|", na.strings = "--")
+    }
+  }
 }
 
 write_intermediate_file <- function(part, dt) {
   if (to_write) {
     fwrite(dt, intermediate_file(part, fileext = TRUE))
-  }
-}
-
-group_data <- function(part, dt) {
-  if (to_group) {
-    if (to_profvis) {
-      p <- profvis({
-        export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
-        for_batch_grouping <- fread(output_txt_file(part),
-                                    sep = "|", na.strings = "--"
-        )
-        if (file.exists(grouper_result_file(part))) {
-          batch_grouping_result <- fread(grouper_result_file(part),
-                                         sep = "|", na.strings = "--"
-          )
-        }
-      })
-      htmlwidgets::saveWidget(
-        p,
-        file = here(
-          "git-ignored-files", "profvis",
-          paste0(
-            "export_for_grouper_part_",
-            paste0(part, "_of_", split_chunks), "_.html"
-          )
-        ),
-        selfcontained = TRUE
-      )
-    } else {
-      export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
-      for_batch_grouping <- fread(output_txt_file(part),
-                                  sep = "|", na.strings = "--"
-      )
-      if (file.exists(grouper_result_file(part))) {
-        batch_grouping_result <- fread(grouper_result_file(part),
-                                       sep = "|", na.strings = "--"
-        )
-      }
-    }
   }
 }
 
@@ -732,4 +670,3 @@ combine_and_print_summaries <- function() {
     rows_to_show
   )
 }
-

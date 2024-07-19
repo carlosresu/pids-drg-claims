@@ -440,3 +440,17 @@ combine_all_parts_statistics <- function(all_parts_statistics) {
 
   return(total_statistics)
 }
+
+# Helper function to determine if a file is a partial file
+is_partial_file <- function(part) {
+  if (is.na(split_chunk_to_process)) {
+    return(FALSE)
+  } else {
+    return(TRUE)
+  }
+}
+
+# Function to check if a file exists
+file_exists <- function(filepath) {
+  return(file.exists(filepath))
+}
