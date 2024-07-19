@@ -1,4 +1,24 @@
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+suppressPackageStartupMessages({
+  # library(rprojroot)
+  # library(conflicted)
+  # library(tidyverse)
+  library(data.table)
+  library(here)
+  library(tictoc)
+  library(stringr)
+  library(stringi)
+  library(lubridate)
+  library(docstring)
+  library(profvis)
+  library(hash)
+  # library(foreach)
+  # library(doParallel)
+  # library(parallel)
+  library(future)
+  library(future.apply)
+  library(knitr)
+})
+# # source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
 na_like_strings <- c(
@@ -90,34 +110,7 @@ new_colnames <- c(
   "clin_discharge", "clin_c1", "clin_c2", paste0("clin_icd", 1:12),
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
-source(here("data-cleaning", "r_scripts", "libraries.R"))
-
-concatenate_r_files <- function(input_path, output_file) {
-  # List all .R files in the directory
-  r_files <- list.files(
-    path = input_path,
-    pattern = "\\.R$", full.names = TRUE
-  )
-
-  # Delete the existing output file if it exists
-  if (file.exists(output_file)) {
-    file.remove(output_file)
-  }
-
-  # Read and concatenate contents
-  file_contents <- lapply(r_files, readLines)
-  concatenated_content <- unlist(file_contents)
-
-  # Write concatenated content to the output file
-  cat(concatenated_content, file = output_file, sep = "\n")
-}
-
-# Example usage within your script
-input_path <- here("data-cleaning", "r_scripts")
-output_file <- paste0(here("data-cleaning", "everything", "everything.R"))
-
-concatenate_r_files(input_path, output_file)
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# # source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 path_to_raw_claims <- "git-ignored-files/raw-claims"
 path_to_intermediate <- "git-ignored-files/intermediate-claims"
@@ -240,7 +233,7 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   }
   return(here(path_to_cache, filename))
 }
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# # source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 rename_columns <- function(dt) {
   setnames(dt, old = old_colnames, new = new_colnames)
@@ -682,675 +675,7 @@ combine_all_parts_statistics <- function(all_parts_statistics) {
 
   return(total_statistics)
 }
-source(here("data-cleaning", "r_scripts", "libraries.R"))
-
-generate_dob_vectorized <- function(bdays, ages, date_adms) {
-  require(lubridate)
-
-  # Ensure ages are numeric
-  ages <- as.numeric(ages)
-
-  dob <- rep(NA_character_, length(ages))
-
-  # Use provided birthdates where available
-  valid_bdays_indices <- !is.na(bdays) & bdays != ""
-  dob[valid_bdays_indices] <- format(
-    mdy(bdays[valid_bdays_indices]),
-    "%d/%m/%Y"
-  )
-
-  # Identify indices where birthdates are missing
-  missing_bday_indices <- which(is.na(bdays) | bdays == "")
-  ref_dates <- mdy(date_adms[missing_bday_indices])
-
-  # Handle cases where ages are zero
-  zero_age_indices <- which(
-    !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
-  )
-  dob[missing_bday_indices[zero_age_indices]] <- format(
-    ref_dates[zero_age_indices] - days(
-      sample(
-        1:27, length(zero_age_indices),
-        replace = TRUE
-      )
-    ), "%d/%m/%Y"
-  )
-
-  # Handle cases where ages are positive
-  positive_age_indices <- which(
-    !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0
-  )
-  truncated_ages <- floor(
-    ages[missing_bday_indices][positive_age_indices]
-  )
-  dob[missing_bday_indices[positive_age_indices]] <- format(
-    ref_dates[positive_age_indices] - years(truncated_ages) - days(
-      sample(1:170, length(positive_age_indices), replace = TRUE)
-    ), "%d/%m/%Y"
-  )
-
-  return(dob)
-}
-
-
-generate_dob_column <- function(dt) {
-  generate_dob_vectorized(dt$pat_bdate, dt$pat_age, dt$date_adm)
-}
-
-format_dates <- function(date_vector) {
-  format(mdy(date_vector), "%d/%m/%Y")
-}
-
-format_times <- function(time_vector) {
-  gsub(":", "", time_vector)
-}
-
-split_icd_codes_for_batch_grouper <- function(icd_str) {
-  codes <- unlist(icd_str)
-  length(codes) <- 12
-  codes
-}
-
-split_rvs_codes_for_batch_grouper <- function(rvs_str) {
-  codes <- unlist(rvs_str)
-  length(codes) <- 20
-  codes
-}
-
-prepare_and_write_output <- function(output_dt, output_txt_file) {
-  # Replace NA values with '--'
-  output_dt[is.na(output_dt)] <- "--"
-  # Convert list columns to comma-separated strings
-  for (col in names(output_dt)) {
-    if (is.list(output_dt[[col]])) {
-      output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
-    }
-  }
-  # Write the data.table to a file
-  fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
-}
-
-export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
-  output_dt <- data.table(CASEID = 1:nrow(dt))
-  output_dt[, DOB := generate_dob_column(dt)]
-  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
-  output_dt[, DateAdm := format_dates(dt$date_adm)]
-  output_dt[, TimeAdm := format_times(dt$time_adm)]
-  output_dt[, DateDsc := format_dates(dt$date_dis)]
-  output_dt[, TimeDsc := format_times(dt$time_dis)]
-  output_dt[, DischT := dt$clin_discharge]
-  output_dt[, AdmWt := dt$pat_bwt]
-  output_dt[, PDx := dt$pdx]
-
-  icd_codes_list <- lapply(dt$clin_icd, split_icd_codes_for_batch_grouper)
-  icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
-  icd_cols <- paste0("SDx", 1:12)
-  output_dt[, (icd_cols) := icd_codes]
-
-  rvs_codes_list <- lapply(dt$icd9_list, split_rvs_codes_for_batch_grouper)
-  rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
-  proc_cols <- paste0("Proc", 1:20)
-  output_dt[, (proc_cols) := rvs_codes]
-
-  prepare_and_write_output(output_dt, output_txt_file)
-}
-source(here("data-cleaning", "r_scripts", "libraries.R"))
-
-remove_lumped_icd_codes <- function(column) {
-  modified_column <- gsub("(?<=\\d)(?=[A-Za-z])", "||", column, perl = TRUE)
-  return(modified_column)
-}
-
-transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
-  clin_icd <- lapply(clin_icd, function(x) if (is.null(x)) character() else x)
-  col_first <- lapply(col, function(x) x[1])
-
-  clin_icd <- mapply(function(icd, c1) {
-    c(icd, c1[-1])
-  }, clin_icd, col, SIMPLIFY = FALSE)
-
-  return(list(clin_icd = clin_icd, col_first = col_first))
-}
-
-get_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
-  icds <- unique(c(unlist(clin_c1), unlist(clin_c2), unlist(clin_icd)))
-  icds <- icds[!is.na(icds)]
-  return(icds)
-}
-
-create_thai_icd10_environment <- function(thai_icd10_codes) {
-  thai_icd10_env <- list2env(
-    setNames(as.list(rep(TRUE, length(thai_icd10_codes))), thai_icd10_codes)
-  )
-  return(thai_icd10_env)
-}
-
-find_direct_icd_matches <- function(icds, thai_icd10_env) {
-  direct_matches <- mget(
-    icds, thai_icd10_env,
-    ifnotfound = as.list(rep(FALSE, length(icds)))
-  )
-  direct_match_codes <- names(
-    unlist(direct_matches[unlist(direct_matches) == TRUE])
-  )
-  return(direct_match_codes)
-}
-
-generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
-  icd_mapping <- list()
-  modified_count <- 0
-  for (d in icds) {
-    d <- str_trim(d)
-    if (exists(d, thai_icd10_env)) {
-      icd_mapping[[d]] <- d
-    } else if (
-      !exists(d, neoplasms_env) && grepl("[A-Za-z]", d) && grepl("[0-9]", d)) {
-      if (nchar(d) == 3 && exists(paste0(d, "9"), thai_icd10_env)) {
-        icd_mapping[[d]] <- paste0(d, "9")
-        modified_count <- modified_count + 1
-      } else if (nchar(d) >= 4) {
-        for (i in seq_len(nchar(d) - 3)) {
-          new_d <- substr(d, 1, nchar(d) - i)
-          if (exists(new_d, thai_icd10_env)) {
-            icd_mapping[[d]] <- new_d
-            modified_count <- modified_count + 1
-            break
-          }
-        }
-      }
-    }
-  }
-  return(list(icd_mapping = icd_mapping, modified_count = modified_count))
-}
-
-# Helper function to map ICD-10 codes to columns
-apply_icd10_mapping_to_columns <- function(
-    clin_c1, clin_c2, clin_icd, icd10_env) {
-  map_icd10_helper <- function(codes) {
-    mapped <- mget(codes, icd10_env, ifnotfound = as.list(codes))
-    return(unname(unlist(mapped)))
-  }
-
-  clin_c1_mapped <- lapply(clin_c1, map_icd10_helper)
-  clin_c2_mapped <- lapply(clin_c2, map_icd10_helper)
-  clin_icd_mapped <- lapply(clin_icd, map_icd10_helper)
-
-  return(
-    list(
-      clin_c1 = clin_c1_mapped,
-      clin_c2 = clin_c2_mapped,
-      clin_icd = clin_icd_mapped
-    )
-  )
-}
-
-implement_icd10_mapping <- function(
-    clin_c1, clin_c2, clin_icd, tdrg_icd10, rows_to_show = Inf) {
-  icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
-
-  thai_icd10_env <- create_thai_icd10_environment(
-    unique(tdrg_icd10$CODE)
-  )
-  neoplasms_env <- create_thai_icd10_environment(
-    unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"])
-  )
-
-  direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
-  cat(
-    sprintf(
-      "\n\nThere are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
-      length(icds), length(direct_match_codes),
-      length(direct_match_codes) * 100 / length(icds)
-    ),
-    " are directly in the Thai ICD-10 library\n"
-  )
-
-  icd_mapping_info <- generate_icd10_mapping(
-    icds, thai_icd10_env, neoplasms_env
-  )
-  icd_mapping <- icd_mapping_info$icd_mapping
-  modified_count <- icd_mapping_info$modified_count
-  cat(sprintf(
-    "The modifications led to a total of %d",
-    length(icd_mapping)
-  ), " codes being mapped to an equivalent in the Thai ICD10 library.\n")
-  cat(sprintf("Out of these, %d were modified to match.\n", modified_count))
-
-  unmatched_icds <- setdiff(icds, names(icd_mapping))
-  if (length(unmatched_icds) > 0) {
-    cat(sprintf(
-      "There are %d codes that could not",
-      length(unmatched_icds)
-    ), "be mapped to the Thai ICD10 library:\n")
-    unmatched_sources <- data.table(
-      code = unmatched_icds, source = NA_character_, count = 0
-    )
-
-    for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
-      col_values <- get(col_name)
-      unmatched_sources[
-        code %in% unlist(col_values),
-        source := col_name
-      ]
-      unmatched_sources[
-        code %in% unlist(col_values),
-        count := count + table(unlist(col_values))[code]
-      ]
-    }
-
-    unmatched_sources <- unmatched_sources[order(-count)]
-  } else {
-    unmatched_sources <- data.table()
-  }
-
-  icd10_map <- data.table(
-    phl_icd10 = names(icd_mapping),
-    tdrg_icd10 = unlist(icd_mapping)
-  )
-  fwrite(icd10_map, paste0(
-    "cache/icd10_map_file_",
-    year_to_load, ".csv"
-  ))
-  icd10_env <- list2env(setNames(
-    as.list(icd10_map$tdrg_icd10),
-    icd10_map$phl_icd10
-  ))
-
-  mapped_columns <- apply_icd10_mapping_to_columns(
-    clin_c1, clin_c2, clin_icd, icd10_env
-  )
-
-  # Generate comparison table
-  original_data <- list(
-    clin_c1 = clin_c1,
-    clin_c2 = clin_c2, clin_icd = clin_icd
-  )
-  modified_data <- list(
-    clin_c1 = mapped_columns$clin_c1,
-    clin_c2 = mapped_columns$clin_c2,
-    clin_icd = mapped_columns$clin_icd
-  )
-
-  padded_data <- lapply(
-    names(original_data),
-    function(name) {
-      pad_list_elements(
-        original_data[[name]],
-        modified_data[[name]]
-      )
-    }
-  )
-
-  comparison_table <- rbind(
-    generate_comparison_table(padded_data[[1]][[1]], padded_data[[1]][[2]]),
-    generate_comparison_table(padded_data[[2]][[1]], padded_data[[2]][[2]]),
-    generate_comparison_table(padded_data[[3]][[1]], padded_data[[3]][[2]])
-  )
-
-  comparison_table <- comparison_table[order(-count)]
-
-  # Check if all resulting ICD codes are in either the
-  # Thai library or the PhilHealth library
-  all_icds <- unique(c(
-    unlist(mapped_columns$clin_c1),
-    unlist(mapped_columns$clin_c2), unlist(mapped_columns$clin_icd)
-  ))
-  valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
-  invalid_icds <- setdiff(all_icds, valid_icds)
-  invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
-
-  if (length(invalid_icds) > 0) {
-    invalid_icds_table <- data.table(
-      code = invalid_icds,
-      count = sapply(
-        invalid_icds,
-        function(icd) {
-          sum(c(
-            unlist(mapped_columns$clin_c1),
-            unlist(mapped_columns$clin_c2),
-            unlist(mapped_columns$clin_icd)
-          ) == icd, na.rm = TRUE)
-        }
-      )
-    )
-
-    invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
-    invalid_icds_table <- invalid_icds_table[order(-count)]
-  } else {
-    invalid_icds_table <- data.table()
-  }
-
-  return(list(
-    clin_c1 = mapped_columns$clin_c1,
-    clin_c2 = mapped_columns$clin_c2,
-    clin_icd = mapped_columns$clin_icd,
-    var1 = length(icds),
-    var2 = length(direct_match_codes),
-    var4 = length(icd_mapping),
-    var5 = modified_count,
-    var6 = length(unmatched_icds),
-    var7 = unmatched_sources,
-    comparison_table = comparison_table,
-    invalid_icds_table = invalid_icds_table
-  ))
-}
-
-
-
-ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
-  # Convert lists to data.table for efficient processing
-  dt <- data.table(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
-
-  # Deduplicate each column
-  dt[, clin_c1 := lapply(clin_c1, unique)]
-  dt[, clin_c2 := lapply(clin_c2, unique)]
-  dt[, clin_icd := lapply(clin_icd, unique)]
-
-  # Remove entries in clin_icd that are in clin_c1 or clin_c2
-  dt[, clin_icd := Map(function(c1, c2, icd) {
-    setdiff(icd, union(c1, c2))
-  }, clin_c1, clin_c2, clin_icd)]
-
-  # Remove entries in clin_c1 that are in clin_c2
-  dt[, clin_c1 := Map(function(c1, c2) {
-    setdiff(c1, c2)
-  }, clin_c1, clin_c2)]
-
-  # Remove entries in clin_c2 that are in clin_c1
-  dt[, clin_c2 := Map(function(c1, c2) {
-    setdiff(c2, c1)
-  }, clin_c1, clin_c2)]
-
-  return(list(clin_c1 = dt$clin_c1, clin_c2 = dt$clin_c2, clin_icd = dt$clin_icd))
-}
-
-generate_comparison_table <- function(original, modified) {
-  original_unlisted <- unlist(original, use.names = FALSE)
-  modified_unlisted <- unlist(modified, use.names = FALSE)
-
-  comparison <- data.table(
-    old_code = original_unlisted,
-    new_code = modified_unlisted
-  )
-
-  comparison <- comparison[old_code != new_code,
-    .(count = .N),
-    by = .(old_code, new_code)
-  ]
-
-  return(comparison)
-}
-
-
-pad_list_elements <- function(list1, list2) {
-  max_length <- max(lengths(list1), lengths(list2))
-
-  pad_with_na <- function(lst, max_length) {
-    lapply(lst, function(x) {
-      if (length(x) < max_length) {
-        x <- c(x, rep(NA, max_length - length(x)))
-      }
-      return(x)
-    })
-  }
-
-  list1 <- pad_with_na(list1, max_length)
-  list2 <- pad_with_na(list2, max_length)
-
-  return(list(list1, list2))
-}
-
-aggregate_icd10_stats <- function(summaries) {
-  # Check the structure of summaries
-  if (length(summaries) == 0) {
-    stop("The summaries list is empty.")
-  }
-  if (!all(sapply(summaries, is.list))) {
-    stop("All elements in summaries should be lists.")
-  }
-
-  required_fields <- c(
-    "total_unique_icd_count", "direct_match_count",
-    "modified_count", "total_mapped_count",
-    "unmapped_icd_count", "unmapped_icds"
-  )
-  for (i in seq_along(summaries)) {
-    summary <- summaries[[i]]
-    missing_fields <- setdiff(required_fields, names(summary))
-    if (length(missing_fields) > 0) {
-      stop(sprintf(
-        "Summary %d is missing fields: %s", i,
-        paste(missing_fields, collapse = ", ")
-      ))
-    }
-  }
-
-  total_unique_icd_count <- sum(sapply(
-    summaries,
-    function(res) res$total_unique_icd_count
-  ))
-  direct_match_count <- sum(sapply(
-    summaries,
-    function(res) res$direct_match_count
-  ))
-  modified_count <- sum(sapply(
-    summaries,
-    function(res) res$modified_count
-  ))
-  total_mapped_count <- sum(sapply(
-    summaries,
-    function(res) res$total_mapped_count
-  ))
-  unmapped_icd_count <- sum(sapply(
-    summaries,
-    function(res) res$unmapped_icd_count
-  ))
-
-  unmapped_icds_list <- lapply(
-    summaries,
-    function(res) res$unmapped_icds
-  )
-  combined_unmapped_icds <- rbindlist(unmapped_icds_list, fill = TRUE)
-  combined_unmapped_icds <- combined_unmapped_icds[,
-    .(count = sum(count)),
-    by = code
-  ][order(-count)]
-
-  return(list(
-    total_unique_icd_count = total_unique_icd_count,
-    direct_match_count = direct_match_count,
-    direct_match_percentage = ifelse(total_unique_icd_count > 0,
-      (direct_match_count / total_unique_icd_count) * 100, 0
-    ),
-    total_mapped_count = total_mapped_count,
-    modified_count = modified_count,
-    unmapped_icd_count = unmapped_icd_count,
-    combined_unmapped_icds = combined_unmapped_icds
-  ))
-}
-source(here("data-cleaning", "r_scripts", "libraries.R"))
-
-# Function to handle sampling with initial read logic
-handle_sampling <- function(dt = NULL) {
-  sampled_file <- sampled_claims_file(part)
-
-  if (file.exists(sampled_file)) {
-    if (to_view_checks) {
-      print("Sampled file exists. Reading the sampled file...")
-    }
-    dt <- read_sampled_file(sampled_file)
-    # Check if the number of rows matches sample_size
-    if (nrow(dt) != sample_size) {
-      if (to_view_checks) {
-        print(paste(
-          "Sampled file does not match sample size. Expected:",
-          sample_size, "Found:", nrow(dt), "Re-sampling..."
-        ))
-      }
-      dt <- resample_data()
-    } else if (to_view_checks) {
-      print("Sampled file matches sample size.")
-    }
-  } else {
-    if (to_view_checks) {
-      print("Sampled file does not exist. Creating new sample...")
-    }
-    dt <- resample_data()
-  }
-
-  return(dt)
-}
-
-# Function to resample data with initial read logic
-resample_data <- function() {
-  dt <- read_entire_file(full_claims_file(part), initial_read = TRUE)
-  dt <- sample_data(dt)
-  if (to_write) {
-    if (to_view_checks) {
-      print(paste(
-        "to_write is TRUE. Writing the new sample data to file:",
-        sampled_claims_file(part)
-      ))
-    }
-    fwrite(dt, sampled_claims_file(part))
-  } else if (to_view_checks) {
-    print("to_write is FALSE. Not writing the sample data to file.")
-  }
-  return(dt)
-}
-
-# Function to read the entire file or a specific chunk with initial reading logic
-read_entire_file <- function(file, initial_read = TRUE) {
-  header <- fread(file, nrows = 1)
-  if (initial_read) {
-    dt <- fread(file,
-                na.strings = na_values,
-                colClasses = "character",
-                header = FALSE,
-                skip = 1
-    )
-    setnames(dt, names(header))
-  } else {
-    dt <- fread(file,
-                na.strings = na_values,
-                colClasses = "character",
-                header = FALSE,
-                skip = 1
-    )
-    setnames(dt, names(header))
-    dt <- dt[, (drop_cols) := NULL]
-    for (col in names(col_classes_after_drop)) {
-      dt[[col]] <- switch(col_classes_after_drop[[col]],
-                          "character" = as.character(dt[[col]]),
-                          "factor" = as.factor(dt[[col]]),
-                          "integer" = as.integer(dt[[col]]),
-                          "numeric" = as.numeric(dt[[col]]),
-                          dt[[col]])
-    }
-  }
-  return(dt)
-}
-
-# Function to read a sampled file
-read_sampled_file <- function(file) {
-  header <- fread(file, nrows = 1)
-  dt <- fread(file,
-              na.strings = na_values,
-              colClasses = "character",
-              header = FALSE,
-              skip = 1
-  )
-  setnames(dt, names(header))
-  dt <- dt[, (drop_cols) := NULL]
-  for (col in names(col_classes_after_drop)) {
-    dt[[col]] <- switch(col_classes_after_drop[[col]],
-                        "character" = as.character(dt[[col]]),
-                        "factor" = as.factor(dt[[col]]),
-                        "integer" = as.integer(dt[[col]]),
-                        "numeric" = as.numeric(dt[[col]]),
-                        dt[[col]])
-  }
-  return(dt)
-}
-
-# Function to sample data
-sample_data <- function(dt) {
-  dt <- dt[sample(.N, min(sample_size, .N))]
-  return(dt)
-}
-
-# Main read function with initial read logic
-main_read_function <- function(file = NA) {
-  if (is.na(file)) {
-    if (to_read) {
-      file <- full_claims_file(part)
-      if (to_view_checks) {
-        print("Reading the entire file...")
-        print(paste("Full claims file path:", file))
-      }
-      dt <- read_entire_file(file, initial_read = TRUE)
-
-      if (to_sample) {
-        dt <- handle_sampling(dt)
-      }
-    } else if (to_sample) {
-      dt <- handle_sampling()
-    } else {
-      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
-    }
-  } else {
-    # Subsequent reads with dropping columns
-    dt <- read_entire_file(file, initial_read = FALSE)
-  }
-
-  return(dt)
-}
-
-# Function to read and save partial data with header row
-read_and_save_partial <- function(start_row, end_row, part_num) {
-  header <- fread(full_claims_file(), nrows = 1, header = TRUE)
-  skip_rows <- if (part_num == 1) start_row else start_row - 1
-  dt <- fread(full_claims_file(),
-              na.strings = na_values,
-              colClasses = "character",
-              nrows = end_row - start_row + 1,
-              skip = skip_rows,
-              header = FALSE
-  )
-  setnames(dt, colnames(header))
-  partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
-  print(paste("Saving partial file:", partial_file_path))
-  fwrite(dt, partial_file_path, quote = TRUE)
-  if (to_sample) {
-    sampled_file_path <- sampled_claims_file(part_num)
-    print(paste("Creating sampled file:", sampled_file_path))
-    sampled_dt <- dt[sample(.N, min(sample_size, .N))]
-    setnames(sampled_dt, colnames(header))
-    fwrite(sampled_dt, sampled_file_path, quote = TRUE)
-  }
-}
-suppressPackageStartupMessages({
-  # library(rprojroot)
-  # library(conflicted)
-  # library(tidyverse)
-  library(data.table)
-  library(here)
-  library(tictoc)
-  library(stringr)
-  library(stringi)
-  library(lubridate)
-  library(docstring)
-  library(profvis)
-  library(hash)
-  # library(foreach)
-  # library(doParallel)
-  # library(parallel)
-  library(future)
-  library(future.apply)
-  library(knitr)
-})
-# print("Packages loaded successfully.")
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 clean_data <- function(dt) {
   # Add year column
@@ -2085,125 +1410,542 @@ combine_and_print_summaries <- function() {
   )
 }
 
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-find_pdx_from_icd <- function(clin_icd) {
-  pdxs <- intersect(clin_icd, acc_pdx)
-  result <- if (length(pdxs) == 0) { # Check if no acceptable PDX codes
-    # are found
-    list(pdx = NA_character_, pdx_code = 99)
-  } else if (length(pdxs) == 1) { # Check if exactly one acceptable PDX
-    # code is found
-    list(pdx = pdxs[1], pdx_code = 3)
+# Function to handle sampling with initial read logic
+handle_sampling <- function(dt = NULL) {
+  sampled_file <- sampled_claims_file(part)
+
+  if (file.exists(sampled_file)) {
+    if (to_view_checks) {
+      print("Sampled file exists. Reading the sampled file...")
+    }
+    dt <- read_sampled_file(sampled_file)
+    # Check if the number of rows matches sample_size
+    if (nrow(dt) != sample_size) {
+      if (to_view_checks) {
+        print(paste(
+          "Sampled file does not match sample size. Expected:",
+          sample_size, "Found:", nrow(dt), "Re-sampling..."
+        ))
+      }
+      dt <- resample_data()
+    } else if (to_view_checks) {
+      print("Sampled file matches sample size.")
+    }
   } else {
-    list(pdx = sample(pdxs, 1), pdx_code = 6) # If multiple acceptable
-    # PDX codes are found, return a random one
-  }
-  return(result)
-}
-
-find_most_similar_pdx <- function(code, pdxs) {
-  starting_letter <- substr(code, 1, 1)
-  starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
-
-  result <- if (length(starting_codes) == 1) { # Check if exactly one
-    # PDX code starts with the same letter
-    list(pdx = starting_codes[1], pdx_code = 4)
-  } else if (length(starting_codes) > 1) { # Check if multiple PDX
-    # codes start with the same letter
-    similarities <- sapply(starting_codes, function(candidate) {
-      sum(
-        substr(
-          code, 1, nchar(candidate)
-        ) == substr(
-          candidate,
-          1,
-          nchar(candidate)
-        )
-      )
-    })
-    most_similar_pdx <- starting_codes[which.max(similarities)]
-    list(pdx = most_similar_pdx, pdx_code = 5)
-  } else {
-    list(pdx = NA_character_, pdx_code = NA_integer_)
+    if (to_view_checks) {
+      print("Sampled file does not exist. Creating new sample...")
+    }
+    dt <- resample_data()
   }
 
-  return(result)
+  return(dt)
 }
 
-find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  clin_icd <- unlist(clin_icd)
+# Function to resample data with initial read logic
+resample_data <- function() {
+  dt <- read_entire_file(full_claims_file(part), initial_read = TRUE)
+  dt <- sample_data(dt)
+  if (to_write) {
+    if (to_view_checks) {
+      print(paste(
+        "to_write is TRUE. Writing the new sample data to file:",
+        sampled_claims_file(part)
+      ))
+    }
+    fwrite(dt, sampled_claims_file(part))
+  } else if (to_view_checks) {
+    print("to_write is FALSE. Not writing the sample data to file.")
+  }
+  return(dt)
+}
 
-  # Helper function to check if a clinical code is an acceptable PDX
-  assess_pdx_code <- function(code, code_num, acc_pdx) {
-    if (!is.null(code) && code %in% acc_pdx) {
-      return(list(pdx = code, pdx_code = code_num))
+# Function to read the entire file or a specific chunk with initial reading logic
+read_entire_file <- function(file, initial_read = TRUE) {
+  header <- fread(file, nrows = 1)
+  if (initial_read) {
+    dt <- fread(file,
+                na.strings = na_values,
+                colClasses = "character",
+                header = FALSE,
+                skip = 1
+    )
+    setnames(dt, names(header))
+  } else {
+    dt <- fread(file,
+                na.strings = na_values,
+                colClasses = "character",
+                header = FALSE,
+                skip = 1
+    )
+    setnames(dt, names(header))
+    dt <- dt[, (drop_cols) := NULL]
+    for (col in names(col_classes_after_drop)) {
+      dt[[col]] <- switch(col_classes_after_drop[[col]],
+                          "character" = as.character(dt[[col]]),
+                          "factor" = as.factor(dt[[col]]),
+                          "integer" = as.integer(dt[[col]]),
+                          "numeric" = as.numeric(dt[[col]]),
+                          dt[[col]])
+    }
+  }
+  return(dt)
+}
+
+# Function to read a sampled file
+read_sampled_file <- function(file) {
+  header <- fread(file, nrows = 1)
+  dt <- fread(file,
+              na.strings = na_values,
+              colClasses = "character",
+              header = FALSE,
+              skip = 1
+  )
+  setnames(dt, names(header))
+  dt <- dt[, (drop_cols) := NULL]
+  for (col in names(col_classes_after_drop)) {
+    dt[[col]] <- switch(col_classes_after_drop[[col]],
+                        "character" = as.character(dt[[col]]),
+                        "factor" = as.factor(dt[[col]]),
+                        "integer" = as.integer(dt[[col]]),
+                        "numeric" = as.numeric(dt[[col]]),
+                        dt[[col]])
+  }
+  return(dt)
+}
+
+# Function to sample data
+sample_data <- function(dt) {
+  dt <- dt[sample(.N, min(sample_size, .N))]
+  return(dt)
+}
+
+# Main read function with initial read logic
+main_read_function <- function(file = NA) {
+  if (is.na(file)) {
+    if (to_read) {
+      file <- full_claims_file(part)
+      if (to_view_checks) {
+        print("Reading the entire file...")
+        print(paste("Full claims file path:", file))
+      }
+      dt <- read_entire_file(file, initial_read = TRUE)
+
+      if (to_sample) {
+        dt <- handle_sampling(dt)
+      }
+    } else if (to_sample) {
+      dt <- handle_sampling()
     } else {
-      return(list(pdx = NA_character_, pdx_code = NA_integer_))
+      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
     }
+  } else {
+    # Subsequent reads with dropping columns
+    dt <- read_entire_file(file, initial_read = FALSE)
   }
 
-  # Check if clin_c1 or clin_c2 is an acceptable PDX
-  pdx_check <- assess_pdx_code(clin_c1, 1, acc_pdx)
-  if (!is.na(pdx_check$pdx)) {
-    return(pdx_check)
-  }
+  return(dt)
+}
 
-  pdx_check <- assess_pdx_code(clin_c2, 2, acc_pdx)
-  if (!is.na(pdx_check$pdx)) {
-    return(pdx_check)
+# Function to read and save partial data with header row
+read_and_save_partial <- function(start_row, end_row, part_num) {
+  header <- fread(full_claims_file(), nrows = 1, header = TRUE)
+  skip_rows <- if (part_num == 1) start_row else start_row - 1
+  dt <- fread(full_claims_file(),
+              na.strings = na_values,
+              colClasses = "character",
+              nrows = end_row - start_row + 1,
+              skip = skip_rows,
+              header = FALSE
+  )
+  setnames(dt, colnames(header))
+  partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
+  print(paste("Saving partial file:", partial_file_path))
+  fwrite(dt, partial_file_path, quote = TRUE)
+  if (to_sample) {
+    sampled_file_path <- sampled_claims_file(part_num)
+    print(paste("Creating sampled file:", sampled_file_path))
+    sampled_dt <- dt[sample(.N, min(sample_size, .N))]
+    setnames(sampled_dt, colnames(header))
+    fwrite(sampled_dt, sampled_file_path, quote = TRUE)
   }
+}
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-  # Find PDX from clinical ICD codes
-  pdx_result <- find_pdx_from_icd(clin_icd)
-  if (!is.na(pdx_result$pdx)) {
-    return(pdx_result)
-  }
+remove_lumped_icd_codes <- function(column) {
+  modified_column <- gsub("(?<=\\d)(?=[A-Za-z])", "||", column, perl = TRUE)
+  return(modified_column)
+}
 
-  # Find the most similar PDX based on clin_c1 or clin_c2
-  for (cr in list(clin_c1, clin_c2)) {
-    if (!is.na(cr) && cr != "") {
-      most_similar_pdx <- find_most_similar_pdx(cr, pdx_result$pdx)
-      if (!is.na(most_similar_pdx$pdx)) {
-        return(most_similar_pdx)
+transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
+  clin_icd <- lapply(clin_icd, function(x) if (is.null(x)) character() else x)
+  col_first <- lapply(col, function(x) x[1])
+
+  clin_icd <- mapply(function(icd, c1) {
+    c(icd, c1[-1])
+  }, clin_icd, col, SIMPLIFY = FALSE)
+
+  return(list(clin_icd = clin_icd, col_first = col_first))
+}
+
+get_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
+  icds <- unique(c(unlist(clin_c1), unlist(clin_c2), unlist(clin_icd)))
+  icds <- icds[!is.na(icds)]
+  return(icds)
+}
+
+create_thai_icd10_environment <- function(thai_icd10_codes) {
+  thai_icd10_env <- list2env(
+    setNames(as.list(rep(TRUE, length(thai_icd10_codes))), thai_icd10_codes)
+  )
+  return(thai_icd10_env)
+}
+
+find_direct_icd_matches <- function(icds, thai_icd10_env) {
+  direct_matches <- mget(
+    icds, thai_icd10_env,
+    ifnotfound = as.list(rep(FALSE, length(icds)))
+  )
+  direct_match_codes <- names(
+    unlist(direct_matches[unlist(direct_matches) == TRUE])
+  )
+  return(direct_match_codes)
+}
+
+generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
+  icd_mapping <- list()
+  modified_count <- 0
+  for (d in icds) {
+    d <- str_trim(d)
+    if (exists(d, thai_icd10_env)) {
+      icd_mapping[[d]] <- d
+    } else if (
+      !exists(d, neoplasms_env) && grepl("[A-Za-z]", d) && grepl("[0-9]", d)) {
+      if (nchar(d) == 3 && exists(paste0(d, "9"), thai_icd10_env)) {
+        icd_mapping[[d]] <- paste0(d, "9")
+        modified_count <- modified_count + 1
+      } else if (nchar(d) >= 4) {
+        for (i in seq_len(nchar(d) - 3)) {
+          new_d <- substr(d, 1, nchar(d) - i)
+          if (exists(new_d, thai_icd10_env)) {
+            icd_mapping[[d]] <- new_d
+            modified_count <- modified_count + 1
+            break
+          }
+        }
       }
     }
   }
-
-  # If no specific match, return the result from find_pdx_from_icd
-  return(pdx_result)
+  return(list(icd_mapping = icd_mapping, modified_count = modified_count))
 }
 
-apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  n <- length(clin_c1)
-  pdx <- character(n)
-  pdx_code <- integer(n)
+# Helper function to map ICD-10 codes to columns
+apply_icd10_mapping_to_columns <- function(
+    clin_c1, clin_c2, clin_icd, icd10_env) {
+  map_icd10_helper <- function(codes) {
+    mapped <- mget(codes, icd10_env, ifnotfound = as.list(codes))
+    return(unname(unlist(mapped)))
+  }
 
-  # Assign PDX based on clin_c1 and clin_c2
-  pdx[clin_c1 %in% acc_pdx] <- clin_c1[clin_c1 %in% acc_pdx]
-  pdx_code[clin_c1 %in% acc_pdx] <- 1
+  clin_c1_mapped <- lapply(clin_c1, map_icd10_helper)
+  clin_c2_mapped <- lapply(clin_c2, map_icd10_helper)
+  clin_icd_mapped <- lapply(clin_icd, map_icd10_helper)
 
-  pdx[clin_c2 %in% acc_pdx] <- clin_c2[clin_c2 %in% acc_pdx]
-  pdx_code[clin_c2 %in% acc_pdx] <- 2
+  return(
+    list(
+      clin_c1 = clin_c1_mapped,
+      clin_c2 = clin_c2_mapped,
+      clin_icd = clin_icd_mapped
+    )
+  )
+}
 
-  # Identify rows without a PDX
-  missing_pdx_indices <- which(is.na(pdx) | pdx == "")
+implement_icd10_mapping <- function(
+    clin_c1, clin_c2, clin_icd, tdrg_icd10, rows_to_show = Inf) {
+  icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
 
-  if (length(missing_pdx_indices) > 0) {
-    # Check if there are rows without a PDX
-    for (i in missing_pdx_indices) {
-      result <- find_pdx(clin_c1[i], clin_c2[i], clin_icd[[i]], acc_pdx)
-      if (!is.na(result$pdx) && !(result$pdx %in% acc_pdx)) {
-        stop(sprintf("Invalid PDX code found: %s", result$pdx))
+  thai_icd10_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10$CODE)
+  )
+  neoplasms_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"])
+  )
+
+  direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
+  cat(
+    sprintf(
+      "\n\nThere are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
+      length(icds), length(direct_match_codes),
+      length(direct_match_codes) * 100 / length(icds)
+    ),
+    " are directly in the Thai ICD-10 library\n"
+  )
+
+  icd_mapping_info <- generate_icd10_mapping(
+    icds, thai_icd10_env, neoplasms_env
+  )
+  icd_mapping <- icd_mapping_info$icd_mapping
+  modified_count <- icd_mapping_info$modified_count
+  cat(sprintf(
+    "The modifications led to a total of %d",
+    length(icd_mapping)
+  ), " codes being mapped to an equivalent in the Thai ICD10 library.\n")
+  cat(sprintf("Out of these, %d were modified to match.\n", modified_count))
+
+  unmatched_icds <- setdiff(icds, names(icd_mapping))
+  if (length(unmatched_icds) > 0) {
+    cat(sprintf(
+      "There are %d codes that could not",
+      length(unmatched_icds)
+    ), "be mapped to the Thai ICD10 library:\n")
+    unmatched_sources <- data.table(
+      code = unmatched_icds, source = NA_character_, count = 0
+    )
+
+    for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
+      col_values <- get(col_name)
+      unmatched_sources[
+        code %in% unlist(col_values),
+        source := col_name
+      ]
+      unmatched_sources[
+        code %in% unlist(col_values),
+        count := count + table(unlist(col_values))[code]
+      ]
+    }
+
+    unmatched_sources <- unmatched_sources[order(-count)]
+  } else {
+    unmatched_sources <- data.table()
+  }
+
+  icd10_map <- data.table(
+    phl_icd10 = names(icd_mapping),
+    tdrg_icd10 = unlist(icd_mapping)
+  )
+  fwrite(icd10_map, paste0(
+    "cache/icd10_map_file_",
+    year_to_load, ".csv"
+  ))
+  icd10_env <- list2env(setNames(
+    as.list(icd10_map$tdrg_icd10),
+    icd10_map$phl_icd10
+  ))
+
+  mapped_columns <- apply_icd10_mapping_to_columns(
+    clin_c1, clin_c2, clin_icd, icd10_env
+  )
+
+  # Generate comparison table
+  original_data <- list(
+    clin_c1 = clin_c1,
+    clin_c2 = clin_c2, clin_icd = clin_icd
+  )
+  modified_data <- list(
+    clin_c1 = mapped_columns$clin_c1,
+    clin_c2 = mapped_columns$clin_c2,
+    clin_icd = mapped_columns$clin_icd
+  )
+
+  padded_data <- lapply(
+    names(original_data),
+    function(name) {
+      pad_list_elements(
+        original_data[[name]],
+        modified_data[[name]]
+      )
+    }
+  )
+
+  comparison_table <- rbind(
+    generate_comparison_table(padded_data[[1]][[1]], padded_data[[1]][[2]]),
+    generate_comparison_table(padded_data[[2]][[1]], padded_data[[2]][[2]]),
+    generate_comparison_table(padded_data[[3]][[1]], padded_data[[3]][[2]])
+  )
+
+  comparison_table <- comparison_table[order(-count)]
+
+  # Check if all resulting ICD codes are in either the
+  # Thai library or the PhilHealth library
+  all_icds <- unique(c(
+    unlist(mapped_columns$clin_c1),
+    unlist(mapped_columns$clin_c2), unlist(mapped_columns$clin_icd)
+  ))
+  valid_icds <- unique(c(tdrg_icd10$CODE, rvs_icd9$icd9cm))
+  invalid_icds <- setdiff(all_icds, valid_icds)
+  invalid_icds <- invalid_icds[!is.na(invalid_icds) & invalid_icds != "NA"]
+
+  if (length(invalid_icds) > 0) {
+    invalid_icds_table <- data.table(
+      code = invalid_icds,
+      count = sapply(
+        invalid_icds,
+        function(icd) {
+          sum(c(
+            unlist(mapped_columns$clin_c1),
+            unlist(mapped_columns$clin_c2),
+            unlist(mapped_columns$clin_icd)
+          ) == icd, na.rm = TRUE)
+        }
+      )
+    )
+
+    invalid_icds_table <- invalid_icds_table[!is.na(code) & code != ""]
+    invalid_icds_table <- invalid_icds_table[order(-count)]
+  } else {
+    invalid_icds_table <- data.table()
+  }
+
+  return(list(
+    clin_c1 = mapped_columns$clin_c1,
+    clin_c2 = mapped_columns$clin_c2,
+    clin_icd = mapped_columns$clin_icd,
+    var1 = length(icds),
+    var2 = length(direct_match_codes),
+    var4 = length(icd_mapping),
+    var5 = modified_count,
+    var6 = length(unmatched_icds),
+    var7 = unmatched_sources,
+    comparison_table = comparison_table,
+    invalid_icds_table = invalid_icds_table
+  ))
+}
+
+
+
+ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
+  # Convert lists to data.table for efficient processing
+  dt <- data.table(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
+
+  # Deduplicate each column
+  dt[, clin_c1 := lapply(clin_c1, unique)]
+  dt[, clin_c2 := lapply(clin_c2, unique)]
+  dt[, clin_icd := lapply(clin_icd, unique)]
+
+  # Remove entries in clin_icd that are in clin_c1 or clin_c2
+  dt[, clin_icd := Map(function(c1, c2, icd) {
+    setdiff(icd, union(c1, c2))
+  }, clin_c1, clin_c2, clin_icd)]
+
+  # Remove entries in clin_c1 that are in clin_c2
+  dt[, clin_c1 := Map(function(c1, c2) {
+    setdiff(c1, c2)
+  }, clin_c1, clin_c2)]
+
+  # Remove entries in clin_c2 that are in clin_c1
+  dt[, clin_c2 := Map(function(c1, c2) {
+    setdiff(c2, c1)
+  }, clin_c1, clin_c2)]
+
+  return(list(clin_c1 = dt$clin_c1, clin_c2 = dt$clin_c2, clin_icd = dt$clin_icd))
+}
+
+generate_comparison_table <- function(original, modified) {
+  original_unlisted <- unlist(original, use.names = FALSE)
+  modified_unlisted <- unlist(modified, use.names = FALSE)
+
+  comparison <- data.table(
+    old_code = original_unlisted,
+    new_code = modified_unlisted
+  )
+
+  comparison <- comparison[old_code != new_code,
+    .(count = .N),
+    by = .(old_code, new_code)
+  ]
+
+  return(comparison)
+}
+
+
+pad_list_elements <- function(list1, list2) {
+  max_length <- max(lengths(list1), lengths(list2))
+
+  pad_with_na <- function(lst, max_length) {
+    lapply(lst, function(x) {
+      if (length(x) < max_length) {
+        x <- c(x, rep(NA, max_length - length(x)))
       }
-      pdx[i] <- result$pdx
-      pdx_code[i] <- result$pdx_code
+      return(x)
+    })
+  }
+
+  list1 <- pad_with_na(list1, max_length)
+  list2 <- pad_with_na(list2, max_length)
+
+  return(list(list1, list2))
+}
+
+aggregate_icd10_stats <- function(summaries) {
+  # Check the structure of summaries
+  if (length(summaries) == 0) {
+    stop("The summaries list is empty.")
+  }
+  if (!all(sapply(summaries, is.list))) {
+    stop("All elements in summaries should be lists.")
+  }
+
+  required_fields <- c(
+    "total_unique_icd_count", "direct_match_count",
+    "modified_count", "total_mapped_count",
+    "unmapped_icd_count", "unmapped_icds"
+  )
+  for (i in seq_along(summaries)) {
+    summary <- summaries[[i]]
+    missing_fields <- setdiff(required_fields, names(summary))
+    if (length(missing_fields) > 0) {
+      stop(sprintf(
+        "Summary %d is missing fields: %s", i,
+        paste(missing_fields, collapse = ", ")
+      ))
     }
   }
 
-  return(list(pdx = pdx, pdx_code = pdx_code))
+  total_unique_icd_count <- sum(sapply(
+    summaries,
+    function(res) res$total_unique_icd_count
+  ))
+  direct_match_count <- sum(sapply(
+    summaries,
+    function(res) res$direct_match_count
+  ))
+  modified_count <- sum(sapply(
+    summaries,
+    function(res) res$modified_count
+  ))
+  total_mapped_count <- sum(sapply(
+    summaries,
+    function(res) res$total_mapped_count
+  ))
+  unmapped_icd_count <- sum(sapply(
+    summaries,
+    function(res) res$unmapped_icd_count
+  ))
+
+  unmapped_icds_list <- lapply(
+    summaries,
+    function(res) res$unmapped_icds
+  )
+  combined_unmapped_icds <- rbindlist(unmapped_icds_list, fill = TRUE)
+  combined_unmapped_icds <- combined_unmapped_icds[,
+    .(count = sum(count)),
+    by = code
+  ][order(-count)]
+
+  return(list(
+    total_unique_icd_count = total_unique_icd_count,
+    direct_match_count = direct_match_count,
+    direct_match_percentage = ifelse(total_unique_icd_count > 0,
+      (direct_match_count / total_unique_icd_count) * 100, 0
+    ),
+    total_mapped_count = total_mapped_count,
+    modified_count = modified_count,
+    unmapped_icd_count = unmapped_icd_count,
+    combined_unmapped_icds = combined_unmapped_icds
+  ))
 }
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 split_rvs_codes <- function(rvs_icd9) {
   with_drg <- rvs_icd9[is_drg == TRUE]
@@ -2336,7 +2078,237 @@ compute_statistics <- function(dt, rvs_icd9, rvs_map_list) {
     length(unmappable_rvs), (length(unmappable_rvs) * 100 / length(rvss))
   ))
 }
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
+
+find_pdx_from_icd <- function(clin_icd) {
+  pdxs <- intersect(clin_icd, acc_pdx)
+  result <- if (length(pdxs) == 0) { # Check if no acceptable PDX codes
+    # are found
+    list(pdx = NA_character_, pdx_code = 99)
+  } else if (length(pdxs) == 1) { # Check if exactly one acceptable PDX
+    # code is found
+    list(pdx = pdxs[1], pdx_code = 3)
+  } else {
+    list(pdx = sample(pdxs, 1), pdx_code = 6) # If multiple acceptable
+    # PDX codes are found, return a random one
+  }
+  return(result)
+}
+
+find_most_similar_pdx <- function(code, pdxs) {
+  starting_letter <- substr(code, 1, 1)
+  starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
+
+  result <- if (length(starting_codes) == 1) { # Check if exactly one
+    # PDX code starts with the same letter
+    list(pdx = starting_codes[1], pdx_code = 4)
+  } else if (length(starting_codes) > 1) { # Check if multiple PDX
+    # codes start with the same letter
+    similarities <- sapply(starting_codes, function(candidate) {
+      sum(
+        substr(
+          code, 1, nchar(candidate)
+        ) == substr(
+          candidate,
+          1,
+          nchar(candidate)
+        )
+      )
+    })
+    most_similar_pdx <- starting_codes[which.max(similarities)]
+    list(pdx = most_similar_pdx, pdx_code = 5)
+  } else {
+    list(pdx = NA_character_, pdx_code = NA_integer_)
+  }
+
+  return(result)
+}
+
+find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+  clin_icd <- unlist(clin_icd)
+
+  # Helper function to check if a clinical code is an acceptable PDX
+  assess_pdx_code <- function(code, code_num, acc_pdx) {
+    if (!is.null(code) && code %in% acc_pdx) {
+      return(list(pdx = code, pdx_code = code_num))
+    } else {
+      return(list(pdx = NA_character_, pdx_code = NA_integer_))
+    }
+  }
+
+  # Check if clin_c1 or clin_c2 is an acceptable PDX
+  pdx_check <- assess_pdx_code(clin_c1, 1, acc_pdx)
+  if (!is.na(pdx_check$pdx)) {
+    return(pdx_check)
+  }
+
+  pdx_check <- assess_pdx_code(clin_c2, 2, acc_pdx)
+  if (!is.na(pdx_check$pdx)) {
+    return(pdx_check)
+  }
+
+  # Find PDX from clinical ICD codes
+  pdx_result <- find_pdx_from_icd(clin_icd)
+  if (!is.na(pdx_result$pdx)) {
+    return(pdx_result)
+  }
+
+  # Find the most similar PDX based on clin_c1 or clin_c2
+  for (cr in list(clin_c1, clin_c2)) {
+    if (!is.na(cr) && cr != "") {
+      most_similar_pdx <- find_most_similar_pdx(cr, pdx_result$pdx)
+      if (!is.na(most_similar_pdx$pdx)) {
+        return(most_similar_pdx)
+      }
+    }
+  }
+
+  # If no specific match, return the result from find_pdx_from_icd
+  return(pdx_result)
+}
+
+apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+  n <- length(clin_c1)
+  pdx <- character(n)
+  pdx_code <- integer(n)
+
+  # Assign PDX based on clin_c1 and clin_c2
+  pdx[clin_c1 %in% acc_pdx] <- clin_c1[clin_c1 %in% acc_pdx]
+  pdx_code[clin_c1 %in% acc_pdx] <- 1
+
+  pdx[clin_c2 %in% acc_pdx] <- clin_c2[clin_c2 %in% acc_pdx]
+  pdx_code[clin_c2 %in% acc_pdx] <- 2
+
+  # Identify rows without a PDX
+  missing_pdx_indices <- which(is.na(pdx) | pdx == "")
+
+  if (length(missing_pdx_indices) > 0) {
+    # Check if there are rows without a PDX
+    for (i in missing_pdx_indices) {
+      result <- find_pdx(clin_c1[i], clin_c2[i], clin_icd[[i]], acc_pdx)
+      if (!is.na(result$pdx) && !(result$pdx %in% acc_pdx)) {
+        stop(sprintf("Invalid PDX code found: %s", result$pdx))
+      }
+      pdx[i] <- result$pdx
+      pdx_code[i] <- result$pdx_code
+    }
+  }
+
+  return(list(pdx = pdx, pdx_code = pdx_code))
+}
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
+
+generate_dob_vectorized <- function(bdays, ages, date_adms) {
+  require(lubridate)
+
+  # Ensure ages are numeric
+  ages <- as.numeric(ages)
+
+  dob <- rep(NA_character_, length(ages))
+
+  # Use provided birthdates where available
+  valid_bdays_indices <- !is.na(bdays) & bdays != ""
+  dob[valid_bdays_indices] <- format(
+    mdy(bdays[valid_bdays_indices]),
+    "%d/%m/%Y"
+  )
+
+  # Identify indices where birthdates are missing
+  missing_bday_indices <- which(is.na(bdays) | bdays == "")
+  ref_dates <- mdy(date_adms[missing_bday_indices])
+
+  # Handle cases where ages are zero
+  zero_age_indices <- which(
+    !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
+  )
+  dob[missing_bday_indices[zero_age_indices]] <- format(
+    ref_dates[zero_age_indices] - days(
+      sample(
+        1:27, length(zero_age_indices),
+        replace = TRUE
+      )
+    ), "%d/%m/%Y"
+  )
+
+  # Handle cases where ages are positive
+  positive_age_indices <- which(
+    !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0
+  )
+  truncated_ages <- floor(
+    ages[missing_bday_indices][positive_age_indices]
+  )
+  dob[missing_bday_indices[positive_age_indices]] <- format(
+    ref_dates[positive_age_indices] - years(truncated_ages) - days(
+      sample(1:170, length(positive_age_indices), replace = TRUE)
+    ), "%d/%m/%Y"
+  )
+
+  return(dob)
+}
+
+
+generate_dob_column <- function(dt) {
+  generate_dob_vectorized(dt$pat_bdate, dt$pat_age, dt$date_adm)
+}
+
+format_dates <- function(date_vector) {
+  format(mdy(date_vector), "%d/%m/%Y")
+}
+
+format_times <- function(time_vector) {
+  gsub(":", "", time_vector)
+}
+
+split_icd_codes_for_batch_grouper <- function(icd_str) {
+  codes <- unlist(icd_str)
+  length(codes) <- 12
+  codes
+}
+
+split_rvs_codes_for_batch_grouper <- function(rvs_str) {
+  codes <- unlist(rvs_str)
+  length(codes) <- 20
+  codes
+}
+
+prepare_and_write_output <- function(output_dt, output_txt_file) {
+  # Replace NA values with '--'
+  output_dt[is.na(output_dt)] <- "--"
+  # Convert list columns to comma-separated strings
+  for (col in names(output_dt)) {
+    if (is.list(output_dt[[col]])) {
+      output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
+    }
+  }
+  # Write the data.table to a file
+  fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
+}
+
+export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
+  output_dt <- data.table(CASEID = 1:nrow(dt))
+  output_dt[, DOB := generate_dob_column(dt)]
+  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
+  output_dt[, DateAdm := format_dates(dt$date_adm)]
+  output_dt[, TimeAdm := format_times(dt$time_adm)]
+  output_dt[, DateDsc := format_dates(dt$date_dis)]
+  output_dt[, TimeDsc := format_times(dt$time_dis)]
+  output_dt[, DischT := dt$clin_discharge]
+  output_dt[, AdmWt := dt$pat_bwt]
+  output_dt[, PDx := dt$pdx]
+
+  icd_codes_list <- lapply(dt$clin_icd, split_icd_codes_for_batch_grouper)
+  icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
+  icd_cols <- paste0("SDx", 1:12)
+  output_dt[, (icd_cols) := icd_codes]
+
+  rvs_codes_list <- lapply(dt$icd9_list, split_rvs_codes_for_batch_grouper)
+  rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
+  proc_cols <- paste0("Proc", 1:20)
+  output_dt[, (proc_cols) := rvs_codes]
+
+  prepare_and_write_output(output_dt, output_txt_file)
+}
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 print_time_estimates <- function(split_chunk_to_process, dt, total_time, total_rows) {
   if (!is.na(split_chunk_to_process)) {
@@ -2383,6 +2355,27 @@ print_time_estimates <- function(split_chunk_to_process, dt, total_time, total_r
       formatted_total_rows, time_per_row * 1000
     ))
   }
+}
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
+
+concatenate_r_files <- function(input_path, output_file) {
+  # List all .R files in the directory
+  r_files <- list.files(
+    path = input_path,
+    pattern = "\\.R$", full.names = TRUE
+  )
+
+  # Delete the existing output file if it exists
+  if (file.exists(output_file)) {
+    file.remove(output_file)
+  }
+
+  # Read and concatenate contents
+  file_contents <- lapply(r_files, readLines)
+  concatenated_content <- unlist(file_contents)
+
+  # Write concatenated content to the output file
+  cat(concatenated_content, file = output_file, sep = "\n")
 }
 # id_series:STRING,
 # id_pin:STRING,

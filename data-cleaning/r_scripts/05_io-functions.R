@@ -136,7 +136,6 @@ main_read_function <- function(file = NA) {
   return(dt)
 }
 
-# Function to read and save partial data with header row
 read_and_save_partial <- function(start_row, end_row, part_num) {
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)
   skip_rows <- if (part_num == 1) start_row else start_row - 1
