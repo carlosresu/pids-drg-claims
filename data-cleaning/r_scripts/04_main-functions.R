@@ -571,29 +571,55 @@ print_summary_tables <- function(result, rows_to_show) {
 }
 
 # Function to split and save chunks
-split_and_save_chunks <- function() {
+split_and_save_chunks <- function(part_to_process = NA) {
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_chunks)
-    for (part in 1:split_chunks) {
+    parts <- if (is.na(part_to_process)) 1:split_chunks else part_to_process
+    for (part in parts) {
       chunk_file <- if (to_sample) {
         sampled_claims_file(part)
       } else {
         full_claims_file(part)
       }
 
-      print(paste("Checking file:", chunk_file))  # Debugging statement
+      if (!is.na(part_to_process)) {
+        print(paste("Checking partial file:", chunk_file))
+        # Debugging statement for partial file
+      } else {
+        print(paste("Checking full file:", chunk_file))
+        # Debugging statement for full file
+      }
 
       if (!file.exists(chunk_file)) {
-        print(paste("File does not exist. Creating file:", chunk_file))  # Debugging statement
+        if (!is.na(part_to_process)) {
+          print(paste(
+            "Partial file does not exist. Creating partial file:",
+            chunk_file
+          ))
+          # Debugging statement for partial file creation
+        } else {
+          stop(paste(
+            "Full file does not exist. Creating from full file:",
+            chunk_file
+          ))
+          # Debugging statement for full file creation
+        }
         start_row <- (part - 1) * rows_per_part + 1
         end_row <- min(part * rows_per_part, total_rows)
         read_and_save_partial(start_row, end_row, part)
       } else {
-        print(paste("File already exists:", chunk_file))
+        if (!is.na(part_to_process)) {
+          print(paste("Partial file already exists:", chunk_file))
+          # Debugging statement for existing partial file
+        } else {
+          stop(paste("Full file already exists:", chunk_file))
+          # Debugging statement for existing full file
+        }
       }
     }
   }
 }
+
 
 # Function to read and process chunks
 read_and_process_chunk <- function(part) {

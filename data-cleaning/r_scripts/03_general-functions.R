@@ -454,3 +454,8 @@ is_partial_file <- function(part) {
 file_exists <- function(filepath) {
   return(file.exists(filepath))
 }
+
+# Suppress interim output
+suppress_interim_output <- function(expr) {
+  suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
+}

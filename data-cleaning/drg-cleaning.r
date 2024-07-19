@@ -10,7 +10,7 @@ rows_to_show <- 10
 # Input:
 to_read <- FALSE
 to_split <- TRUE
-to_sample <- FALSE
+to_sample <- TRUE
 to_loop <- FALSE
 
 # Output:
@@ -83,6 +83,7 @@ set.seed(seed)
 options(future.globals.maxSize = 1024 * 1024^2)
 
 global_seed <- seed # for parallelized operations
+
 
 options(verbose = FALSE)
 options(warn = -1)
@@ -184,16 +185,12 @@ acc_pdx <- unique(acc_pdx)
 all_parts_summaries <- list()
 all_parts_statistics <- list()
 
-# Suppress interim output
-suppress_interim_output <- function(expr) {
-  suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
-}
-
 # Main script logic
 if (!is.na(split_chunk_to_process)) {
+  split_and_save_chunks(split_chunk_to_process)
+  # Split and save only the specified chunk
   if (to_profvis) {
     p <- profvis({
-      split_and_save_chunks()
       dt <- read_and_process_chunk(split_chunk_to_process)
       if (!is.null(dt) && nrow(dt) > 0) {
         dt <- parallelize_and_summarize_data(split_chunk_to_process, dt)
@@ -213,7 +210,6 @@ if (!is.na(split_chunk_to_process)) {
       selfcontained = TRUE
     )
   } else {
-    split_and_save_chunks()
     dt <- read_and_process_chunk(split_chunk_to_process)
     if (!is.null(dt) && nrow(dt) > 0) {
       dt <- parallelize_and_summarize_data(split_chunk_to_process, dt)
@@ -223,9 +219,9 @@ if (!is.na(split_chunk_to_process)) {
     combine_and_print_summaries()
   }
 } else {
+  split_and_save_chunks() # Split and save all chunks
   if (to_profvis) {
     p <- profvis({
-      split_and_save_chunks()
       for (part in 1:split_chunks) {
         dt <- read_and_process_chunk(part)
         if (!is.null(dt) && nrow(dt) > 0) {
@@ -244,8 +240,6 @@ if (!is.na(split_chunk_to_process)) {
       selfcontained = TRUE
     )
   } else {
-    split_and_save_chunks()
-
     for (part in 1:split_chunks) {
       dt <- read_and_process_chunk(part)
       if (!is.null(dt) && nrow(dt) > 0) {

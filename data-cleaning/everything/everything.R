@@ -684,6 +684,11 @@ is_partial_file <- function(part) {
 file_exists <- function(filepath) {
   return(file.exists(filepath))
 }
+
+# Suppress interim output
+suppress_interim_output <- function(expr) {
+  suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
+}
 # source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 clean_data <- function(dt) {
@@ -1256,50 +1261,71 @@ print_summary_tables <- function(result, rows_to_show) {
   }
 }
 
-split_and_save_chunks <- function() {
-  if (to_split && !is_partial_file(part)) {
+# Function to split and save chunks
+split_and_save_chunks <- function(part_to_process = NA) {
+  if (to_split) {
     rows_per_part <- ceiling(total_rows / split_chunks)
-    for (part in 1:split_chunks) {
+    parts <- if (is.na(part_to_process)) 1:split_chunks else part_to_process
+    for (part in parts) {
       chunk_file <- if (to_sample) {
         sampled_claims_file(part)
       } else {
         full_claims_file(part)
       }
 
+      if (!is.na(part_to_process)) {
+        print(paste("Checking partial file:", chunk_file))
+        # Debugging statement for partial file
+      } else {
+        print(paste("Checking full file:", chunk_file))
+        # Debugging statement for full file
+      }
+
       if (!file.exists(chunk_file)) {
+        if (!is.na(part_to_process)) {
+          print(paste(
+            "Partial file does not exist. Creating partial file:",
+            chunk_file
+          ))
+          # Debugging statement for partial file creation
+        } else {
+          stop(paste(
+            "Full file does not exist. Creating from full file:",
+            chunk_file
+          ))
+          # Debugging statement for full file creation
+        }
         start_row <- (part - 1) * rows_per_part + 1
         end_row <- min(part * rows_per_part, total_rows)
         read_and_save_partial(start_row, end_row, part)
       } else {
-        print(paste("File already exists:", chunk_file))
+        if (!is.na(part_to_process)) {
+          print(paste("Partial file already exists:", chunk_file))
+          # Debugging statement for existing partial file
+        } else {
+          stop(paste("Full file already exists:", chunk_file))
+          # Debugging statement for existing full file
+        }
       }
     }
   }
 }
 
+
+# Function to read and process chunks
 read_and_process_chunk <- function(part) {
-  # Determine the correct chunk file based on sampling condition
-  if (to_sample) {
-    # Ensure the correct, existing sampled file is used
-    chunk_file <- sampled_claims_file(part)
+  chunk_file <- if (to_sample) {
+    sampled_claims_file(part)
   } else {
-    chunk_file <- full_claims_file(part)
+    full_claims_file(part)
   }
 
-  # Check if the chunk file exists
   if (!file_exists(chunk_file)) {
     stop(paste("File does not exist:", chunk_file))
   }
 
-  # Read the chunk file into a data table using the provided function
   dt <- read_entire_file(chunk_file, initial_read = is_partial_file(part))
 
-  # Check if dt is empty and provide informative messages
-  if (is.null(dt) || nrow(dt) == 0) {
-    stop(paste("Data table is empty for part:", part, "file:", chunk_file))
-  }
-
-  # Handle sampling if required
   if (to_sample) {
     dt <- handle_sampling(dt)
   }
@@ -1490,9 +1516,11 @@ main_read_function <- function(file = NA) {
   return(dt)
 }
 
+# Function to read and save partial chunks
 read_and_save_partial <- function(start_row, end_row, part_num) {
   partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
-  header <- fread(full_claims_file(), nrows = 1, header = TRUE) # Always read the header
+  header <- fread(full_claims_file(), nrows = 1, header = TRUE)
+  # Always read the header
 
   if (!file_exists(partial_file_path)) {
     skip_rows <- if (part_num == 1) start_row else start_row - 1
@@ -1506,29 +1534,39 @@ read_and_save_partial <- function(start_row, end_row, part_num) {
     setnames(dt, colnames(header))
     if (nrow(dt) > 0) {
       print(paste("Saving partial file:", partial_file_path))
+      # Debugging statement
       fwrite(dt, partial_file_path, quote = TRUE)
     } else {
       print(paste("No rows to save for part:", part_num))
+      # Debugging statement
     }
   } else {
     print(paste("File already exists, skipping creation:", partial_file_path))
+    # Debugging statement
+    dt <- read_entire_file(
+      partial_file_path,
+      initial_read = is_partial_file(part_num)
+    )
   }
 
   if (to_sample) {
     sampled_file_path <- sampled_claims_file(part_num)
     if (!file_exists(sampled_file_path)) {
       print(paste("Creating sampled file:", sampled_file_path))
-      if (exists("dt") && nrow(dt) > 0) {
+      # Debugging statement
+      if (!is.null(dt) && nrow(dt) > 0) {
         sampled_dt <- sample_data(dt)
       } else {
-        # Read the partial file again if dt doesn't exist
-        dt <- read_entire_file(partial_file_path, initial_read = is_partial_file(part))
-        sampled_dt <- sample_data(dt)
+        stop("Failed to read partial file or no rows available for sampling")
       }
       setnames(sampled_dt, colnames(header))
       fwrite(sampled_dt, sampled_file_path, quote = TRUE)
     } else {
-      print(paste("Sampled file already exists, skipping creation:", sampled_file_path))
+      print(paste(
+        "Sampled file already exists, skipping creation:",
+        sampled_file_path
+      ))
+      # Debugging statement
     }
   }
 }
