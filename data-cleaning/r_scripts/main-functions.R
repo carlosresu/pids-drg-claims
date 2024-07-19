@@ -1,36 +1,5 @@
 source(here("data-cleaning", "r_scripts", "libraries.R"))
 
-main_read_function <- function(file = NA) {
-  if (is.na(file)) {
-    if (to_read) {
-      file <- full_claims_file(part)
-      if (to_view_checks) {
-        print("Reading the entire file...")
-        print(paste("Full claims file path:", file))
-      }
-      dt <- read_entire_file(file)
-
-      if (to_sample) {
-        dt <- handle_sampling(dt)
-      }
-    } else if (to_sample) {
-      dt <- handle_sampling()
-    } else {
-      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
-    }
-  } else {
-    # print(paste("Reading specified file:", file))
-    dt <- fread(file,
-      na.strings = na_values,
-      drop = drop_cols, colClasses = "character"
-    )
-    # print(paste("Number of rows read:", nrow(dt))) # Add this line
-  }
-
-  return(dt)
-}
-
-
 clean_data <- function(dt) {
   # Add year column
   dt[, SRC_YR := as.integer(year_to_load)]
