@@ -1,4 +1,4 @@
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 concatenate_r_files <- function(input_path, output_file) {
   # List all .R files in the directory
@@ -19,9 +19,3 @@ concatenate_r_files <- function(input_path, output_file) {
   # Write concatenated content to the output file
   cat(concatenated_content, file = output_file, sep = "\n")
 }
-
-# Example usage within your script
-input_path <- here("data-cleaning", "r_scripts")
-output_file <- paste0(here("data-cleaning", "everything", "everything.R"))
-
-concatenate_r_files(input_path, output_file)

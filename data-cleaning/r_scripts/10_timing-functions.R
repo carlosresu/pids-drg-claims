@@ -1,4 +1,4 @@
-source(here("data-cleaning", "r_scripts", "libraries.R"))
+# source(here("data-cleaning", "r_scripts", "libraries.R"))
 
 print_time_estimates <- function(split_chunk_to_process, dt, total_time, total_rows) {
   if (!is.na(split_chunk_to_process)) {
