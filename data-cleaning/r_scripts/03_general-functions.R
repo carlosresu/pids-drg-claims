@@ -285,45 +285,34 @@ combine_invalid_icd_table <- function(tables) {
   combined_table[order(-count)]
 }
 
-combine_all_parts_summaries <- function(
-    all_parts_summaries, rows_to_show = 10) {
+combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
   combined_summary <- list(
-    rename_success = all(
-      sapply(
-        all_parts_summaries,
-        function(summary) summary$rename_success
-      )
-    ),
+    rename_success = all(unlist(sapply(
+      all_parts_summaries,
+      function(summary) summary$rename_success
+    )), na.rm = TRUE),
     ICD_replacements_1 = combine_comparison_tables(
       all_parts_summaries, "ICD_replacements_1", rows_to_show
     ),
     ICD_replacements_2 = combine_comparison_tables(
       all_parts_summaries, "ICD_replacements_2", rows_to_show
     ),
-    pat_type_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$pat_type_unmapped
-      ))
-    ),
-    memcat_parent_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$memcat_parent_unmapped
-      ))
-    ),
-    memcat_child_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$memcat_child_unmapped
-      ))
-    ),
-    discharge_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$discharge_unmapped
-      ))
-    ),
+    pat_type_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$pat_type_unmapped
+    ))),
+    memcat_parent_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$memcat_parent_unmapped
+    ))),
+    memcat_child_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$memcat_child_unmapped
+    ))),
+    discharge_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$discharge_unmapped
+    ))),
     discard_rvs_one = combine_discarded_rvs_tables(
       all_parts_summaries, "discard_rvs_one", rows_to_show
     ),
@@ -336,22 +325,19 @@ combine_all_parts_summaries <- function(
     empty_strings_replaced_2 = combine_replace_empty_tables(
       all_parts_summaries, "empty_strings_replaced_2", rows_to_show
     ),
-    icd_comparison_table = combine_icd_comparison_table(
-      lapply(
-        all_parts_summaries,
-        function(summary) summary$icd_comparison_table
-      )
-    ),
-    invalid_icds_table = combine_invalid_icd_table(
-      lapply(
-        all_parts_summaries,
-        function(summary) summary$invalid_icds_table
-      )
-    )
+    icd_comparison_table = combine_icd_comparison_table(lapply(
+      all_parts_summaries,
+      function(summary) summary$icd_comparison_table
+    )),
+    invalid_icds_table = combine_invalid_icd_table(lapply(
+      all_parts_summaries,
+      function(summary) summary$invalid_icds_table
+    ))
   )
 
   return(combined_summary)
 }
+
 
 combine_all_parts_statistics <- function(all_parts_statistics) {
   total_statistics <- list(

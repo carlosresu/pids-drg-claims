@@ -16,9 +16,9 @@ suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, "_", sample_size)
+    paste0("sampled_claims_", year_to_load, "_", sample_size)
   } else {
-    paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, "_", sample_size, "_part_", part, "_of_", split_chunks)
+    paste0("sampled_claims_", year_to_load, "_", sample_size, "_part_", part, "_of_", split_chunks)
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -28,9 +28,9 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("claims_extract_CLAIMS_", year_to_load)
+    paste0("full_claims_", year_to_load)
   } else {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_chunks)
+    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_chunks)
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -44,11 +44,11 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
 
 intermediate_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("intermediate_claims_", year_to_load, "_processed", suffix)
+    paste0("intermediate_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "intermediate_claims_", year_to_load,
-      "_processed", suffix, "_part_", part, "_of_", split_chunks
+      "intermediate_claims_", year_to_load, suffix, 
+      "_part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -59,10 +59,10 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
 
 cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix)
+    paste0("cleaned_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "cleaned_claims_extract_CLAIMS_",
+      "cleaned_claims_",
       year_to_load, suffix, "_part_", part, "_of_", split_chunks
     )
   }

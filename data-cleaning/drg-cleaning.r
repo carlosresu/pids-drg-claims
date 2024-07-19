@@ -1,7 +1,4 @@
-knitr::opts_chunk$set(echo = TRUE)
-
 # IMPORTANT PARAMETERS:
-# Parameters:
 year_to_load <- "2018"
 version <- "v2"
 split_chunks <- 5
@@ -23,6 +20,9 @@ to_chunk <- TRUE # doesn't work if false; not chunking is deprecated.
 to_view_checks <- TRUE
 to_view_checks_parallelized <- FALSE
 to_parallelize <- TRUE
+
+# Sample size divisor:
+sample_size_divisor <- 5
 
 if (to_loop) {
   split_chunk_to_process <- NA
@@ -83,7 +83,6 @@ set.seed(seed)
 options(future.globals.maxSize = 1024 * 1024^2)
 
 global_seed <- seed # for parallelized operations
-
 
 options(verbose = FALSE)
 options(warn = -1)
@@ -181,14 +180,11 @@ acc_pdx <- tdrg_icd10[ACCPDX == "Y", CODE]
 acc_pdx <- unique(acc_pdx)
 
 
-# Main workflow
 all_parts_summaries <- list()
 all_parts_statistics <- list()
 
-# Main script logic
 if (!is.na(split_chunk_to_process)) {
   split_and_save_chunks(split_chunk_to_process)
-  # Split and save only the specified chunk
   if (to_profvis) {
     p <- profvis({
       dt <- read_and_process_chunk(split_chunk_to_process)
@@ -219,7 +215,7 @@ if (!is.na(split_chunk_to_process)) {
     combine_and_print_summaries()
   }
 } else {
-  split_and_save_chunks() # Split and save all chunks
+  split_and_save_chunks()
   if (to_profvis) {
     p <- profvis({
       for (part in 1:split_chunks) {
@@ -253,7 +249,6 @@ if (!is.na(split_chunk_to_process)) {
     combine_and_print_summaries()
   }
 }
-
 
 # Stop the timer and capture total time
 toc_data <- toc(log = TRUE)

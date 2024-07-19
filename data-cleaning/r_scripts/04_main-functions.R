@@ -9,17 +9,17 @@ clean_data <- function(dt) {
 
   # Check if all columns were successfully renamed
   if (!all(new_colnames %in% colnames(dt))) {
-    missing_cols <- setdiff(new_colnames, colnames(dt))
-    warning(
-      "Failed to rename the following columns: ",
-      paste(missing_cols, collapse = ", ")
-    )
+    # missing_cols <- setdiff(new_colnames, colnames(dt))
+    # warning(
+    #   "Failed to rename the following columns: ",
+    #   paste(missing_cols, collapse = ", ")
+    # )
     rename_success <- FALSE
-    stop("Column renaming failed.")
+    # stop("Column renaming failed.")
+  } else {
+    rename_success <- TRUE
   }
-
-  rename_success <- TRUE
-
+  
   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
   dt[, clin_icd := collapse_columns(
     mget(paste0("clin_icd", 1:12), envir = as.environment(dt)),
@@ -290,7 +290,8 @@ parallelize_and_summarize <- function(
   summaries <- lapply(parallel_results, function(res) res$summary)
 
   consolidated_summary <- list(
-    rename_success = all(sapply(summaries, function(s) s$rename_success)),
+    rename_success = all(unlist(sapply(summaries, 
+    function(s) s$rename_success)), na.rm = TRUE),
     ICD_replacements_1 = combine_comparison_tables(
       summaries, "ICD_replacements_1", rows_to_show
     ),
@@ -597,12 +598,6 @@ split_and_save_chunks <- function(part_to_process = NA) {
             chunk_file
           ))
           # Debugging statement for partial file creation
-        } else {
-          stop(paste(
-            "Full file does not exist. Creating from full file:",
-            chunk_file
-          ))
-          # Debugging statement for full file creation
         }
         start_row <- (part - 1) * rows_per_part + 1
         end_row <- min(part * rows_per_part, total_rows)
@@ -611,9 +606,6 @@ split_and_save_chunks <- function(part_to_process = NA) {
         if (!is.na(part_to_process)) {
           print(paste("Partial file already exists:", chunk_file))
           # Debugging statement for existing partial file
-        } else {
-          stop(paste("Full file already exists:", chunk_file))
-          # Debugging statement for existing full file
         }
       }
     }
@@ -636,7 +628,7 @@ read_and_process_chunk <- function(part) {
   dt <- read_entire_file(chunk_file, initial_read = is_partial_file(part))
 
   if (to_sample) {
-    dt <- handle_sampling(dt)
+    dt <- handle_sampling(dt, part)
   }
 
   return(dt)

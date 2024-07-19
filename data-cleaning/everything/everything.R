@@ -128,9 +128,9 @@ suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, "_", sample_size)
+    paste0("sampled_claims_", year_to_load, "_", sample_size)
   } else {
-    paste0("sampled_claims_extract_CLAIMS_", year_to_load, suffix, "_", sample_size, "_part_", part, "_of_", split_chunks)
+    paste0("sampled_claims_", year_to_load, "_", sample_size, "_part_", part, "_of_", split_chunks)
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -140,9 +140,9 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("claims_extract_CLAIMS_", year_to_load)
+    paste0("full_claims_", year_to_load)
   } else {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_chunks)
+    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_chunks)
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -156,11 +156,11 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
 
 intermediate_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("intermediate_claims_", year_to_load, "_processed", suffix)
+    paste0("intermediate_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "intermediate_claims_", year_to_load,
-      "_processed", suffix, "_part_", part, "_of_", split_chunks
+      "intermediate_claims_", year_to_load, suffix, 
+      "_part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -171,10 +171,10 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
 
 cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("cleaned_claims_extract_CLAIMS_", year_to_load, suffix)
+    paste0("cleaned_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "cleaned_claims_extract_CLAIMS_",
+      "cleaned_claims_",
       year_to_load, suffix, "_part_", part, "_of_", split_chunks
     )
   }
@@ -515,45 +515,34 @@ combine_invalid_icd_table <- function(tables) {
   combined_table[order(-count)]
 }
 
-combine_all_parts_summaries <- function(
-    all_parts_summaries, rows_to_show = 10) {
+combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
   combined_summary <- list(
-    rename_success = all(
-      sapply(
-        all_parts_summaries,
-        function(summary) summary$rename_success
-      )
-    ),
+    rename_success = all(unlist(sapply(
+      all_parts_summaries,
+      function(summary) summary$rename_success
+    )), na.rm = TRUE),
     ICD_replacements_1 = combine_comparison_tables(
       all_parts_summaries, "ICD_replacements_1", rows_to_show
     ),
     ICD_replacements_2 = combine_comparison_tables(
       all_parts_summaries, "ICD_replacements_2", rows_to_show
     ),
-    pat_type_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$pat_type_unmapped
-      ))
-    ),
-    memcat_parent_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$memcat_parent_unmapped
-      ))
-    ),
-    memcat_child_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$memcat_child_unmapped
-      ))
-    ),
-    discharge_unmapped = unique(
-      unlist(lapply(
-        all_parts_summaries,
-        function(summary) summary$discharge_unmapped
-      ))
-    ),
+    pat_type_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$pat_type_unmapped
+    ))),
+    memcat_parent_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$memcat_parent_unmapped
+    ))),
+    memcat_child_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$memcat_child_unmapped
+    ))),
+    discharge_unmapped = unique(unlist(lapply(
+      all_parts_summaries,
+      function(summary) summary$discharge_unmapped
+    ))),
     discard_rvs_one = combine_discarded_rvs_tables(
       all_parts_summaries, "discard_rvs_one", rows_to_show
     ),
@@ -566,22 +555,19 @@ combine_all_parts_summaries <- function(
     empty_strings_replaced_2 = combine_replace_empty_tables(
       all_parts_summaries, "empty_strings_replaced_2", rows_to_show
     ),
-    icd_comparison_table = combine_icd_comparison_table(
-      lapply(
-        all_parts_summaries,
-        function(summary) summary$icd_comparison_table
-      )
-    ),
-    invalid_icds_table = combine_invalid_icd_table(
-      lapply(
-        all_parts_summaries,
-        function(summary) summary$invalid_icds_table
-      )
-    )
+    icd_comparison_table = combine_icd_comparison_table(lapply(
+      all_parts_summaries,
+      function(summary) summary$icd_comparison_table
+    )),
+    invalid_icds_table = combine_invalid_icd_table(lapply(
+      all_parts_summaries,
+      function(summary) summary$invalid_icds_table
+    ))
   )
 
   return(combined_summary)
 }
+
 
 combine_all_parts_statistics <- function(all_parts_statistics) {
   total_statistics <- list(
@@ -700,17 +686,17 @@ clean_data <- function(dt) {
 
   # Check if all columns were successfully renamed
   if (!all(new_colnames %in% colnames(dt))) {
-    missing_cols <- setdiff(new_colnames, colnames(dt))
-    warning(
-      "Failed to rename the following columns: ",
-      paste(missing_cols, collapse = ", ")
-    )
+    # missing_cols <- setdiff(new_colnames, colnames(dt))
+    # warning(
+    #   "Failed to rename the following columns: ",
+    #   paste(missing_cols, collapse = ", ")
+    # )
     rename_success <- FALSE
-    stop("Column renaming failed.")
+    # stop("Column renaming failed.")
+  } else {
+    rename_success <- TRUE
   }
-
-  rename_success <- TRUE
-
+  
   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
   dt[, clin_icd := collapse_columns(
     mget(paste0("clin_icd", 1:12), envir = as.environment(dt)),
@@ -981,7 +967,8 @@ parallelize_and_summarize <- function(
   summaries <- lapply(parallel_results, function(res) res$summary)
 
   consolidated_summary <- list(
-    rename_success = all(sapply(summaries, function(s) s$rename_success)),
+    rename_success = all(unlist(sapply(summaries, 
+    function(s) s$rename_success)), na.rm = TRUE),
     ICD_replacements_1 = combine_comparison_tables(
       summaries, "ICD_replacements_1", rows_to_show
     ),
@@ -1327,7 +1314,7 @@ read_and_process_chunk <- function(part) {
   dt <- read_entire_file(chunk_file, initial_read = is_partial_file(part))
 
   if (to_sample) {
-    dt <- handle_sampling(dt)
+    dt <- handle_sampling(dt, part)
   }
 
   return(dt)
@@ -1386,9 +1373,9 @@ combine_and_print_summaries <- function() {
     rows_to_show
   )
 }
-handle_sampling <- function(dt = NULL) {
+handle_sampling <- function(dt = NULL, part) {
   sampled_file <- sampled_claims_file(part)
-
+  
   if (file.exists(sampled_file)) {
     if (to_view_checks) {
       print("Sampled file exists. Reading the sampled file...")
@@ -1401,7 +1388,7 @@ handle_sampling <- function(dt = NULL) {
           sample_size, "Found:", nrow(dt), "Re-sampling..."
         ))
       }
-      dt <- resample_data()
+      dt <- resample_data(part)
     } else if (to_view_checks) {
       print("Sampled file matches sample size.")
     }
@@ -1409,13 +1396,13 @@ handle_sampling <- function(dt = NULL) {
     if (to_view_checks) {
       print("Sampled file does not exist. Creating new sample...")
     }
-    dt <- resample_data()
+    dt <- resample_data(part)
   }
 
   return(dt)
 }
 
-resample_data <- function() {
+resample_data <- function(part) {
   dt <- read_entire_file(full_claims_file(part), initial_read = is_partial_file(part))
   dt <- sample_data(dt)
   if (to_write) {
@@ -1502,7 +1489,7 @@ main_read_function <- function(file = NA) {
       dt <- read_entire_file(file, initial_read = is_partial_file(part))
 
       if (to_sample) {
-        dt <- handle_sampling(dt)
+        dt <- handle_sampling(dt, part)
       }
     } else if (to_sample) {
       dt <- handle_sampling()
@@ -1516,7 +1503,6 @@ main_read_function <- function(file = NA) {
   return(dt)
 }
 
-# Function to read and save partial chunks
 read_and_save_partial <- function(start_row, end_row, part_num) {
   partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)
