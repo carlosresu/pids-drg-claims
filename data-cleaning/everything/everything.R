@@ -124,7 +124,7 @@ path_to_raw_claims_samples <- "git-ignored-files/raw-claims/samples"
 path_to_raw_claims <- "git-ignored-files/raw-claims"
 
 # Here() let's you find files in your project directory
-suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
+suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"))
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
@@ -160,7 +160,7 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "intermediate_claims_", year_to_load, suffix, 
-      "_part_", part, "_of_", split_chunks
+      "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -175,7 +175,7 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "cleaned_claims_",
-      year_to_load, suffix, "_part_", part, "_of_", split_chunks
+      year_to_load, suffix, "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -190,7 +190,7 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "DRG_Grouped", "_", year_to_load, suffix,
-      "_part_", part, "_of_", split_chunks
+      "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -658,12 +658,8 @@ combine_all_parts_statistics <- function(all_parts_statistics) {
 }
 
 # Helper function to determine if a file is a partial file
-is_partial_file <- function(part) {
-  if (is.na(split_chunk_to_process)) {
-    return(FALSE)
-  } else {
-    return(TRUE)
-  }
+is_partial_file <- function(filename) {
+  return(grepl("part", filename, ignore.case = TRUE))
 }
 
 # Function to check if a file exists
@@ -1249,41 +1245,20 @@ print_summary_tables <- function(result, rows_to_show) {
 }
 
 # Function to split and save chunks
-split_and_save_chunks <- function(part_to_process = NA) {
+split_and_save_chunks <- function() {
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_chunks)
-    parts <- if (is.na(part_to_process)) 1:split_chunks else part_to_process
-    for (part in parts) {
+    for (part in 1:split_chunks) {
       chunk_file <- if (to_sample) {
         sampled_claims_file(part)
       } else {
         full_claims_file(part)
       }
 
-      if (!is.na(part_to_process)) {
-        print(paste("Checking partial file:", chunk_file))
-        # Debugging statement for partial file
-      } else {
-        print(paste("Checking full file:", chunk_file))
-        # Debugging statement for full file
-      }
-
       if (!file.exists(chunk_file)) {
-        if (!is.na(part_to_process)) {
-          print(paste(
-            "Partial file does not exist. Creating partial file:",
-            chunk_file
-          ))
-          # Debugging statement for partial file creation
-        }
         start_row <- (part - 1) * rows_per_part + 1
         end_row <- min(part * rows_per_part, total_rows)
-        read_and_save_partial(start_row, end_row, part)
-      } else {
-        if (!is.na(part_to_process)) {
-          print(paste("Partial file already exists:", chunk_file))
-          # Debugging statement for existing partial file
-        }
+        read_and_save_partial(start_row, end_row)
       }
     }
   }
@@ -1302,7 +1277,7 @@ read_and_process_chunk <- function(part) {
     stop(paste("File does not exist:", chunk_file))
   }
 
-  dt <- read_entire_file(chunk_file, initial_read = is_partial_file(part))
+  dt <- read_entire_file(chunk_file, initial_read = is_partial_file(chunk_file))
 
   if (to_sample) {
     dt <- handle_sampling(dt, part)
@@ -1311,9 +1286,8 @@ read_and_process_chunk <- function(part) {
   return(dt)
 }
 
-parallelize_and_summarize_data <- function(part, dt) {
-  if (to_chunk) {
-    num_cores <- max(1, availableCores() - 1)
+parallelize_and_summarize_data <- function(dt) {
+  num_cores <- max(1, availableCores() - 1)
     suppress_interim_output({
       result <- parallelize_and_summarize(
         dt, num_cores,
@@ -1325,13 +1299,11 @@ parallelize_and_summarize_data <- function(part, dt) {
     dt <- result$dt
     all_parts_summaries[[part]] <<- result$consolidated_summary
     all_parts_statistics[[part]] <<- result$aggregate_statistics
-  } else {
-    stop("Error: to_chunk must be TRUE; not chunking is deprecated.")
-  }
+ 
   return(dt)
 }
 
-group_data <- function(part, dt) {
+group_data <- function(dt) {
   if (to_group) {
     export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
     for_batch_grouping <- fread(output_txt_file(part), sep = "|", na.strings = "--")
@@ -1341,9 +1313,9 @@ group_data <- function(part, dt) {
   }
 }
 
-write_intermediate_file <- function(part, dt) {
+write_intermediate_file <- function(dt) {
   if (to_write) {
-    fwrite(dt, intermediate_file(part, fileext = TRUE))
+    fwrite(dt, intermediate_file(fileext = TRUE))
   }
 }
 
@@ -1496,18 +1468,17 @@ main_read_function <- function(file = NA) {
   return(dt)
 }
 
-read_and_save_partial <- function(start_row, end_row, part_num) {
-  partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
+read_and_save_partial <- function(start_row, end_row) {
+  partial_file_path <- full_claims_file(fileext = TRUE)
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)
   # Always read the header
 
   if (!file_exists(partial_file_path)) {
-    skip_rows <- if (part_num == 1) start_row else start_row - 1
     dt <- fread(full_claims_file(),
       na.strings = na_values,
       colClasses = "character",
       nrows = end_row - start_row + 1,
-      skip = skip_rows,
+      skip = start_row,
       header = FALSE
     )
     setnames(dt, colnames(header))
@@ -1515,18 +1486,18 @@ read_and_save_partial <- function(start_row, end_row, part_num) {
       print(paste("Saving partial file:", partial_file_path))
       fwrite(dt, partial_file_path, quote = TRUE)
     } else {
-      print(paste("No rows to save for part:", part_num))
+      print("No rows to save")
     }
   } else {
     print(paste("File already exists, skipping creation:", partial_file_path))
     dt <- read_entire_file(
       partial_file_path,
-      initial_read = is_partial_file(part_num)
+      initial_read = is_partial_file(partial_file_path)
     )
   }
 
   if (to_sample) {
-    sampled_file_path <- sampled_claims_file(part_num)
+    sampled_file_path <- sampled_claims_file()
     if (!file_exists(sampled_file_path)) {
       print(paste("Creating sampled file:", sampled_file_path))
       if (!is.null(dt) && nrow(dt) > 0) {
@@ -2251,9 +2222,8 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   prepare_and_write_output(output_dt, output_txt_file)
 }
 # Function to print time estimates
-print_time_estimates <- function(
-    split_chunk_to_process, dt, total_time, total_rows) {
-  total_rows_dt <- nrow(dt)
+print_time_estimates <- function(dt, total_time, total_rows) {
+  total_rows_dt <- nrow(dt) * split_chunks
   total_cells <- nrow(dt) * ncol(dt)
   time_per_cell <- total_time / total_cells
   time_per_row <- total_time / total_rows_dt
@@ -2263,31 +2233,19 @@ print_time_estimates <- function(
   formatted_total_rows_dt <- format_large_numbers(total_rows_dt)
   formatted_total_rows <- format_large_numbers(total_rows)
 
-  if (!is.na(split_chunk_to_process)) {
-    # Print the results for processing a specific chunk
-    cat(sprintf(
-      "Time spent (total) for %2s rows:  %1.2f sec  (actual)\n",
-      formatted_total_rows_dt, total_time
-    ))
-    cat(sprintf(
-      "Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n",
-      formatted_total_rows_dt, time_per_row * 1000
-    ))
-    cat(sprintf(
-      "Time spent (total) for  %2s rows: %2.2f min  (estimate)\n",
-      formatted_total_rows, time_estimate_total_rows / 60
-    ))
-  } else {
-    # Print the results for processing the whole file
-    cat(sprintf(
-      "Time spent (total) for %2s rows:  %1.2f sec  (actual)\n",
-      formatted_total_rows, total_time
-    ))
-    cat(sprintf(
-      "Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n",
-      formatted_total_rows, time_per_row * 1000
-    ))
-  }
+  # Print the results for processing the whole file
+  cat(sprintf(
+    "Time spent (total) for %2s rows:  %1.2f sec  (actual)\n",
+    formatted_total_rows_dt, total_time
+  ))
+  cat(sprintf(
+    "Time spent (t/row) for %2s rows:  %1.2f msec (actual)\n",
+    formatted_total_rows_dt, time_per_row * 1000
+  ))
+  cat(sprintf(
+    "Time spent (total) for %2s rows: %2.2f min  (estimate)\n",
+    formatted_total_rows, time_estimate_total_rows / 60
+  ))
 }
 # source(here("data-cleaning", "r_scripts", "libraries.R"))
 

@@ -130,18 +130,17 @@ main_read_function <- function(file = NA) {
   return(dt)
 }
 
-read_and_save_partial <- function(start_row, end_row, part_num) {
-  partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
+read_and_save_partial <- function(start_row, end_row) {
+  partial_file_path <- full_claims_file(fileext = TRUE)
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)
   # Always read the header
 
   if (!file_exists(partial_file_path)) {
-    skip_rows <- if (part_num == 1) start_row else start_row - 1
     dt <- fread(full_claims_file(),
       na.strings = na_values,
       colClasses = "character",
       nrows = end_row - start_row + 1,
-      skip = skip_rows,
+      skip = start_row,
       header = FALSE
     )
     setnames(dt, colnames(header))
@@ -149,18 +148,18 @@ read_and_save_partial <- function(start_row, end_row, part_num) {
       print(paste("Saving partial file:", partial_file_path))
       fwrite(dt, partial_file_path, quote = TRUE)
     } else {
-      print(paste("No rows to save for part:", part_num))
+      print("No rows to save")
     }
   } else {
     print(paste("File already exists, skipping creation:", partial_file_path))
     dt <- read_entire_file(
       partial_file_path,
-      initial_read = is_partial_file(part_num)
+      initial_read = is_partial_file(partial_file_path)
     )
   }
 
   if (to_sample) {
-    sampled_file_path <- sampled_claims_file(part_num)
+    sampled_file_path <- sampled_claims_file()
     if (!file_exists(sampled_file_path)) {
       print(paste("Creating sampled file:", sampled_file_path))
       if (!is.null(dt) && nrow(dt) > 0) {

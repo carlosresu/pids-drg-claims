@@ -12,7 +12,7 @@ path_to_raw_claims_samples <- "git-ignored-files/raw-claims/samples"
 path_to_raw_claims <- "git-ignored-files/raw-claims"
 
 # Here() let's you find files in your project directory
-suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
+suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"))
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
@@ -48,7 +48,7 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "intermediate_claims_", year_to_load, suffix, 
-      "_part_", part, "_of_", split_chunks
+      "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -63,7 +63,7 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "cleaned_claims_",
-      year_to_load, suffix, "_part_", part, "_of_", split_chunks
+      year_to_load, suffix, "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -78,7 +78,7 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "DRG_Grouped", "_", year_to_load, suffix,
-      "_part_", part, "_of_", split_chunks
+      "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {

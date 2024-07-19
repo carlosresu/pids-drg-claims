@@ -428,12 +428,8 @@ combine_all_parts_statistics <- function(all_parts_statistics) {
 }
 
 # Helper function to determine if a file is a partial file
-is_partial_file <- function(part) {
-  if (is.na(split_chunk_to_process)) {
-    return(FALSE)
-  } else {
-    return(TRUE)
-  }
+is_partial_file <- function(filename) {
+  return(grepl("part", filename, ignore.case = TRUE))
 }
 
 # Function to check if a file exists

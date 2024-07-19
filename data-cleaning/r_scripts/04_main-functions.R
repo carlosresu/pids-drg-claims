@@ -572,41 +572,20 @@ print_summary_tables <- function(result, rows_to_show) {
 }
 
 # Function to split and save chunks
-split_and_save_chunks <- function(part_to_process = NA) {
+split_and_save_chunks <- function() {
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_chunks)
-    parts <- if (is.na(part_to_process)) 1:split_chunks else part_to_process
-    for (part in parts) {
+    for (part in 1:split_chunks) {
       chunk_file <- if (to_sample) {
         sampled_claims_file(part)
       } else {
         full_claims_file(part)
       }
 
-      if (!is.na(part_to_process)) {
-        print(paste("Checking partial file:", chunk_file))
-        # Debugging statement for partial file
-      } else {
-        print(paste("Checking full file:", chunk_file))
-        # Debugging statement for full file
-      }
-
       if (!file.exists(chunk_file)) {
-        if (!is.na(part_to_process)) {
-          print(paste(
-            "Partial file does not exist. Creating partial file:",
-            chunk_file
-          ))
-          # Debugging statement for partial file creation
-        }
         start_row <- (part - 1) * rows_per_part + 1
         end_row <- min(part * rows_per_part, total_rows)
-        read_and_save_partial(start_row, end_row, part)
-      } else {
-        if (!is.na(part_to_process)) {
-          print(paste("Partial file already exists:", chunk_file))
-          # Debugging statement for existing partial file
-        }
+        read_and_save_partial(start_row, end_row)
       }
     }
   }
@@ -625,7 +604,7 @@ read_and_process_chunk <- function(part) {
     stop(paste("File does not exist:", chunk_file))
   }
 
-  dt <- read_entire_file(chunk_file, initial_read = is_partial_file(part))
+  dt <- read_entire_file(chunk_file, initial_read = is_partial_file(chunk_file))
 
   if (to_sample) {
     dt <- handle_sampling(dt, part)
@@ -634,9 +613,8 @@ read_and_process_chunk <- function(part) {
   return(dt)
 }
 
-parallelize_and_summarize_data <- function(part, dt) {
-  if (to_chunk) {
-    num_cores <- max(1, availableCores() - 1)
+parallelize_and_summarize_data <- function(dt) {
+  num_cores <- max(1, availableCores() - 1)
     suppress_interim_output({
       result <- parallelize_and_summarize(
         dt, num_cores,
@@ -648,13 +626,11 @@ parallelize_and_summarize_data <- function(part, dt) {
     dt <- result$dt
     all_parts_summaries[[part]] <<- result$consolidated_summary
     all_parts_statistics[[part]] <<- result$aggregate_statistics
-  } else {
-    stop("Error: to_chunk must be TRUE; not chunking is deprecated.")
-  }
+ 
   return(dt)
 }
 
-group_data <- function(part, dt) {
+group_data <- function(dt) {
   if (to_group) {
     export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
     for_batch_grouping <- fread(output_txt_file(part), sep = "|", na.strings = "--")
@@ -664,9 +640,9 @@ group_data <- function(part, dt) {
   }
 }
 
-write_intermediate_file <- function(part, dt) {
+write_intermediate_file <- function(dt) {
   if (to_write) {
-    fwrite(dt, intermediate_file(part, fileext = TRUE))
+    fwrite(dt, intermediate_file(fileext = TRUE))
   }
 }
 

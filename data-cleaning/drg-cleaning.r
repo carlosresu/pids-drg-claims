@@ -8,7 +8,6 @@ rows_to_show <- 10
 to_read <- FALSE
 to_split <- TRUE
 to_sample <- TRUE
-to_loop <- FALSE
 
 # Output:
 to_write <- TRUE
@@ -16,7 +15,6 @@ to_group <- TRUE
 
 # Debug:
 to_profvis <- FALSE
-to_chunk <- TRUE # doesn't work if false; not chunking is deprecated.
 to_view_checks <- TRUE
 to_view_checks_parallelized <- FALSE
 to_parallelize <- TRUE
@@ -24,49 +22,8 @@ to_parallelize <- TRUE
 # Sample size divisor:
 sample_size_divisor <- 5
 
-if (to_loop) {
-  split_chunk_to_process <- NA
-} else {
-  # Function to safely read a numeric input within a specific range
-  read_number_in_range <- function(prompt, min_value, max_value) {
-    repeat {
-      input <- readline(prompt = prompt)
-      num <- suppressWarnings(as.numeric(input))
-      if (!is.na(num) && num >= min_value && num <= max_value) {
-        return(num)
-      }
-      cat(
-        "Invalid input. Please enter a number between",
-        min_value, "and", max_value, ".\n"
-      )
-    }
-  }
-
-  # Prompt the user for a number within the range
-  split_chunk_to_process <- read_number_in_range(
-    paste("Enter a number between 1 and", split_chunks, ":"), 1, split_chunks
-  )
-
-  # Display the number
-  cat("You entered the number:", split_chunk_to_process, "\n")
-
-  # Use the number in your code
-  # For example, processing the specified chunk
-  cat("Processing chunk number", split_chunk_to_process, "...\n")
-
-  # Example of using the number in a loop or conditional
-  if (split_chunk_to_process == 1) {
-    cat("You selected the first chunk.\n")
-  } else {
-    cat("You selected chunk number", split_chunk_to_process, ".\n")
-  }
-}
-
-if (is.na(split_chunk_to_process)) {
-  part <- NULL
-} else {
-  part <- split_chunk_to_process
-}
+split_chunk_to_process <- NA
+part <- NULL
 
 drop_cols <- c(
   paste0("ICDCODE", 13:14),
@@ -105,27 +62,19 @@ for (script in scripts_to_source) {
 tic("Total execution time:")
 
 # Use the function to count total rows
-if (file.exists(full_claims_file(part))) {
-  total_rows <- fread(full_claims_file(part), select = 1L, header = TRUE)[, .N]
+if (file.exists(full_claims_file())) {
+  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
 } else {
   total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
 }
 print(paste("Total Rows via fread:", total_rows))
 
-sample_size_divisor <- 5
+sample_size_divisor <- 25
 
 if (to_split) {
-  if (is.null(part)) {
-    sample_size <- ceiling(total_rows / split_chunks / sample_size_divisor)
-  } else {
-    sample_size <- ceiling(total_rows / sample_size_divisor)
-  }
+  sample_size <- ceiling(total_rows / split_chunks / sample_size_divisor)
 } else {
-  if (is.null(part)) {
-    sample_size <- ceiling(total_rows / sample_size_divisor)
-  } else {
-    sample_size <- ceiling(total_rows)
-  }
+  sample_size <- ceiling(total_rows / sample_size_divisor)
 }
 
 # List of scripts to source in order
@@ -183,59 +132,9 @@ acc_pdx <- unique(acc_pdx)
 all_parts_summaries <- list()
 all_parts_statistics <- list()
 
-if (!is.na(split_chunk_to_process)) {
-  split_and_save_chunks(split_chunk_to_process)
-  if (to_profvis) {
-    p <- profvis({
-      dt <- read_and_process_chunk(split_chunk_to_process)
-      if (!is.null(dt) && nrow(dt) > 0) {
-        dt <- parallelize_and_summarize_data(split_chunk_to_process, dt)
-        write_intermediate_file(split_chunk_to_process, dt)
-        group_data(split_chunk_to_process, dt)
-      } else {
-        print(paste("No data to process for part:", split_chunk_to_process))
-      }
-      combine_and_print_summaries()
-    })
-    htmlwidgets::saveWidget(
-      p,
-      file = here(
-        "git-ignored-files", "profvis",
-        paste0("profvis_part_", split_chunk_to_process, "_.html")
-      ),
-      selfcontained = TRUE
-    )
-  } else {
-    dt <- read_and_process_chunk(split_chunk_to_process)
-    if (!is.null(dt) && nrow(dt) > 0) {
-      dt <- parallelize_and_summarize_data(split_chunk_to_process, dt)
-      write_intermediate_file(split_chunk_to_process, dt)
-      group_data(split_chunk_to_process, dt)
-    }
-    combine_and_print_summaries()
-  }
-} else {
-  split_and_save_chunks()
-  if (to_profvis) {
-    p <- profvis({
-      for (part in 1:split_chunks) {
-        dt <- read_and_process_chunk(part)
-        if (!is.null(dt) && nrow(dt) > 0) {
-          dt <- parallelize_and_summarize_data(part, dt)
-          write_intermediate_file(part, dt)
-          group_data(part, dt)
-        } else {
-          print(paste("No data to process for part:", part))
-        }
-      }
-      combine_and_print_summaries()
-    })
-    htmlwidgets::saveWidget(
-      p,
-      file = here("git-ignored-files", "profvis", "profvis.html"),
-      selfcontained = TRUE
-    )
-  } else {
+if (to_profvis) {
+  p <- profvis({
+    split_and_save_chunks()
     for (part in 1:split_chunks) {
       dt <- read_and_process_chunk(part)
       if (!is.null(dt) && nrow(dt) > 0) {
@@ -247,7 +146,25 @@ if (!is.na(split_chunk_to_process)) {
       }
     }
     combine_and_print_summaries()
+  })
+  htmlwidgets::saveWidget(
+    p,
+    file = here("git-ignored-files", "profvis", "profvis.html"),
+    selfcontained = TRUE
+  )
+} else {
+  split_and_save_chunks()
+  for (part in 1:split_chunks) {
+    dt <- read_and_process_chunk(part)
+    if (!is.null(dt) && nrow(dt) > 0) {
+      dt <- parallelize_and_summarize_data(part, dt)
+      write_intermediate_file(part, dt)
+      group_data(part, dt)
+    } else {
+      print(paste("No data to process for part:", part))
+    }
   }
+  combine_and_print_summaries()
 }
 
 # Stop the timer and capture total time
@@ -255,22 +172,12 @@ toc_data <- toc(log = TRUE)
 total_time <- toc_data$toc - toc_data$tic
 
 
-if (!is.na(split_chunk_to_process)) {
-  if (to_sample) {
-    total_rows <- nrow(dt) * split_chunks * sample_size_divisor
-  } else {
-    total_rows <- nrow(dt) * split_chunks
-  }
-  print_time_estimates(split_chunk_to_process, dt, total_time, total_rows)
+if (to_sample) {
+  total_rows <- nrow(dt) * split_chunks * sample_size_divisor
 } else {
-  if (to_sample) {
-    total_rows <- nrow(dt) * split_chunks * sample_size_divisor
-  } else {
-    total_rows <- nrow(dt) * split_chunks
-  }
-  print_time_estimates(NA, dt, total_time, total_rows)
+  total_rows <- nrow(dt) * split_chunks
 }
-
+print_time_estimates(dt, total_time, total_rows)
 
 library(here)
 source(here("data-cleaning", "r_scripts", "11_debug-functions.R"))
