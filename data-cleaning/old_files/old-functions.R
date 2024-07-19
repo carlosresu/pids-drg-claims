@@ -442,3 +442,77 @@
 #     cat("All resulting ICD codes are valid and present in the libraries.\n")
 #   }
 # }
+# compute_statistics <- function(dt, rvs_icd9, rvs_map_list) {
+#   with_thai <- rvs_icd9[is_thai == TRUE]
+#   without_thai <- rvs_icd9[!rvs %in% with_thai$rvs]
+
+#   cat(sprintf(
+#     "There are %d RVS codes without an",
+#     length(unique(without_thai$rvs))
+#   ), "ICD-9CM equivalent recognized by the TDRG ICD9CM\n")
+
+#   rvss <- unique(unlist(dt$clin_rvs))
+#   cat(sprintf(
+#     "There are %d unique RVS codes that appear in the claims.\n",
+#     length(rvss)
+#   ))
+
+#   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+#   cat(sprintf(
+#     "Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n",
+#     length(mappable_rvs), (length(mappable_rvs) * 100 / length(rvss))
+#   ))
+
+#   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+#   cat(sprintf(
+#     "Of these, there are %d (%.2f%%) with more than one ICD9",
+#     length(multi_mapped_rvs),
+#     (length(multi_mapped_rvs) * 100 / length(mappable_rvs))
+#   ), "equivalent recognized by the Thai ICD9 library.\n")
+
+#   unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+#   cat(sprintf(
+#     "There are %d (%.2f%%) with no ICD-9-CM equivalents.\n",
+#     length(unmappable_rvs), (length(unmappable_rvs) * 100 / length(rvss))
+#   ))
+# }
+# read_and_save_partial <- function(start_row, end_row, part_num) {
+#   partial_file_path <- full_claims_file(part = part_num, fileext = TRUE)
+#   header <- fread(full_claims_file(), nrows = 1, header = TRUE) # Always read the header
+#   if (!file_exists(partial_file_path)) {
+#     skip_rows <- if (part_num == 1) start_row else start_row - 1
+#     dt <- fread(full_claims_file(),
+#       na.strings = na_values,
+#       colClasses = "character",
+#       nrows = end_row - start_row + 1,
+#       skip = skip_rows,
+#       header = FALSE
+#     )
+#     setnames(dt, colnames(header))
+#     if (nrow(dt) > 0) {
+#       print(paste("Saving partial file:", partial_file_path))
+#       fwrite(dt, partial_file_path, quote = TRUE)
+#     } else {
+#       print(paste("No rows to save for part:", part_num))
+#     }
+#   } else {
+#     print(paste("File already exists, skipping creation:", partial_file_path))
+#   }
+#   if (to_sample) {
+#     sampled_file_path <- sampled_claims_file(part_num)
+#     if (!file_exists(sampled_file_path)) {
+#       print(paste("Creating sampled file:", sampled_file_path))
+#       if (exists("dt") && nrow(dt) > 0) {
+#         sampled_dt <- dt[sample(.N, min(sample_size, .N))]
+#       } else {
+#         # Read the partial file again if dt doesn't exist
+#         dt <- fread(partial_file_path, na.strings = na_values, colClasses = "character")
+#         sampled_dt <- dt[sample(.N, min(sample_size, .N))]
+#       }
+#       setnames(sampled_dt, colnames(header))
+#       fwrite(sampled_dt, sampled_file_path, quote = TRUE)
+#     } else {
+#       print(paste("Sampled file already exists, skipping creation:", sampled_file_path))
+#     }
+#   }
+# }
