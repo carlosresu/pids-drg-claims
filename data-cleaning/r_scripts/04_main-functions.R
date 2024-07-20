@@ -237,7 +237,6 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   return(list(chunk = chunk, summary = summary))
 }
 
-
 # Function to split and save chunks
 split_and_save_chunks <- function() {
   if (to_split) {
@@ -280,7 +279,7 @@ read_and_process_chunk <- function(part) {
 }
 
 parallelize_and_summarize_data <- function(
-    dt, num_cores, to_view_checks, global_seed, rows_to_show,
+    dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
   chunks <- split(dt, rep(1:num_cores,
@@ -316,7 +315,7 @@ parallelize_and_summarize_data <- function(
   dt <- rbindlist(processed_chunks)
 
   # Combine summaries of the chunks
-  combined_summary <- combine_chunk_summaries(parallel_results, rows_to_show)
+  combined_summary <- combine_chunk_summaries(parallel_results, intermediate_rows_to_show)
 
   return(list(
     dt = dt,
