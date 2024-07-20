@@ -279,7 +279,6 @@ read_and_process_chunk <- function(part) {
   return(dt)
 }
 
-# Function to combine and summarize data in parallel
 parallelize_and_summarize_data <- function(
     dt, num_cores, to_view_checks, global_seed, rows_to_show,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
@@ -316,15 +315,15 @@ parallelize_and_summarize_data <- function(
   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
   dt <- rbindlist(processed_chunks)
 
-  # Combine summaries
-  summaries <- lapply(parallel_results, function(res) res$summary)
-  combined_summary <- combine_all_parts_summaries(summaries, rows_to_show)
+  # Combine summaries of the chunks
+  combined_summary <- combine_chunk_summaries(parallel_results, rows_to_show)
 
   return(list(
     dt = dt,
     combined_summary = combined_summary
   ))
 }
+
 
 group_data <- function(part, dt) {
   if (to_group) {

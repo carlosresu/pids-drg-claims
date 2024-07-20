@@ -157,7 +157,8 @@ if (to_profvis) {
     }
   }
 }
-combine_and_print_summaries()
+
+combine_and_print_summaries(all_parts_summaries, rows_to_show)
 
 
 # Stop the timer and capture total time

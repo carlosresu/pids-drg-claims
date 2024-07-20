@@ -188,8 +188,7 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
   return(combined_replace_empty)
 }
 
-# Combine and print all summaries after processing all parts
-combine_and_print_summaries <- function() {
+combine_and_print_summaries <- function(all_parts_summaries, rows_to_show) {
   combined_summary <- combine_all_parts_summaries(
     all_parts_summaries, rows_to_show
   )
@@ -202,27 +201,38 @@ combine_and_print_summaries <- function() {
   )
 }
 
-combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
+combine_chunk_summaries <- function(parallel_results, rows_to_show) {
+  summaries <- lapply(parallel_results, function(res) res$summary)
+  combined_summary <- combine_summaries(summaries, rows_to_show)
+  return(combined_summary)
+}
+
+combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show) {
+  combined_summary <- combine_summaries(all_parts_summaries, rows_to_show)
+  return(combined_summary)
+}
+
+combine_summaries <- function(summaries, rows_to_show) {
   combined_summary <- list(
-    rename_success = all(unlist(sapply(all_parts_summaries, function(summary) summary$rename_success)), na.rm = TRUE),
-    ICD_replacements_1 = combine_comparison_tables(all_parts_summaries, "ICD_replacements_1", rows_to_show),
-    ICD_replacements_2 = combine_comparison_tables(all_parts_summaries, "ICD_replacements_2", rows_to_show),
-    pat_type_unmapped = unique(unlist(lapply(all_parts_summaries, function(summary) summary$pat_type_unmapped))),
-    memcat_parent_unmapped = unique(unlist(lapply(all_parts_summaries, function(summary) summary$memcat_parent_unmapped))),
-    memcat_child_unmapped = unique(unlist(lapply(all_parts_summaries, function(summary) summary$memcat_child_unmapped))),
-    discharge_unmapped = unique(unlist(lapply(all_parts_summaries, function(summary) summary$discharge_unmapped))),
-    discard_rvs_one = combine_discarded_rvs_tables(all_parts_summaries, "discard_rvs_one", rows_to_show),
-    discard_rvs_two = combine_discarded_rvs_tables(all_parts_summaries, "discard_rvs_two", rows_to_show),
-    empty_strings_replaced_1 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_1", rows_to_show),
-    empty_strings_replaced_2 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_2", rows_to_show),
+    rename_success = all(unlist(sapply(summaries, function(summary) summary$rename_success)), na.rm = TRUE),
+    ICD_replacements_1 = combine_comparison_tables(summaries, "ICD_replacements_1", rows_to_show),
+    ICD_replacements_2 = combine_comparison_tables(summaries, "ICD_replacements_2", rows_to_show),
+    pat_type_unmapped = unique(unlist(lapply(summaries, function(summary) summary$pat_type_unmapped))),
+    memcat_parent_unmapped = unique(unlist(lapply(summaries, function(summary) summary$memcat_parent_unmapped))),
+    memcat_child_unmapped = unique(unlist(lapply(summaries, function(summary) summary$memcat_child_unmapped))),
+    discharge_unmapped = unique(unlist(lapply(summaries, function(summary) summary$discharge_unmapped))),
+    discard_rvs_one = combine_discarded_rvs_tables(summaries, "discard_rvs_one", rows_to_show),
+    discard_rvs_two = combine_discarded_rvs_tables(summaries, "discard_rvs_two", rows_to_show),
+    empty_strings_replaced_1 = combine_replace_empty_tables(summaries, "empty_strings_replaced_1", rows_to_show),
+    empty_strings_replaced_2 = combine_replace_empty_tables(summaries, "empty_strings_replaced_2", rows_to_show),
     unique_icds_count = 0, # Initialize counts to be updated later
     direct_matches_count = 0, # Initialize counts to be updated later
     unmatched_count = 0 # Initialize counts to be updated later
   )
 
-  combined_unique_icds <- unique(unlist(lapply(all_parts_summaries, function(summary) summary$unique_icds)))
-  combined_direct_matches <- unique(unlist(lapply(all_parts_summaries, function(summary) summary$direct_matches)))
-  combined_unmatched <- unique(unlist(lapply(all_parts_summaries, function(summary) summary$unmatched)))
+  combined_unique_icds <- unique(unlist(lapply(summaries, function(summary) summary$unique_icds)))
+  combined_direct_matches <- unique(unlist(lapply(summaries, function(summary) summary$direct_matches)))
+  combined_unmatched <- unique(unlist(lapply(summaries, function(summary) summary$unmatched)))
 
   combined_summary$unique_icds_count <- length(unlist(combined_unique_icds))
   combined_summary$direct_matches_count <- length(unlist(combined_direct_matches))
