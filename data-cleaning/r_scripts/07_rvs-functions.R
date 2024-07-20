@@ -41,11 +41,33 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
 map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   split_codes <- split_rvs_codes(rvs_icd9)
   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
+  rvs_map_list <- rvs_maps$rvs_map_list
 
   rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
   icd9_list <- get_icd9_codes(clin_rvs, rvs_map_solo_env)
 
-  return(list(icd9_list = icd9_list, rvs_map_list = rvs_maps$rvs_map_list))
+  rvss <- unique(unlist(clin_rvs))
+  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+  unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+  without_drg <- unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
+
+  return_list <- list(
+    icd9_list = icd9_list, 
+    rvs_map_list = rvs_maps$rvs_map_list,
+    rvss = rvss,
+    mappable_rvs = mappable_rvs,
+    unmappable_rvs = unmappable_rvs,
+    multi_mapped_rvs = multi_mapped_rvs,
+    without_drg = without_drg
+  )
+
+  # Debugging statement
+  # for (return in return_list) {
+  #   str(return)
+  # }
+
+  return(return_list)
 }
 
 find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {

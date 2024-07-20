@@ -172,7 +172,8 @@ clean_data <- function(dt) {
   ))
 }
 
-process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
+process_chunk <- function(
+    chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   if (to_view_checks) {
     # print("Viewing checks")
   } else {
@@ -183,17 +184,19 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   clean_result <- clean_data(chunk)
   chunk <- clean_result$data
 
-  summary <- list()
-  summary$rename_success <- clean_result$rename_success
-  summary$ICD_replacements_1 <- clean_result$ICD_replacements_1
-  summary$ICD_replacements_2 <- clean_result$ICD_replacements_2
-  summary$pat_type_unmapped <- clean_result$pat_type_unmapped
-  summary$memcat_parent_unmapped <- clean_result$memcat_parent_unmapped
-  summary$memcat_child_unmapped <- clean_result$memcat_child_unmapped
-  summary$discharge_unmapped <- clean_result$discharge_unmapped
-  summary$discard_rvs_one <- clean_result$discard_rvs_one
-  summary$discard_rvs_two <- clean_result$discard_rvs_two
-  summary$empty_strings_replaced_1 <- clean_result$empty_strings_replaced_1
+  summary <- list(
+    rename_success = clean_result$rename_success,
+    ICD_replacements_1 = clean_result$ICD_replacements_1,
+    ICD_replacements_2 = clean_result$ICD_replacements_2,
+    pat_type_unmapped = clean_result$pat_type_unmapped,
+    memcat_parent_unmapped = clean_result$memcat_parent_unmapped,
+    memcat_child_unmapped = clean_result$memcat_child_unmapped,
+    discharge_unmapped = clean_result$discharge_unmapped,
+    discard_rvs_one = clean_result$discard_rvs_one,
+    discard_rvs_two = clean_result$discard_rvs_two,
+    empty_strings_replaced_1 = clean_result$empty_strings_replaced_1
+  )
+
 
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
@@ -202,7 +205,9 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   clin_c2 <- chunk$clin_c2
   clin_icd <- chunk$clin_icd
 
-  icd10_mapping_result <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
+  icd10_mapping_result <- implement_icd10_mapping(
+    clin_c1, clin_c2, clin_icd, tdrg_icd10
+  )
   chunk[, clin_c1 := icd10_mapping_result$clin_c1]
   chunk[, clin_c2 := icd10_mapping_result$clin_c2]
   chunk[, clin_icd := icd10_mapping_result$clin_icd]
@@ -211,7 +216,9 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   chunk <- chunk_replace_result$data
   summary$empty_strings_replaced_2 <- chunk_replace_result$replacement_summary
 
-  pdx_result <- apply_find_pdx(chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx)
+  pdx_result <- apply_find_pdx(
+    chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
+  )
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
@@ -233,6 +240,12 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   summary$direct_matches <- icd10_mapping_result$direct_matches
   summary$unmatched <- icd10_mapping_result$unmatched
   summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
+
+  summary$rvss <- rvs_mapping_result$rvss
+  summary$mappable_rvs <- rvs_mapping_result$mappable_rvs
+  summary$unmappable_rvs <- rvs_mapping_result$unmappable_rvs
+  summary$multi_mapped_rvs <- rvs_mapping_result$multi_mapped_rvs
+  summary$without_drg <- rvs_mapping_result$without_drg
 
   return(list(chunk = chunk, summary = summary))
 }
@@ -315,14 +328,15 @@ parallelize_and_summarize_data <- function(
   dt <- rbindlist(processed_chunks)
 
   # Combine summaries of the chunks
-  combined_summary <- combine_chunk_summaries(parallel_results, intermediate_rows_to_show)
+  combined_summary <- combine_chunk_summaries(
+    parallel_results, intermediate_rows_to_show
+  )
 
   return(list(
     dt = dt,
     combined_summary = combined_summary
   ))
 }
-
 
 group_data <- function(part, dt) {
   if (to_group) {

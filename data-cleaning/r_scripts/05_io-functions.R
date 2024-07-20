@@ -1,7 +1,7 @@
 # Function to handle sampling
 handle_sampling <- function(dt = NULL, part) {
   sampled_file <- sampled_claims_file(part)
-  
+
   if (file.exists(sampled_file)) {
     dt <- read_sampled_file(sampled_file)
     if (nrow(dt) != sample_size) {
@@ -15,7 +15,9 @@ handle_sampling <- function(dt = NULL, part) {
 
 # Function to resample data
 resample_data <- function(part) {
-  dt <- read_entire_file(full_claims_file(part), initial_read = is_partial_file(part))
+  dt <- read_entire_file(full_claims_file(part),
+    initial_read = is_partial_file(part)
+  )
   dt <- sample_data(dt)
   if (to_write) {
     fwrite(dt, sampled_claims_file(part))
@@ -27,19 +29,25 @@ resample_data <- function(part) {
 read_entire_file <- function(file, initial_read = TRUE) {
   header <- fread(file, nrows = 1, header = TRUE)
   if (initial_read) {
-    dt <- fread(file, na.strings = na_values, colClasses = "character", header = FALSE, skip = 1)
+    dt <- fread(file,
+      na.strings = na_values,
+      colClasses = "character", header = FALSE, skip = 1
+    )
     setnames(dt, names(header))
   } else {
-    dt <- fread(file, na.strings = na_values, colClasses = "character", header = FALSE, skip = 1)
+    dt <- fread(file,
+      na.strings = na_values,
+      colClasses = "character", header = FALSE, skip = 1
+    )
     setnames(dt, names(header))
     dt <- dt[, (drop_cols) := NULL]
     for (col in names(col_classes_after_drop)) {
       dt[[col]] <- switch(col_classes_after_drop[[col]],
-                          "character" = as.character(dt[[col]]),
-                          "factor" = as.factor(dt[[col]]),
-                          "integer" = as.integer(dt[[col]]),
-                          "numeric" = as.numeric(dt[[col]]),
-                          dt[[col]]
+        "character" = as.character(dt[[col]]),
+        "factor" = as.factor(dt[[col]]),
+        "integer" = as.integer(dt[[col]]),
+        "numeric" = as.numeric(dt[[col]]),
+        dt[[col]]
       )
     }
   }
@@ -49,16 +57,19 @@ read_entire_file <- function(file, initial_read = TRUE) {
 # Function to read the sampled file
 read_sampled_file <- function(file) {
   header <- fread(file, nrows = 1)
-  dt <- fread(file, na.strings = na_values, colClasses = "character", header = FALSE, skip = 1)
+  dt <- fread(file,
+    na.strings = na_values,
+    colClasses = "character", header = FALSE, skip = 1
+  )
   setnames(dt, names(header))
   dt <- dt[, (drop_cols) := NULL]
   for (col in names(col_classes_after_drop)) {
     dt[[col]] <- switch(col_classes_after_drop[[col]],
-                        "character" = as.character(dt[[col]]),
-                        "factor" = as.factor(dt[[col]]),
-                        "integer" = as.integer(dt[[col]]),
-                        "numeric" = as.numeric(dt[[col]]),
-                        dt[[col]]
+      "character" = as.character(dt[[col]]),
+      "factor" = as.factor(dt[[col]]),
+      "integer" = as.integer(dt[[col]]),
+      "numeric" = as.numeric(dt[[col]]),
+      dt[[col]]
     )
   }
   return(dt)
@@ -84,7 +95,8 @@ main_read_function <- function(file = NA) {
     } else if (to_sample) {
       dt <- handle_sampling()
     } else {
-      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
+      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE.
+      At least one must be TRUE.")
     }
   } else {
     dt <- read_entire_file(file, initial_read = is_partial_file(part))
@@ -97,7 +109,7 @@ main_read_function <- function(file = NA) {
 read_and_save_partial <- function(start_row, end_row, part) {
   partial_file_path <- full_claims_file(part, fileext = TRUE)
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)
-  
+
   print(paste("Reading header from:", full_claims_file()))
   print(paste("Partial file path:", partial_file_path))
   print(paste("Start row:", start_row, "End row:", end_row))
@@ -106,11 +118,11 @@ read_and_save_partial <- function(start_row, end_row, part) {
   if (!file.exists(partial_file_path)) {
     print("Partial file does not exist. Reading partial data...")
     dt <- fread(full_claims_file(part),
-                na.strings = na_values,
-                colClasses = "character",
-                nrows = end_row - start_row + 1,
-                skip = start_row,
-                header = FALSE
+      na.strings = na_values,
+      colClasses = "character",
+      nrows = end_row - start_row + 1,
+      skip = start_row,
+      header = FALSE
     )
     setnames(dt, colnames(header))
     print(paste("Number of rows read:", nrow(dt)))
@@ -121,10 +133,13 @@ read_and_save_partial <- function(start_row, end_row, part) {
       print("No rows to save")
     }
   } else {
-    print(paste("Partial file already exists. Skipping creation:", partial_file_path))
+    print(paste(
+      "Partial file already exists. Skipping creation:",
+      partial_file_path
+    ))
     dt <- fread(partial_file_path)
   }
-  
+
   if (to_sample) {
     sampled_file_path <- sampled_claims_file(part)
     print(paste("Sampled file path:", sampled_file_path))
@@ -139,7 +154,10 @@ read_and_save_partial <- function(start_row, end_row, part) {
         stop("Failed to read partial file or no rows available for sampling")
       }
     } else {
-      print(paste("Sampled file already exists. Skipping creation:", sampled_file_path))
+      print(paste(
+        "Sampled file already exists. Skipping creation:",
+        sampled_file_path
+      ))
     }
   }
 }

@@ -604,17 +604,19 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   clean_result <- clean_data(chunk)
   chunk <- clean_result$data
 
-  summary <- list()
-  summary$rename_success <- clean_result$rename_success
-  summary$ICD_replacements_1 <- clean_result$ICD_replacements_1
-  summary$ICD_replacements_2 <- clean_result$ICD_replacements_2
-  summary$pat_type_unmapped <- clean_result$pat_type_unmapped
-  summary$memcat_parent_unmapped <- clean_result$memcat_parent_unmapped
-  summary$memcat_child_unmapped <- clean_result$memcat_child_unmapped
-  summary$discharge_unmapped <- clean_result$discharge_unmapped
-  summary$discard_rvs_one <- clean_result$discard_rvs_one
-  summary$discard_rvs_two <- clean_result$discard_rvs_two
-  summary$empty_strings_replaced_1 <- clean_result$empty_strings_replaced_1
+  summary <- list(
+    rename_success = clean_result$rename_success,
+    ICD_replacements_1 = clean_result$ICD_replacements_1,
+    ICD_replacements_2 = clean_result$ICD_replacements_2,
+    pat_type_unmapped = clean_result$pat_type_unmapped,
+    memcat_parent_unmapped = clean_result$memcat_parent_unmapped,
+    memcat_child_unmapped = clean_result$memcat_child_unmapped,
+    discharge_unmapped = clean_result$discharge_unmapped,
+    discard_rvs_one = clean_result$discard_rvs_one,
+    discard_rvs_two = clean_result$discard_rvs_two,
+    empty_strings_replaced_1 = clean_result$empty_strings_replaced_1
+  )
+  
 
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
@@ -654,6 +656,12 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   summary$direct_matches <- icd10_mapping_result$direct_matches
   summary$unmatched <- icd10_mapping_result$unmatched
   summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
+
+  summary$rvss <- rvs_mapping_result$rvss
+  summary$mappable_rvs <- rvs_mapping_result$mappable_rvs
+  summary$unmappable_rvs <- rvs_mapping_result$unmappable_rvs
+  summary$multi_mapped_rvs <- rvs_mapping_result$multi_mapped_rvs
+  summary$without_drg <- rvs_mapping_result$without_drg
 
   return(list(chunk = chunk, summary = summary))
 }
@@ -699,6 +707,51 @@ read_and_process_chunk <- function(part) {
   return(dt)
 }
 
+# parallelize_and_summarize_data <- function(
+#     dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+#     rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
+#   chunk_size <- ceiling(nrow(dt) / num_cores)
+#   chunks <- split(dt, rep(1:num_cores,
+#     each = chunk_size, length.out = nrow(dt)
+#   ))
+
+#   if (to_parallelize) {
+#     # Plan for parallel processing
+#     plan(multisession, workers = num_cores)
+
+#     # Process each chunk in parallel
+#     parallel_results <- future_lapply(
+#       chunks, process_chunk,
+#       to_view_checks = to_view_checks,
+#       rvs_icd9 = rvs_icd9,
+#       tdrg_icd10 = tdrg_icd10,
+#       acc_pdx = acc_pdx,
+#       future.seed = global_seed
+#     )
+#   } else {
+#     # Process each chunk sequentially
+#     parallel_results <- lapply(
+#       chunks, process_chunk,
+#       to_view_checks = to_view_checks,
+#       rvs_icd9 = rvs_icd9,
+#       tdrg_icd10 = tdrg_icd10,
+#       acc_pdx = acc_pdx
+#     )
+#   }
+
+#   # Combine processed chunks
+#   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
+#   dt <- rbindlist(processed_chunks)
+
+#   # Combine summaries of the chunks
+#   combined_summary <- combine_chunk_summaries(parallel_results, intermediate_rows_to_show)
+
+#   return(list(
+#     dt = dt,
+#     combined_summary = combined_summary
+#   ))
+# }
+
 parallelize_and_summarize_data <- function(
     dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
@@ -743,7 +796,6 @@ parallelize_and_summarize_data <- function(
     combined_summary = combined_summary
   ))
 }
-
 
 group_data <- function(part, dt) {
   if (to_group) {
@@ -1117,14 +1169,46 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
   })
 }
 
+# map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
+#   split_codes <- split_rvs_codes(rvs_icd9)
+#   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
+
+#   rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
+#   icd9_list <- get_icd9_codes(clin_rvs, rvs_map_solo_env)
+
+#   return(list(icd9_list = icd9_list, rvs_map_list = rvs_maps$rvs_map_list))
+# }
+
 map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   split_codes <- split_rvs_codes(rvs_icd9)
   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
+  rvs_map_list <- rvs_maps$rvs_map_list
 
   rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
   icd9_list <- get_icd9_codes(clin_rvs, rvs_map_solo_env)
 
-  return(list(icd9_list = icd9_list, rvs_map_list = rvs_maps$rvs_map_list))
+  rvss <- unique(unlist(clin_rvs))
+  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+  unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+  without_drg <- unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
+
+  return_list <- list(
+    icd9_list = icd9_list, 
+    rvs_map_list = rvs_maps$rvs_map_list,
+    rvss = rvss,
+    mappable_rvs = mappable_rvs,
+    unmappable_rvs = unmappable_rvs,
+    multi_mapped_rvs = multi_mapped_rvs,
+    without_drg = without_drg
+  )
+  
+  # Debugging statement
+  # for (return in return_list) {
+  #   str(return)
+  # }
+
+  return(return_list)
 }
 
 find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
@@ -1458,12 +1542,161 @@ format_large_numbers <- function(x) {
   }
 }
 
-print_summary_tables <- function(final_combined_summaries, rows_to_show) {
-  # Print the consolidated summary
-  cat("Rename Success:\n", final_combined_summaries$final_rename_success, "\n\n")
+# print_summary_tables <- function(final_combined_summaries, rows_to_show) {
+#   # Print the consolidated summary
+#   cat("Rename Success:\n", final_combined_summaries$final_rename_success, "\n\n")
 
-  if (nrow(final_combined_summaries$final_ICD_replacements_1) > 0) {
-    print(kable(head(final_combined_summaries$final_ICD_replacements_1, rows_to_show),
+#   if (nrow(final_combined_summaries$final_ICD_replacements_1) > 0) {
+#     print(kable(head(final_combined_summaries$final_ICD_replacements_1, rows_to_show),
+#       format = "markdown",
+#       caption = "ICD Replacements 1"
+#     ))
+#   } else {
+#     cat("\nNo ICD replacements found in the first set.\n\n")
+#   }
+
+#   if (nrow(final_combined_summaries$final_ICD_replacements_2) > 0) {
+#     print(kable(head(final_combined_summaries$final_ICD_replacements_2, rows_to_show),
+#       format = "markdown",
+#       caption = "ICD Replacements 2"
+#     ))
+#   } else {
+#     cat("\nNo ICD replacements found in the second set.\n\n")
+#   }
+
+#   if (is.null(final_combined_summaries$final_pat_type_unmapped)) {
+#     cat("Patient Type Unmapped: NULL\n\n")
+#   } else {
+#     cat(
+#       "Patient Type Unmapped:\n",
+#       final_combined_summaries$final_pat_type_unmapped, "\n\n"
+#     )
+#   }
+
+#   if (is.null(final_combined_summaries$final_memcat_parent_unmapped)) {
+#     cat("Memcat Parent Unmapped: NULL\n\n")
+#   } else {
+#     cat(
+#       "Memcat Parent Unmapped:\n",
+#       final_combined_summaries$final_memcat_parent_unmapped, "\n\n"
+#     )
+#   }
+
+#   if (is.null(final_combined_summaries$final_memcat_child_unmapped)) {
+#     cat("Memcat Child Unmapped: NULL\n\n")
+#   } else {
+#     cat(
+#       "Memcat Child Unmapped:\n",
+#       final_combined_summaries$final_memcat_child_unmapped, "\n\n"
+#     )
+#   }
+
+#   if (is.null(final_combined_summaries$final_discharge_unmapped)) {
+#     cat("Discharge Unmapped: NULL\n\n")
+#   } else {
+#     cat(
+#       "Discharge Unmapped:\n",
+#       final_combined_summaries$final_discharge_unmapped, "\n\n"
+#     )
+#   }
+
+#   if (nrow(final_combined_summaries$final_discard_rvs_one) > 0) {
+#     print(kable(head(final_combined_summaries$final_discard_rvs_one, rows_to_show),
+#       format = "markdown",
+#       caption = "Discarded RVS Codes One"
+#     ))
+#   } else {
+#     cat("\nNo RVS codes discarded in the first set.\n\n")
+#   }
+
+#   if (nrow(final_combined_summaries$final_discard_rvs_two) > 0) {
+#     print(kable(head(final_combined_summaries$final_discard_rvs_two, rows_to_show),
+#       format = "markdown",
+#       caption = "Discarded RVS Codes Two"
+#     ))
+#   } else {
+#     cat("\nNo RVS codes discarded in the second set.\n\n")
+#   }
+
+#   if (nrow(final_combined_summaries$final_empty_strings_replaced_1) > 0) {
+#     print(kable(
+#       head(
+#         final_combined_summaries$final_empty_strings_replaced_1, rows_to_show
+#       ),
+#       format = "markdown",
+#       caption = "Empty Strings Replaced (First Set)"
+#     ))
+#   } else {
+#     cat("\nNo empty strings replaced in the first set.\n\n")
+#   }
+
+#   if (nrow(final_combined_summaries$final_empty_strings_replaced_2) > 0) {
+#     print(kable(
+#       head(
+#         final_combined_summaries$final_empty_strings_replaced_2, rows_to_show
+#       ),
+#       format = "markdown",
+#       caption = "Empty Strings Replaced (Second Set)"
+#     ))
+#   } else {
+#     cat("\nNo empty strings replaced in the second set.\n\n")
+#   }
+
+#   cat(
+#     sprintf(
+#       "There are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
+#       final_combined_summaries$final_unique_icds,
+#       final_combined_summaries$final_direct_matches,
+#       (final_combined_summaries$final_direct_matches / 
+#       final_combined_summaries$final_unique_icds) * 100
+#     ), "are directly in the Thai ICD-10 library.\n"
+#   )
+
+#   cat(
+#     sprintf(
+#       "The modifications led to a total of %d codes",
+#       final_combined_summaries$final_unique_icds - 
+#       final_combined_summaries$final_unmatched
+#     ), "being mapped to an equivalent in the Thai ICD10 library.\n"
+#   )
+
+#   cat(
+#     sprintf(
+#       "Out of these, %d were modified to match.\n",
+#       final_combined_summaries$final_unique_icds - 
+#       final_combined_summaries$final_unmatched - 
+#       final_combined_summaries$final_direct_matches
+#     )
+#   )
+
+#   cat(
+#     sprintf(
+#       "There are %d codes that could not",
+#       final_combined_summaries$final_unmatched
+#     ), "be mapped to the Thai ICD10 library.\n"
+#   )
+
+
+#   if (nrow(final_combined_summaries$final_unmatched_sources) > 0) {
+#     print(
+#       kable(
+#         head(
+#           final_combined_summaries$final_unmatched_sources, 
+#           rows_to_show),
+#       format = "markdown",
+#       caption = "Invalid ICD-10 Codes Not Found in Thai Library"
+#     ))
+#   } else {
+#     cat("\nAll resulting ICD-10 codes are valid and present in the Thai library.\n\n")
+#   }
+# }
+
+print_summary_tables <- function(final_combined_summaries, rows_to_show) {
+  summary <- final_combined_summaries
+  cat("Rename Success:\n", summary$final_rename_success, "\n\n")
+
+  if (nrow(summary$final_ICD_replacements_1) > 0) {
+    print(kable(head(summary$final_ICD_replacements_1, rows_to_show),
       format = "markdown",
       caption = "ICD Replacements 1"
     ))
@@ -1471,8 +1704,8 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo ICD replacements found in the first set.\n\n")
   }
 
-  if (nrow(final_combined_summaries$final_ICD_replacements_2) > 0) {
-    print(kable(head(final_combined_summaries$final_ICD_replacements_2, rows_to_show),
+  if (nrow(summary$final_ICD_replacements_2) > 0) {
+    print(kable(head(summary$final_ICD_replacements_2, rows_to_show),
       format = "markdown",
       caption = "ICD Replacements 2"
     ))
@@ -1480,44 +1713,44 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo ICD replacements found in the second set.\n\n")
   }
 
-  if (is.null(final_combined_summaries$final_pat_type_unmapped)) {
-    cat("Patient Type Unmapped: NULL\n\n")
+  if (is.null(summary$final_pat_type_unmapped)) {
+    cat("\n\nPatient Type Unmapped: NULL\n\n")
   } else {
     cat(
       "Patient Type Unmapped:\n",
-      final_combined_summaries$final_pat_type_unmapped, "\n\n"
+      summary$final_pat_type_unmapped, "\n\n"
     )
   }
 
-  if (is.null(final_combined_summaries$final_memcat_parent_unmapped)) {
+  if (is.null(summary$final_memcat_parent_unmapped)) {
     cat("Memcat Parent Unmapped: NULL\n\n")
   } else {
     cat(
       "Memcat Parent Unmapped:\n",
-      final_combined_summaries$final_memcat_parent_unmapped, "\n\n"
+      summary$final_memcat_parent_unmapped, "\n\n"
     )
   }
 
-  if (is.null(final_combined_summaries$final_memcat_child_unmapped)) {
+  if (is.null(summary$final_memcat_child_unmapped)) {
     cat("Memcat Child Unmapped: NULL\n\n")
   } else {
     cat(
       "Memcat Child Unmapped:\n",
-      final_combined_summaries$final_memcat_child_unmapped, "\n\n"
+      summary$final_memcat_child_unmapped, "\n\n"
     )
   }
 
-  if (is.null(final_combined_summaries$final_discharge_unmapped)) {
+  if (is.null(summary$final_discharge_unmapped)) {
     cat("Discharge Unmapped: NULL\n\n")
   } else {
     cat(
       "Discharge Unmapped:\n",
-      final_combined_summaries$final_discharge_unmapped, "\n\n"
+      summary$final_discharge_unmapped, "\n\n"
     )
   }
 
-  if (nrow(final_combined_summaries$final_discard_rvs_one) > 0) {
-    print(kable(head(final_combined_summaries$final_discard_rvs_one, rows_to_show),
+  if (nrow(summary$final_discard_rvs_one) > 0) {
+    print(kable(head(summary$final_discard_rvs_one, rows_to_show),
       format = "markdown",
       caption = "Discarded RVS Codes One"
     ))
@@ -1525,8 +1758,8 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo RVS codes discarded in the first set.\n\n")
   }
 
-  if (nrow(final_combined_summaries$final_discard_rvs_two) > 0) {
-    print(kable(head(final_combined_summaries$final_discard_rvs_two, rows_to_show),
+  if (nrow(summary$final_discard_rvs_two) > 0) {
+    print(kable(head(summary$final_discard_rvs_two, rows_to_show),
       format = "markdown",
       caption = "Discarded RVS Codes Two"
     ))
@@ -1534,10 +1767,10 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo RVS codes discarded in the second set.\n\n")
   }
 
-  if (nrow(final_combined_summaries$final_empty_strings_replaced_1) > 0) {
+  if (nrow(summary$final_empty_strings_replaced_1) > 0) {
     print(kable(
       head(
-        final_combined_summaries$final_empty_strings_replaced_1, rows_to_show
+        summary$final_empty_strings_replaced_1, rows_to_show
       ),
       format = "markdown",
       caption = "Empty Strings Replaced (First Set)"
@@ -1546,10 +1779,10 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo empty strings replaced in the first set.\n\n")
   }
 
-  if (nrow(final_combined_summaries$final_empty_strings_replaced_2) > 0) {
+  if (nrow(summary$final_empty_strings_replaced_2) > 0) {
     print(kable(
       head(
-        final_combined_summaries$final_empty_strings_replaced_2, rows_to_show
+        summary$final_empty_strings_replaced_2, rows_to_show
       ),
       format = "markdown",
       caption = "Empty Strings Replaced (Second Set)"
@@ -1558,16 +1791,82 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo empty strings replaced in the second set.\n\n")
   }
 
-  print(paste("Total Unique ICD-10 Codes:", final_combined_summaries$final_unique_icds))
-  print(paste("Total Unique Directly Matched ICD-10 Codes:", final_combined_summaries$final_direct_matches))
-  print(paste("Total Unique Modified ICD-10 Codes", 
-  final_combined_summaries$final_unique_icds - 
-  final_combined_summaries$final_unmatched - 
-  final_combined_summaries$final_direct_matches))
-  print(paste("Total Unique Matched ICD-10 Codes", 
-  final_combined_summaries$final_unique_icds - 
-  final_combined_summaries$final_unmatched))
-  print(paste("Total Unique Unmatched ICD-10 Codes:", final_combined_summaries$final_unmatched))
+  cat(
+    sprintf(
+      "There are %d RVS codes without an ICD-9CM",
+      summary$final_without_drg
+    ), "equivalent recognized by the TDRG ICD9CM\n"
+  )
+  cat(
+    sprintf(
+      "There are %d unique RVS codes that appear in the claims.\n",
+      summary$final_rvss
+    )
+  )
+  cat(
+    sprintf(
+      "Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n",
+      summary$final_mappable_rvs,
+      (summary$final_mappable_rvs / 
+      summary$final_rvss) * 100
+    )
+  )
+  cat(
+    sprintf(
+      "Of these, there are %d (%.2f%%)",
+      summary$final_multi_mapped_rvs,
+      (summary$final_multi_mapped_rvs / 
+      summary$final_rvss) * 100
+    ), "with more than one ICD9 equivalent",
+    "recognized by the Thai ICD9 library.\n"
+  )
+
+  cat(
+    sprintf(
+      "\n\nThere are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
+      summary$final_unique_icds,
+      summary$final_direct_matches,
+      (summary$final_direct_matches / 
+      summary$final_unique_icds) * 100
+    ), "are directly in the Thai ICD-10 library.\n"
+  )
+
+  cat(
+    sprintf(
+      "The modifications led to a total of %d codes",
+      summary$final_unique_icds - 
+      summary$final_unmatched
+    ), "being mapped to an equivalent in the Thai ICD10 library.\n"
+  )
+
+  cat(
+    sprintf(
+      "Out of these, %d were modified to match.\n",
+      summary$final_unique_icds - 
+      summary$final_unmatched - 
+      summary$final_direct_matches
+    )
+  )
+
+  cat(
+    sprintf(
+      "There are %d codes that could not",
+      summary$final_unmatched
+    ), "be mapped to the Thai ICD10 library.\n"
+  )
+
+  if (nrow(summary$final_unmatched_sources) > 0) {
+    print(
+      kable(
+        head(
+          summary$final_unmatched_sources, 
+          rows_to_show),
+      format = "markdown",
+      caption = "Invalid ICD-10 Codes Not Found in Thai Library"
+    ))
+  } else {
+    cat("\nAll resulting ICD-10 codes are valid and present in the Thai library.\n\n")
+  }
 }
 
 combine_comparison_tables <- function(
@@ -1614,6 +1913,14 @@ combine_discarded_rvs_tables <- function(summaries, field, intermediate_rows_to_
   return(combined_discarded)
 }
 
+combine_unmatched_icd10_codes <- function(summaries, field, intermediate_rows_to_show = 10) {
+  combined_list <- lapply(summaries, function(summary) summary[[field]])
+  combined_table <- rbindlist(combined_list, fill = TRUE)
+  combined_table <- combined_table[, .(count = sum(count)), by = .(code, source)]
+  combined_table[order(-count)]
+  return(combined_table)
+}
+
 combine_replace_empty_tables <- function(summaries, field, intermediate_rows_to_show = 10) {
   replace_empty_list <- lapply(summaries, function(summary) summary[[field]])
   combined_replace_empty <- rbindlist(replace_empty_list, fill = TRUE)
@@ -1640,24 +1947,33 @@ combine_replace_empty_tables <- function(summaries, field, intermediate_rows_to_
   return(combined_replace_empty)
 }
 
-# combine_and_print_summaries <- function(all_parts_summaries, rows_to_show) {
-#   combined_summary <- combine_all_parts_summaries(
-#     all_parts_summaries, rows_to_show
-#   )
-#   print_summary_tables(
-#     list(
-#       dt = NULL,
-#       consolidated_summary = combined_summary
-#     ),
-#     rows_to_show
-#   )
-# }
-
 combine_chunk_summaries <- function(parallel_results, intermediate_rows_to_show) {
   summaries <- lapply(parallel_results, function(res) res$summary)
   combined_summary <- combine_summaries(summaries, intermediate_rows_to_show)
   return(combined_summary)
 }
+
+# combine_summaries <- function(summaries, intermediate_rows_to_show) {
+#   combined_summary <- list(
+#     rename_success = all(unlist(sapply(summaries, function(summary) summary$rename_success)), na.rm = TRUE),
+#     ICD_replacements_1 = combine_comparison_tables(summaries, "ICD_replacements_1", intermediate_rows_to_show),
+#     ICD_replacements_2 = combine_comparison_tables(summaries, "ICD_replacements_2", intermediate_rows_to_show),
+#     pat_type_unmapped = unique(unlist(lapply(summaries, function(summary) summary$pat_type_unmapped))),
+#     memcat_parent_unmapped = unique(unlist(lapply(summaries, function(summary) summary$memcat_parent_unmapped))),
+#     memcat_child_unmapped = unique(unlist(lapply(summaries, function(summary) summary$memcat_child_unmapped))),
+#     discharge_unmapped = unique(unlist(lapply(summaries, function(summary) summary$discharge_unmapped))),
+#     discard_rvs_one = combine_discarded_rvs_tables(summaries, "discard_rvs_one", intermediate_rows_to_show),
+#     discard_rvs_two = combine_discarded_rvs_tables(summaries, "discard_rvs_two", intermediate_rows_to_show),
+#     empty_strings_replaced_1 = combine_replace_empty_tables(summaries, "empty_strings_replaced_1", intermediate_rows_to_show),
+#     empty_strings_replaced_2 = combine_replace_empty_tables(summaries, "empty_strings_replaced_2", intermediate_rows_to_show),
+#     unique_icds_count = unique(unlist(lapply(summaries, function(summary) summary$unique_icds))),
+#     direct_matches_count = unique(unlist(lapply(summaries, function(summary) summary$direct_matches))),
+#     unmatched_count = unique(unlist(lapply(summaries, function(summary) summary$unmatched))),
+#     unmatched_sources = combine_unmatched_icd10_codes(summaries, "unmatched_sources", intermediate_rows_to_show)
+#   )
+  
+#   return(combined_summary)
+# }
 
 combine_summaries <- function(summaries, intermediate_rows_to_show) {
   combined_summary <- list(
@@ -1671,18 +1987,79 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
     discard_rvs_one = combine_discarded_rvs_tables(summaries, "discard_rvs_one", intermediate_rows_to_show),
     discard_rvs_two = combine_discarded_rvs_tables(summaries, "discard_rvs_two", intermediate_rows_to_show),
     empty_strings_replaced_1 = combine_replace_empty_tables(summaries, "empty_strings_replaced_1", intermediate_rows_to_show),
-    empty_strings_replaced_2 = combine_replace_empty_tables(summaries, "empty_strings_replaced_2", intermediate_rows_to_show)
+    empty_strings_replaced_2 = combine_replace_empty_tables(summaries, "empty_strings_replaced_2", intermediate_rows_to_show),
+    unique_icds_count = unique(unlist(lapply(summaries, function(summary) summary$unique_icds))),
+    direct_matches_count = unique(unlist(lapply(summaries, function(summary) summary$direct_matches))),
+    unmatched_count = unique(unlist(lapply(summaries, function(summary) summary$unmatched))),
+    unmatched_sources = combine_unmatched_icd10_codes(summaries, "unmatched_sources", intermediate_rows_to_show),
+    rvss = unique(na.omit(unlist(lapply(summaries, function(summary) summary$rvss)))),
+    mappable_rvs = unique(na.omit(unlist(lapply(summaries, function(summary) summary$mappable_rvs)))),
+    unmappable_rvs = unique(na.omit(unlist(lapply(summaries, function(summary) summary$unmappable_rvs)))),
+    multi_mapped_rvs = unique(na.omit(unlist(lapply(summaries, function(summary) summary$multi_mapped_rvs)))),
+    without_drg = unique(na.omit(unlist(lapply(summaries, function(summary) summary$without_drg))))
   )
-
-  combined_unique_icds <- unique(unlist(lapply(summaries, function(summary) summary$unique_icds)))
-  combined_direct_matches <- unique(unlist(lapply(summaries, function(summary) summary$direct_matches)))
-  combined_unmatched <- unique(unlist(lapply(summaries, function(summary) summary$unmatched)))
-
-  combined_summary$unique_icds_count <- combined_unique_icds
-  combined_summary$direct_matches_count <- combined_direct_matches
-  combined_summary$unmatched_count <- combined_unmatched
+  
   return(combined_summary)
 }
+
+# combine_parts_summaries <- function(combined_summary, rows_to_show) {
+#   final_combined_summaries <- list(
+#     final_rename_success = all(unlist(sapply(
+#       combined_summary,
+#       function(summary) summary$rename_success
+#     )), na.rm = TRUE),
+#     final_ICD_replacements_1 = combine_comparison_tables(
+#       combined_summary, "ICD_replacements_1", rows_to_show
+#     ),
+#     final_ICD_replacements_2 = combine_comparison_tables(
+#       combined_summary, "ICD_replacements_2", rows_to_show
+#     ),
+#     final_pat_type_unmapped = unique(unlist(lapply(
+#       combined_summary,
+#       function(summary) summary$pat_type_unmapped
+#     ))),
+#     final_memcat_parent_unmapped = unique(unlist(lapply(
+#       combined_summary,
+#       function(summary) summary$memcat_parent_unmapped
+#     ))),
+#     final_memcat_child_unmapped = unique(unlist(lapply(
+#       combined_summary,
+#       function(summary) summary$memcat_child_unmapped
+#     ))),
+#     final_discharge_unmapped = unique(unlist(lapply(
+#       combined_summary,
+#       function(summary) summary$discharge_unmapped
+#     ))),
+#     final_discard_rvs_one = combine_discarded_rvs_tables(
+#       combined_summary, "discard_rvs_one", rows_to_show
+#     ),
+#     final_discard_rvs_two = combine_discarded_rvs_tables(
+#       combined_summary, "discard_rvs_two", rows_to_show
+#     ),
+#     final_empty_strings_replaced_1 = combine_replace_empty_tables(
+#       combined_summary, "empty_strings_replaced_1", rows_to_show
+#     ),
+#     final_empty_strings_replaced_2 = combine_replace_empty_tables(
+#       combined_summary, "empty_strings_replaced_2", rows_to_show
+#     ),
+#     final_unique_icds = length(unique(unlist(lapply(
+#       combined_summary,
+#       function(summary) summary$unique_icds_count
+#     )))),
+#     final_direct_matches = length(unique(unlist(lapply(
+#       combined_summary,
+#       function(summary) summary$direct_matches_count
+#     )))),
+#     final_unmatched = length(unique(unlist(lapply(
+#       combined_summary,
+#       function(summary) summary$unmatched_count
+#     )))),
+#     final_unmatched_sources = combine_unmatched_icd10_codes(
+#       combined_summary, "unmatched_sources", rows_to_show)
+#   )
+
+#   return(final_combined_summaries)
+# }
 
 combine_parts_summaries <- function(combined_summary, rows_to_show) {
   final_combined_summaries <- list(
@@ -1735,8 +2112,21 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
     final_unmatched = length(unique(unlist(lapply(
       combined_summary,
       function(summary) summary$unmatched_count
-    ))))
+    )))),
+    final_unmatched_sources = combine_unmatched_icd10_codes(
+      combined_summary, "unmatched_sources", rows_to_show),
+    final_rvss = length(unique(na.omit(unlist(lapply(combined_summary, 
+      function(summary) summary$rvss))))),
+    final_mappable_rvs = length(unique(na.omit(unlist(lapply(combined_summary, 
+      function(summary) summary$mappable_rvs))))),
+    final_unmappable_rvs = length(unique(na.omit(unlist(lapply(combined_summary, 
+      function(summary) summary$unmappable_rvs))))),
+    final_multi_mapped_rvs = length(unique(na.omit(unlist(lapply(combined_summary, 
+      function(summary) summary$multi_mapped_rvs))))),
+    final_without_drg = length(unique(na.omit(unlist(lapply(combined_summary, 
+      function(summary) summary$without_drg)))))
   )
 
   return(final_combined_summaries)
 }
+

@@ -31,9 +31,15 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    paste0("sampled_claims_", year_to_load, "_", sample_size)
+    paste0(
+      "sampled_claims_", year_to_load, "_",
+      sample_size
+    )
   } else {
-    paste0("sampled_claims_", year_to_load, "_", sample_size, "_part_", part, "_of_", split_chunks)
+    paste0(
+      "sampled_claims_", year_to_load, "_",
+      sample_size, "_part_", part, "_of_", split_chunks
+    )
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -46,7 +52,7 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
     paste0("intermediate_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "intermediate_claims_", year_to_load, suffix, 
+      "intermediate_claims_", year_to_load, suffix,
       "part_", part, "_of_", split_chunks
     )
   }

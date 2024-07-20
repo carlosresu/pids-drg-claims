@@ -1,7 +1,4 @@
 suppressPackageStartupMessages({
-  # library(rprojroot)
-  # library(conflicted)
-  # library(tidyverse)
   library(data.table)
   library(here)
   library(tictoc)
@@ -11,9 +8,6 @@ suppressPackageStartupMessages({
   library(docstring)
   library(profvis)
   library(hash)
-  # library(foreach)
-  # library(doParallel)
-  # library(parallel)
   library(future)
   library(future.apply)
   library(knitr)

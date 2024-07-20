@@ -2,6 +2,7 @@
 year_to_load <- "2018"
 split_chunks <- 5
 rows_to_show <- 10
+intermediate_rows_to_show <- Inf
 
 # Input:
 to_read <- FALSE
@@ -50,16 +51,19 @@ scripts_to_source <- c(
   "02_file-paths.R"
 )
 
-# Generate and execute source commands
 for (script in scripts_to_source) {
   source(here("data-cleaning", "r_scripts", script))
 }
 
-# Perform other tasks here...
 tic("Total execution time:")
 
-# Use the function to count total rows
-total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
+if (file.exists(total_rows_file())) {
+  total_rows <- readRDS(total_rows_file())
+} else {
+  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
+  saveRDS(total_rows, file = total_rows_file())
+}
+
 print(paste("Total Rows via fread:", total_rows))
 
 if (to_split) {
@@ -68,7 +72,6 @@ if (to_split) {
   sample_size <- ceiling(total_rows / sample_size_divisor)
 }
 
-# List of scripts to source in order
 scripts_to_source <- c(
   "03_general-functions.R",
   "04_main-functions.R",
@@ -82,7 +85,6 @@ scripts_to_source <- c(
   "12_summary-functions.R"
 )
 
-# Generate and execute source commands
 for (script in scripts_to_source) {
   source(here("data-cleaning", "r_scripts", script))
 }
@@ -123,17 +125,14 @@ if (to_profvis) {
   p <- profvis({
     split_and_save_chunks()
     for (part in 1:split_chunks) {
+      # print(paste("Processing Part:", part))
       dt <- read_and_process_chunk(part)
-      if (!is.null(dt) && nrow(dt) > 0) {
-        result <- parallelize_and_summarize_data(
-          dt, num_cores - 1, to_view_checks, global_seed,
-          rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
-        )
-        dt <- result$dt
-        all_parts_summaries[[part]] <- result$combined_summary
-      } else {
-        print(paste("No data to process for part:", part))
-      }
+      result <- parallelize_and_summarize_data(
+        dt, num_cores - 1, to_view_checks, global_seed,
+        intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
+      )
+      dt <- result$dt
+      all_parts_summaries[[part]] <- result$combined_summary
     }
   })
   htmlwidgets::saveWidget(
@@ -144,20 +143,20 @@ if (to_profvis) {
 } else {
   split_and_save_chunks()
   for (part in 1:split_chunks) {
+    # print(paste("Processing Part:", part))
     dt <- read_and_process_chunk(part)
-    if (!is.null(dt) && nrow(dt) > 0) {
-      result <- parallelize_and_summarize_data(
-        dt, num_cores - 1, to_view_checks, global_seed,
-        rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
-      )
-      dt <- result$dt
-      all_parts_summaries[[part]] <- result$combined_summary
-    } else {
-      print(paste("No data to process for part:", part))
-    }
+    result <- parallelize_and_summarize_data(
+      dt, num_cores - 1, to_view_checks, global_seed,
+      intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
+    )
+    dt <- result$dt
+    all_parts_summaries[[part]] <- result$combined_summary
   }
 }
-combine_and_print_summaries(all_parts_summaries, rows_to_show)
+
+final_parts_summaries <- combine_parts_summaries(
+  all_parts_summaries, intermediate_rows_to_show)
+print_summary_tables(final_parts_summaries, rows_to_show)
 
 
 # Stop the timer and capture total time
