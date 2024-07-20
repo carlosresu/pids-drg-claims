@@ -198,6 +198,7 @@ combine_and_print_summaries <- function() {
   )
 }
 
+# Function to combine all parts summaries
 combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
   combined_summary <- list(
     rename_success = all(unlist(sapply(all_parts_summaries, function(summary) summary$rename_success)), na.rm = TRUE),
@@ -218,6 +219,7 @@ combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) 
   return(combined_summary)
 }
 
+# Function to print combined statistics
 print_combined_statistics <- function(final_combined_summary, rows_to_show) {
   rvs_stats <- final_combined_summary$rvs_mapping_summary[!is.na(icd9_list)]
   icd_stats <- final_combined_summary$icd_mapping_summary[!is.na(icd)]
