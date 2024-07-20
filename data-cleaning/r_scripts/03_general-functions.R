@@ -88,7 +88,6 @@ replace_empty_with_na <- function(dt, to_view_checks) {
   return(list(data = dt, replacement_summary = replacement_summary))
 }
 
-
 split_to_vector <- function(column) {
   result <- lapply(column, function(x) {
     if (is.na(x)) {
@@ -151,8 +150,10 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "INFORMAL",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL",
-    pat_memcat_child == "FORMAL ECONOMY", "FORMAL", # added this myself
-    pat_memcat_child == "PROFESSIONAL PRACTITIONER", "INFORMAL" # added this myself
+    pat_memcat_child == "FORMAL ECONOMY", "FORMAL",
+    # added this myself
+    pat_memcat_child == "PROFESSIONAL PRACTITIONER",
+    "INFORMAL" # added this myself
   )
   unknown_children <- setdiff(
     pat_memcat_child[!is.na(pat_memcat_child)],
@@ -182,9 +183,6 @@ remap_disposition <- function(clin_discharge) {
   list(remapped = remapped_discharge, unmapped = unknown_dispositions)
 }
 
-
-
-
 # Helper function to determine if a file is a partial file
 is_partial_file <- function(filename) {
   return(grepl("part", filename, ignore.case = TRUE))
@@ -194,5 +192,3 @@ is_partial_file <- function(filename) {
 suppress_interim_output <- function(expr) {
   suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
 }
-
-

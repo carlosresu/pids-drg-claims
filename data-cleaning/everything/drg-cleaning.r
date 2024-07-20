@@ -19,7 +19,7 @@ to_view_checks_parallelized <- FALSE
 to_parallelize <- TRUE
 
 # Sample size divisor:
-sample_size_divisor <- 125
+sample_size_divisor <- 5
 
 drop_cols <- c(
   paste0("ICDCODE", 13:14),
@@ -118,11 +118,6 @@ acc_pdx <- unique(acc_pdx)
 
 num_cores <- availableCores()
 all_parts_summaries <- list()
-all_parts_statistics <- list()
-all_parts_rvs_stats <- list()
-all_parts_icd_stats <- list()
-all_unique_rvs_codes <- list()
-all_unique_icd_codes <- list()
 
 if (to_profvis) {
   p <- profvis({
@@ -136,10 +131,6 @@ if (to_profvis) {
         )
         dt <- result$dt
         all_parts_summaries[[part]] <- result$combined_summary
-        all_parts_rvs_stats[[part]] <- result$rvs_stats
-        all_parts_icd_stats[[part]] <- result$icd_stats
-        all_unique_rvs_codes <- c(all_unique_rvs_codes, result$unique_rvs_codes)
-        all_unique_icd_codes <- c(all_unique_icd_codes, result$unique_icd_codes)
       } else {
         print(paste("No data to process for part:", part))
       }
@@ -161,30 +152,18 @@ if (to_profvis) {
       )
       dt <- result$dt
       all_parts_summaries[[part]] <- result$combined_summary
-      all_parts_rvs_stats[[part]] <- result$rvs_stats
-      all_parts_icd_stats[[part]] <- result$icd_stats
-      all_unique_rvs_codes <- c(all_unique_rvs_codes, result$unique_rvs_codes)
-      all_unique_icd_codes <- c(all_unique_icd_codes, result$unique_icd_codes)
     } else {
       print(paste("No data to process for part:", part))
     }
   }
 }
-
-final_combined_rvs_stats <- rbindlist(all_parts_rvs_stats, fill = TRUE)
-final_combined_icd_stats <- rbindlist(all_parts_icd_stats, fill = TRUE)
+combine_and_print_summaries()
 
 final_combined_summary <- combine_all_parts_summaries(
   all_parts_summaries, rows_to_show
 )
 
-unique_rvs_codes <- unique(unlist(all_unique_rvs_codes))
-unique_icd_codes <- unique(unlist(all_unique_icd_codes))
-
-print_combined_statistics(final_combined_summary)
-
-cat(sprintf("\nTotal unique RVS codes: %d\n", length(unique_rvs_codes)))
-cat(sprintf("Total unique ICD-10 codes: %d\n", length(unique_icd_codes)))
+print_combined_statistics(final_combined_summary, rows_to_show)
 
 
 # Stop the timer and capture total time

@@ -86,64 +86,46 @@ apply_icd10_mapping_to_columns <- function(
   )
 }
 
-# Modified function: implement_icd10_mapping
-implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows_to_show = Inf) {
+implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
   icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
 
   thai_icd10_env <- create_thai_icd10_environment(unique(tdrg_icd10$CODE))
   neoplasms_env <- create_thai_icd10_environment(unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"]))
 
   direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
-  
+
   icd_mapping_info <- generate_icd10_mapping(icds, thai_icd10_env, neoplasms_env)
   icd_mapping <- icd_mapping_info$icd_mapping
   modified_count <- icd_mapping_info$modified_count
 
   unmatched_icds <- setdiff(icds, names(icd_mapping))
-  
-  if (length(unmatched_icds) > 0) {
-    unmatched_sources <- data.table(
-      code = unmatched_icds, source = NA_character_, count = 0
-    )
 
+  if (length(unmatched_icds) > 0) {
+    unmatched_sources <- data.table(code = unmatched_icds, source = NA_character_, count = 0)
     for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
       col_values <- get(col_name)
-      unmatched_sources[
-        code %in% unlist(col_values),
-        source := col_name
-      ]
-      unmatched_sources[
-        code %in% unlist(col_values),
-        count := count + table(unlist(col_values))[code]
-      ]
+      unmatched_sources[code %in% unlist(col_values), source := col_name]
+      unmatched_sources[code %in% unlist(col_values), count := count + table(unlist(col_values))[code]]
     }
-
     unmatched_sources <- unmatched_sources[order(-count)]
   } else {
     unmatched_sources <- data.table()
   }
 
-  icd10_map <- data.table(
-    phl_icd10 = names(icd_mapping),
-    tdrg_icd10 = unlist(icd_mapping)
-  )
-  fwrite(icd10_map, paste0(
-    "cache/icd10_map_file_",
-    year_to_load, ".csv"
-  ))
-  icd10_env <- list2env(setNames(
-    as.list(icd10_map$tdrg_icd10),
-    icd10_map$phl_icd10
-  ))
+  icd10_map <- data.table(phl_icd10 = names(icd_mapping), tdrg_icd10 = unlist(icd_mapping))
+  fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
+  icd10_env <- list2env(setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10))
 
-  mapped_columns <- apply_icd10_mapping_to_columns(
-    clin_c1, clin_c2, clin_icd, icd10_env
-  )
+  mapped_columns <- apply_icd10_mapping_to_columns(clin_c1, clin_c2, clin_icd, icd10_env)
 
   return(list(
     clin_c1 = mapped_columns$clin_c1,
     clin_c2 = mapped_columns$clin_c2,
-    clin_icd = mapped_columns$clin_icd
+    clin_icd = mapped_columns$clin_icd,
+    direct_matches = direct_match_codes,
+    icd_mapping = icd_mapping,
+    modified_count = modified_count,
+    unmatched_sources = unmatched_sources
   ))
 }
 
@@ -171,6 +153,11 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
     setdiff(c2, c1)
   }, clin_c1, clin_c2)]
 
-  return(list(clin_c1 = dt$clin_c1, clin_c2 = dt$clin_c2, clin_icd = dt$clin_icd))
+  return(
+    list(
+      clin_c1 = dt$clin_c1,
+      clin_c2 = dt$clin_c2,
+      clin_icd = dt$clin_icd
+    )
+  )
 }
-

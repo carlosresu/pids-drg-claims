@@ -315,7 +315,6 @@ replace_empty_with_na <- function(dt, to_view_checks) {
   return(list(data = dt, replacement_summary = replacement_summary))
 }
 
-
 split_to_vector <- function(column) {
   result <- lapply(column, function(x) {
     if (is.na(x)) {
@@ -378,8 +377,10 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "INFORMAL",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL",
-    pat_memcat_child == "FORMAL ECONOMY", "FORMAL", # added this myself
-    pat_memcat_child == "PROFESSIONAL PRACTITIONER", "INFORMAL" # added this myself
+    pat_memcat_child == "FORMAL ECONOMY", "FORMAL",
+    # added this myself
+    pat_memcat_child == "PROFESSIONAL PRACTITIONER",
+    "INFORMAL" # added this myself
   )
   unknown_children <- setdiff(
     pat_memcat_child[!is.na(pat_memcat_child)],
@@ -409,9 +410,6 @@ remap_disposition <- function(clin_discharge) {
   list(remapped = remapped_discharge, unmapped = unknown_dispositions)
 }
 
-
-
-
 # Helper function to determine if a file is a partial file
 is_partial_file <- function(filename) {
   return(grepl("part", filename, ignore.case = TRUE))
@@ -421,8 +419,6 @@ is_partial_file <- function(filename) {
 suppress_interim_output <- function(expr) {
   suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
 }
-
-
 clean_data <- function(dt) {
   # Add year column
   dt[, SRC_YR := as.integer(year_to_load)]
@@ -628,10 +624,10 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   clin_c2 <- chunk$clin_c2
   clin_icd <- chunk$clin_icd
 
-  mapped_columns <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
-  chunk[, clin_c1 := mapped_columns$clin_c1]
-  chunk[, clin_c2 := mapped_columns$clin_c2]
-  chunk[, clin_icd := mapped_columns$clin_icd]
+  icd10_mapping_result <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
+  chunk[, clin_c1 := icd10_mapping_result$clin_c1]
+  chunk[, clin_c2 := icd10_mapping_result$clin_c2]
+  chunk[, clin_icd := icd10_mapping_result$clin_icd]
 
   chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
   chunk <- chunk_replace_result$data
@@ -661,23 +657,32 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
     icd9_list = unlist(chunk$icd9_list)
   )
 
+  # Calculate unique ICD codes and their mapping status
+  unique_icds <- unique(c(unlist(chunk$clin_c1), unlist(chunk$clin_c2), unlist(chunk$clin_icd)))
+  direct_matches <- unique_icds %in% icd10_mapping_result$direct_matches
+  modified_matches <- unique_icds %in% names(icd10_mapping_result$icd_mapping)
+  unmatched_icds <- setdiff(unique_icds, union(names(icd10_mapping_result$icd_mapping), icd10_mapping_result$direct_matches))
+
   icd_stats <- data.table(
-    icd = unlist(chunk$clin_icd),
-    mapped_icd = unlist(mapped_columns$clin_icd),
-    direct_match = !is.na(unlist(mapped_columns$clin_icd)) & unlist(mapped_columns$clin_icd) == unlist(mapped_columns$clin_icd),
-    modified = !is.na(unlist(mapped_columns$clin_icd)) & unlist(mapped_columns$clin_icd) != unlist(mapped_columns$clin_icd)
+    icd = unique_icds,
+    direct_match = direct_matches,
+    modified = modified_matches & !direct_matches
   )
 
   summary$rvs_mapping_summary <- rvs_stats
   summary$icd_mapping_summary <- icd_stats
+  summary$icd_mapping <- icd10_mapping_result$icd_mapping
+  summary$modified_count <- sum(modified_matches & !direct_matches)
+  summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
 
   unique_codes <- list(
     unique_rvs_codes = unique(unlist(chunk$clin_rvs)),
-    unique_icd_codes = unique(unlist(chunk$clin_icd))
+    unique_icd_codes = unique_icds
   )
 
   return(list(chunk = chunk, summary = summary, unique_codes = unique_codes))
 }
+
 
 # Function to split and save chunks
 split_and_save_chunks <- function() {
@@ -1031,64 +1036,46 @@ apply_icd10_mapping_to_columns <- function(
   )
 }
 
-# Modified function: implement_icd10_mapping
-implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10, rows_to_show = Inf) {
+implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
   icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
 
   thai_icd10_env <- create_thai_icd10_environment(unique(tdrg_icd10$CODE))
   neoplasms_env <- create_thai_icd10_environment(unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"]))
 
   direct_match_codes <- find_direct_icd_matches(icds, thai_icd10_env)
-  
+
   icd_mapping_info <- generate_icd10_mapping(icds, thai_icd10_env, neoplasms_env)
   icd_mapping <- icd_mapping_info$icd_mapping
   modified_count <- icd_mapping_info$modified_count
 
   unmatched_icds <- setdiff(icds, names(icd_mapping))
-  
-  if (length(unmatched_icds) > 0) {
-    unmatched_sources <- data.table(
-      code = unmatched_icds, source = NA_character_, count = 0
-    )
 
+  if (length(unmatched_icds) > 0) {
+    unmatched_sources <- data.table(code = unmatched_icds, source = NA_character_, count = 0)
     for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
       col_values <- get(col_name)
-      unmatched_sources[
-        code %in% unlist(col_values),
-        source := col_name
-      ]
-      unmatched_sources[
-        code %in% unlist(col_values),
-        count := count + table(unlist(col_values))[code]
-      ]
+      unmatched_sources[code %in% unlist(col_values), source := col_name]
+      unmatched_sources[code %in% unlist(col_values), count := count + table(unlist(col_values))[code]]
     }
-
     unmatched_sources <- unmatched_sources[order(-count)]
   } else {
     unmatched_sources <- data.table()
   }
 
-  icd10_map <- data.table(
-    phl_icd10 = names(icd_mapping),
-    tdrg_icd10 = unlist(icd_mapping)
-  )
-  fwrite(icd10_map, paste0(
-    "cache/icd10_map_file_",
-    year_to_load, ".csv"
-  ))
-  icd10_env <- list2env(setNames(
-    as.list(icd10_map$tdrg_icd10),
-    icd10_map$phl_icd10
-  ))
+  icd10_map <- data.table(phl_icd10 = names(icd_mapping), tdrg_icd10 = unlist(icd_mapping))
+  fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
+  icd10_env <- list2env(setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10))
 
-  mapped_columns <- apply_icd10_mapping_to_columns(
-    clin_c1, clin_c2, clin_icd, icd10_env
-  )
+  mapped_columns <- apply_icd10_mapping_to_columns(clin_c1, clin_c2, clin_icd, icd10_env)
 
   return(list(
     clin_c1 = mapped_columns$clin_c1,
     clin_c2 = mapped_columns$clin_c2,
-    clin_icd = mapped_columns$clin_icd
+    clin_icd = mapped_columns$clin_icd,
+    direct_matches = direct_match_codes,
+    icd_mapping = icd_mapping,
+    modified_count = modified_count,
+    unmatched_sources = unmatched_sources
   ))
 }
 
@@ -1116,9 +1103,14 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
     setdiff(c2, c1)
   }, clin_c1, clin_c2)]
 
-  return(list(clin_c1 = dt$clin_c1, clin_c2 = dt$clin_c2, clin_icd = dt$clin_icd))
+  return(
+    list(
+      clin_c1 = dt$clin_c1,
+      clin_c2 = dt$clin_c2,
+      clin_icd = dt$clin_icd
+    )
+  )
 }
-
 split_rvs_codes <- function(rvs_icd9) {
   with_drg <- rvs_icd9[is_drg == TRUE]
   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]
@@ -1688,7 +1680,6 @@ combine_and_print_summaries <- function() {
   )
 }
 
-# Function to combine all parts summaries
 combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
   combined_summary <- list(
     rename_success = all(unlist(sapply(all_parts_summaries, function(summary) summary$rename_success)), na.rm = TRUE),
@@ -1703,16 +1694,19 @@ combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) 
     empty_strings_replaced_1 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_1", rows_to_show),
     empty_strings_replaced_2 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_2", rows_to_show),
     rvs_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$rvs_mapping_summary), fill = TRUE)),
-    icd_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping_summary), fill = TRUE))
+    icd_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping_summary), fill = TRUE)),
+    icd_mapping = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping), fill = TRUE)),
+    modified_count = sum(unlist(lapply(all_parts_summaries, function(summary) summary$modified_count)), na.rm = TRUE),
+    unmatched_sources = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$unmatched_sources), fill = TRUE))
   )
 
   return(combined_summary)
 }
 
-# Function to print combined statistics
 print_combined_statistics <- function(final_combined_summary, rows_to_show) {
   rvs_stats <- final_combined_summary$rvs_mapping_summary[!is.na(icd9_list)]
   icd_stats <- final_combined_summary$icd_mapping_summary[!is.na(icd)]
+  unmatched_sources <- final_combined_summary$unmatched_sources
 
   total_rvs_codes <- length(unique(rvs_stats$rvs))
   unique_rvs_with_mapping <- unique(rvs_stats[!is.na(icd9_list), rvs])
@@ -1723,7 +1717,9 @@ print_combined_statistics <- function(final_combined_summary, rows_to_show) {
   total_icd_codes <- length(unique(icd_stats$icd))
   icd_direct_match <- sum(icd_stats$direct_match, na.rm = TRUE)
   icd_modified <- sum(icd_stats$modified, na.rm = TRUE)
-  icd_not_mapped <- total_icd_codes - icd_direct_match - icd_modified
+  
+  # Correct calculation of icd_not_mapped
+  icd_not_mapped <- length(unique(unmatched_sources$code))
 
   cat(sprintf("There are %d unique RVS codes that appear in the claims.\n", total_rvs_codes))
   cat(sprintf("Of these, %d (%.2f %%) have a mapping to an ICD-9-CM code.\n", rvs_with_icd_mapping, (rvs_with_icd_mapping / total_rvs_codes) * 100))
@@ -1736,23 +1732,21 @@ print_combined_statistics <- function(final_combined_summary, rows_to_show) {
     cat("All RVS codes have an ICD-9-CM equivalent.\n")
   }
 
-  cat(sprintf("\nThere are %d unique entries for ICD-10 codes, of which %d (%.2f %%) are directly in the Thai ICD-10 library\n", total_icd_codes, icd_direct_match, (icd_direct_match / total_icd_codes) * 100))
+  cat(sprintf("\nThere are %d unique entries for ICD-10 codes.\n", total_icd_codes))
+  cat(sprintf("Of these, %d (%.2f %%) are directly in the Thai ICD-10 library.\n", icd_direct_match, (icd_direct_match / total_icd_codes) * 100))
   cat(sprintf("The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n", icd_direct_match + icd_modified))
   if (icd_modified > 0) {
     cat(sprintf("Out of these, %d were modified to match.\n", icd_modified))
   }
   if (icd_not_mapped > 0) {
-    cat(sprintf("There are %d codes that could not be mapped to the Thai ICD10 library.\n", icd_not_mapped))
+    cat(sprintf("There are %d unique codes that could not be mapped to the Thai ICD10 library.\n", icd_not_mapped))
   } else {
     cat("All codes were successfully mapped to the Thai ICD10 library.\n")
   }
 
   # Print codes that could not be mapped to the Thai ICD10 library
-  not_mapped_codes <- icd_stats[!(direct_match | modified), .(icd)]
-  not_mapped_codes <- not_mapped_codes[!is.na(icd)] # Filter out NA values
-
-  if (nrow(not_mapped_codes) > 0) {
-    cat("\nCodes that could not be mapped to the Thai ICD10 library:\n")
-    print(kable(head(not_mapped_codes, rows_to_show), format = "markdown"))
+  if (nrow(unmatched_sources) > 0) {
+    cat("\nCodes that could not be mapped to the Thai ICD10 library with their sources:\n")
+    print(kable(head(unmatched_sources, rows_to_show), format = "markdown"))
   }
 }

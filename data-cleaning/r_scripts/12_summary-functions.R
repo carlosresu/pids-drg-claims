@@ -198,7 +198,6 @@ combine_and_print_summaries <- function() {
   )
 }
 
-# Function to combine all parts summaries
 combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
   combined_summary <- list(
     rename_success = all(unlist(sapply(all_parts_summaries, function(summary) summary$rename_success)), na.rm = TRUE),
@@ -213,16 +212,19 @@ combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) 
     empty_strings_replaced_1 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_1", rows_to_show),
     empty_strings_replaced_2 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_2", rows_to_show),
     rvs_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$rvs_mapping_summary), fill = TRUE)),
-    icd_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping_summary), fill = TRUE))
+    icd_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping_summary), fill = TRUE)),
+    icd_mapping = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping), fill = TRUE)),
+    modified_count = sum(unlist(lapply(all_parts_summaries, function(summary) summary$modified_count)), na.rm = TRUE),
+    unmatched_sources = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$unmatched_sources), fill = TRUE))
   )
 
   return(combined_summary)
 }
 
-# Function to print combined statistics
 print_combined_statistics <- function(final_combined_summary, rows_to_show) {
   rvs_stats <- final_combined_summary$rvs_mapping_summary[!is.na(icd9_list)]
   icd_stats <- final_combined_summary$icd_mapping_summary[!is.na(icd)]
+  unmatched_sources <- final_combined_summary$unmatched_sources
 
   total_rvs_codes <- length(unique(rvs_stats$rvs))
   unique_rvs_with_mapping <- unique(rvs_stats[!is.na(icd9_list), rvs])
@@ -233,7 +235,9 @@ print_combined_statistics <- function(final_combined_summary, rows_to_show) {
   total_icd_codes <- length(unique(icd_stats$icd))
   icd_direct_match <- sum(icd_stats$direct_match, na.rm = TRUE)
   icd_modified <- sum(icd_stats$modified, na.rm = TRUE)
-  icd_not_mapped <- total_icd_codes - icd_direct_match - icd_modified
+  
+  # Correct calculation of icd_not_mapped
+  icd_not_mapped <- length(unique(unmatched_sources$code))
 
   cat(sprintf("There are %d unique RVS codes that appear in the claims.\n", total_rvs_codes))
   cat(sprintf("Of these, %d (%.2f %%) have a mapping to an ICD-9-CM code.\n", rvs_with_icd_mapping, (rvs_with_icd_mapping / total_rvs_codes) * 100))
@@ -246,23 +250,21 @@ print_combined_statistics <- function(final_combined_summary, rows_to_show) {
     cat("All RVS codes have an ICD-9-CM equivalent.\n")
   }
 
-  cat(sprintf("\nThere are %d unique entries for ICD-10 codes, of which %d (%.2f %%) are directly in the Thai ICD-10 library\n", total_icd_codes, icd_direct_match, (icd_direct_match / total_icd_codes) * 100))
+  cat(sprintf("\nThere are %d unique entries for ICD-10 codes.\n", total_icd_codes))
+  cat(sprintf("Of these, %d (%.2f %%) are directly in the Thai ICD-10 library.\n", icd_direct_match, (icd_direct_match / total_icd_codes) * 100))
   cat(sprintf("The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n", icd_direct_match + icd_modified))
   if (icd_modified > 0) {
     cat(sprintf("Out of these, %d were modified to match.\n", icd_modified))
   }
   if (icd_not_mapped > 0) {
-    cat(sprintf("There are %d codes that could not be mapped to the Thai ICD10 library.\n", icd_not_mapped))
+    cat(sprintf("There are %d unique codes that could not be mapped to the Thai ICD10 library.\n", icd_not_mapped))
   } else {
     cat("All codes were successfully mapped to the Thai ICD10 library.\n")
   }
 
   # Print codes that could not be mapped to the Thai ICD10 library
-  not_mapped_codes <- icd_stats[!(direct_match | modified), .(icd)]
-  not_mapped_codes <- not_mapped_codes[!is.na(icd)] # Filter out NA values
-
-  if (nrow(not_mapped_codes) > 0) {
-    cat("\nCodes that could not be mapped to the Thai ICD10 library:\n")
-    print(kable(head(not_mapped_codes, rows_to_show), format = "markdown"))
+  if (nrow(unmatched_sources) > 0) {
+    cat("\nCodes that could not be mapped to the Thai ICD10 library with their sources:\n")
+    print(kable(head(unmatched_sources, rows_to_show), format = "markdown"))
   }
 }

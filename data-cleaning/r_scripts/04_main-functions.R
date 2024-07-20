@@ -203,10 +203,10 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   clin_c2 <- chunk$clin_c2
   clin_icd <- chunk$clin_icd
 
-  mapped_columns <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
-  chunk[, clin_c1 := mapped_columns$clin_c1]
-  chunk[, clin_c2 := mapped_columns$clin_c2]
-  chunk[, clin_icd := mapped_columns$clin_icd]
+  icd10_mapping_result <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
+  chunk[, clin_c1 := icd10_mapping_result$clin_c1]
+  chunk[, clin_c2 := icd10_mapping_result$clin_c2]
+  chunk[, clin_icd := icd10_mapping_result$clin_icd]
 
   chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
   chunk <- chunk_replace_result$data
@@ -236,23 +236,32 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
     icd9_list = unlist(chunk$icd9_list)
   )
 
+  # Calculate unique ICD codes and their mapping status
+  unique_icds <- unique(c(unlist(chunk$clin_c1), unlist(chunk$clin_c2), unlist(chunk$clin_icd)))
+  direct_matches <- unique_icds %in% icd10_mapping_result$direct_matches
+  modified_matches <- unique_icds %in% names(icd10_mapping_result$icd_mapping)
+  unmatched_icds <- setdiff(unique_icds, union(names(icd10_mapping_result$icd_mapping), icd10_mapping_result$direct_matches))
+
   icd_stats <- data.table(
-    icd = unlist(chunk$clin_icd),
-    mapped_icd = unlist(mapped_columns$clin_icd),
-    direct_match = !is.na(unlist(mapped_columns$clin_icd)) & unlist(mapped_columns$clin_icd) == unlist(mapped_columns$clin_icd),
-    modified = !is.na(unlist(mapped_columns$clin_icd)) & unlist(mapped_columns$clin_icd) != unlist(mapped_columns$clin_icd)
+    icd = unique_icds,
+    direct_match = direct_matches,
+    modified = modified_matches & !direct_matches
   )
 
   summary$rvs_mapping_summary <- rvs_stats
   summary$icd_mapping_summary <- icd_stats
+  summary$icd_mapping <- icd10_mapping_result$icd_mapping
+  summary$modified_count <- sum(modified_matches & !direct_matches)
+  summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
 
   unique_codes <- list(
     unique_rvs_codes = unique(unlist(chunk$clin_rvs)),
-    unique_icd_codes = unique(unlist(chunk$clin_icd))
+    unique_icd_codes = unique_icds
   )
 
   return(list(chunk = chunk, summary = summary, unique_codes = unique_codes))
 }
+
 
 # Function to split and save chunks
 split_and_save_chunks <- function() {
