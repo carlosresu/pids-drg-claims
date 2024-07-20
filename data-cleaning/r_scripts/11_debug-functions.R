@@ -1,5 +1,3 @@
-# source(here("data-cleaning", "r_scripts", "libraries.R"))
-
 concatenate_r_files <- function(input_path, output_file) {
   # List all .R files in the directory
   r_files <- list.files(

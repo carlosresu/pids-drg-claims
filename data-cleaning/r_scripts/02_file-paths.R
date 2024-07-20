@@ -1,5 +1,3 @@
-# source(here("data-cleaning", "r_scripts", "libraries.R"))
-
 path_to_intermediate <- "git-ignored-files/intermediate-claims"
 path_to_cache <- "data-cleaning/cache"
 path_to_aux <- "git-ignored-files/aux-files"
@@ -14,18 +12,7 @@ path_to_raw_claims <- "git-ignored-files/raw-claims"
 # Here() let's you find files in your project directory
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"))
 
-sampled_claims_file <- function(part = NULL, fileext = TRUE) {
-  filename <- if (is.null(part)) {
-    paste0("sampled_claims_", year_to_load, "_", sample_size)
-  } else {
-    paste0("sampled_claims_", year_to_load, "_", sample_size, "_part_", part, "_of_", split_chunks)
-  }
-  if (fileext) {
-    filename <- paste0(filename, ".csv")
-  }
-  return(here(path_to_raw_claims_samples, filename))
-}
-
+# Ensure all other necessary functions and variables are defined
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("full_claims_", year_to_load)
@@ -40,6 +27,18 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     return(here(path_to_raw_claims_parts, filename))
   }
+}
+
+sampled_claims_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0("sampled_claims_", year_to_load, "_", sample_size)
+  } else {
+    paste0("sampled_claims_", year_to_load, "_", sample_size, "_part_", part, "_of_", split_chunks)
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".csv")
+  }
+  return(here(path_to_raw_claims_samples, filename))
 }
 
 intermediate_file <- function(part = NULL, fileext = TRUE) {

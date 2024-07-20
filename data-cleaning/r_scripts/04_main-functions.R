@@ -1,5 +1,3 @@
-# source(here("data-cleaning", "r_scripts", "libraries.R"))
-
 clean_data <- function(dt) {
   # Add year column
   dt[, SRC_YR := as.integer(year_to_load)]
@@ -19,7 +17,7 @@ clean_data <- function(dt) {
   } else {
     rename_success <- TRUE
   }
-  
+
   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
   dt[, clin_icd := collapse_columns(
     mget(paste0("clin_icd", 1:12), envir = as.environment(dt)),
@@ -174,9 +172,7 @@ clean_data <- function(dt) {
   ))
 }
 
-process_chunk <- function(
-    chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
-  # Suppress output
+process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   if (to_view_checks) {
     # print("Viewing checks")
   } else {
@@ -184,11 +180,9 @@ process_chunk <- function(
     on.exit(sink(), add = TRUE)
   }
 
-  # Clean data
   clean_result <- clean_data(chunk)
   chunk <- clean_result$data
 
-  # Store chunk summaries
   summary <- list()
   summary$rename_success <- clean_result$rename_success
   summary$ICD_replacements_1 <- clean_result$ICD_replacements_1
@@ -201,62 +195,109 @@ process_chunk <- function(
   summary$discard_rvs_two <- clean_result$discard_rvs_two
   summary$empty_strings_replaced_1 <- clean_result$empty_strings_replaced_1
 
-  # Map RVS codes and collect summary statistics
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
   summary$rvs_mapping_summary <- rvs_mapping_result$summary_statistics
 
-  # Map ICD codes
   clin_c1 <- chunk$clin_c1
   clin_c2 <- chunk$clin_c2
   clin_icd <- chunk$clin_icd
 
-  mapped_columns <- implement_icd10_mapping(
-    clin_c1,
-    clin_c2,
-    clin_icd,
-    tdrg_icd10,
-    rows_to_show = Inf
-  )
-
-  # Save the results back to the data.table
+  mapped_columns <- implement_icd10_mapping(clin_c1, clin_c2, clin_icd, tdrg_icd10)
   chunk[, clin_c1 := mapped_columns$clin_c1]
   chunk[, clin_c2 := mapped_columns$clin_c2]
   chunk[, clin_icd := mapped_columns$clin_icd]
 
-  # Replace empty strings with NA values again after mapping
   chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
   chunk <- chunk_replace_result$data
   summary$empty_strings_replaced_2 <- chunk_replace_result$replacement_summary
 
-  # Find PDX
-  pdx_result <- apply_find_pdx(
-    chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
-  )
+  pdx_result <- apply_find_pdx(chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx)
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
-  # Collect ICD-10 mapping statistics
-  summary$total_unique_icd_count <- mapped_columns$var1
-  summary$direct_match_count <- mapped_columns$var2
-  summary$modified_count <- mapped_columns$var5
-  summary$total_mapped_count <- mapped_columns$var4
-  summary$unmapped_icd_count <- mapped_columns$var6
-  summary$unmapped_icds <- mapped_columns$var7
-  summary$comparison_table <- mapped_columns$comparison_table
-  summary$invalid_icds_table <- mapped_columns$invalid_icds_table
+  # Ensure consistent lengths of clin_rvs and icd9_list
+  clin_rvs_len <- lengths(chunk$clin_rvs)
+  icd9_list_len <- lengths(chunk$icd9_list)
 
-  return(list(chunk = chunk, summary = summary))
+  max_len <- max(c(clin_rvs_len, icd9_list_len))
+  chunk$clin_rvs <- lapply(chunk$clin_rvs, function(x) {
+    length(x) <- max_len
+    x
+  })
+  chunk$icd9_list <- lapply(chunk$icd9_list, function(x) {
+    length(x) <- max_len
+    x
+  })
+
+  # Collect RVS and ICD mapping statistics
+  rvs_stats <- data.table(
+    rvs = unlist(chunk$clin_rvs),
+    icd9_list = unlist(chunk$icd9_list)
+  )
+
+  icd_stats <- data.table(
+    icd = unlist(chunk$clin_icd),
+    mapped_icd = unlist(mapped_columns$clin_icd),
+    direct_match = !is.na(unlist(mapped_columns$clin_icd)) & unlist(mapped_columns$clin_icd) == unlist(mapped_columns$clin_icd),
+    modified = !is.na(unlist(mapped_columns$clin_icd)) & unlist(mapped_columns$clin_icd) != unlist(mapped_columns$clin_icd)
+  )
+
+  summary$rvs_mapping_summary <- rvs_stats
+  summary$icd_mapping_summary <- icd_stats
+
+  unique_codes <- list(
+    unique_rvs_codes = unique(unlist(chunk$clin_rvs)),
+    unique_icd_codes = unique(unlist(chunk$clin_icd))
+  )
+
+  return(list(chunk = chunk, summary = summary, unique_codes = unique_codes))
 }
 
+# Function to split and save chunks
+split_and_save_chunks <- function() {
+  if (to_split) {
+    rows_per_part <- ceiling(total_rows / split_chunks)
+    for (part in 1:split_chunks) {
+      chunk_file <- if (to_sample) {
+        sampled_claims_file(part)
+      } else {
+        full_claims_file(part)
+      }
 
-parallelize_and_summarize <- function(
-    dt, num_cores, to_view_checks, global_seed,
-    rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
+      if (!file.exists(chunk_file)) {
+        start_row <- (part - 1) * rows_per_part + 1
+        end_row <- min(part * rows_per_part, total_rows)
+        read_and_save_partial(start_row, end_row, part)
+      }
+    }
+  }
+}
+
+# Function to read and process each chunk
+read_and_process_chunk <- function(part) {
+  chunk_file <- if (to_sample) {
+    sampled_claims_file(part)
+  } else {
+    full_claims_file(part)
+  }
+
+  if (!file.exists(chunk_file)) {
+    stop(paste("File does not exist:", chunk_file))
+  }
+
+  dt <- read_entire_file(chunk_file, initial_read = is_partial_file(chunk_file))
+
+  if (to_sample) {
+    dt <- handle_sampling(dt, part)
+  }
+
+  return(dt)
+}
+
+parallelize_and_summarize_data <- function(dt, num_cores, to_view_checks, global_seed, rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
-  chunks <- split(dt, rep(1:num_cores,
-    each = chunk_size, length.out = nrow(dt)
-  ))
+  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
   if (to_parallelize) {
     # Plan for parallel processing
@@ -288,378 +329,47 @@ parallelize_and_summarize <- function(
 
   # Combine summaries
   summaries <- lapply(parallel_results, function(res) res$summary)
+  unique_codes_list <- lapply(parallel_results, function(res) res$unique_codes)
 
-  consolidated_summary <- list(
-    rename_success = all(unlist(sapply(summaries, 
-    function(s) s$rename_success)), na.rm = TRUE),
-    ICD_replacements_1 = combine_comparison_tables(
-      summaries, "ICD_replacements_1", rows_to_show
-    ),
-    ICD_replacements_2 = combine_comparison_tables(
-      summaries, "ICD_replacements_2", rows_to_show
-    ),
-    pat_type_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$pat_type_unmapped))
-    ),
-    memcat_parent_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$memcat_parent_unmapped))
-    ),
-    memcat_child_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$memcat_child_unmapped))
-    ),
-    discharge_unmapped = unique(
-      unlist(lapply(summaries, function(s) s$discharge_unmapped))
-    ),
-    discard_rvs_one = combine_discarded_rvs_tables(
-      summaries, "discard_rvs_one", rows_to_show
-    ),
-    discard_rvs_two = combine_discarded_rvs_tables(
-      summaries, "discard_rvs_two", rows_to_show
-    ),
-    empty_strings_replaced_1 = combine_replace_empty_tables(
-      summaries, "empty_strings_replaced_1",
-      rows_to_show = Inf
-    ),
-    empty_strings_replaced_2 = combine_replace_empty_tables(
-      summaries, "empty_strings_replaced_2",
-      rows_to_show = Inf
-    ),
-    icd_comparison_table = combine_icd_comparison_table(
-      lapply(summaries, function(s) s$comparison_table)
-    ),
-    invalid_icds_table = combine_invalid_icd_table(
-      lapply(summaries, function(s) s$invalid_icds_table)
-    )
-  )
+  combined_rvs_stats <- rbindlist(lapply(summaries, function(summary) summary$rvs_mapping_summary), fill = TRUE)
+  combined_icd_stats <- rbindlist(lapply(summaries, function(summary) summary$icd_mapping_summary), fill = TRUE)
 
-  # Aggregate summary statistics
-  rvss <- unique(unlist(dt$clin_rvs))
-  total_rvs_count <- length(rvss)
-  rvs_map_list <- create_rvs_map_lists(
-    split_rvs_codes(rvs_icd9)$with_drg
-  )$rvs_map_list
+  combined_summary <- combine_all_parts_summaries(summaries, rows_to_show)
 
-  without_drg_count <- length(
-    unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
-  )
-  mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
-  mappable_rvs_count <- length(mappable_rvs)
-  mappable_rvs_percentage <- (mappable_rvs_count / length(rvss)) * 100
+  all_unique_rvs_codes <- unique(unlist(lapply(unique_codes_list, function(x) x$unique_rvs_codes)))
+  all_unique_icd_codes <- unique(unlist(lapply(unique_codes_list, function(x) x$unique_icd_codes)))
 
-  multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
-  multi_mapped_rvs_count <- length(multi_mapped_rvs)
-  multi_mapped_rvs_percentage <- (
-    multi_mapped_rvs_count / mappable_rvs_count) * 100
-
-  unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
-  unmappable_rvs_count <- length(unmappable_rvs)
-  unmappable_rvs_percentage <- (unmappable_rvs_count / length(rvss)) * 100
-
-  aggregate_statistics <- list(
-    total_rvs_count = total_rvs_count,
-    without_drg_count = without_drg_count,
-    mappable_rvs_count = mappable_rvs_count,
-    mappable_rvs_percentage = mappable_rvs_percentage,
-    multi_mapped_rvs_count = multi_mapped_rvs_count,
-    multi_mapped_rvs_percentage = multi_mapped_rvs_percentage,
-    unmappable_rvs_count = unmappable_rvs_count,
-    unmappable_rvs_percentage = unmappable_rvs_percentage
-  )
-
-  # Combine ICD-10 mapping statistics
-  icd10_stats <- aggregate_icd10_stats(summaries)
-  aggregate_statistics <- c(aggregate_statistics, icd10_stats)
-
-  return(
-    list(
-      dt = dt,
-      consolidated_summary = consolidated_summary,
-      aggregate_statistics = aggregate_statistics
-    )
-  )
+  return(list(
+    dt = dt,
+    combined_summary = combined_summary,
+    rvs_stats = combined_rvs_stats,
+    icd_stats = combined_icd_stats,
+    unique_rvs_codes = all_unique_rvs_codes,
+    unique_icd_codes = all_unique_icd_codes
+  ))
 }
 
-print_aggregate_summary_stats <- function(aggregate_statistics, rows_to_show) {
-  cat(
-    sprintf(
-      "There are %d RVS codes without an ICD-9CM",
-      aggregate_statistics$without_drg_count
-    ), "equivalent recognized by the TDRG ICD9CM\n"
-  )
-  cat(
-    sprintf(
-      "There are %d unique RVS codes that appear in the claims.\n",
-      aggregate_statistics$total_rvs_count
-    )
-  )
-  cat(
-    sprintf(
-      "Of these, %d (%.2f%%) have a mapping to an ICD-9-CM code.\n",
-      aggregate_statistics$mappable_rvs_count,
-      aggregate_statistics$mappable_rvs_percentage
-    )
-  )
-  cat(
-    sprintf(
-      "Of these, there are %d (%.2f%%)",
-      aggregate_statistics$multi_mapped_rvs_count,
-      aggregate_statistics$multi_mapped_rvs_percentage
-    ), "with more than one ICD9 equivalent",
-    "recognized by the Thai ICD9 library.\n"
-  )
-  cat(
-    sprintf(
-      "There are %d (%.2f%%) with no ICD-9-CM equivalents.\n\n\n",
-      aggregate_statistics$unmappable_rvs_count,
-      aggregate_statistics$unmappable_rvs_percentage
-    )
-  )
-  cat(
-    sprintf(
-      "There are %d unique entries for ICD-10 codes, of which %d (%.2f%%)",
-      aggregate_statistics$total_unique_icd_count,
-      aggregate_statistics$direct_match_count,
-      aggregate_statistics$direct_match_percentage
-    ), "are directly in the Thai ICD-10 library\n"
-  )
-  cat(
-    sprintf(
-      "The modifications led to a total of %d codes ",
-      aggregate_statistics$total_mapped_count
-    ), "being mapped to an equivalent in the Thai ICD10 library.\n"
-  )
-  cat(
-    sprintf(
-      "Out of these, %d were modified to match.\n",
-      aggregate_statistics$modified_count
-    )
-  )
-  cat(
-    sprintf(
-      "There are %d codes that could not",
-      aggregate_statistics$unmapped_icd_count
-    ), "be mapped to the Thai ICD10 library:\n"
-  )
-  # print(head(aggregate_statistics$combined_unmapped_icds, rows_to_show))
-}
-
-print_summary_tables <- function(result, rows_to_show) {
-  dt <- result$dt
-  consolidated_summary <- result$consolidated_summary
-  aggregate_statistics <- result$aggregate_statistics
-
-  # Print the consolidated summary
-  cat("Rename Success:\n", consolidated_summary$rename_success, "\n\n")
-
-  if (nrow(consolidated_summary$ICD_replacements_1) > 0) {
-    print(kable(head(consolidated_summary$ICD_replacements_1, rows_to_show),
-      format = "markdown",
-      caption = "ICD Replacements 1"
-    ))
-  } else {
-    cat("\nNo ICD replacements found in the first set.\n\n")
-  }
-
-  if (nrow(consolidated_summary$ICD_replacements_2) > 0) {
-    print(kable(head(consolidated_summary$ICD_replacements_2, rows_to_show),
-      format = "markdown",
-      caption = "ICD Replacements 2"
-    ))
-  } else {
-    cat("\nNo ICD replacements found in the second set.\n\n")
-  }
-
-  if (is.null(consolidated_summary$pat_type_unmapped)) {
-    cat("Patient Type Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Patient Type Unmapped:\n",
-      consolidated_summary$pat_type_unmapped, "\n\n"
-    )
-  }
-
-  if (is.null(consolidated_summary$memcat_parent_unmapped)) {
-    cat("Memcat Parent Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Memcat Parent Unmapped:\n",
-      consolidated_summary$memcat_parent_unmapped, "\n\n"
-    )
-  }
-
-  if (is.null(consolidated_summary$memcat_child_unmapped)) {
-    cat("Memcat Child Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Memcat Child Unmapped:\n",
-      consolidated_summary$memcat_child_unmapped, "\n\n"
-    )
-  }
-
-  if (is.null(consolidated_summary$discharge_unmapped)) {
-    cat("Discharge Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Discharge Unmapped:\n",
-      consolidated_summary$discharge_unmapped, "\n\n"
-    )
-  }
-
-  if (nrow(consolidated_summary$discard_rvs_one) > 0) {
-    print(kable(head(consolidated_summary$discard_rvs_one, rows_to_show),
-      format = "markdown",
-      caption = "Discarded RVS Codes One"
-    ))
-  } else {
-    cat("\nNo RVS codes discarded in the first set.\n\n")
-  }
-
-  if (nrow(consolidated_summary$discard_rvs_two) > 0) {
-    print(kable(head(consolidated_summary$discard_rvs_two, rows_to_show),
-      format = "markdown",
-      caption = "Discarded RVS Codes Two"
-    ))
-  } else {
-    cat("\nNo RVS codes discarded in the second set.\n\n")
-  }
-
-  if (nrow(consolidated_summary$empty_strings_replaced_1) > 0) {
-    print(kable(
-      head(
-        consolidated_summary$empty_strings_replaced_1, rows_to_show
-      ),
-      format = "markdown",
-      caption = "Empty Strings Replaced (First Set)"
-    ))
-  } else {
-    cat("\nNo empty strings replaced in the first set.\n\n")
-  }
-
-  if (nrow(consolidated_summary$empty_strings_replaced_2) > 0) {
-    print(kable(
-      head(
-        consolidated_summary$empty_strings_replaced_2, rows_to_show
-      ),
-      format = "markdown",
-      caption = "Empty Strings Replaced (Second Set)"
-    ))
-  } else {
-    cat("\nNo empty strings replaced in the second set.\n\n")
-  }
-
-  # Print aggregate summary statistics
-  print_aggregate_summary_stats(aggregate_statistics, rows_to_show)
-
-  # Print comparison table and invalid
-  # ICDs table within the consolidated summary
-  if (nrow(consolidated_summary$icd_comparison_table) > 0) {
-    print(kable(head(consolidated_summary$icd_comparison_table, rows_to_show),
-      format = "markdown",
-      caption = "Comparison of ICD Codes Before and After Mapping"
-    ))
-  } else {
-    cat("\nNo ICD codes changed during mapping.\n\n")
-  }
-
-  if (nrow(consolidated_summary$invalid_icds_table) > 0) {
-    print(kable(head(consolidated_summary$invalid_icds_table, rows_to_show),
-      format = "markdown",
-      caption = "Invalid ICD Codes Not Found in Thai or PhilHealth Libraries"
-    ))
-  } else {
-    cat("\nAll resulting ICD codes are valid and present in the libraries.\n\n")
-  }
-}
-
-# Function to split and save chunks
-split_and_save_chunks <- function() {
-  if (to_split) {
-    rows_per_part <- ceiling(total_rows / split_chunks)
-    for (part in 1:split_chunks) {
-      chunk_file <- if (to_sample) {
-        sampled_claims_file(part)
-      } else {
-        full_claims_file(part)
-      }
-
-      if (!file.exists(chunk_file)) {
-        start_row <- (part - 1) * rows_per_part + 1
-        end_row <- min(part * rows_per_part, total_rows)
-        read_and_save_partial(start_row, end_row)
-      }
-    }
-  }
-}
-
-
-# Function to read and process chunks
-read_and_process_chunk <- function(part) {
-  chunk_file <- if (to_sample) {
-    sampled_claims_file(part)
-  } else {
-    full_claims_file(part)
-  }
-
-  if (!file_exists(chunk_file)) {
-    stop(paste("File does not exist:", chunk_file))
-  }
-
-  dt <- read_entire_file(chunk_file, initial_read = is_partial_file(chunk_file))
-
-  if (to_sample) {
-    dt <- handle_sampling(dt, part)
-  }
-
-  return(dt)
-}
-
-parallelize_and_summarize_data <- function(dt) {
-  num_cores <- max(1, availableCores() - 1)
-    suppress_interim_output({
-      result <- parallelize_and_summarize(
-        dt, num_cores,
-        to_view_checks = to_view_checks_parallelized, global_seed,
-        rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
-      )
-    })
-
-    dt <- result$dt
-    all_parts_summaries[[part]] <<- result$consolidated_summary
-    all_parts_statistics[[part]] <<- result$aggregate_statistics
- 
-  return(dt)
-}
-
-group_data <- function(dt) {
+group_data <- function(part, dt) {
   if (to_group) {
-    export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
-    for_batch_grouping <- fread(output_txt_file(part), sep = "|", na.strings = "--")
+    export_for_batch_grouper(
+      dt, year_to_load,
+      output_txt_file(part)
+    )
+    for_batch_grouping <- fread(
+      output_txt_file(part),
+      sep = "|", na.strings = "--"
+    )
     if (file.exists(grouper_result_file(part))) {
-      batch_grouping_result <- fread(grouper_result_file(part), sep = "|", na.strings = "--")
+      batch_grouping_result <- fread(
+        grouper_result_file(part),
+        sep = "|", na.strings = "--"
+      )
     }
   }
 }
 
-write_intermediate_file <- function(dt) {
+write_intermediate_file <- function(part, dt) {
   if (to_write) {
-    fwrite(dt, intermediate_file(fileext = TRUE))
+    fwrite(dt, intermediate_file(part, fileext = TRUE))
   }
-}
-
-combine_and_print_summaries <- function() {
-  final_combined_summary <- combine_all_parts_summaries(
-    all_parts_summaries, rows_to_show
-  )
-  final_combined_statistics <- combine_all_parts_statistics(
-    all_parts_statistics
-  )
-
-  print_summary_tables(
-    list(
-      dt = NULL,
-      consolidated_summary = final_combined_summary,
-      aggregate_statistics = final_combined_statistics
-    ),
-    rows_to_show
-  )
 }

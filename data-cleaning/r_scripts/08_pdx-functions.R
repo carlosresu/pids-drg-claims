@@ -1,5 +1,3 @@
-# source(here("data-cleaning", "r_scripts", "libraries.R"))
-
 find_pdx_from_icd <- function(clin_icd) {
   pdxs <- intersect(clin_icd, acc_pdx)
   result <- if (length(pdxs) == 0) { # Check if no acceptable PDX codes

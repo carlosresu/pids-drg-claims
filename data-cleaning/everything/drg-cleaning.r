@@ -1,6 +1,5 @@
 # IMPORTANT PARAMETERS:
 year_to_load <- "2018"
-version <- "v2"
 split_chunks <- 5
 rows_to_show <- 10
 
@@ -20,10 +19,7 @@ to_view_checks_parallelized <- FALSE
 to_parallelize <- TRUE
 
 # Sample size divisor:
-sample_size_divisor <- 5
-
-split_chunk_to_process <- NA
-part <- NULL
+sample_size_divisor <- 125
 
 drop_cols <- c(
   paste0("ICDCODE", 13:14),
@@ -40,6 +36,7 @@ set.seed(seed)
 options(future.globals.maxSize = 1024 * 1024^2)
 
 global_seed <- seed # for parallelized operations
+
 
 options(verbose = FALSE)
 options(warn = -1)
@@ -62,14 +59,8 @@ for (script in scripts_to_source) {
 tic("Total execution time:")
 
 # Use the function to count total rows
-if (file.exists(full_claims_file())) {
-  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
-} else {
-  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
-}
+total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
 print(paste("Total Rows via fread:", total_rows))
-
-sample_size_divisor <- 25
 
 if (to_split) {
   sample_size <- ceiling(total_rows / split_chunks / sample_size_divisor)
@@ -87,7 +78,8 @@ scripts_to_source <- c(
   "08_pdx-functions.R",
   "09_grouper-functions.R",
   "10_timing-functions.R",
-  "11_debug-functions.R"
+  "11_debug-functions.R",
+  "12_summary-functions.R"
 )
 
 # Generate and execute source commands
@@ -101,16 +93,11 @@ options(warn = 1)
 
 proc <- fread(here(path_to_excel, "proc.csv"))
 proc[, CODE := as.character(CODE)]
-# head(proc)
 
-rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"),
-  select = c("rvs", "icd9cm")
-)
+rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"), select = c("rvs", "icd9cm"))
 rvs_icd9[, rvs := as.character(rvs)]
 rvs_icd9[, icd9cm := as.character(icd9cm * 100)]
-rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)],
-  by.x = "icd9cm", by.y = "CODE", all.x = TRUE
-)
+rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)], by.x = "icd9cm", by.y = "CODE", all.x = TRUE)
 rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE]
 rvs_icd9 <- rvs_icd9[!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
 
@@ -129,8 +116,13 @@ acc_pdx <- tdrg_icd10[ACCPDX == "Y", CODE]
 acc_pdx <- unique(acc_pdx)
 
 
+num_cores <- availableCores()
 all_parts_summaries <- list()
 all_parts_statistics <- list()
+all_parts_rvs_stats <- list()
+all_parts_icd_stats <- list()
+all_unique_rvs_codes <- list()
+all_unique_icd_codes <- list()
 
 if (to_profvis) {
   p <- profvis({
@@ -138,14 +130,20 @@ if (to_profvis) {
     for (part in 1:split_chunks) {
       dt <- read_and_process_chunk(part)
       if (!is.null(dt) && nrow(dt) > 0) {
-        dt <- parallelize_and_summarize_data(part, dt)
-        write_intermediate_file(part, dt)
-        group_data(part, dt)
+        result <- parallelize_and_summarize_data(
+          dt, num_cores - 1, to_view_checks, global_seed,
+          rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
+        )
+        dt <- result$dt
+        all_parts_summaries[[part]] <- result$combined_summary
+        all_parts_rvs_stats[[part]] <- result$rvs_stats
+        all_parts_icd_stats[[part]] <- result$icd_stats
+        all_unique_rvs_codes <- c(all_unique_rvs_codes, result$unique_rvs_codes)
+        all_unique_icd_codes <- c(all_unique_icd_codes, result$unique_icd_codes)
       } else {
         print(paste("No data to process for part:", part))
       }
     }
-    combine_and_print_summaries()
   })
   htmlwidgets::saveWidget(
     p,
@@ -157,15 +155,37 @@ if (to_profvis) {
   for (part in 1:split_chunks) {
     dt <- read_and_process_chunk(part)
     if (!is.null(dt) && nrow(dt) > 0) {
-      dt <- parallelize_and_summarize_data(part, dt)
-      write_intermediate_file(part, dt)
-      group_data(part, dt)
+      result <- parallelize_and_summarize_data(
+        dt, num_cores - 1, to_view_checks, global_seed,
+        rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
+      )
+      dt <- result$dt
+      all_parts_summaries[[part]] <- result$combined_summary
+      all_parts_rvs_stats[[part]] <- result$rvs_stats
+      all_parts_icd_stats[[part]] <- result$icd_stats
+      all_unique_rvs_codes <- c(all_unique_rvs_codes, result$unique_rvs_codes)
+      all_unique_icd_codes <- c(all_unique_icd_codes, result$unique_icd_codes)
     } else {
       print(paste("No data to process for part:", part))
     }
   }
-  combine_and_print_summaries()
 }
+
+final_combined_rvs_stats <- rbindlist(all_parts_rvs_stats, fill = TRUE)
+final_combined_icd_stats <- rbindlist(all_parts_icd_stats, fill = TRUE)
+
+final_combined_summary <- combine_all_parts_summaries(
+  all_parts_summaries, rows_to_show
+)
+
+unique_rvs_codes <- unique(unlist(all_unique_rvs_codes))
+unique_icd_codes <- unique(unlist(all_unique_icd_codes))
+
+print_combined_statistics(final_combined_summary)
+
+cat(sprintf("\nTotal unique RVS codes: %d\n", length(unique_rvs_codes)))
+cat(sprintf("Total unique ICD-10 codes: %d\n", length(unique_icd_codes)))
+
 
 # Stop the timer and capture total time
 toc_data <- toc(log = TRUE)
@@ -178,6 +198,7 @@ if (to_sample) {
   total_rows <- nrow(dt) * split_chunks
 }
 print_time_estimates(dt, total_time, total_rows)
+
 
 library(here)
 source(here("data-cleaning", "r_scripts", "11_debug-functions.R"))

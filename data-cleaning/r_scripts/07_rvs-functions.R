@@ -1,5 +1,3 @@
-# source(here("data-cleaning", "r_scripts", "libraries.R"))
-
 split_rvs_codes <- function(rvs_icd9) {
   with_drg <- rvs_icd9[is_drg == TRUE]
   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]

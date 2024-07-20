@@ -1,5 +1,3 @@
-# # source(here("data-cleaning", "r_scripts", "libraries.R"))
-
 rename_columns <- function(dt) {
   setnames(dt, old = old_colnames, new = new_colnames)
   return(dt)
@@ -134,7 +132,7 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
     "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
-    "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY", 
+    "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY",
     "PROFESSIONAL PRACTITIONER"
   )
   remapped_memcat_child <- fcase(
@@ -185,262 +183,16 @@ remap_disposition <- function(clin_discharge) {
 }
 
 
-format_large_numbers <- function(x) {
-  if (x >= 1e9) {
-    return(sprintf("%.1fb", x / 1e9))
-  } else if (x >= 1e6) {
-    return(sprintf("%.1fm", x / 1e6))
-  } else if (x >= 1e3) {
-    return(sprintf("%.1fk", x / 1e3))
-  } else {
-    return(as.character(x))
-  }
-}
 
-combine_comparison_tables <- function(
-    summaries, comparison_field, rows_to_show = 10) {
-  comparison_list <- lapply(summaries, function(summary) {
-    summary_data <- summary[[comparison_field]]
-    if (!is.null(summary_data) && nrow(summary_data) > 0) {
-      summary_data <- summary_data[, .(old_code, new_code, count)]
-    }
-    return(summary_data)
-  })
-
-  combined_comparison <- rbindlist(comparison_list, fill = TRUE)
-
-  if (nrow(combined_comparison) == 0) {
-    return(data.table(
-      old_code = character(),
-      new_code = character(), count = integer()
-    ))
-  }
-
-  combined_comparison <- combined_comparison[,
-    .(count = sum(count, na.rm = TRUE)),
-    by = .(old_code, new_code)
-  ]
-  combined_comparison <- combined_comparison[order(-count)]
-  combined_comparison <- head(combined_comparison, rows_to_show)
-
-  return(combined_comparison)
-}
-
-
-
-combine_discarded_rvs_tables <- function(summaries, field, rows_to_show = 10) {
-  discarded_list <- lapply(summaries, function(summary) summary[[field]])
-  combined_discarded <- rbindlist(discarded_list, fill = TRUE)
-
-  if (nrow(combined_discarded) == 0) {
-    return(data.table(CODE = character(), count = integer()))
-  }
-
-  combined_discarded <- combined_discarded[, .(count = sum(count)), by = CODE]
-  combined_discarded <- combined_discarded[order(-count)]
-  combined_discarded <- head(combined_discarded, rows_to_show)
-
-  return(combined_discarded)
-}
-
-combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
-  replace_empty_list <- lapply(summaries, function(summary) summary[[field]])
-  combined_replace_empty <- rbindlist(replace_empty_list, fill = TRUE)
-
-  if (nrow(combined_replace_empty) == 0) {
-    return(data.table(
-      Column = character(),
-      Empty_Replaced = integer(),
-      NA_Replaced = integer(),
-      Character0_Replaced = integer()
-    ))
-  }
-
-  combined_replace_empty <- combined_replace_empty[, .(
-    Empty_Replaced = sum(Empty_Replaced, na.rm = TRUE),
-    NA_Replaced = sum(NA_Replaced, na.rm = TRUE),
-    Character0_Replaced = sum(Character0_Replaced, na.rm = TRUE)
-  ), by = Column]
-  combined_replace_empty <- combined_replace_empty[
-    order(-Empty_Replaced, -NA_Replaced, -Character0_Replaced)
-  ]
-  combined_replace_empty <- head(combined_replace_empty, rows_to_show)
-
-  return(combined_replace_empty)
-}
-
-# Function to combine and sum the counts for comparison table
-combine_icd_comparison_table <- function(tables) {
-  combined_table <- rbindlist(tables, fill = TRUE)
-  # print(colnames(combined_table))
-  combined_table <- combined_table[,
-    .(count = sum(count, na.rm = TRUE)),
-    by = .(old_code, new_code)
-  ]
-  combined_table <- combined_table[order(-count)]
-  return(combined_table)
-}
-
-# Function to combine and sum the counts for invalid ICD codes table
-combine_invalid_icd_table <- function(tables) {
-  combined_table <- rbindlist(tables)
-  combined_table <- combined_table[, .(count = sum(count)), by = code]
-  combined_table[order(-count)]
-}
-
-combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) {
-  combined_summary <- list(
-    rename_success = all(unlist(sapply(
-      all_parts_summaries,
-      function(summary) summary$rename_success
-    )), na.rm = TRUE),
-    ICD_replacements_1 = combine_comparison_tables(
-      all_parts_summaries, "ICD_replacements_1", rows_to_show
-    ),
-    ICD_replacements_2 = combine_comparison_tables(
-      all_parts_summaries, "ICD_replacements_2", rows_to_show
-    ),
-    pat_type_unmapped = unique(unlist(lapply(
-      all_parts_summaries,
-      function(summary) summary$pat_type_unmapped
-    ))),
-    memcat_parent_unmapped = unique(unlist(lapply(
-      all_parts_summaries,
-      function(summary) summary$memcat_parent_unmapped
-    ))),
-    memcat_child_unmapped = unique(unlist(lapply(
-      all_parts_summaries,
-      function(summary) summary$memcat_child_unmapped
-    ))),
-    discharge_unmapped = unique(unlist(lapply(
-      all_parts_summaries,
-      function(summary) summary$discharge_unmapped
-    ))),
-    discard_rvs_one = combine_discarded_rvs_tables(
-      all_parts_summaries, "discard_rvs_one", rows_to_show
-    ),
-    discard_rvs_two = combine_discarded_rvs_tables(
-      all_parts_summaries, "discard_rvs_two", rows_to_show
-    ),
-    empty_strings_replaced_1 = combine_replace_empty_tables(
-      all_parts_summaries, "empty_strings_replaced_1", rows_to_show
-    ),
-    empty_strings_replaced_2 = combine_replace_empty_tables(
-      all_parts_summaries, "empty_strings_replaced_2", rows_to_show
-    ),
-    icd_comparison_table = combine_icd_comparison_table(lapply(
-      all_parts_summaries,
-      function(summary) summary$icd_comparison_table
-    )),
-    invalid_icds_table = combine_invalid_icd_table(lapply(
-      all_parts_summaries,
-      function(summary) summary$invalid_icds_table
-    ))
-  )
-
-  return(combined_summary)
-}
-
-
-combine_all_parts_statistics <- function(all_parts_statistics) {
-  total_statistics <- list(
-    total_rvs_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$total_rvs_count
-    )),
-    without_drg_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$without_drg_count
-    )),
-    mappable_rvs_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$mappable_rvs_count
-    )),
-    mappable_rvs_percentage = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$mappable_rvs_count
-    )) /
-      sum(sapply(
-        all_parts_statistics,
-        function(stat) stat$total_rvs_count
-      )) * 100,
-    multi_mapped_rvs_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$multi_mapped_rvs_count
-    )),
-    multi_mapped_rvs_percentage = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$multi_mapped_rvs_count
-    )) /
-      sum(sapply(
-        all_parts_statistics,
-        function(stat) stat$mappable_rvs_count
-      )) * 100,
-    unmappable_rvs_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$unmappable_rvs_count
-    )),
-    unmappable_rvs_percentage = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$unmappable_rvs_count
-    )) /
-      sum(sapply(
-        all_parts_statistics,
-        function(stat) stat$total_rvs_count
-      )) * 100,
-    total_unique_icd_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$total_unique_icd_count
-    )),
-    direct_match_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$direct_match_count
-    )),
-    direct_match_percentage = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$direct_match_count
-    )) /
-      sum(sapply(
-        all_parts_statistics,
-        function(stat) stat$total_unique_icd_count
-      )) * 100,
-    total_mapped_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$total_mapped_count
-    )),
-    modified_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$modified_count
-    )),
-    unmapped_icd_count = sum(sapply(
-      all_parts_statistics,
-      function(stat) stat$unmapped_icd_count
-    ))
-  )
-
-  combined_unmapped_icds <- rbindlist(lapply(
-    all_parts_statistics,
-    function(stat) stat$combined_unmapped_icds
-  ))
-  total_statistics$combined_unmapped_icds <- combined_unmapped_icds[,
-    .(count = sum(count)),
-    by = code
-  ][order(-count)]
-
-  return(total_statistics)
-}
 
 # Helper function to determine if a file is a partial file
 is_partial_file <- function(filename) {
   return(grepl("part", filename, ignore.case = TRUE))
 }
 
-# Function to check if a file exists
-file_exists <- function(filepath) {
-  return(file.exists(filepath))
-}
-
 # Suppress interim output
 suppress_interim_output <- function(expr) {
   suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
 }
+
+
