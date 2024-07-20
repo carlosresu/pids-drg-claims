@@ -122,9 +122,9 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
     clin_c1 = mapped_columns$clin_c1,
     clin_c2 = mapped_columns$clin_c2,
     clin_icd = mapped_columns$clin_icd,
+    unique_icds = icds,
     direct_matches = direct_match_codes,
-    icd_mapping = icd_mapping,
-    modified_count = modified_count,
+    unmatched = unmatched_icds,
     unmatched_sources = unmatched_sources
   ))
 }

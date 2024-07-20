@@ -197,7 +197,6 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
 
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
-  summary$rvs_mapping_summary <- rvs_mapping_result$summary_statistics
 
   clin_c1 <- chunk$clin_c1
   clin_c2 <- chunk$clin_c2
@@ -230,36 +229,12 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
     x
   })
 
-  # Collect RVS and ICD mapping statistics
-  rvs_stats <- data.table(
-    rvs = unlist(chunk$clin_rvs),
-    icd9_list = unlist(chunk$icd9_list)
-  )
-
-  # Calculate unique ICD codes and their mapping status
-  unique_icds <- unique(c(unlist(chunk$clin_c1), unlist(chunk$clin_c2), unlist(chunk$clin_icd)))
-  direct_matches <- unique_icds %in% icd10_mapping_result$direct_matches
-  modified_matches <- unique_icds %in% names(icd10_mapping_result$icd_mapping)
-  unmatched_icds <- setdiff(unique_icds, union(names(icd10_mapping_result$icd_mapping), icd10_mapping_result$direct_matches))
-
-  icd_stats <- data.table(
-    icd = unique_icds,
-    direct_match = direct_matches,
-    modified = modified_matches & !direct_matches
-  )
-
-  summary$rvs_mapping_summary <- rvs_stats
-  summary$icd_mapping_summary <- icd_stats
-  summary$icd_mapping <- icd10_mapping_result$icd_mapping
-  summary$modified_count <- sum(modified_matches & !direct_matches)
+  summary$unique_icds <- icd10_mapping_result$unique_icds
+  summary$direct_matches <- icd10_mapping_result$direct_matches
+  summary$unmatched <- icd10_mapping_result$unmatched
   summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
 
-  unique_codes <- list(
-    unique_rvs_codes = unique(unlist(chunk$clin_rvs)),
-    unique_icd_codes = unique_icds
-  )
-
-  return(list(chunk = chunk, summary = summary, unique_codes = unique_codes))
+  return(list(chunk = chunk, summary = summary))
 }
 
 
@@ -304,9 +279,14 @@ read_and_process_chunk <- function(part) {
   return(dt)
 }
 
-parallelize_and_summarize_data <- function(dt, num_cores, to_view_checks, global_seed, rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
+# Function to combine and summarize data in parallel
+parallelize_and_summarize_data <- function(
+    dt, num_cores, to_view_checks, global_seed, rows_to_show,
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
   chunk_size <- ceiling(nrow(dt) / num_cores)
-  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+  chunks <- split(dt, rep(1:num_cores,
+    each = chunk_size, length.out = nrow(dt)
+  ))
 
   if (to_parallelize) {
     # Plan for parallel processing
@@ -338,23 +318,11 @@ parallelize_and_summarize_data <- function(dt, num_cores, to_view_checks, global
 
   # Combine summaries
   summaries <- lapply(parallel_results, function(res) res$summary)
-  unique_codes_list <- lapply(parallel_results, function(res) res$unique_codes)
-
-  combined_rvs_stats <- rbindlist(lapply(summaries, function(summary) summary$rvs_mapping_summary), fill = TRUE)
-  combined_icd_stats <- rbindlist(lapply(summaries, function(summary) summary$icd_mapping_summary), fill = TRUE)
-
   combined_summary <- combine_all_parts_summaries(summaries, rows_to_show)
-
-  all_unique_rvs_codes <- unique(unlist(lapply(unique_codes_list, function(x) x$unique_rvs_codes)))
-  all_unique_icd_codes <- unique(unlist(lapply(unique_codes_list, function(x) x$unique_icd_codes)))
 
   return(list(
     dt = dt,
-    combined_summary = combined_summary,
-    rvs_stats = combined_rvs_stats,
-    icd_stats = combined_icd_stats,
-    unique_rvs_codes = all_unique_rvs_codes,
-    unique_icd_codes = all_unique_icd_codes
+    combined_summary = combined_summary
   ))
 }
 

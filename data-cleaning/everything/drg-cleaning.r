@@ -19,7 +19,7 @@ to_view_checks_parallelized <- FALSE
 to_parallelize <- TRUE
 
 # Sample size divisor:
-sample_size_divisor <- 5
+sample_size_divisor <- 125
 
 drop_cols <- c(
   paste0("ICDCODE", 13:14),
@@ -158,12 +158,6 @@ if (to_profvis) {
   }
 }
 combine_and_print_summaries()
-
-final_combined_summary <- combine_all_parts_summaries(
-  all_parts_summaries, rows_to_show
-)
-
-print_combined_statistics(final_combined_summary, rows_to_show)
 
 
 # Stop the timer and capture total time

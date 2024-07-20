@@ -112,6 +112,10 @@ print_summary_tables <- function(result, rows_to_show) {
   } else {
     cat("\nNo empty strings replaced in the second set.\n\n")
   }
+
+  print(paste("Total Unique ICDs", consolidated_summary$unique_icds_count))
+  print(paste("Total Unique Direct Matches", consolidated_summary$direct_matches_count))
+  print(paste("Total Unique Unmapped", consolidated_summary$unmatched_count))
 }
 
 combine_comparison_tables <- function(
@@ -184,15 +188,15 @@ combine_replace_empty_tables <- function(summaries, field, rows_to_show = 10) {
   return(combined_replace_empty)
 }
 
+# Combine and print all summaries after processing all parts
 combine_and_print_summaries <- function() {
-  final_combined_summary <- combine_all_parts_summaries(
+  combined_summary <- combine_all_parts_summaries(
     all_parts_summaries, rows_to_show
   )
-
   print_summary_tables(
     list(
       dt = NULL,
-      consolidated_summary = final_combined_summary
+      consolidated_summary = combined_summary
     ),
     rows_to_show
   )
@@ -211,60 +215,18 @@ combine_all_parts_summaries <- function(all_parts_summaries, rows_to_show = 10) 
     discard_rvs_two = combine_discarded_rvs_tables(all_parts_summaries, "discard_rvs_two", rows_to_show),
     empty_strings_replaced_1 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_1", rows_to_show),
     empty_strings_replaced_2 = combine_replace_empty_tables(all_parts_summaries, "empty_strings_replaced_2", rows_to_show),
-    rvs_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$rvs_mapping_summary), fill = TRUE)),
-    icd_mapping_summary = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping_summary), fill = TRUE)),
-    icd_mapping = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$icd_mapping), fill = TRUE)),
-    modified_count = sum(unlist(lapply(all_parts_summaries, function(summary) summary$modified_count)), na.rm = TRUE),
-    unmatched_sources = unique(rbindlist(lapply(all_parts_summaries, function(summary) summary$unmatched_sources), fill = TRUE))
+    unique_icds_count = 0, # Initialize counts to be updated later
+    direct_matches_count = 0, # Initialize counts to be updated later
+    unmatched_count = 0 # Initialize counts to be updated later
   )
 
+  combined_unique_icds <- unique(unlist(lapply(all_parts_summaries, function(summary) summary$unique_icds)))
+  combined_direct_matches <- unique(unlist(lapply(all_parts_summaries, function(summary) summary$direct_matches)))
+  combined_unmatched <- unique(unlist(lapply(all_parts_summaries, function(summary) summary$unmatched)))
+
+  combined_summary$unique_icds_count <- length(unlist(combined_unique_icds))
+  combined_summary$direct_matches_count <- length(unlist(combined_direct_matches))
+  combined_summary$unmatched_count <- length(unlist(combined_unmatched))
+
   return(combined_summary)
-}
-
-print_combined_statistics <- function(final_combined_summary, rows_to_show) {
-  rvs_stats <- final_combined_summary$rvs_mapping_summary[!is.na(icd9_list)]
-  icd_stats <- final_combined_summary$icd_mapping_summary[!is.na(icd)]
-  unmatched_sources <- final_combined_summary$unmatched_sources
-
-  total_rvs_codes <- length(unique(rvs_stats$rvs))
-  unique_rvs_with_mapping <- unique(rvs_stats[!is.na(icd9_list), rvs])
-  rvs_with_icd_mapping <- length(unique_rvs_with_mapping)
-  rvs_with_multiple_icd <- sum(sapply(unique_rvs_with_mapping, function(x) length(rvs_stats[rvs == x & !is.na(icd9_list)]$icd9_list) > 1))
-  rvs_without_icd <- total_rvs_codes - rvs_with_icd_mapping
-
-  total_icd_codes <- length(unique(icd_stats$icd))
-  icd_direct_match <- sum(icd_stats$direct_match, na.rm = TRUE)
-  icd_modified <- sum(icd_stats$modified, na.rm = TRUE)
-  
-  # Correct calculation of icd_not_mapped
-  icd_not_mapped <- length(unique(unmatched_sources$code))
-
-  cat(sprintf("There are %d unique RVS codes that appear in the claims.\n", total_rvs_codes))
-  cat(sprintf("Of these, %d (%.2f %%) have a mapping to an ICD-9-CM code.\n", rvs_with_icd_mapping, (rvs_with_icd_mapping / total_rvs_codes) * 100))
-  if (rvs_with_multiple_icd > 0) {
-    cat(sprintf("Of these, there are %d (%.2f %%) with more than one ICD9 equivalent recognized by the Thai ICD9 library.\n", rvs_with_multiple_icd, (rvs_with_multiple_icd / total_rvs_codes) * 100))
-  }
-  if (rvs_without_icd > 0) {
-    cat(sprintf("There are %d (%.2f %%) with no ICD-9-CM equivalents.\n", rvs_without_icd, (rvs_without_icd / total_rvs_codes) * 100))
-  } else {
-    cat("All RVS codes have an ICD-9-CM equivalent.\n")
-  }
-
-  cat(sprintf("\nThere are %d unique entries for ICD-10 codes.\n", total_icd_codes))
-  cat(sprintf("Of these, %d (%.2f %%) are directly in the Thai ICD-10 library.\n", icd_direct_match, (icd_direct_match / total_icd_codes) * 100))
-  cat(sprintf("The modifications led to a total of %d codes being mapped to an equivalent in the Thai ICD10 library.\n", icd_direct_match + icd_modified))
-  if (icd_modified > 0) {
-    cat(sprintf("Out of these, %d were modified to match.\n", icd_modified))
-  }
-  if (icd_not_mapped > 0) {
-    cat(sprintf("There are %d unique codes that could not be mapped to the Thai ICD10 library.\n", icd_not_mapped))
-  } else {
-    cat("All codes were successfully mapped to the Thai ICD10 library.\n")
-  }
-
-  # Print codes that could not be mapped to the Thai ICD10 library
-  if (nrow(unmatched_sources) > 0) {
-    cat("\nCodes that could not be mapped to the Thai ICD10 library with their sources:\n")
-    print(kable(head(unmatched_sources, rows_to_show), format = "markdown"))
-  }
 }
