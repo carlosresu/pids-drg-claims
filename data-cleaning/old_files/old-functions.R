@@ -1079,3 +1079,397 @@
 
 #   return(list(chunk = chunk, summary = summary))
 # }
+
+# clean_data <- function(dt) {
+#   #' @title Clean and preprocess the data table
+#   #'
+#   #' @description This function performs various cleaning and
+#   #' preprocessing steps on the input data table, including
+#   #' renaming columns, collapsing columns, cleaning specific columns,
+#   #' and remapping certain categorical variables.
+#   #'
+#   #' @param dt data.table. The data table to be cleaned and preprocessed.
+#   #'
+#   #' @return list. A list containing the cleaned data table and
+#   #' various summary information.
+
+#   # Add year column
+#   dt[, SRC_YR := as.integer(year_to_load)]
+
+#   # Rename columns
+#   setnames(dt, old = old_colnames, new = new_colnames)
+
+#   # Check if all columns were successfully renamed
+#   if (!all(new_colnames %in% colnames(dt))) {
+#     rename_success <- FALSE
+#   } else {
+#     rename_success <- TRUE
+#   }
+
+#   # Collapse columns clin_icd1 to clin_icd12 into clin_icd
+#   dt[, clin_icd := collapse_columns(
+#     mget(paste0("clin_icd", 1:12), envir = as.environment(dt)),
+#     na_like_strings
+#   )]
+#   dt[, paste0("clin_icd", 1:12) := NULL]
+
+#   # Collapse columns clin_rvs1 to clin_rvs20 into clin_rvs
+#   dt[, clin_rvs := collapse_columns(
+#     mget(paste0("clin_rvs", 1:20), envir = as.environment(dt)),
+#     na_like_strings
+#   )]
+#   dt[, paste0("clin_rvs", 1:20) := NULL]
+
+#   # Remove lumped ICD codes from clin_icd
+#   dt[, clin_icd := remove_lumped_icd_codes(dt$clin_icd)]
+
+#   # Turn clin_icd and clin_rvs into lists
+#   dt[, clin_icd := split_to_vector(clin_icd)]
+#   dt[, clin_rvs := split_to_vector(clin_rvs)]
+
+#   # Ensure clean_column function and na_like_strings are
+#   # correctly defined and applied
+#   dt[, clin_c1_orig := dt$clin_c1]
+#   dt[, clin_c1 := clean_column(clin_c1, na_like_strings)] # Clean clin_c1
+
+#   # Generate cleaning comparison table
+#   clin_c1_cleaning_comparison <- dt[
+#     clin_c1 != clin_c1_orig,
+#     .(old_code = clin_c1_orig, new_code = clin_c1, count = .N),
+#     by = .(clin_c1_orig, clin_c1)
+#   ]
+
+#   # Optionally remove clin_c1_orig from dt if no longer needed
+#   dt[, clin_c1_orig := NULL]
+
+#   dt[, clin_c2_orig := dt$clin_c2] # Capture original clin_c2
+
+#   # Clean clin_c2 within the data.table context
+#   dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
+
+#   # Create cleaning comparison table
+#   clin_c2_cleaning_comparison <- dt[
+#     clin_c2 != clin_c2_orig, # Compare cleaned clin_c2 with original
+#     .(old_code = clin_c2_orig, new_code = clin_c2, count = .N),
+#     by = .(clin_c2_orig, clin_c2)
+#   ]
+
+#   # Optionally remove clin_c2_orig from dt if no longer needed
+#   dt[, clin_c2_orig := NULL]
+
+#   dt[, clin_c1 := remove_lumped_icd_codes(dt$clin_c1)]
+#   dt[, clin_c2 := remove_lumped_icd_codes(dt$clin_c2)]
+
+#   dt[, clin_c1 := split_to_vector(clin_c1)]
+#   clin_c1_result <- transfer_extra_icd10s_to_clin_icd(
+#     dt$clin_icd, dt$clin_c1
+#   )
+#   dt[, clin_icd := clin_c1_result$clin_icd]
+#   dt[, clin_c1 := clin_c1_result$col_first]
+
+#   dt[, clin_c2 := split_to_vector(clin_c2)]
+#   clin_c2_result <- transfer_extra_icd10s_to_clin_icd(dt$clin_icd, dt$clin_c2)
+#   dt[, clin_icd := clin_c2_result$clin_icd]
+#   dt[, clin_c2 := clin_c2_result$col_first]
+
+#   clin_c1_rvs_results <- append_and_remove_rvs(
+#     dt$clin_rvs, dt$clin_c1, rvs_icd9
+#   )
+#   dt[, clin_rvs := clin_c1_rvs_results$clin_rvs]
+#   dt[, clin_c1 := clin_c1_rvs_results$col]
+#   clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
+
+#   clin_c2_rvs_results <- append_and_remove_rvs(
+#     dt$clin_rvs, dt$clin_c2, rvs_icd9
+#   )
+#   dt[, clin_rvs := clin_c2_rvs_results$clin_rvs]
+#   dt[, clin_c2 := clin_c2_rvs_results$col]
+#   clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
+
+#   dt[, clin_rvs := lapply(clin_rvs, unique)]
+#   dedup_result <- ensure_unique_icd_codes(
+#     dt$clin_c1, dt$clin_c2, dt$clin_icd
+#   )
+#   dt[, clin_c1 := dedup_result$clin_c1]
+#   dt[, clin_c2 := dedup_result$clin_c2]
+#   dt[, clin_icd := dedup_result$clin_icd]
+
+#   # Replace empty strings in character and factor columns with NA
+#   replace_result <- replace_empty_with_na(dt, to_view_checks)
+#   dt <- replace_result$data
+#   empty_strings_replaced_1 <- replace_result$replacement_summary
+
+#   pat_unmap <- NULL
+#   parent_unmap <- NULL
+#   child_unmap <- NULL
+#   discharge_unmap <- NULL
+
+#   warning_thrown <- FALSE
+
+#   # Remap and check for patient type
+#   result <- remap_patient_type(dt$pat_type)
+#   dt$pat_type <- result$remapped
+#   if (length(result$unmapped) > 0 && to_view_checks) {
+#     warning_thrown <- TRUE
+#     pat_unmap <- result$unmapped
+#   }
+
+#   warning_thrown <- FALSE
+
+#   # Remap and check for member category parent
+#   result <- remap_memcat_parent_desc(dt$pat_memcat_parent)
+#   dt$pat_memcat_parent <- result$remapped
+#   if (length(result$unmapped) > 0 && to_view_checks) {
+#     warning_thrown <- TRUE
+#     parent_unmap <- result$unmapped
+#   }
+
+#   warning_thrown <- FALSE
+
+#   # Remap and check for member category child
+#   result <- remap_memcat_child_desc(dt$pat_memcat_child)
+#   dt$pat_memcat_child <- result$remapped
+#   if (length(result$unmapped) > 0 && to_view_checks) {
+#     warning_thrown <- TRUE
+#     child_unmap <- result$unmapped
+#   }
+
+#   warning_thrown <- FALSE
+
+#   # Remap and check for clinical discharge disposition
+#   result <- remap_disposition(dt$clin_discharge)
+#   dt$clin_discharge <- result$remapped
+#   if (length(result$unmapped) > 0 && to_view_checks) {
+#     warning_thrown <- TRUE
+#     discharge_unmap <- result$unmapped
+#   }
+
+#   return(list(
+#     data = dt,
+#     rename_success = rename_success,
+#     ICD_replacements_1 = clin_c1_cleaning_comparison,
+#     ICD_replacements_2 = clin_c2_cleaning_comparison,
+#     pat_type_unmapped = pat_unmap,
+#     memcat_parent_unmapped = parent_unmap,
+#     memcat_child_unmapped = child_unmap,
+#     discharge_unmapped = discharge_unmap,
+#     discard_rvs_one = clin_c1_discarded_rvs,
+#     discard_rvs_two = clin_c2_discarded_rvs,
+#     empty_strings_replaced_1 = empty_strings_replaced_1
+#   ))
+# }
+### START OF LAST KNOWN WORKING RVS CODE ###
+# # Function to split RVS codes
+# split_rvs_codes <- function(rvs_icd9) {
+#   #' @title Split RVS Codes
+#   #'
+#   #' @description This function splits RVS codes into
+#   #' those with and without DRG.
+#   #'
+#   #' @param rvs_icd9 data.table. The RVS ICD-9 codes.
+#   #'
+#   #' @return list. A list containing RVS codes with DRG and without DRG.
+
+#   with_drg <- rvs_icd9[is_drg == TRUE]
+#   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]
+#   return(list(with_drg = with_drg, without_drg = without_drg))
+# }
+
+# # Function to create RVS map lists
+# create_rvs_map_lists <- function(with_drg) {
+#   #' @title Create RVS Map Lists
+#   #'
+#   #' @description This function creates lists for RVS mapping with DRG.
+#   #'
+#   #' @param with_drg data.table. The RVS codes with DRG.
+#   #'
+#   #' @return list. A list containing RVS map list and RVS map solo.
+
+#   # Order the data by rvs and -is_drg
+#   setorder(with_drg, rvs, -is_drg)
+
+#   # Create a list of unique rvs
+#   unique_rvs <- with_drg[, .(icd9cm_list = list(icd9cm)), by = rvs]
+
+#   # Split into solo and list mappings
+#   solo <- unique_rvs[lengths(icd9cm_list) == 1]
+#   list_mapped <- unique_rvs[lengths(icd9cm_list) > 1]
+
+#   rvs_map_solo <- setNames(solo$icd9cm_list, solo$rvs)
+#   rvs_map_list <- setNames(list_mapped$icd9cm_list, list_mapped$rvs)
+
+#   return(list(rvs_map_list = rvs_map_list, rvs_map_solo = rvs_map_solo))
+# }
+
+# # Function to get ICD-9 codes from clinical RVS
+# get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
+#   #' @title Get ICD-9 Codes from Clinical RVS
+#   #'
+#   #' @description This function retrieves ICD-9 codes for clinical RVS.
+#   #'
+#   #' @param clin_rvs list. The clinical RVS codes.
+#   #' @param rvs_map_solo_env environment. The environment
+#   #' with RVS map solo codes.
+#   #'
+#   #' @return list. The ICD-9 codes for clinical RVS.
+
+#   lapply(clin_rvs, function(x) {
+#     codes <- unlist(x)
+#     mappable <- codes[
+#       !is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))
+#     ]
+#     if (length(mappable) > 0) {
+#       unique(unlist(mget(mappable, envir = rvs_map_solo_env)))
+#     } else {
+#       NA_character_
+#     }
+#   })
+# }
+
+# # Function to map RVS to ICD-9
+# map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
+#   #' @title Map RVS to ICD-9
+#   #'
+#   #' @description This function maps RVS codes to ICD-9 codes.
+#   #'
+#   #' @param clin_rvs list. The clinical RVS codes.
+#   #' @param rvs_icd9 data.table. The RVS ICD-9 codes.
+#   #'
+#   #' @return list. A list containing the
+#   #' mapped ICD-9 codes and related information.
+
+#   split_codes <- split_rvs_codes(rvs_icd9)
+#   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
+#   rvs_map_list <- rvs_maps$rvs_map_list
+
+#   rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
+#   icd9_list <- get_icd9_codes(clin_rvs, rvs_map_solo_env)
+
+#   rvss <- unique(unlist(clin_rvs))
+#   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
+#   unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
+#   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
+#   without_drg <- unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
+
+#   return_list <- list(
+#     icd9_list = icd9_list,
+#     rvs_map_list = rvs_maps$rvs_map_list,
+#     rvss = rvss,
+#     mappable_rvs = mappable_rvs,
+#     unmappable_rvs = unmappable_rvs,
+#     multi_mapped_rvs = multi_mapped_rvs,
+#     without_drg = without_drg
+#   )
+
+#   return(return_list)
+# }
+
+# # Function to find and append valid RVS codes
+# find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
+#   #' @title Find and Append Valid RVS Codes
+#   #'
+#   #' @description This function finds and appends valid
+#   #' RVS codes to the clinical RVS.
+#   #'
+#   #' @param datatable data.table. The data table with clinical RVS codes.
+#   #' @param valid_rvs_codes character. The valid RVS codes.
+#   #'
+#   #' @return None. The function modifies the input data.table in place.
+
+#   regex_5_digit <- "\\b\\d{5}\\b"
+#   valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
+#   for (code in valid_rvs_codes) {
+#     assign(code, TRUE, envir = valid_rvs_env)
+#   }
+
+#   datatable[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
+
+#   # Use lapply for improved performance
+#   datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+
+#   datatable[, clin_rvs := mapply(
+#     function(rvs, matches) unique(c(rvs, matches)),
+#     clin_rvs, valid_matches,
+#     SIMPLIFY = FALSE
+#   )]
+# }
+
+# # Function to remove 5-digit codes
+# remove_5_digit_codes <- function(col) {
+#   #' @title Remove 5-Digit Codes
+#   #'
+#   #' @description This function removes 5-digit codes from
+#   #' the given column.
+#   #'
+#   #' @param col character. The column to be processed.
+#   #'
+#   #' @return list. The column with 5-digit codes removed.
+
+#   regex_5_digit <- "\\b\\d{5}\\b"
+#   lapply(col, function(x) gsub(regex_5_digit, "", x))
+# }
+
+# # Function to warn about invalid RVS codes
+# warn_invalid_rvs <- function(matches, valid_rvs_codes) {
+#   #' @title Warn About Invalid RVS Codes
+#   #'
+#   #' @description This function warns about invalid RVS codes
+#   #' and creates a table of discarded codes.
+#   #'
+#   #' @param matches list. The matched RVS codes.
+#   #' @param valid_rvs_codes character. The valid RVS codes.
+#   #'
+#   #' @return data.table. A table of discarded codes.
+
+#   valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
+#   for (code in valid_rvs_codes) {
+#     assign(code, TRUE, envir = valid_rvs_env)
+#   }
+
+#   invalid_matches <- lapply(
+#     matches,
+#     function(x) x[!vapply(x, exists, logical(1), envir = valid_rvs_env)]
+#   )
+#   discarded_codes <- unlist(invalid_matches)
+#   if (length(discarded_codes) > 0) {
+#     discarded_table <- data.table(
+#       CODE = discarded_codes
+#     )[, .N, by = CODE][order(-N)]
+#     setnames(discarded_table, c("CODE", "count"))
+#   } else {
+#     discarded_table <- data.table()
+#   }
+#   return(discarded_table)
+# }
+
+# # Function to append and remove RVS codes
+# append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
+#   #' @title Append and Remove RVS Codes
+#   #'
+#   #' @description This function appends valid RVS codes and
+#   #' removes invalid RVS codes.
+#   #'
+#   #' @param clin_rvs list. The clinical RVS codes.
+#   #' @param col character. The column with RVS codes.
+#   #' @param rvs_icd9 data.table. The RVS ICD-9 codes.
+#   #'
+#   #' @return list. A list containing the updated clinical RVS,
+#   #' column, and discarded RVS codes.
+
+#   datatable <- data.table(clin_rvs = clin_rvs, col = col)
+#   valid_rvs_codes <- rvs_icd9$rvs
+
+#   find_and_append_valid_rvs(datatable, valid_rvs_codes)
+#   datatable[, col := remove_5_digit_codes(col)]
+#   discarded_rvs <- warn_invalid_rvs(datatable$matches, valid_rvs_codes)
+
+#   return(
+#     list(
+#       clin_rvs = datatable$clin_rvs,
+#       col = datatable$col,
+#       discarded_rvs = discarded_rvs
+#     )
+#   )
+# }
+
+# ### END OF LAST KNOWN WORKING RVS CODE ###

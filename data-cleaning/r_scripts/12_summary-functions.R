@@ -1,24 +1,3 @@
-format_large_numbers <- function(x) {
-  #' @title Format Large Numbers
-  #'
-  #' @description This function formats large numbers into a
-  #' more readable string with units (k, m, b).
-  #'
-  #' @param x numeric. The number to be formatted.
-  #'
-  #' @return character. The formatted number as a string.
-
-  if (x >= 1e9) {
-    return(sprintf("%.1fb", x / 1e9))
-  } else if (x >= 1e6) {
-    return(sprintf("%.1fm", x / 1e6))
-  } else if (x >= 1e3) {
-    return(sprintf("%.1fk", x / 1e3))
-  } else {
-    return(as.character(x))
-  }
-}
-
 print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   #' @title Print Summary Tables
   #'

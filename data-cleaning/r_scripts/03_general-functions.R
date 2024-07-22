@@ -59,6 +59,7 @@ replace_empty_with_na <- function(dt, to_view_checks) {
   #'
   #' @return list. A list containing the processed data table
   #' and the replacement summary.
+
   char_factor_cols <- names(dt)[sapply(
     dt,
     function(col) is.character(col) || is.factor(col) || is.list(col)
@@ -81,16 +82,19 @@ replace_empty_with_na <- function(dt, to_view_checks) {
 
     # Using set to avoid copying
     dt[
-      get(col_name) == "" |
-        get(col_name) == "NA" |
-        get(col_name) == "character(0)", (col_name) := NA_character_
+      get(
+        col_name
+      ) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
+      (col_name) := NA_character_
     ]
 
     if (is.factor(col)) {
-      set(dt, j = col_name, value = factor(
-        dt[[col_name]],
-        levels = c(levels(col), NA)
-      ))
+      set(dt,
+        j = col_name,
+        value = factor(dt[[col_name]],
+          levels = c(levels(col), NA)
+        )
+      )
     }
 
     if (to_view_checks) {
@@ -108,8 +112,6 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     replacement_summary <- replacement_summary[
       Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
     ]
-    # print("Replacement Summary:")
-    # print(replacement_summary)
   }
 
   return(list(data = dt, replacement_summary = replacement_summary))

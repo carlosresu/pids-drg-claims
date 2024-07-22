@@ -231,3 +231,19 @@ read_and_save_partial <- function(start_row, end_row, part) {
     }
   }
 }
+
+write_intermediate_file <- function(to_write, part, dt) {
+  #' @title Write intermediate file
+  #'
+  #' @description This function writes the intermediate data table to a file.
+  #'
+  #' @param part integer. The part number of the data being processed.
+  #' @param dt data.table. The data table to be written.
+  #'
+  #' @return NULL. The function is used for its side effect of
+  #' writing the data table to a file.
+
+  if (to_write) {
+    fwrite(dt, intermediate_file(part, fileext = TRUE))
+  }
+}

@@ -364,6 +364,7 @@ replace_empty_with_na <- function(dt, to_view_checks) {
   #'
   #' @return list. A list containing the processed data table
   #' and the replacement summary.
+
   char_factor_cols <- names(dt)[sapply(
     dt,
     function(col) is.character(col) || is.factor(col) || is.list(col)
@@ -386,16 +387,19 @@ replace_empty_with_na <- function(dt, to_view_checks) {
 
     # Using set to avoid copying
     dt[
-      get(col_name) == "" |
-        get(col_name) == "NA" |
-        get(col_name) == "character(0)", (col_name) := NA_character_
+      get(
+        col_name
+      ) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
+      (col_name) := NA_character_
     ]
 
     if (is.factor(col)) {
-      set(dt, j = col_name, value = factor(
-        dt[[col_name]],
-        levels = c(levels(col), NA)
-      ))
+      set(dt,
+        j = col_name,
+        value = factor(dt[[col_name]],
+          levels = c(levels(col), NA)
+        )
+      )
     }
 
     if (to_view_checks) {
@@ -413,8 +417,6 @@ replace_empty_with_na <- function(dt, to_view_checks) {
     replacement_summary <- replacement_summary[
       Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
     ]
-    # print("Replacement Summary:")
-    # print(replacement_summary)
   }
 
   return(list(data = dt, replacement_summary = replacement_summary))
@@ -586,96 +588,100 @@ suppress_interim_output <- function(expr) {
   suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
 }
 clean_data <- function(dt) {
-  #' @title Clean and preprocess the data table
-  #'
-  #' @description This function performs various cleaning and
-  #' preprocessing steps on the input data table, including
-  #' renaming columns, collapsing columns, cleaning specific columns,
-  #' and remapping certain categorical variables.
-  #'
-  #' @param dt data.table. The data table to be cleaned and preprocessed.
-  #'
-  #' @return list. A list containing the cleaned data table and
-  #' various summary information.
+  #' @title Clean and preprocess data
+  #' @description This function cleans and preprocesses
+  #' the given data.table by performing tasks like renaming
+  #' columns, collapsing and cleaning ICD and RVS columns,
+  #' replacing empty strings, and remapping patient data.
+  #' @param dt data.table. The data table to be cleaned.
+  #' @return list. A list containing the cleaned data and
+  #' various summaries.
 
-  # Add year column
   dt[, SRC_YR := as.integer(year_to_load)]
-
-  # Rename columns
   setnames(dt, old = old_colnames, new = new_colnames)
 
-  # Check if all columns were successfully renamed
-  if (!all(new_colnames %in% colnames(dt))) {
-    rename_success <- FALSE
-  } else {
-    rename_success <- TRUE
-  }
+  rename_success <- all(new_colnames %in% colnames(dt))
 
-  # Collapse columns clin_icd1 to clin_icd12 into clin_icd
-  dt[, clin_icd := collapse_columns(
-    mget(paste0("clin_icd", 1:12), envir = as.environment(dt)),
-    na_like_strings
-  )]
-  dt[, paste0("clin_icd", 1:12) := NULL]
+  dt <- collapse_and_clean_icd_rvs(dt)
 
-  # Collapse columns clin_rvs1 to clin_rvs20 into clin_rvs
-  dt[, clin_rvs := collapse_columns(
-    mget(paste0("clin_rvs", 1:20), envir = as.environment(dt)),
-    na_like_strings
-  )]
-  dt[, paste0("clin_rvs", 1:20) := NULL]
-
-  # Remove lumped ICD codes from clin_icd
-  dt[, clin_icd := remove_lumped_icd_codes(dt$clin_icd)]
-
-  # Turn clin_icd and clin_rvs into lists
-  dt[, clin_icd := split_to_vector(clin_icd)]
-  dt[, clin_rvs := split_to_vector(clin_rvs)]
-
-  # Ensure clean_column function and na_like_strings are
-  # correctly defined and applied
   dt[, clin_c1_orig := dt$clin_c1]
-  dt[, clin_c1 := clean_column(clin_c1, na_like_strings)] # Clean clin_c1
-
-  # Generate cleaning comparison table
+  dt[, clin_c1 := clean_column(clin_c1, na_like_strings)]
+  dt[, clin_c1_orig := sapply(clin_c1_orig, toString)]
+  dt[, clin_c1 := sapply(clin_c1, toString)]
   clin_c1_cleaning_comparison <- dt[
-    clin_c1 != clin_c1_orig,
+    !is.na(clin_c1_orig) & clin_c1 != clin_c1_orig,
     .(old_code = clin_c1_orig, new_code = clin_c1, count = .N),
     by = .(clin_c1_orig, clin_c1)
   ]
 
-  # Optionally remove clin_c1_orig from dt if no longer needed
-  dt[, clin_c1_orig := NULL]
-
-  dt[, clin_c2_orig := dt$clin_c2] # Capture original clin_c2
-
-  # Clean clin_c2 within the data.table context
+  dt[, clin_c2_orig := dt$clin_c2]
   dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
-
-  # Create cleaning comparison table
+  dt[, clin_c2_orig := sapply(clin_c2_orig, toString)]
+  dt[, clin_c2 := sapply(clin_c2, toString)]
   clin_c2_cleaning_comparison <- dt[
-    clin_c2 != clin_c2_orig, # Compare cleaned clin_c2 with original
+    !is.na(clin_c2_orig) & clin_c2 != clin_c2_orig,
     .(old_code = clin_c2_orig, new_code = clin_c2, count = .N),
     by = .(clin_c2_orig, clin_c2)
   ]
 
-  # Optionally remove clin_c2_orig from dt if no longer needed
-  dt[, clin_c2_orig := NULL]
+  clean_clin_col_res <- clean_clinical_columns(dt)
 
-  dt[, clin_c1 := remove_lumped_icd_codes(dt$clin_c1)]
-  dt[, clin_c2 := remove_lumped_icd_codes(dt$clin_c2)]
+  dt <- clean_clin_col_res$dt
 
-  dt[, clin_c1 := split_to_vector(clin_c1)]
-  clin_c1_result <- transfer_extra_icd10s_to_clin_icd(
-    dt$clin_icd, dt$clin_c1
-  )
-  dt[, clin_icd := clin_c1_result$clin_icd]
-  dt[, clin_c1 := clin_c1_result$col_first]
+  discard_rvs_one <- clean_clin_col_res$discard_rvs_one
+  discard_rvs_two <- clean_clin_col_res$discard_rvs_two
 
-  dt[, clin_c2 := split_to_vector(clin_c2)]
-  clin_c2_result <- transfer_extra_icd10s_to_clin_icd(dt$clin_icd, dt$clin_c2)
-  dt[, clin_icd := clin_c2_result$clin_icd]
-  dt[, clin_c2 := clin_c2_result$col_first]
+  replace_result <- replace_empty_with_na(dt, to_view_checks)
+  dt <- replace_result$data
+  empty_strings_replaced_1 <- replace_result$replacement_summary
+
+  remapping_results <- remap_patient_data(dt, to_view_checks)
+  dt <- remapping_results$data
+
+  return(list(
+    data = dt,
+    rename_success = rename_success,
+    ICD_replacements_1 = clin_c1_cleaning_comparison,
+    ICD_replacements_2 = clin_c2_cleaning_comparison,
+    pat_type_unmapped = remapping_results$pat_type_unmapped,
+    memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
+    memcat_child_unmapped = remapping_results$memcat_child_unmapped,
+    discharge_unmapped = remapping_results$discharge_unmapped,
+    discard_rvs_one = discard_rvs_one,
+    discard_rvs_two = discard_rvs_two,
+    empty_strings_replaced_1 = empty_strings_replaced_1
+  ))
+}
+
+collapse_and_clean_icd_rvs <- function(dt) {
+  #' @title Collapse and clean ICD and RVS columns
+  #' @description This function collapses and cleans the ICD
+  #' and RVS columns in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+  dt[, clin_icd := collapse_columns(
+    mget(paste0("clin_icd", 1:12)), na_like_strings
+  )]
+  dt[, paste0("clin_icd", 1:12) := NULL]
+  dt[, clin_rvs := collapse_columns(
+    mget(paste0("clin_rvs", 1:20)), na_like_strings
+  )]
+  dt[, paste0("clin_rvs", 1:20) := NULL]
+  dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+  dt[, clin_icd := split_to_vector(clin_icd)]
+  dt[, clin_rvs := split_to_vector(clin_rvs)]
+  return(dt)
+}
+
+clean_clinical_columns <- function(dt) {
+  #' @title Clean clinical columns
+  #' @description This function cleans the clinical columns
+  #' in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+
+  dt <- transfer_icd_codes(dt)
+  dt <- deduplicate_icd_codes(dt)
 
   clin_c1_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$clin_c1, rvs_icd9
@@ -684,6 +690,8 @@ clean_data <- function(dt) {
   dt[, clin_c1 := clin_c1_rvs_results$col]
   clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
 
+  # print(clin_c1_discarded_rvs)
+
   clin_c2_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$clin_c2, rvs_icd9
   )
@@ -691,79 +699,102 @@ clean_data <- function(dt) {
   dt[, clin_c2 := clin_c2_rvs_results$col]
   clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
 
+  # print(clin_c2_discarded_rvs)
+
   dt[, clin_rvs := lapply(clin_rvs, unique)]
-  dedup_result <- ensure_unique_icd_codes(
-    dt$clin_c1, dt$clin_c2, dt$clin_icd
+
+  return_list <- list(
+    dt = dt,
+    discard_rvs_one = clin_c1_discarded_rvs,
+    discard_rvs_two = clin_c2_discarded_rvs
   )
+
+  # str(return_list)
+
+  return(return_list)
+}
+
+transfer_icd_codes <- function(dt) {
+  #' @title Transfer ICD codes
+  #' @description This function transfers extra ICD-10 codes
+  #' to clinical ICD in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+  dt[, clin_c1 := split_to_vector(clin_c1)]
+  clin_c1_result <- transfer_extra_icd10s_to_clin_icd(
+    dt$clin_icd, dt$clin_c1
+  )
+  dt[, clin_icd := clin_c1_result$clin_icd]
+  dt[, clin_c1 := clin_c1_result$col_first]
+
+  dt[, clin_c2 := split_to_vector(clin_c2)]
+  clin_c2_result <- transfer_extra_icd10s_to_clin_icd(
+    dt$clin_icd, dt$clin_c2
+  )
+  dt[, clin_icd := clin_c2_result$clin_icd]
+  dt[, clin_c2 := clin_c2_result$col_first]
+
+  return(dt)
+}
+
+deduplicate_icd_codes <- function(dt) {
+  #' @title Deduplicate ICD codes
+  #' @description This function ensures unique ICD codes
+  #' within and across clinical columns in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+  dedup_result <- ensure_unique_icd_codes(dt$clin_c1, dt$clin_c2, dt$clin_icd)
   dt[, clin_c1 := dedup_result$clin_c1]
   dt[, clin_c2 := dedup_result$clin_c2]
   dt[, clin_icd := dedup_result$clin_icd]
+  return(dt)
+}
 
-  # Replace empty strings in character and factor columns with NA
-  replace_result <- replace_empty_with_na(dt, to_view_checks)
-  dt <- replace_result$data
-  empty_strings_replaced_1 <- replace_result$replacement_summary
-
+remap_patient_data <- function(dt, to_view_checks) {
+  #' @title Remap patient data
+  #' @description This function remaps patient data such as
+  #' patient type, member category, and discharge disposition
+  #' in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @param to_view_checks logical. Whether to view checks.
+  #' @return list. A list containing the processed data and summaries.
   pat_unmap <- NULL
   parent_unmap <- NULL
   child_unmap <- NULL
   discharge_unmap <- NULL
 
-  warning_thrown <- FALSE
-
-  # Remap and check for patient type
   result <- remap_patient_type(dt$pat_type)
   dt$pat_type <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
-    warning_thrown <- TRUE
     pat_unmap <- result$unmapped
   }
 
-  warning_thrown <- FALSE
-
-  # Remap and check for member category parent
   result <- remap_memcat_parent_desc(dt$pat_memcat_parent)
   dt$pat_memcat_parent <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
-    warning_thrown <- TRUE
     parent_unmap <- result$unmapped
   }
 
-  warning_thrown <- FALSE
-
-  # Remap and check for member category child
   result <- remap_memcat_child_desc(dt$pat_memcat_child)
   dt$pat_memcat_child <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
-    warning_thrown <- TRUE
     child_unmap <- result$unmapped
   }
 
-  warning_thrown <- FALSE
-
-  # Remap and check for clinical discharge disposition
   result <- remap_disposition(dt$clin_discharge)
   dt$clin_discharge <- result$remapped
   if (length(result$unmapped) > 0 && to_view_checks) {
-    warning_thrown <- TRUE
     discharge_unmap <- result$unmapped
   }
 
   return(list(
     data = dt,
-    rename_success = rename_success,
-    ICD_replacements_1 = clin_c1_cleaning_comparison,
-    ICD_replacements_2 = clin_c2_cleaning_comparison,
     pat_type_unmapped = pat_unmap,
     memcat_parent_unmapped = parent_unmap,
     memcat_child_unmapped = child_unmap,
-    discharge_unmapped = discharge_unmap,
-    discard_rvs_one = clin_c1_discarded_rvs,
-    discard_rvs_two = clin_c2_discarded_rvs,
-    empty_strings_replaced_1 = empty_strings_replaced_1
+    discharge_unmapped = discharge_unmap
   ))
 }
-
 process_chunk <- function(
     chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   #' @title Process and map clinical data chunk
@@ -859,63 +890,6 @@ process_chunk <- function(
   return(list(chunk = chunk, summary = summary))
 }
 
-
-split_and_save_parts <- function() {
-  #' @title Split and save parts of the data
-  #'
-  #' @description This function splits the data into parts and
-  #' saves them as separate files.
-  #'
-  #' @return NULL. The function is used for its side effect of
-  #' splitting and saving the data.
-
-  if (to_split) {
-    rows_per_part <- ceiling(total_rows / split_parts)
-    for (part in 1:split_parts) {
-      chunk_file <- if (to_sample) {
-        sampled_claims_file(part)
-      } else {
-        full_claims_file(part)
-      }
-
-      if (!file.exists(chunk_file)) {
-        start_row <- (part - 1) * rows_per_part + 1
-        end_row <- min(part * rows_per_part, total_rows)
-        read_and_save_partial(start_row, end_row, part)
-      }
-    }
-  }
-}
-
-read_part <- function(part) {
-  #' @title Read and process a part of the data
-  #'
-  #' @description This function reads and processes a part
-  #' of the data from a file.
-  #'
-  #' @param part integer. The part number of the file to read.
-  #'
-  #' @return data.table. The processed part of the data.
-
-  chunk_file <- if (to_sample) {
-    sampled_claims_file(part)
-  } else {
-    full_claims_file(part)
-  }
-
-  if (!file.exists(chunk_file)) {
-    stop(paste("File does not exist:", chunk_file))
-  }
-
-  dt <- fread(chunk_file, na.strings = na_values, colClasses = col_classes)
-
-  if (to_sample) {
-    dt <- handle_sampling(dt, part)
-  }
-
-  return(dt)
-}
-
 parallelize_and_summarize_data <- function(
     dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
@@ -1003,51 +977,112 @@ parallelize_and_summarize_data <- function(
     combined_summary = combined_summary
   ))
 }
-
-group_data <- function(to_group, part, dt) {
-  #' @title Group data for batch processing
+split_and_save_parts <- function() {
+  #' @title Split and save parts of the data
   #'
-  #' @description This function groups the data for batch processing
-  #' and exports it for the batch grouper.
-  #'
-  #' @param part integer. The part number of the data being processed.
-  #' @param dt data.table. The data table to be grouped.
+  #' @description This function splits the data into parts and
+  #' saves them as separate files.
   #'
   #' @return NULL. The function is used for its side effect of
-  #' grouping and exporting the data.
+  #' splitting and saving the data.
 
-  if (to_group) {
-    export_for_batch_grouper(
-      dt, year_to_load,
-      output_txt_file(part)
-    )
-    for_batch_grouping <- fread(
-      output_txt_file(part),
-      sep = "|", na.strings = "--"
-    )
-    if (file.exists(grouper_result_file(part))) {
-      batch_grouping_result <- fread(
-        grouper_result_file(part),
-        sep = "|", na.strings = "--"
-      )
+  if (to_split) {
+    rows_per_part <- ceiling(total_rows / split_parts)
+    for (part in 1:split_parts) {
+      chunk_file <- if (to_sample) {
+        sampled_claims_file(part)
+      } else {
+        full_claims_file(part)
+      }
+
+      if (!file.exists(chunk_file)) {
+        start_row <- (part - 1) * rows_per_part + 1
+        end_row <- min(part * rows_per_part, total_rows)
+        read_and_save_partial(start_row, end_row, part)
+      }
     }
   }
 }
 
-write_intermediate_file <- function(to_write, part, dt) {
-  #' @title Write intermediate file
+read_part <- function(part) {
+  #' @title Read and process a part of the data
   #'
-  #' @description This function writes the intermediate data table to a file.
+  #' @description This function reads and processes a part
+  #' of the data from a file.
   #'
-  #' @param part integer. The part number of the data being processed.
-  #' @param dt data.table. The data table to be written.
+  #' @param part integer. The part number of the file to read.
   #'
-  #' @return NULL. The function is used for its side effect of
-  #' writing the data table to a file.
+  #' @return data.table. The processed part of the data.
 
-  if (to_write) {
-    fwrite(dt, intermediate_file(part, fileext = TRUE))
+  chunk_file <- if (to_sample) {
+    sampled_claims_file(part)
+  } else {
+    full_claims_file(part)
   }
+
+  if (!file.exists(chunk_file)) {
+    stop(paste("File does not exist:", chunk_file))
+  }
+
+  dt <- fread(chunk_file, na.strings = na_values, colClasses = col_classes)
+
+  if (to_sample) {
+    dt <- handle_sampling(dt, part)
+  }
+
+  return(dt)
+}
+
+process_part <- function(
+    part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group) {
+  #' @title Process Part
+  #' @description Process a single part of the data,
+  #' including reading, processing, and summarizing.
+  #' @param part integer. The part number to process.
+  #' @param num_cores integer. Number of cores to use for parallel processing.
+  #' @param to_view_checks logical. Whether to view checks.
+  #' @param global_seed integer. Global seed for random operations.
+  #' @param intermediate_rows_to_show integer. Number of
+  #' intermediate rows to show.
+  #' @param rvs_icd9 character. RVS ICD9 codes.
+  #' @param tdrg_icd10 character. TDRG ICD10 codes.
+  #' @param acc_pdx character. Accepted PDX codes.
+  #' @param to_parallelize logical. Whether to parallelize the process.
+  #' @param to_write logical. Whether to write intermediate files.
+  #' @param to_group logical. Whether to group data for batch processing.
+  #' @return list. A list containing the processed data and summary.
+  start_time <- Sys.time()
+
+  # Read in the part and do initial processing
+  dt <- read_part(part)
+
+  # Main script parallelization call, mostly calls process_chunk on each chunk
+  result <- parallelize_and_summarize_data(
+    dt, num_cores, to_view_checks, global_seed,
+    intermediate_rows_to_show, rvs_icd9, tdrg_icd10,
+    acc_pdx, to_parallelize
+  )
+
+  dt <- result$dt
+  combined_summary <- result$combined_summary
+
+  # Writes out intermediate file if to_write is TRUE
+  write_intermediate_file(to_write, part, dt)
+
+  # Exports for batch grouper if to_group is TRUE
+  group_data(to_group, part, dt)
+
+  end_time <- Sys.time()
+  processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
+
+  return(
+    list(
+      dt = dt,
+      combined_summary = combined_summary,
+      processing_time = processing_time
+    )
+  )
 }
 # Function to handle sampling
 handle_sampling <- function(dt = NULL, part) {
@@ -1280,6 +1315,22 @@ read_and_save_partial <- function(start_row, end_row, part) {
         sampled_file_path
       ))
     }
+  }
+}
+
+write_intermediate_file <- function(to_write, part, dt) {
+  #' @title Write intermediate file
+  #'
+  #' @description This function writes the intermediate data table to a file.
+  #'
+  #' @param part integer. The part number of the data being processed.
+  #' @param dt data.table. The data table to be written.
+  #'
+  #' @return NULL. The function is used for its side effect of
+  #' writing the data table to a file.
+
+  if (to_write) {
+    fwrite(dt, intermediate_file(part, fileext = TRUE))
   }
 }
 # Function to remove lumped ICD codes
@@ -1575,16 +1626,6 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
 }
 # Function to split RVS codes
 split_rvs_codes <- function(rvs_icd9) {
-  #' @title Split RVS codes
-  #'
-  #' @description This function splits RVS codes into
-  #' those with DRG and those without DRG.
-  #'
-  #' @param rvs_icd9 data.frame The input data containing RVS to ICD-9 mappings.
-  #'
-  #' @return list A list containing two data.frames:
-  #' one with DRG and one without DRG.
-
   with_drg <- rvs_icd9[is_drg == TRUE]
   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]
   return(list(with_drg = with_drg, without_drg = without_drg))
@@ -1592,42 +1633,26 @@ split_rvs_codes <- function(rvs_icd9) {
 
 # Function to create RVS map lists
 create_rvs_map_lists <- function(with_drg) {
-  #' @title Create RVS map lists
-  #'
-  #' @description This function creates mapping lists for RVS codes,
-  #' separating them into solo and list-mapped categories.
-  #'
-  #' @param with_drg data.frame The input data containing RVS codes with DRG.
-  #'
-  #' @return list A list containing RVS map lists for solo and
-  #' list-mapped categories.
-
   setorder(with_drg, rvs, -is_drg)
   unique_rvs <- with_drg[, .(icd9cm_list = list(icd9cm)), by = rvs]
   solo <- unique_rvs[lengths(icd9cm_list) == 1]
   list_mapped <- unique_rvs[lengths(icd9cm_list) > 1]
+
   rvs_map_solo <- setNames(solo$icd9cm_list, solo$rvs)
   rvs_map_list <- setNames(list_mapped$icd9cm_list, list_mapped$rvs)
+
   return(list(rvs_map_list = rvs_map_list, rvs_map_solo = rvs_map_solo))
 }
 
 # Function to get ICD-9 codes from clinical RVS
-get_icd9_codes <- function(clin_rvs, rvs_map_solo) {
-  #' @title Get ICD-9 codes from clinical RVS
-  #'
-  #' @description This function retrieves ICD-9 codes from
-  #' clinical RVS codes using the provided RVS map.
-  #'
-  #' @param clin_rvs list The input list of clinical RVS codes.
-  #' @param rvs_map_solo list The mapping of RVS codes to ICD-9 codes.
-  #'
-  #' @return list A list of ICD-9 codes corresponding to the clinical RVS codes.
-
+get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
   lapply(clin_rvs, function(x) {
     codes <- unlist(x)
-    mappable <- codes[codes %in% names(rvs_map_solo)]
+    mappable <- codes[
+      !is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))
+    ]
     if (length(mappable) > 0) {
-      unique(unlist(rvs_map_solo[mappable]))
+      unique(unlist(mget(mappable, envir = rvs_map_solo_env)))
     } else {
       NA_character_
     }
@@ -1636,27 +1661,19 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo) {
 
 # Function to map RVS to ICD-9
 map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
-  #' @title Map RVS to ICD-9
-  #'
-  #' @description This function maps RVS codes to ICD-9 codes
-  #' using the provided mappings.
-  #'
-  #' @param clin_rvs list The input list of clinical RVS codes.
-  #' @param rvs_icd9 data.frame The input data containing RVS to ICD-9 mappings.
-  #'
-  #' @return list A list containing the ICD-9 list, RVS map lists,
-  #' and details about the mapping process.
-
   split_codes <- split_rvs_codes(rvs_icd9)
   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
   rvs_map_list <- rvs_maps$rvs_map_list
-  rvs_map_solo <- rvs_maps$rvs_map_solo
-  icd9_list <- get_icd9_codes(clin_rvs, rvs_map_solo)
+
+  rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
+  icd9_list <- get_icd9_codes(clin_rvs, rvs_map_solo_env)
+
   rvss <- unique(unlist(clin_rvs))
   mappable_rvs <- intersect(rvss, rvs_icd9$rvs)
   unmappable_rvs <- setdiff(rvss, rvs_icd9$rvs)
   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
   without_drg <- unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
+
   return_list <- list(
     icd9_list = icd9_list,
     rvs_map_list = rvs_maps$rvs_map_list,
@@ -1666,66 +1683,44 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
     multi_mapped_rvs = multi_mapped_rvs,
     without_drg = without_drg
   )
+
   return(return_list)
 }
 
 # Function to find and append valid RVS codes
 find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
-  #' @title Find and append valid RVS codes
-  #'
-  #' @description This function finds and appends valid
-  #' RVS codes to the provided data table.
-  #'
-  #' @param datatable data.table The input data table.
-  #' @param valid_rvs_codes character The list of valid RVS codes.
-
   regex_5_digit <- "\\b\\d{5}\\b"
-  valid_rvs_set <- unique(valid_rvs_codes)
-  datatable[
-    ,
-    matches := lapply(
-      regmatches(col, gregexpr(regex_5_digit, col)),
-      function(x) x[x %in% valid_rvs_set]
-    )
-  ]
-  datatable[
-    ,
-    clin_rvs := mapply(
-      function(rvs, matches) unique(c(rvs, matches)),
-      clin_rvs, matches,
-      SIMPLIFY = FALSE
-    )
-  ]
+  valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
+  for (code in valid_rvs_codes) {
+    assign(code, TRUE, envir = valid_rvs_env)
+  }
+
+  datatable[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
+  datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+  datatable[, clin_rvs := mapply(
+    function(rvs, matches) unique(c(rvs, matches)),
+    clin_rvs, valid_matches,
+    SIMPLIFY = FALSE
+  )]
 }
 
 # Function to remove 5-digit codes
 remove_5_digit_codes <- function(col) {
-  #' @title Remove 5-digit codes
-  #'
-  #' @description This function removes 5-digit codes from the provided column.
-  #'
-  #' @param col character The input column from which to remove 5-digit codes.
-  #'
-  #' @return list A list with 5-digit codes removed.
-
   regex_5_digit <- "\\b\\d{5}\\b"
-  lapply(col, function(x) gsub(regex_5_digit, "", x))
+  gsub(regex_5_digit, "", col)
 }
 
 # Function to warn about invalid RVS codes
 warn_invalid_rvs <- function(matches, valid_rvs_codes) {
-  #' @title Warn about invalid RVS codes
-  #'
-  #' @description This function warns about invalid RVS codes
-  #' and returns a table of discarded codes.
-  #'
-  #' @param matches list The list of matches to check for invalid RVS codes.
-  #' @param valid_rvs_codes character The list of valid RVS codes.
-  #'
-  #' @return data.table A table of discarded invalid RVS codes.
+  valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
+  for (code in valid_rvs_codes) {
+    assign(code, TRUE, envir = valid_rvs_env)
+  }
 
-  valid_rvs_set <- unique(valid_rvs_codes)
-  invalid_matches <- lapply(matches, function(x) setdiff(x, valid_rvs_set))
+  invalid_matches <- lapply(
+    matches,
+    function(x) x[!vapply(x, exists, logical(1), envir = valid_rvs_env)]
+  )
   discarded_codes <- unlist(invalid_matches)
   if (length(discarded_codes) > 0) {
     discarded_table <- data.table(
@@ -1740,23 +1735,13 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
 
 # Function to append and remove RVS codes
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
-  #' @title Append and remove RVS codes
-  #'
-  #' @description This function appends valid RVS codes and
-  #' removes invalid 5-digit codes from the provided columns.
-  #'
-  #' @param clin_rvs list The list of clinical RVS codes.
-  #' @param col character The input column containing codes.
-  #' @param rvs_icd9 data.frame The input data containing RVS to ICD-9 mappings.
-  #'
-  #' @return list A list containing updated clinical RVS codes,
-  #' the modified column, and a table of discarded invalid RVS codes.
-
   datatable <- data.table(clin_rvs = clin_rvs, col = col)
   valid_rvs_codes <- rvs_icd9$rvs
+
   find_and_append_valid_rvs(datatable, valid_rvs_codes)
   datatable[, col := remove_5_digit_codes(col)]
   discarded_rvs <- warn_invalid_rvs(datatable$matches, valid_rvs_codes)
+
   return(
     list(
       clin_rvs = datatable$clin_rvs,
@@ -2050,11 +2035,62 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
 
   prepare_and_write_output(output_dt, output_txt_file)
 }
+
+group_data <- function(to_group, part, dt) {
+  #' @title Group data for batch processing
+  #'
+  #' @description This function groups the data for batch processing
+  #' and exports it for the batch grouper.
+  #'
+  #' @param part integer. The part number of the data being processed.
+  #' @param dt data.table. The data table to be grouped.
+  #'
+  #' @return NULL. The function is used for its side effect of
+  #' grouping and exporting the data.
+
+  if (to_group) {
+    export_for_batch_grouper(
+      dt, year_to_load,
+      output_txt_file(part)
+    )
+    for_batch_grouping <- fread(
+      output_txt_file(part),
+      sep = "|", na.strings = "--"
+    )
+    if (file.exists(grouper_result_file(part))) {
+      batch_grouping_result <- fread(
+        grouper_result_file(part),
+        sep = "|", na.strings = "--"
+      )
+    }
+  }
+}
+format_large_numbers <- function(x) {
+  #' @title Format Large Numbers
+  #'
+  #' @description This function formats large numbers into a
+  #' more readable string with units (k, m, b).
+  #'
+  #' @param x numeric. The number to be formatted.
+  #'
+  #' @return character. The formatted number as a string.
+
+  if (x >= 1e9) {
+    return(sprintf("%.1fb", x / 1e9))
+  } else if (x >= 1e6) {
+    return(sprintf("%.1fm", x / 1e6))
+  } else if (x >= 1e3) {
+    return(sprintf("%.1fk", x / 1e3))
+  } else {
+    return(as.character(x))
+  }
+}
+
 # Function to print time estimates
 print_time_estimates <- function(dt, total_time, total_rows) {
   #' @title Print Time Estimates
   #'
-  #' @description This function prints time estimates for 
+  #' @description This function prints time estimates for
   #' processing rows in a data table.
   #'
   #' @param dt data.table. The input data table.
@@ -2087,6 +2123,23 @@ print_time_estimates <- function(dt, total_time, total_rows) {
     formatted_total_rows, time_estimate_total_rows / 60
   ))
 }
+
+print_status_update <- function(part, split_parts, processing_times) {
+  #' @title Print Status Update
+  #' @description Print the status update and estimated time remaining.
+  #' @param part integer. The current part number.
+  #' @param split_parts integer. Total number of parts.
+  #' @param processing_times numeric. Array of processing times for each part.
+  elapsed_time <- sum(processing_times[1:part])
+  avg_time_per_part <- elapsed_time / part
+  estimated_total_time <- avg_time_per_part * split_parts
+  estimated_remaining_time <- estimated_total_time - elapsed_time
+  cat(sprintf(
+    "Status Update: Finished processing part %d of %d\n",
+    part, split_parts
+  ))
+  cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
+}
 concatenate_r_files <- function(input_path, output_file) {
   #' @title Concatenate R Files
   #'
@@ -2118,27 +2171,6 @@ concatenate_r_files <- function(input_path, output_file) {
   # Write concatenated content to the output file
   cat(concatenated_content, file = output_file, sep = "\n")
 }
-format_large_numbers <- function(x) {
-  #' @title Format Large Numbers
-  #'
-  #' @description This function formats large numbers into a
-  #' more readable string with units (k, m, b).
-  #'
-  #' @param x numeric. The number to be formatted.
-  #'
-  #' @return character. The formatted number as a string.
-
-  if (x >= 1e9) {
-    return(sprintf("%.1fb", x / 1e9))
-  } else if (x >= 1e6) {
-    return(sprintf("%.1fm", x / 1e6))
-  } else if (x >= 1e3) {
-    return(sprintf("%.1fk", x / 1e3))
-  } else {
-    return(as.character(x))
-  }
-}
-
 print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   #' @title Print Summary Tables
   #'
