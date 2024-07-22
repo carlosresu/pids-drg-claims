@@ -1,13 +1,9 @@
-library(future)
-library(future.apply)
-library(here)
-
 # IMPORTANT PARAMETERS:
 # Which claims year to load
 # TODO: maybe add a script that loops through all claims?
 year_to_load <- "2018"
 # How many parts to split the 12+m row claims file into
-split_parts <- availableCores() - 1
+split_parts <- 5
 # How many rows/entries to show in summary tables
 rows_to_show <- 10
 # How many rows/entries each part/chunk's summary should have (leave at Inf)
@@ -21,7 +17,7 @@ to_read <- FALSE
 to_split <- TRUE
 # Whether to sample each split_parts part by sample_size_divisor
 # Useful when iterating through code runs in quick succession
-to_sample <- TRUE
+to_sample <- FALSE
 
 # Output:
 # Whether to write out intermediate files and caches
@@ -45,7 +41,7 @@ to_parallelize <- TRUE
 
 # Sample size divisor:
 # Formula for sample size is total_rows / split_parts / sample_size_divisor
-sample_size_divisor <- 25
+sample_size_divisor <- 5
 
 # Which columns to drop, note that ICDCODE15
 # is misspelled as ICCODED15 in all claims
@@ -154,10 +150,10 @@ acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
 all_parts_summaries <- list()
 processing_times <- numeric(split_parts)
 num_cores <- availableCores() - 1
-dt_list <- list()
 
 if (to_profvis) {
   p <- profvis({
+    # Main execution logic
     split_and_save_parts()
 
     for (part in 1:split_parts) {
@@ -167,27 +163,20 @@ if (to_profvis) {
       )
 
       all_parts_summaries[[part]] <- result$combined_summary
-      # processing_times[part] <- result$processing_time
+      processing_times[part] <- result$processing_time
 
-      print_status_update(part, split_parts) # , processing_times
+      print_status_update(part, split_parts, processing_times)
 
-      dt_list[[part]] <- result$dt
+      dt <- result$dt
     }
-    if (to_group) {
-      # plan(multisession, workers = num_cores)
-      invisible({future_lapply(seq_along(dt_list), function(part) {
-        dt <- dt_list[[part]]
-        export_for_batch_grouper(
-          dt, year_to_load,
-          output_txt_file(part)
-        )
-      }, future.seed = global_seed)})
-    }
+    # End the parallelization session
+    plan(sequential)
   })
   htmlwidgets::saveWidget(p,
     file = here("git-ignored-files", "profvis", "profvis.html")
   )
 } else {
+  # Main execution logic
   split_and_save_parts()
 
   for (part in 1:split_parts) {
@@ -197,24 +186,15 @@ if (to_profvis) {
     )
 
     all_parts_summaries[[part]] <- result$combined_summary
-    # processing_times[part] <- result$processing_time
+    processing_times[part] <- result$processing_time
 
-    print_status_update(part, split_parts) # , processing_times
+    print_status_update(part, split_parts, processing_times)
 
-    dt_list[[part]] <- result$dt
+    dt <- result$dt
   }
-  if (to_group) {
-    # plan(multisession, workers = num_cores)
-    invisible({future_lapply(seq_along(dt_list), function(part) {
-      dt <- dt_list[[part]]
-      export_for_batch_grouper(
-        dt, year_to_load,
-        output_txt_file(part)
-      )
-    }, future.seed = global_seed)})
-  }
+  # End the parallelization session
+  plan(sequential)
 }
-
 # Print final summaries
 print_summary_tables(
   combine_parts_summaries(
@@ -232,13 +212,13 @@ total_time <- toc_data$toc - toc_data$tic
 # Not just how many rows exist in the actual dataframe
 # TODO: rename total_rows to something else to avoid confusion
 if (to_sample) {
-  total_rows <- nrow(dt_list[[1]]) * split_parts * sample_size_divisor
+  total_rows <- nrow(dt) * split_parts * sample_size_divisor
 } else {
-  total_rows <- nrow(dt_list[[1]]) * split_parts
+  total_rows <- nrow(dt) * split_parts
 }
 
 
-print_time_estimates(dt_list[[1]], total_time, total_rows)
+print_time_estimates(dt, total_time, total_rows)
 
 
 # Consolidate all r_scripts scripts into everything.R

@@ -21,6 +21,8 @@ na_like_strings <- c(
   "\u2029", "\u202F", "\u205F", "\u3000"
 )
 
+all_na_values <- unique(c(na_values, na_like_strings))
+
 integer_cols <- c("OUT_PATIENT", "EMERGENCY")
 
 factor_cols <- c(
@@ -81,7 +83,8 @@ new_colnames <- c(
   "clin_discharge", "clin_c1", "clin_c2", paste0("clin_icd", 1:12),
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
-# Paths to various directories for intermediate files, cache, auxiliary files, etc.
+# Paths to various directories for intermediate files,
+# cache, auxiliary files, etc.
 path_to_intermediate <- "git-ignored-files/intermediate-claims"
 path_to_cache <- "data-cleaning/cache"
 path_to_aux <- "git-ignored-files/aux-files"
@@ -158,9 +161,7 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
   }
-  if (fileext) {
-    filename <- paste0(filename, ".csv")
-  }
+  if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
     return(here(path_to_raw_claims, filename))
   } else {
@@ -181,19 +182,14 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0(
-      "sampled_claims_", year_to_load, "_",
-      sample_size
-    )
+    paste0("sampled_claims_", year_to_load, "_", sample_size)
   } else {
     paste0(
-      "sampled_claims_", year_to_load, "_",
-      sample_size, "_part_", part, "_of_", split_parts
+      "sampled_claims_", year_to_load, "_", sample_size,
+      "_part_", part, "_of_", split_parts
     )
   }
-  if (fileext) {
-    filename <- paste0(filename, ".csv")
-  }
+  if (fileext) filename <- paste0(filename, ".csv")
   return(here(path_to_raw_claims_samples, filename))
 }
 
@@ -953,295 +949,189 @@ parallelize_and_summarize_data <- function(
     combined_summary = combined_summary
   ))
 }
-split_and_save_parts <- function() {
-  #' @title Split and save parts of the data
-  #'
-  #' @description This function splits the data into parts and
-  #' saves them as separate files.
-  #'
-  #' @return NULL. The function is used for its side effect of
-  #' splitting and saving the data.
-
-  if (to_split) {
-    rows_per_part <- ceiling(total_rows / split_parts)
-    for (part in 1:split_parts) {
-      chunk_file <- if (to_sample) {
-        sampled_claims_file(part)
-      } else {
-        full_claims_file(part)
-      }
-
-      if (!file.exists(chunk_file)) {
-        start_row <- (part - 1) * rows_per_part + 1
-        end_row <- min(part * rows_per_part, total_rows)
-        read_and_save_partial(start_row, end_row, part)
-      }
-    }
-  }
-}
-
-read_part <- function(part) {
-  #' @title Read and process a part of the data
-  #'
-  #' @description This function reads and processes a part
-  #' of the data from a file.
-  #'
-  #' @param part integer. The part number of the file to read.
-  #'
-  #' @return data.table. The processed part of the data.
-
-  chunk_file <- if (to_sample) {
-    sampled_claims_file(part)
-  } else {
-    full_claims_file(part)
-  }
-
-  if (!file.exists(chunk_file)) {
-    stop(paste("File does not exist:", chunk_file))
-  }
-
-  dt <- fread(chunk_file, na.strings = na_values, colClasses = col_classes)
-
-  if (to_sample) {
-    dt <- handle_sampling(dt, part)
-  }
-
-  return(dt)
-}
-
 process_part <- function(
-    part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group, dt_list) {
+  part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+  rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group, to_sample) {
   #' @title Process Part
-  #' @description Process a single part of the data,
-  #' including reading, processing, and summarizing.
+  #' @description Process a single part of the data, including reading, processing, and summarizing.
   #' @param part integer. The part number to process.
   #' @param num_cores integer. Number of cores to use for parallel processing.
   #' @param to_view_checks logical. Whether to view checks.
   #' @param global_seed integer. Global seed for random operations.
-  #' @param intermediate_rows_to_show integer. Number of
-  #' intermediate rows to show.
+  #' @param intermediate_rows_to_show integer. Number of intermediate rows to show.
   #' @param rvs_icd9 character. RVS ICD9 codes.
   #' @param tdrg_icd10 character. TDRG ICD10 codes.
   #' @param acc_pdx character. Accepted PDX codes.
   #' @param to_parallelize logical. Whether to parallelize the process.
   #' @param to_write logical. Whether to write intermediate files.
   #' @param to_group logical. Whether to group data for batch processing.
-  #' @param dt_list list. List to store each processed dt.
+  #' @param to_sample logical. Whether to read sample files instead of full partial files.
   #' @return list. A list containing the processed data and summary.
+
   start_time <- Sys.time()
 
-  # Read in the part and do initial processing
-  dt <- read_part(part)
+  # Ensure partial and sample files exist
+  ensure_partial_files_exist(part)
+  if (to_sample) ensure_sample_files_exist(part)
 
-  # Main script parallelization call, mostly calls process_chunk on each chunk
-  result <- parallelize_and_summarize_data(
-    dt, num_cores, to_view_checks, global_seed,
-    intermediate_rows_to_show, rvs_icd9, tdrg_icd10,
-    acc_pdx, to_parallelize
-  )
+  # Read the appropriate file
+  read_result <- read_appropriate_file(part, to_sample)
+  dt <- read_result$dt
+  replacement_sumamry <- read_result$replacement_summary
 
+  result <- parallelize_and_summarize_data(dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+                                           rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize)
   dt <- result$dt
   combined_summary <- result$combined_summary
+  
+  combined_summary$replacement_summary <- replacement_sumamry
 
-  # Writes out intermediate file if to_write is TRUE
-  write_intermediate_file(to_write, part, dt)
+  if (to_write) write_intermediate_file(to_write, part, dt)
 
-  group_data(to_group, part, dt)
+  if (to_group) export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
 
   end_time <- Sys.time()
   processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
-  return(
-    list(
-      dt = dt,
-      combined_summary = combined_summary,
-      processing_time = processing_time
-    )
-  )
+  return(list(dt = dt, combined_summary = combined_summary, processing_time = processing_time))
+}
+split_and_save_parts <- function() {
+  #' @title Split and save parts of the data
+  #' @description This function splits the data into parts and saves them as separate files.
+  #' @return NULL. The function is used for its side effect of splitting and saving the data.
+  if (to_split) {
+    rows_per_part <- ceiling(total_rows / split_parts)
+    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
+    for (part in 1:split_parts) {
+      chunk_file <- full_claims_file(part)
+      if (!file.exists(chunk_file)) {
+        start_row <- (part - 1) * rows_per_part + 1
+        end_row <- min(part * rows_per_part, total_rows)
+        dt <- fread(
+          full_claims_file(),
+          skip = start_row,
+          nrows = end_row - start_row + 1,
+          na.strings = na_values,
+          colClasses = "character",
+          header = FALSE
+        )
+        setnames(dt, colnames(header))
+        fwrite(dt, chunk_file, quote = TRUE)
+      }
+    }
+  }
 }
 
-# Function to handle sampling
-handle_sampling <- function(dt = NULL, part) {
-  #' @title Handle Sampling
-  #'
-  #' @description This function handles the sampling of data.
-  #' If a sampled file exists, it reads the file and checks if
-  #' the number of rows matches the sample size. If not, it resamples the data.
-  #'
-  #' @param dt data.table. The data table to be sampled.
-  #' Default is NULL.
-  #' @param part integer. The part number of the file.
-  #'
-  #' @return data.table. The sampled data table.
+ensure_partial_files_exist <- function(part) {
+  #' @title Ensure Partial Files Exist
+  #' @description This function checks if partial files exist for a given part and creates them if they don't.
+  #' @param part integer. The part number to process.
+  #' @return NULL. Creates partial files as a side effect if they do not exist.
+  chunk_file <- full_claims_file(part)
+  if (!file.exists(chunk_file)) {
+    rows_per_part <- ceiling(total_rows / split_parts)
+    start_row <- (part - 1) * rows_per_part + 1
+    end_row <- min(part * rows_per_part, total_rows)
+    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
+    dt <- fread(
+      full_claims_file(),
+      skip = start_row,
+      nrows = end_row - start_row + 1,
+      na.strings = na_values,
+      colClasses = "character",
+      header = FALSE
+    )
+    setnames(dt, colnames(header))
+    fwrite(dt, chunk_file, quote = TRUE)
+  }
+}
 
+ensure_sample_files_exist <- function(part) {
+  #' @title Ensure Sample Files Exist
+  #' @description This function checks if sample files exist for a given part and creates them if they don't.
+  #' @param part integer. The part number to process.
+  #' @return NULL. Creates sample files as a side effect if they do not exist.
   sampled_file <- sampled_claims_file(part)
-
-  if (file.exists(sampled_file)) {
-    dt <- read_sampled_file(sampled_file)
-    if (nrow(dt) != sample_size) {
-      dt <- resample_data(part)
-    }
-  } else {
-    dt <- resample_data(part)
+  if (!file.exists(sampled_file)) {
+    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
+    dt <- fread(full_claims_file(part), skip = 1, na.strings = na_values, colClasses = "character", header = FALSE)
+    dt <- dt[sample(.N, min(sample_size, .N))]
+    setnames(dt, colnames(header))
+    if (to_write) fwrite(dt, sampled_file, quote = TRUE)
   }
-  return(dt)
 }
 
-# Function to resample data
-resample_data <- function(part) {
-  #' @title Resample Data
-  #'
-  #' @description This function resamples the data from the full
-  #' claims file and writes the sampled data to a new file.
-  #'
-  #' @param part integer. The part number of the file.
-  #'
-  #' @return data.table. The resampled data table.
-
-  dt <- read_entire_file(full_claims_file(part),
-    initial_read = is_partial_file(part)
-  )
-  dt <- sample_data(dt)
-  if (to_write) {
-    fwrite(dt, sampled_claims_file(part))
-  }
-  return(dt)
-}
-
-# Function to read the full file with all columns
-read_entire_file <- function(file, initial_read = TRUE) {
-  #' @title Read Entire File
-  #'
-  #' @description This function reads the entire file with all
-  #' columns. It handles the initial read to get the header and
-  #' then reads the data based on the header.
-  #'
-  #' @param file character. The file path to read.
-  #' @param initial_read logical. Whether this is the initial
-  #' read to get the header. Default is TRUE.
-  #'
-  #' @return data.table. The data table read from the file.
-
-  header <- fread(file, nrows = 1, header = TRUE)
-  if (initial_read) {
-    dt <- fread(file,
-      na.strings = na_values,
-      colClasses = "character", header = FALSE, skip = 1
-    )
-    setnames(dt, names(header))
+read_appropriate_file <- function(part, to_sample) {
+  #' @title Read Appropriate File
+  #' @description This function reads the appropriate file (partial or sample) for a given part, drops specified columns, and casts column types.
+  #' @param part integer. The part number to process.
+  #' @param to_sample logical. Whether to read the sample file or the full partial file.
+  #' @return data.table. The processed data table.
+  
+  chunk_file <- if (to_sample) {
+    sampled_claims_file(part)
   } else {
-    dt <- fread(file,
-      na.strings = na_values,
-      colClasses = "character", header = FALSE, skip = 1
-    )
-    setnames(dt, names(header))
+    full_claims_file(part)
+  }
+  
+  dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE)
+  
+  # Drop columns
+  if (any(drop_cols %in% colnames(dt))) {
     dt <- dt[, (drop_cols) := NULL]
-    for (col in names(col_classes)) {
-      dt[[col]] <- switch(col_classes[[col]],
-        "character" = as.character(dt[[col]]),
-        "factor" = as.factor(dt[[col]]),
-        "integer" = as.integer(dt[[col]]),
-        "numeric" = as.numeric(dt[[col]]),
-        dt[[col]]
-      )
-    }
   }
-  return(dt)
-}
 
-# Function to read the sampled file
-read_sampled_file <- function(file) {
-  #' @title Read Sampled File
-  #'
-  #' @description This function reads the sampled file with the
-  #' header and handles the data based on the specified column classes.
-  #'
-  #' @param file character. The file path to read.
-  #'
-  #' @return data.table. The data table read from the sampled file.
-
-  header <- fread(file, nrows = 1)
-  dt <- fread(file,
-    na.strings = na_values,
-    colClasses = "character", header = FALSE, skip = 1
-  )
-  setnames(dt, names(header))
-  dt <- dt[, (drop_cols) := NULL]
+  replace_result <- replace_empty_with_na(dt, to_view_checks)
+  dt <- replace_result$data
+  replacement_summary <- replace_result$replacement_summary
+  
+  # Cast column types with checks
   for (col in names(col_classes)) {
+    original_values <- dt[[col]]
+    
     dt[[col]] <- switch(col_classes[[col]],
       "character" = as.character(dt[[col]]),
-      "factor" = as.factor(dt[[col]]),
-      "integer" = as.integer(dt[[col]]),
-      "numeric" = as.numeric(dt[[col]]),
+      "factor" = {
+        levels <- unique(dt[[col]])
+        as.factor(dt[[col]])
+      },
+      "integer" = {
+        suppressWarnings(as.integer(dt[[col]]))
+      },
+      "numeric" = {
+        suppressWarnings(as.numeric(dt[[col]]))
+      },
       dt[[col]]
     )
-  }
-  return(dt)
-}
-
-# Function to sample data
-sample_data <- function(dt) {
-  #' @title Sample Data
-  #'
-  #' @description This function samples data from the input data table.
-  #'
-  #' @param dt data.table. The data table to be sampled.
-  #'
-  #' @return data.table. The sampled data table.
-
-  sampled_dt <- dt[sample(.N, min(sample_size, .N))]
-  return(sampled_dt)
-}
-
-# Main function to read and process chunks
-main_read_function <- function(file = NA) {
-  #' @title Main Read Function
-  #'
-  #' @description This function reads and processes chunks of data from a file.
-  #'
-  #' @param file character. The file path to read.
-  #' Default is NA.
-  #'
-  #' @return data.table. The processed data table.
-
-  if (is.na(file)) {
-    if (to_read) {
-      file <- full_claims_file(part)
-      dt <- read_entire_file(file, initial_read = is_partial_file(part))
-
-      if (to_sample) {
-        dt <- handle_sampling(dt, part)
-      }
-    } else if (to_sample) {
-      dt <- handle_sampling()
-    } else {
-      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE.
-      At least one must be TRUE.")
+    
+    # Check for NA coercion
+    coerced_to_na <- which(is.na(dt[[col]]) & !is.na(original_values))
+    if (length(coerced_to_na) > 0) {
+      cat(sprintf("Column '%s' coerced %d values to NA. First few original values: %s\n",
+                  col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5], collapse = ", ")))
     }
-  } else {
-    dt <- read_entire_file(file, initial_read = is_partial_file(part))
   }
-
-  return(dt)
+  
+  return(list(dt = dt, replacement_summary = replacement_summary))
 }
 
-# Function to read and save partial files
+# Function to suppress warnings for integer and numeric conversions
+suppressedWarnings <- function(expr) {
+  suppressWarnings({
+    res <- eval(expr)
+  })
+  return(res)
+}
+
 read_and_save_partial <- function(start_row, end_row, part) {
   #' @title Read and Save Partial Files
-  #'
-  #' @description This function reads and saves partial files
-  #' from the full claims file.
-  #'
+  #' @description This function reads and saves partial files from the full claims file.
   #' @param start_row integer. The starting row number.
   #' @param end_row integer. The ending row number.
   #' @param part integer. The part number of the file.
-  #'
-  #' @return NULL. The function is used for its side effect of
-  #' reading and saving partial files.
-
+  #' @return NULL. The function is used for its side effect of reading and saving partial files.
   partial_file_path <- full_claims_file(part, fileext = TRUE)
-  header <- fread(full_claims_file(), nrows = 1, header = TRUE)
+  header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
 
   cat(paste("Reading header from:", full_claims_file()))
   cat(paste("Partial file path:", partial_file_path))
@@ -1270,7 +1160,7 @@ read_and_save_partial <- function(start_row, end_row, part) {
       "Partial file already exists. Skipping creation:",
       partial_file_path
     ))
-    dt <- fread(partial_file_path)
+    dt <- fread(partial_file_path, na.strings = na_values, colClasses = "character")
   }
 
   if (to_sample) {
@@ -1296,20 +1186,16 @@ read_and_save_partial <- function(start_row, end_row, part) {
 }
 
 write_intermediate_file <- function(to_write, part, dt) {
-  #' @title Write intermediate file
-  #'
+  #' @title Write Intermediate File
   #' @description This function writes the intermediate data table to a file.
-  #'
   #' @param part integer. The part number of the data being processed.
   #' @param dt data.table. The data table to be written.
-  #'
-  #' @return NULL. The function is used for its side effect of
-  #' writing the data table to a file.
-
+  #' @return NULL. The function is used for its side effect of writing the data table to a file.
   if (to_write) {
-    fwrite(dt, intermediate_file(part, fileext = TRUE))
+    fwrite(dt, intermediate_file(part, fileext = TRUE), quote = TRUE)
   }
 }
+
 # Function to remove lumped ICD codes
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
@@ -2235,6 +2121,18 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo RVS codes discarded in the second set.\n\n")
   }
 
+  if (nrow(summary$final_empty_strings_replaced_0) > 0) {
+    print(kable(
+      head(
+        summary$final_empty_strings_replaced_0, rows_to_show
+      ),
+      format = "markdown",
+      caption = "Empty Strings Replaced (Zeroth Set)"
+    ))
+  } else {
+    cat("\nNo empty strings replaced in the zeroth set.\n\n")
+  }
+
   if (nrow(summary$final_empty_strings_replaced_1) > 0) {
     print(kable(
       head(
@@ -2638,6 +2536,9 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
     ),
     final_discard_rvs_two = combine_discarded_rvs_tables(
       combined_summary, "discard_rvs_two", rows_to_show
+    ),
+    final_empty_strings_replaced_0 = combine_replace_empty_tables(
+      combined_summary, "replacement_summary", rows_to_show
     ),
     final_empty_strings_replaced_1 = combine_replace_empty_tables(
       combined_summary, "empty_strings_replaced_1", rows_to_show

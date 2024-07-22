@@ -1,4 +1,5 @@
-# Paths to various directories for intermediate files, cache, auxiliary files, etc.
+# Paths to various directories for intermediate files,
+# cache, auxiliary files, etc.
 path_to_intermediate <- "git-ignored-files/intermediate-claims"
 path_to_cache <- "data-cleaning/cache"
 path_to_aux <- "git-ignored-files/aux-files"
@@ -75,9 +76,7 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
   }
-  if (fileext) {
-    filename <- paste0(filename, ".csv")
-  }
+  if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
     return(here(path_to_raw_claims, filename))
   } else {
@@ -98,19 +97,14 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0(
-      "sampled_claims_", year_to_load, "_",
-      sample_size
-    )
+    paste0("sampled_claims_", year_to_load, "_", sample_size)
   } else {
     paste0(
-      "sampled_claims_", year_to_load, "_",
-      sample_size, "_part_", part, "_of_", split_parts
+      "sampled_claims_", year_to_load, "_", sample_size,
+      "_part_", part, "_of_", split_parts
     )
   }
-  if (fileext) {
-    filename <- paste0(filename, ".csv")
-  }
+  if (fileext) filename <- paste0(filename, ".csv")
   return(here(path_to_raw_claims_samples, filename))
 }
 

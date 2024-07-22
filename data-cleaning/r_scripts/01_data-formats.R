@@ -7,6 +7,8 @@ na_like_strings <- c(
   "\u2029", "\u202F", "\u205F", "\u3000"
 )
 
+all_na_values <- unique(c(na_values, na_like_strings))
+
 integer_cols <- c("OUT_PATIENT", "EMERGENCY")
 
 factor_cols <- c(

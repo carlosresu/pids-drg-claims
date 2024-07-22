@@ -85,6 +85,18 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
     cat("\nNo RVS codes discarded in the second set.\n\n")
   }
 
+  if (nrow(summary$final_empty_strings_replaced_0) > 0) {
+    print(kable(
+      head(
+        summary$final_empty_strings_replaced_0, rows_to_show
+      ),
+      format = "markdown",
+      caption = "Empty Strings Replaced (Zeroth Set)"
+    ))
+  } else {
+    cat("\nNo empty strings replaced in the zeroth set.\n\n")
+  }
+
   if (nrow(summary$final_empty_strings_replaced_1) > 0) {
     print(kable(
       head(
@@ -488,6 +500,9 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
     ),
     final_discard_rvs_two = combine_discarded_rvs_tables(
       combined_summary, "discard_rvs_two", rows_to_show
+    ),
+    final_empty_strings_replaced_0 = combine_replace_empty_tables(
+      combined_summary, "replacement_summary", rows_to_show
     ),
     final_empty_strings_replaced_1 = combine_replace_empty_tables(
       combined_summary, "empty_strings_replaced_1", rows_to_show
