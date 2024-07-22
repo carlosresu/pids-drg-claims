@@ -207,10 +207,10 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "INFORMAL",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL",
+    # added this myself
     pat_memcat_child == "FORMAL ECONOMY", "FORMAL",
     # added this myself
-    pat_memcat_child == "PROFESSIONAL PRACTITIONER",
-    "INFORMAL" # added this myself
+    pat_memcat_child == "PROFESSIONAL PRACTITIONER", "INFORMAL"
   )
   unknown_children <- setdiff(
     pat_memcat_child[!is.na(pat_memcat_child)],
