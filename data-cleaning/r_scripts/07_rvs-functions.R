@@ -101,71 +101,26 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   return(return_list)
 }
 
-# Function to find and append valid RVS codes
 find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
-  #' @title Find and Append Valid RVS Codes
-  #'
-  #' @description This function finds and appends valid RVS codes to the clinical RVS.
-  #'
-  #' @param dt data.table. The data table with clinical RVS codes.
-  #' @param valid_rvs_codes character. The valid RVS codes.
-  #'
-  #' @return None. The function modifies the input data.table in place.
-
   regex_5_digit <- "\\b\\d{5}\\b"
-  valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
-  for (code in valid_rvs_codes) {
-    assign(code, TRUE, envir = valid_rvs_env)
-  }
-
-  dt[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-
-  # Use lapply for improved performance
-  dt[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
-
-  dt[, clin_rvs := mapply(
-    function(rvs, matches) unique(c(rvs, matches)),
-    clin_rvs, valid_matches,
-    SIMPLIFY = FALSE
-  )]
+  valid_rvs_set <- unique(valid_rvs_codes)
+  
+  dt[, matches := lapply(regmatches(col, gregexpr(regex_5_digit, col)), function(x) x[x %in% valid_rvs_set])]
+  dt[, clin_rvs := mapply(function(rvs, matches) unique(c(rvs, matches)), clin_rvs, matches, SIMPLIFY = FALSE)]
 }
 
-# Function to remove 5-digit codes
 remove_5_digit_codes <- function(col) {
-  #' @title Remove 5-Digit Codes
-  #'
-  #' @description This function removes 5-digit codes from the given column.
-  #'
-  #' @param col character. The column to be processed.
-  #'
-  #' @return list. The column with 5-digit codes removed.
-
   regex_5_digit <- "\\b\\d{5}\\b"
   lapply(col, function(x) gsub(regex_5_digit, "", x))
 }
 
-# Function to warn about invalid RVS codes
 warn_invalid_rvs <- function(matches, valid_rvs_codes) {
-  #' @title Warn About Invalid RVS Codes
-  #'
-  #' @description This function warns about invalid RVS codes and creates a table of discarded codes.
-  #'
-  #' @param matches list. The matched RVS codes.
-  #' @param valid_rvs_codes character. The valid RVS codes.
-  #'
-  #' @return data.table. A table of discarded codes.
-
-  valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
-  for (code in valid_rvs_codes) {
-    assign(code, TRUE, envir = valid_rvs_env)
-  }
-
-  invalid_matches <- lapply(matches, function(x) x[!vapply(x, exists, logical(1), envir = valid_rvs_env)])
+  valid_rvs_set <- unique(valid_rvs_codes)
+  
+  invalid_matches <- lapply(matches, function(x) setdiff(x, valid_rvs_set))
   discarded_codes <- unlist(invalid_matches)
   if (length(discarded_codes) > 0) {
-    discarded_table <- data.table(
-      CODE = discarded_codes
-    )[, .N, by = CODE][order(-N)]
+    discarded_table <- data.table(CODE = discarded_codes)[, .N, by = CODE][order(-N)]
     setnames(discarded_table, c("CODE", "count"))
   } else {
     discarded_table <- data.table()
