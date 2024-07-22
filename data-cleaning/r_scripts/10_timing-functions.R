@@ -1,6 +1,6 @@
 # Function to print time estimates
 print_time_estimates <- function(dt, total_time, total_rows) {
-  total_rows_dt <- nrow(dt) * split_chunks
+  total_rows_dt <- nrow(dt) * split_parts
   total_cells <- nrow(dt) * ncol(dt)
   time_per_cell <- total_time / total_cells
   time_per_row <- total_time / total_rows_dt

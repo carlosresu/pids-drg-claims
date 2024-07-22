@@ -251,10 +251,10 @@ process_chunk <- function(
 }
 
 # Function to split and save chunks
-split_and_save_chunks <- function() {
+split_and_save_parts <- function() {
   if (to_split) {
-    rows_per_part <- ceiling(total_rows / split_chunks)
-    for (part in 1:split_chunks) {
+    rows_per_part <- ceiling(total_rows / split_parts)
+    for (part in 1:split_parts) {
       chunk_file <- if (to_sample) {
         sampled_claims_file(part)
       } else {
@@ -271,7 +271,7 @@ split_and_save_chunks <- function() {
 }
 
 # Function to read and process each chunk
-read_and_process_chunk <- function(part) {
+read_and_process_part <- function(part) {
   chunk_file <- if (to_sample) {
     sampled_claims_file(part)
   } else {

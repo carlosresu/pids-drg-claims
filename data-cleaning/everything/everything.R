@@ -93,13 +93,46 @@ path_to_raw_claims_parts <- "git-ignored-files/raw-claims/parts"
 path_to_raw_claims_samples <- "git-ignored-files/raw-claims/samples"
 path_to_raw_claims <- "git-ignored-files/raw-claims"
 
-suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"))
+total_rows_file <- function(part = NULL, fileext = TRUE) {
+  filename <- if (is.null(part)) {
+    paste0("total_rows_", year_to_load)
+  } else {
+    paste0(
+      "total_rows_", year_to_load, "_part_",
+      part, "_of_", split_parts
+    )
+  }
+  if (fileext) {
+    filename <- paste0(filename, ".rds")
+  }
+  return(here(path_to_cache, filename))
+}
+
+# Load cached total rows file if available, saves ~10 seconds of runtime
+if (file.exists(total_rows_file())) {
+  total_rows <- readRDS(total_rows_file())
+  print(paste("Total Rows via cached object:", total_rows))
+} else {
+  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
+  saveRDS(total_rows, file = total_rows_file())
+  print(paste("Total Rows via fread:", total_rows))
+}
+
+# Compute sample size when splitting and when not,
+# only relevant when sampling
+if (to_split) {
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+} else {
+  sample_size <- ceiling(total_rows / sample_size_divisor)
+}
+
+suffix <- paste0(ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_"))
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("full_claims_", year_to_load)
   } else {
-    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_chunks)
+    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
   }
   if (fileext) {
     filename <- paste0(filename, ".csv")
@@ -120,7 +153,7 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "sampled_claims_", year_to_load, "_",
-      sample_size, "_part_", part, "_of_", split_chunks
+      sample_size, "_part_", part, "_of_", split_parts
     )
   }
   if (fileext) {
@@ -135,7 +168,7 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "intermediate_claims_", year_to_load, suffix,
-      "part_", part, "_of_", split_chunks
+      "part_", part, "_of_", split_parts
     )
   }
   if (fileext) {
@@ -150,7 +183,7 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "cleaned_claims_", year_to_load, suffix,
-      "part_", part, "_of_", split_chunks
+      "part_", part, "_of_", split_parts
     )
   }
   if (fileext) {
@@ -165,7 +198,7 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "DRG_Grouped", "_", year_to_load, suffix,
-      "part_", part, "_of_", split_chunks
+      "part_", part, "_of_", split_parts
     )
   }
   if (fileext) {
@@ -183,28 +216,13 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   } else {
     toupper(paste0(
       "DRG_Grouped", "_", year_to_load, suffix,
-      "Res_", part, "_of_", split_chunks
+      "Res_", part, "_of_", split_parts
     ))
   }
   if (fileext) {
     filename <- paste0(filename, ".TXT")
   }
   return(here(path_to_grouper_output, filename))
-}
-
-total_rows_file <- function(part = NULL, fileext = TRUE) {
-  filename <- if (is.null(part)) {
-    paste0("total_rows_", year_to_load)
-  } else {
-    paste0(
-      "total_rows_", year_to_load, "_part_",
-      part, "_of_", split_chunks
-    )
-  }
-  if (fileext) {
-    filename <- paste0(filename, ".rds")
-  }
-  return(here(path_to_cache, filename))
 }
 rename_columns <- function(dt) {
   setnames(dt, old = old_colnames, new = new_colnames)
@@ -653,10 +671,10 @@ process_chunk <- function(
 }
 
 # Function to split and save chunks
-split_and_save_chunks <- function() {
+split_and_save_parts <- function() {
   if (to_split) {
-    rows_per_part <- ceiling(total_rows / split_chunks)
-    for (part in 1:split_chunks) {
+    rows_per_part <- ceiling(total_rows / split_parts)
+    for (part in 1:split_parts) {
       chunk_file <- if (to_sample) {
         sampled_claims_file(part)
       } else {
@@ -673,7 +691,7 @@ split_and_save_chunks <- function() {
 }
 
 # Function to read and process each chunk
-read_and_process_chunk <- function(part) {
+read_and_process_part <- function(part) {
   chunk_file <- if (to_sample) {
     sampled_claims_file(part)
   } else {
@@ -1461,7 +1479,7 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
 }
 # Function to print time estimates
 print_time_estimates <- function(dt, total_time, total_rows) {
-  total_rows_dt <- nrow(dt) * split_chunks
+  total_rows_dt <- nrow(dt) * split_parts
   total_cells <- nrow(dt) * ncol(dt)
   time_per_cell <- total_time / total_cells
   time_per_row <- total_time / total_rows_dt
