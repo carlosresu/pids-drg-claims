@@ -659,13 +659,9 @@ collapse_and_clean_icd_rvs <- function(dt) {
   #' and RVS columns in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-  dt[, clin_icd := collapse_columns(
-    mget(paste0("clin_icd", 1:12)), na_like_strings
-  )]
+  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
   dt[, paste0("clin_icd", 1:12) := NULL]
-  dt[, clin_rvs := collapse_columns(
-    mget(paste0("clin_rvs", 1:20)), na_like_strings
-  )]
+  dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
   dt[, paste0("clin_rvs", 1:20) := NULL]
   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
   dt[, clin_icd := split_to_vector(clin_icd)]
@@ -909,15 +905,10 @@ parallelize_and_summarize_data <- function(
   #' 6. Returns chunk and chunk summaries
 
   chunk_size <- ceiling(nrow(dt) / num_cores)
-  chunks <- split(dt, rep(1:num_cores,
-    each = chunk_size, length.out = nrow(dt)
-  ))
+  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
   if (to_parallelize) {
-    # Plan for parallel processing
     plan(multisession, workers = num_cores)
-
-    # Process each chunk in parallel
     parallel_results <- future_lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
@@ -927,7 +918,6 @@ parallelize_and_summarize_data <- function(
       future.seed = global_seed
     )
   } else {
-    # Process each chunk sequentially
     parallel_results <- lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
@@ -937,38 +927,24 @@ parallelize_and_summarize_data <- function(
     )
   }
 
-  # Combine processed chunks
   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
   dt <- rbindlist(processed_chunks)
 
-  # Combine summaries of the chunks
-  combined_summary <- combine_chunk_summaries(
-    parallel_results, intermediate_rows_to_show
-  )
+  combined_summary <- combine_chunk_summaries(parallel_results, intermediate_rows_to_show)
 
-  # Convert acc_pdx to a hash environment
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
   }
 
-  # Find the indices of invalid PDX codes, ignoring NAs
   invalid_pdx_indices <- which(
-    !is.na(dt$pdx) & dt$pdx != "" & !sapply(
-      dt$pdx,
-      function(x) exists(x, acc_pdx_env)
-    )
+    !is.na(dt$pdx) & dt$pdx != "" & !sapply(dt$pdx, function(x) exists(x, acc_pdx_env))
   )
 
-  # Check if there are any invalid PDX codes
   if (length(invalid_pdx_indices) > 0) {
-    # Print the invalid PDX codes
     print(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
-
-    # Set pdx_success to FALSE
     combined_summary$pdx_success <- FALSE
   } else {
-    # Set pdx_success to TRUE
     combined_summary$pdx_success <- TRUE
   }
 
@@ -1035,7 +1011,7 @@ read_part <- function(part) {
 
 process_part <- function(
     part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group) {
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group, dt_list) {
   #' @title Process Part
   #' @description Process a single part of the data,
   #' including reading, processing, and summarizing.
@@ -1051,8 +1027,9 @@ process_part <- function(
   #' @param to_parallelize logical. Whether to parallelize the process.
   #' @param to_write logical. Whether to write intermediate files.
   #' @param to_group logical. Whether to group data for batch processing.
+  #' @param dt_list list. List to store each processed dt.
   #' @return list. A list containing the processed data and summary.
-  start_time <- Sys.time()
+  # start_time <- Sys.time()
 
   # Read in the part and do initial processing
   dt <- read_part(part)
@@ -1070,20 +1047,20 @@ process_part <- function(
   # Writes out intermediate file if to_write is TRUE
   write_intermediate_file(to_write, part, dt)
 
-  # Exports for batch grouper if to_group is TRUE
-  group_data(to_group, part, dt)
+  # group_data(to_group, part, dt)
 
-  end_time <- Sys.time()
-  processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
+  # end_time <- Sys.time()
+  # processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
   return(
     list(
       dt = dt,
-      combined_summary = combined_summary,
-      processing_time = processing_time
+      combined_summary = combined_summary
+      # processing_time = processing_time
     )
   )
 }
+
 # Function to handle sampling
 handle_sampling <- function(dt = NULL, part) {
   #' @title Handle Sampling
@@ -1272,8 +1249,8 @@ read_and_save_partial <- function(start_row, end_row, part) {
 
   dt <- NULL
   if (!file.exists(partial_file_path)) {
-    print("Partial file does not exist. Reading partial data...")
-    dt <- fread(full_claims_file(part),
+    print("Partial file does not exist. Creating partial file...")
+    dt <- fread(full_claims_file(),
       na.strings = na_values,
       colClasses = "character",
       nrows = end_row - start_row + 1,
@@ -2124,21 +2101,21 @@ print_time_estimates <- function(dt, total_time, total_rows) {
   ))
 }
 
-print_status_update <- function(part, split_parts, processing_times) {
+print_status_update <- function(part, split_parts) { # , processing_times
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
   #' @param part integer. The current part number.
   #' @param split_parts integer. Total number of parts.
   #' @param processing_times numeric. Array of processing times for each part.
-  elapsed_time <- sum(processing_times[1:part])
-  avg_time_per_part <- elapsed_time / part
-  estimated_total_time <- avg_time_per_part * split_parts
-  estimated_remaining_time <- estimated_total_time - elapsed_time
+  # elapsed_time <- sum(processing_times[1:part])
+  # avg_time_per_part <- elapsed_time / part
+  # estimated_total_time <- avg_time_per_part * split_parts
+  # estimated_remaining_time <- estimated_total_time - elapsed_time
   cat(sprintf(
     "Status Update: Finished processing part %d of %d\n",
     part, split_parts
   ))
-  cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
+  # cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
 }
 concatenate_r_files <- function(input_path, output_file) {
   #' @title Concatenate R Files

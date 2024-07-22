@@ -112,15 +112,10 @@ parallelize_and_summarize_data <- function(
   #' 6. Returns chunk and chunk summaries
 
   chunk_size <- ceiling(nrow(dt) / num_cores)
-  chunks <- split(dt, rep(1:num_cores,
-    each = chunk_size, length.out = nrow(dt)
-  ))
+  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
   if (to_parallelize) {
-    # Plan for parallel processing
     plan(multisession, workers = num_cores)
-
-    # Process each chunk in parallel
     parallel_results <- future_lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
@@ -130,7 +125,6 @@ parallelize_and_summarize_data <- function(
       future.seed = global_seed
     )
   } else {
-    # Process each chunk sequentially
     parallel_results <- lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
@@ -140,38 +134,24 @@ parallelize_and_summarize_data <- function(
     )
   }
 
-  # Combine processed chunks
   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
   dt <- rbindlist(processed_chunks)
 
-  # Combine summaries of the chunks
-  combined_summary <- combine_chunk_summaries(
-    parallel_results, intermediate_rows_to_show
-  )
+  combined_summary <- combine_chunk_summaries(parallel_results, intermediate_rows_to_show)
 
-  # Convert acc_pdx to a hash environment
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
   }
 
-  # Find the indices of invalid PDX codes, ignoring NAs
   invalid_pdx_indices <- which(
-    !is.na(dt$pdx) & dt$pdx != "" & !sapply(
-      dt$pdx,
-      function(x) exists(x, acc_pdx_env)
-    )
+    !is.na(dt$pdx) & dt$pdx != "" & !sapply(dt$pdx, function(x) exists(x, acc_pdx_env))
   )
 
-  # Check if there are any invalid PDX codes
   if (length(invalid_pdx_indices) > 0) {
-    # Print the invalid PDX codes
     print(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
-
-    # Set pdx_success to FALSE
     combined_summary$pdx_success <- FALSE
   } else {
-    # Set pdx_success to TRUE
     combined_summary$pdx_success <- TRUE
   }
 

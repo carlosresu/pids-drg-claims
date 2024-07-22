@@ -56,7 +56,7 @@ read_part <- function(part) {
 
 process_part <- function(
     part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group) {
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group, dt_list) {
   #' @title Process Part
   #' @description Process a single part of the data,
   #' including reading, processing, and summarizing.
@@ -72,8 +72,9 @@ process_part <- function(
   #' @param to_parallelize logical. Whether to parallelize the process.
   #' @param to_write logical. Whether to write intermediate files.
   #' @param to_group logical. Whether to group data for batch processing.
+  #' @param dt_list list. List to store each processed dt.
   #' @return list. A list containing the processed data and summary.
-  start_time <- Sys.time()
+  # start_time <- Sys.time()
 
   # Read in the part and do initial processing
   dt <- read_part(part)
@@ -91,17 +92,17 @@ process_part <- function(
   # Writes out intermediate file if to_write is TRUE
   write_intermediate_file(to_write, part, dt)
 
-  # Exports for batch grouper if to_group is TRUE
-  group_data(to_group, part, dt)
+  # group_data(to_group, part, dt)
 
-  end_time <- Sys.time()
-  processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
+  # end_time <- Sys.time()
+  # processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
   return(
     list(
       dt = dt,
-      combined_summary = combined_summary,
-      processing_time = processing_time
+      combined_summary = combined_summary
+      # processing_time = processing_time
     )
   )
 }
+

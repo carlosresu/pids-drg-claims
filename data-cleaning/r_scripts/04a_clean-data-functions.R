@@ -70,13 +70,9 @@ collapse_and_clean_icd_rvs <- function(dt) {
   #' and RVS columns in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-  dt[, clin_icd := collapse_columns(
-    mget(paste0("clin_icd", 1:12)), na_like_strings
-  )]
+  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
   dt[, paste0("clin_icd", 1:12) := NULL]
-  dt[, clin_rvs := collapse_columns(
-    mget(paste0("clin_rvs", 1:20)), na_like_strings
-  )]
+  dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
   dt[, paste0("clin_rvs", 1:20) := NULL]
   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
   dt[, clin_icd := split_to_vector(clin_icd)]

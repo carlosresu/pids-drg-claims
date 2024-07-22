@@ -186,8 +186,8 @@ read_and_save_partial <- function(start_row, end_row, part) {
 
   dt <- NULL
   if (!file.exists(partial_file_path)) {
-    print("Partial file does not exist. Reading partial data...")
-    dt <- fread(full_claims_file(part),
+    print("Partial file does not exist. Creating partial file...")
+    dt <- fread(full_claims_file(),
       na.strings = na_values,
       colClasses = "character",
       nrows = end_row - start_row + 1,
