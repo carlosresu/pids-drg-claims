@@ -29,7 +29,7 @@ to_group <- TRUE
 
 # Debug:
 # Conduct runtime duration analysis via profvis or not
-to_profvis <- FALSE
+to_profvis <- TRUE
 # Whether to view checks and print statements
 to_view_checks <- TRUE
 # Whether to view intermediate per part/chunk checks and print statements
@@ -37,7 +37,7 @@ to_view_checks <- TRUE
 to_view_checks_parallelized <- FALSE
 # Whether to parallelize each split_parts part into availableCores() - 1 chunks
 # Cuts down processing time from 120min to 15min.
-to_parallelize <- FALSE
+to_parallelize <- TRUE
 
 # Sample size divisor:
 # Formula for sample size is total_rows / split_parts / sample_size_divisor
@@ -93,7 +93,6 @@ scripts_to_source <- c(
 for (script in scripts_to_source) {
   source(here("data-cleaning", "r_scripts", script))
 }
-
 
 # Start total execution timer
 tic("Total execution time:")
@@ -166,22 +165,22 @@ if (to_profvis) {
       # Read in the part and do initial processing
       # such as col dropping, type casting, and sampling
       dt <- read_and_process_part(part)
-
+      # Main script parallelization call, mostly calls process_chunk
+      # on each chunk
       result <- parallelize_and_summarize_data(
         dt, num_cores, to_view_checks, global_seed,
         intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
       )
       # Each chunk and chunk summary is then combined by combine_chunk_summaries
-      # chunks are rbound to dt, chunk summaries
-      # are returned as combined_summary
+      # chunks are rbound to dt, chunk summaries are returned as combined_summary
       dt <- result$dt
       all_parts_summaries[[part]] <- result$combined_summary
 
       # Writes out intermediate file if to_write is TRUE
-      write_intermediate_file(part, dt)
+      write_intermediate_file(to_write, part, dt)
 
       # Exports for batch grouper if to_group is TRUE
-      group_data(part, dt)
+      group_data(to_group, part, dt)
 
       end_time <- Sys.time()
       difftime <- difftime(end_time, start_time, units = "secs")
@@ -197,7 +196,7 @@ if (to_profvis) {
         part, split_parts
       ))
       cat(sprintf(
-        "Estimated Time Remaining: %d seconds\n",
+        "ETA: %d seconds\n",
         round(estimated_remaining_time)
       ))
     }
@@ -218,7 +217,8 @@ if (to_profvis) {
     # Read in the part and do initial processing
     # such as col dropping, type casting, and sampling
     dt <- read_and_process_part(part)
-
+    # Main script parallelization call, mostly calls process_chunk
+    # on each chunk
     result <- parallelize_and_summarize_data(
       dt, num_cores, to_view_checks, global_seed,
       intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
@@ -248,7 +248,7 @@ if (to_profvis) {
       part, split_parts
     ))
     cat(sprintf(
-      "Estimated Time Remaining: %d seconds\n",
+      "ETA: %d seconds\n",
       round(estimated_remaining_time)
     ))
   }

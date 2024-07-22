@@ -174,20 +174,96 @@ clean_data <- function(dt) {
   ))
 }
 
-process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
-  #' @title Process a chunk of data
-  #'
-  #' @description This function processes a chunk of data by cleaning it,
-  #' mapping RVS and ICD codes, replacing empty strings, and finding PDX codes.
-  #'
-  #' @param chunk data.table. The chunk of data to be processed.
-  #' @param to_view_checks logical. Whether to view checks and print statements.
-  #' @param rvs_icd9 data.table. The RVS to ICD-9 mapping data.
-  #' @param tdrg_icd10 data.table. The Thai DRG ICD-10 mapping data.
-  #' @param acc_pdx character. A vector of acceptable PDX codes.
-  #'
-  #' @return list. A list containing the processed chunk and a summary of the processing.
+# process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
+#   #' @title Process a chunk of data
+#   #'
+#   #' @description This function processes a chunk of data by cleaning it,
+#   #' mapping RVS and ICD codes, replacing empty strings, and finding PDX codes.
+#   #'
+#   #' @param chunk data.table. The chunk of data to be processed.
+#   #' @param to_view_checks logical. Whether to view checks and print statements.
+#   #' @param rvs_icd9 data.table. The RVS to ICD-9 mapping data.
+#   #' @param tdrg_icd10 data.table. The Thai DRG ICD-10 mapping data.
+#   #' @param acc_pdx character. A vector of acceptable PDX codes.
+#   #'
+#   #' @return list. A list containing the processed chunk and a summary of the processing.
 
+#   if (to_view_checks) {
+#     # print("Viewing checks")
+#   } else {
+#     sink(tempfile())
+#     on.exit(sink(), add = TRUE)
+#   }
+
+#   clean_result <- clean_data(chunk)
+#   chunk <- clean_result$data
+
+#   summary <- list(
+#     rename_success = clean_result$rename_success,
+#     ICD_replacements_1 = clean_result$ICD_replacements_1,
+#     ICD_replacements_2 = clean_result$ICD_replacements_2,
+#     pat_type_unmapped = clean_result$pat_type_unmapped,
+#     memcat_parent_unmapped = clean_result$memcat_parent_unmapped,
+#     memcat_child_unmapped = clean_result$memcat_child_unmapped,
+#     discharge_unmapped = clean_result$discharge_unmapped,
+#     discard_rvs_one = clean_result$discard_rvs_one,
+#     discard_rvs_two = clean_result$discard_rvs_two,
+#     empty_strings_replaced_1 = clean_result$empty_strings_replaced_1
+#   )
+
+#   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
+#   chunk[, icd9_list := rvs_mapping_result$icd9_list]
+
+#   clin_c1 <- chunk$clin_c1
+#   clin_c2 <- chunk$clin_c2
+#   clin_icd <- chunk$clin_icd
+
+#   icd10_mapping_result <- implement_icd10_mapping(
+#     clin_c1, clin_c2, clin_icd, tdrg_icd10
+#   )
+#   chunk[, clin_c1 := icd10_mapping_result$clin_c1]
+#   chunk[, clin_c2 := icd10_mapping_result$clin_c2]
+#   chunk[, clin_icd := icd10_mapping_result$clin_icd]
+
+#   chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
+#   chunk <- chunk_replace_result$data
+#   summary$empty_strings_replaced_2 <- chunk_replace_result$replacement_summary
+
+#   pdx_result <- apply_find_pdx(
+#     chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
+#   )
+#   chunk$pdx <- pdx_result$pdx
+#   chunk$pdx_code <- pdx_result$pdx_code
+
+#   # Ensure consistent lengths of clin_rvs and icd9_list
+#   clin_rvs_len <- lengths(chunk$clin_rvs)
+#   icd9_list_len <- lengths(chunk$icd9_list)
+
+#   max_len <- max(c(clin_rvs_len, icd9_list_len))
+#   chunk$clin_rvs <- lapply(chunk$clin_rvs, function(x) {
+#     length(x) <- max_len
+#     x
+#   })
+#   chunk$icd9_list <- lapply(chunk$icd9_list, function(x) {
+#     length(x) <- max_len
+#     x
+#   })
+
+#   summary$unique_icds <- icd10_mapping_result$unique_icds
+#   summary$direct_matches <- icd10_mapping_result$direct_matches
+#   summary$unmatched <- icd10_mapping_result$unmatched
+#   summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
+
+#   summary$rvss <- rvs_mapping_result$rvss
+#   summary$mappable_rvs <- rvs_mapping_result$mappable_rvs
+#   summary$unmappable_rvs <- rvs_mapping_result$unmappable_rvs
+#   summary$multi_mapped_rvs <- rvs_mapping_result$multi_mapped_rvs
+#   summary$without_drg <- rvs_mapping_result$without_drg
+
+#   return(list(chunk = chunk, summary = summary))
+# }
+
+process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   if (to_view_checks) {
     # print("Viewing checks")
   } else {
@@ -266,9 +342,11 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
 split_and_save_parts <- function() {
   #' @title Split and save parts of the data
   #'
-  #' @description This function splits the data into parts and saves them as separate files.
+  #' @description This function splits the data into parts and
+  #' saves them as separate files.
   #'
-  #' @return NULL. The function is used for its side effect of splitting and saving the data.
+  #' @return NULL. The function is used for its side effect of
+  #' splitting and saving the data.
 
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
@@ -291,7 +369,8 @@ split_and_save_parts <- function() {
 read_and_process_part <- function(part) {
   #' @title Read and process a part of the data
   #'
-  #' @description This function reads and processes a part of the data from a file.
+  #' @description This function reads and processes a part
+  #' of the data from a file.
   #'
   #' @param part integer. The part number of the file to read.
   #'
@@ -384,8 +463,16 @@ parallelize_and_summarize_data <- function(
     parallel_results, intermediate_rows_to_show
   )
 
+  # Convert acc_pdx to a hash environment
+  acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
+  for (code in acc_pdx) {
+    assign(code, TRUE, envir = acc_pdx_env)
+  }
+
   # Find the indices of invalid PDX codes, ignoring NAs
-  invalid_pdx_indices <- which(!is.na(dt$pdx) & !dt$pdx == "" & !dt$pdx %in% acc_pdx)
+  invalid_pdx_indices <- which(
+    !is.na(dt$pdx) & dt$pdx != "" & !sapply(dt$pdx, function(x) exists(x, acc_pdx_env))
+  )
 
   # Check if there are any invalid PDX codes
   if (length(invalid_pdx_indices) > 0) {

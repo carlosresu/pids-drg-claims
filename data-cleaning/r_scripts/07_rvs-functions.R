@@ -23,21 +23,18 @@ create_rvs_map_lists <- function(with_drg) {
   #'
   #' @return list. A list containing RVS map list and RVS map solo.
 
-  with_drg <- with_drg[order(rvs, -is_drg)]
-  unique_rvs <- unique(with_drg$rvs)
-  rvs_grouped <- split(with_drg, with_drg$rvs)
+  # Order the data by rvs and -is_drg
+  setorder(with_drg, rvs, -is_drg)
 
-  rvs_map_list <- list()
-  rvs_map_solo <- list()
+  # Create a list of unique rvs
+  unique_rvs <- with_drg[, .(icd9cm_list = list(icd9cm)), by = rvs]
 
-  for (r in unique_rvs) {
-    sub <- rvs_grouped[[r]]
-    if (nrow(sub) == 1) {
-      rvs_map_solo[[r]] <- sub$icd9cm[1]
-    } else {
-      rvs_map_list[[r]] <- sub$icd9cm
-    }
-  }
+  # Split into solo and list mappings
+  solo <- unique_rvs[lengths(icd9cm_list) == 1]
+  list_mapped <- unique_rvs[lengths(icd9cm_list) > 1]
+
+  rvs_map_solo <- setNames(solo$icd9cm_list, solo$rvs)
+  rvs_map_list <- setNames(list_mapped$icd9cm_list, list_mapped$rvs)
 
   return(list(rvs_map_list = rvs_map_list, rvs_map_solo = rvs_map_solo))
 }
@@ -75,7 +72,8 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   #' @param clin_rvs list. The clinical RVS codes.
   #' @param rvs_icd9 data.table. The RVS ICD-9 codes.
   #'
-  #' @return list. A list containing the mapped ICD-9 codes and related information.
+  #' @return list. A list containing the
+  #' mapped ICD-9 codes and related information.
 
   split_codes <- split_rvs_codes(rvs_icd9)
   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
@@ -100,11 +98,6 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
     without_drg = without_drg
   )
 
-  # Debugging statement
-  # for (return in return_list) {
-  #   str(return)
-  # }
-
   return(return_list)
 }
 
@@ -120,12 +113,14 @@ find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
   #' @return None. The function modifies the input data.table in place.
 
   regex_5_digit <- "\\b\\d{5}\\b"
+  valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
+  for (code in valid_rvs_codes) {
+    assign(code, TRUE, envir = valid_rvs_env)
+  }
+
   dt[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-  dt[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
-  dt[, clin_rvs := lapply(
-    seq_along(clin_rvs),
-    function(i) unique(c(clin_rvs[[i]], dt$valid_matches[[i]]))
-  )]
+  dt[, valid_matches := lapply(matches, function(x) x[vapply(x, exists, logical(1), envir = valid_rvs_env)])]
+  dt[, clin_rvs := lapply(seq_along(clin_rvs), function(i) unique(c(clin_rvs[[i]], dt$valid_matches[[i]])))]
 }
 
 # Function to remove 5-digit codes
@@ -153,14 +148,18 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
   #'
   #' @return data.table. A table of discarded codes.
 
-  invalid_matches <- lapply(matches, function(x) x[!x %in% valid_rvs_codes])
+  valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
+  for (code in valid_rvs_codes) {
+    assign(code, TRUE, envir = valid_rvs_env)
+  }
+
+  invalid_matches <- lapply(matches, function(x) x[!vapply(x, exists, logical(1), envir = valid_rvs_env)])
   discarded_codes <- unlist(invalid_matches)
   if (length(discarded_codes) > 0) {
     discarded_table <- data.table(
       CODE = discarded_codes
     )[, .N, by = CODE][order(-N)]
-    # Change column names here
-    names(discarded_table) <- c("CODE", "count")
+    setnames(discarded_table, c("CODE", "count"))
   } else {
     discarded_table <- data.table()
   }
