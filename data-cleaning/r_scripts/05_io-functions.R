@@ -180,13 +180,13 @@ read_and_save_partial <- function(start_row, end_row, part) {
   partial_file_path <- full_claims_file(part, fileext = TRUE)
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)
 
-  print(paste("Reading header from:", full_claims_file()))
-  print(paste("Partial file path:", partial_file_path))
-  print(paste("Start row:", start_row, "End row:", end_row))
+  cat(paste("Reading header from:", full_claims_file()))
+  cat(paste("Partial file path:", partial_file_path))
+  cat(paste("Start row:", start_row, "End row:", end_row))
 
   dt <- NULL
   if (!file.exists(partial_file_path)) {
-    print("Partial file does not exist. Creating partial file...")
+    cat("Partial file does not exist. Creating partial file...")
     dt <- fread(full_claims_file(),
       na.strings = na_values,
       colClasses = "character",
@@ -195,15 +195,15 @@ read_and_save_partial <- function(start_row, end_row, part) {
       header = FALSE
     )
     setnames(dt, colnames(header))
-    print(paste("Number of rows read:", nrow(dt)))
+    cat(paste("Number of rows read:", nrow(dt)))
     if (nrow(dt) > 0) {
-      print(paste("Writing partial file to:", partial_file_path))
+      cat(paste("Writing partial file to:", partial_file_path))
       fwrite(dt, partial_file_path, quote = TRUE)
     } else {
-      print("No rows to save")
+      cat("No rows to save")
     }
   } else {
-    print(paste(
+    cat(paste(
       "Partial file already exists. Skipping creation:",
       partial_file_path
     ))
@@ -212,19 +212,19 @@ read_and_save_partial <- function(start_row, end_row, part) {
 
   if (to_sample) {
     sampled_file_path <- sampled_claims_file(part)
-    print(paste("Sampled file path:", sampled_file_path))
+    cat(paste("Sampled file path:", sampled_file_path))
     if (!file.exists(sampled_file_path)) {
-      print("Sampled file does not exist. Creating new sample...")
+      cat("Sampled file does not exist. Creating new sample...")
       if (!is.null(dt) && nrow(dt) > 0) {
         sampled_dt <- sample_data(dt)
         setnames(sampled_dt, colnames(header))
-        print(paste("Writing sampled file to:", sampled_file_path))
+        cat(paste("Writing sampled file to:", sampled_file_path))
         fwrite(sampled_dt, sampled_file_path, quote = TRUE)
       } else {
         stop("Failed to read partial file or no rows available for sampling")
       }
     } else {
-      print(paste(
+      cat(paste(
         "Sampled file already exists. Skipping creation:",
         sampled_file_path
       ))

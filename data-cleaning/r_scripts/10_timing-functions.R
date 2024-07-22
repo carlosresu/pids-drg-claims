@@ -57,19 +57,19 @@ print_time_estimates <- function(dt, total_time, total_rows) {
   ))
 }
 
-print_status_update <- function(part, split_parts) { # , processing_times
+print_status_update <- function(part, split_parts, processing_times) { #
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
   #' @param part integer. The current part number.
   #' @param split_parts integer. Total number of parts.
   #' @param processing_times numeric. Array of processing times for each part.
-  # elapsed_time <- sum(processing_times[1:part])
-  # avg_time_per_part <- elapsed_time / part
-  # estimated_total_time <- avg_time_per_part * split_parts
-  # estimated_remaining_time <- estimated_total_time - elapsed_time
+  elapsed_time <- sum(processing_times[1:part])
+  avg_time_per_part <- elapsed_time / part
+  estimated_total_time <- avg_time_per_part * split_parts
+  estimated_remaining_time <- estimated_total_time - elapsed_time
   cat(sprintf(
     "Status Update: Finished processing part %d of %d\n",
     part, split_parts
   ))
-  # cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
+  cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
 }

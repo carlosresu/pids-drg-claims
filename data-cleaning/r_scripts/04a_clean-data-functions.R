@@ -97,7 +97,7 @@ clean_clinical_columns <- function(dt) {
   dt[, clin_c1 := clin_c1_rvs_results$col]
   clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
 
-  # print(clin_c1_discarded_rvs)
+  # cat(clin_c1_discarded_rvs)
 
   clin_c2_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$clin_c2, rvs_icd9
@@ -106,7 +106,7 @@ clean_clinical_columns <- function(dt) {
   dt[, clin_c2 := clin_c2_rvs_results$col]
   clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
 
-  # print(clin_c2_discarded_rvs)
+  # cat(clin_c2_discarded_rvs)
 
   dt[, clin_rvs := lapply(clin_rvs, unique)]
 

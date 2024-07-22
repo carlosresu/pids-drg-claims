@@ -19,7 +19,7 @@ process_chunk <- function(
   #' summary of the processing steps.
 
   if (to_view_checks) {
-    # print("Viewing checks")
+    # cat("Viewing checks")
   } else {
     sink(tempfile())
     on.exit(sink(), add = TRUE)
@@ -149,7 +149,7 @@ parallelize_and_summarize_data <- function(
   )
 
   if (length(invalid_pdx_indices) > 0) {
-    print(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
+    cat(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
     combined_summary$pdx_success <- FALSE
   } else {
     combined_summary$pdx_success <- TRUE

@@ -74,7 +74,7 @@ process_part <- function(
   #' @param to_group logical. Whether to group data for batch processing.
   #' @param dt_list list. List to store each processed dt.
   #' @return list. A list containing the processed data and summary.
-  # start_time <- Sys.time()
+  start_time <- Sys.time()
 
   # Read in the part and do initial processing
   dt <- read_part(part)
@@ -92,16 +92,16 @@ process_part <- function(
   # Writes out intermediate file if to_write is TRUE
   write_intermediate_file(to_write, part, dt)
 
-  # group_data(to_group, part, dt)
+  group_data(to_group, part, dt)
 
-  # end_time <- Sys.time()
-  # processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
+  end_time <- Sys.time()
+  processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
   return(
     list(
       dt = dt,
-      combined_summary = combined_summary
-      # processing_time = processing_time
+      combined_summary = combined_summary,
+      processing_time = processing_time
     )
   )
 }

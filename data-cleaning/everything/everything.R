@@ -122,11 +122,11 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
 # Load cached total rows file if available, saves ~10 seconds of runtime
 if (file.exists(total_rows_file())) {
   total_rows <- readRDS(total_rows_file())
-  print(paste("Total Rows via cached object:", total_rows))
+  cat(paste("Total Rows via cached object:", total_rows))
 } else {
   total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
   saveRDS(total_rows, file = total_rows_file())
-  print(paste("Total Rows via fread:", total_rows))
+  cat(paste("Total Rows via fread:", total_rows))
 }
 
 # Compute sample size when splitting and when not,
@@ -686,7 +686,7 @@ clean_clinical_columns <- function(dt) {
   dt[, clin_c1 := clin_c1_rvs_results$col]
   clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
 
-  # print(clin_c1_discarded_rvs)
+  # cat(clin_c1_discarded_rvs)
 
   clin_c2_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$clin_c2, rvs_icd9
@@ -695,7 +695,7 @@ clean_clinical_columns <- function(dt) {
   dt[, clin_c2 := clin_c2_rvs_results$col]
   clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
 
-  # print(clin_c2_discarded_rvs)
+  # cat(clin_c2_discarded_rvs)
 
   dt[, clin_rvs := lapply(clin_rvs, unique)]
 
@@ -812,7 +812,7 @@ process_chunk <- function(
   #' summary of the processing steps.
 
   if (to_view_checks) {
-    # print("Viewing checks")
+    # cat("Viewing checks")
   } else {
     sink(tempfile())
     on.exit(sink(), add = TRUE)
@@ -942,7 +942,7 @@ parallelize_and_summarize_data <- function(
   )
 
   if (length(invalid_pdx_indices) > 0) {
-    print(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
+    cat(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
     combined_summary$pdx_success <- FALSE
   } else {
     combined_summary$pdx_success <- TRUE
@@ -1029,7 +1029,7 @@ process_part <- function(
   #' @param to_group logical. Whether to group data for batch processing.
   #' @param dt_list list. List to store each processed dt.
   #' @return list. A list containing the processed data and summary.
-  # start_time <- Sys.time()
+  start_time <- Sys.time()
 
   # Read in the part and do initial processing
   dt <- read_part(part)
@@ -1047,16 +1047,16 @@ process_part <- function(
   # Writes out intermediate file if to_write is TRUE
   write_intermediate_file(to_write, part, dt)
 
-  # group_data(to_group, part, dt)
+  group_data(to_group, part, dt)
 
-  # end_time <- Sys.time()
-  # processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
+  end_time <- Sys.time()
+  processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
   return(
     list(
       dt = dt,
-      combined_summary = combined_summary
-      # processing_time = processing_time
+      combined_summary = combined_summary,
+      processing_time = processing_time
     )
   )
 }
@@ -1243,13 +1243,13 @@ read_and_save_partial <- function(start_row, end_row, part) {
   partial_file_path <- full_claims_file(part, fileext = TRUE)
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)
 
-  print(paste("Reading header from:", full_claims_file()))
-  print(paste("Partial file path:", partial_file_path))
-  print(paste("Start row:", start_row, "End row:", end_row))
+  cat(paste("Reading header from:", full_claims_file()))
+  cat(paste("Partial file path:", partial_file_path))
+  cat(paste("Start row:", start_row, "End row:", end_row))
 
   dt <- NULL
   if (!file.exists(partial_file_path)) {
-    print("Partial file does not exist. Creating partial file...")
+    cat("Partial file does not exist. Creating partial file...")
     dt <- fread(full_claims_file(),
       na.strings = na_values,
       colClasses = "character",
@@ -1258,15 +1258,15 @@ read_and_save_partial <- function(start_row, end_row, part) {
       header = FALSE
     )
     setnames(dt, colnames(header))
-    print(paste("Number of rows read:", nrow(dt)))
+    cat(paste("Number of rows read:", nrow(dt)))
     if (nrow(dt) > 0) {
-      print(paste("Writing partial file to:", partial_file_path))
+      cat(paste("Writing partial file to:", partial_file_path))
       fwrite(dt, partial_file_path, quote = TRUE)
     } else {
-      print("No rows to save")
+      cat("No rows to save")
     }
   } else {
-    print(paste(
+    cat(paste(
       "Partial file already exists. Skipping creation:",
       partial_file_path
     ))
@@ -1275,19 +1275,19 @@ read_and_save_partial <- function(start_row, end_row, part) {
 
   if (to_sample) {
     sampled_file_path <- sampled_claims_file(part)
-    print(paste("Sampled file path:", sampled_file_path))
+    cat(paste("Sampled file path:", sampled_file_path))
     if (!file.exists(sampled_file_path)) {
-      print("Sampled file does not exist. Creating new sample...")
+      cat("Sampled file does not exist. Creating new sample...")
       if (!is.null(dt) && nrow(dt) > 0) {
         sampled_dt <- sample_data(dt)
         setnames(sampled_dt, colnames(header))
-        print(paste("Writing sampled file to:", sampled_file_path))
+        cat(paste("Writing sampled file to:", sampled_file_path))
         fwrite(sampled_dt, sampled_file_path, quote = TRUE)
       } else {
         stop("Failed to read partial file or no rows available for sampling")
       }
     } else {
-      print(paste(
+      cat(paste(
         "Sampled file already exists. Skipping creation:",
         sampled_file_path
       ))
@@ -2101,21 +2101,21 @@ print_time_estimates <- function(dt, total_time, total_rows) {
   ))
 }
 
-print_status_update <- function(part, split_parts) { # , processing_times
+print_status_update <- function(part, split_parts, processing_times) { #
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
   #' @param part integer. The current part number.
   #' @param split_parts integer. Total number of parts.
   #' @param processing_times numeric. Array of processing times for each part.
-  # elapsed_time <- sum(processing_times[1:part])
-  # avg_time_per_part <- elapsed_time / part
-  # estimated_total_time <- avg_time_per_part * split_parts
-  # estimated_remaining_time <- estimated_total_time - elapsed_time
+  elapsed_time <- sum(processing_times[1:part])
+  avg_time_per_part <- elapsed_time / part
+  estimated_total_time <- avg_time_per_part * split_parts
+  estimated_remaining_time <- estimated_total_time - elapsed_time
   cat(sprintf(
     "Status Update: Finished processing part %d of %d\n",
     part, split_parts
   ))
-  # cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
+  cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
 }
 concatenate_r_files <- function(input_path, output_file) {
   #' @title Concatenate R Files

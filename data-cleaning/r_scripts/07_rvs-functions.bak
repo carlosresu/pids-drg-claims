@@ -82,10 +82,10 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
   invalid_matches <- lapply(matches, function(x) setdiff(x, valid_rvs_set))
   discarded_codes <- unlist(invalid_matches)
 
-  print(paste("Matches:", matches)) # Debugging print
-  print(paste("Valid RVS codes:", valid_rvs_codes)) # Debugging print
-  print(paste("Invalid matches:", invalid_matches)) # Debugging print
-  print(paste("Discarded codes:", discarded_codes)) # Debugging print
+  cat(paste("Matches:", matches)) # Debugging print
+  cat(paste("Valid RVS codes:", valid_rvs_codes)) # Debugging print
+  cat(paste("Invalid matches:", invalid_matches)) # Debugging print
+  cat(paste("Discarded codes:", discarded_codes)) # Debugging print
 
   if (length(discarded_codes) > 0) {
     discarded_table <- data.table(
