@@ -37,7 +37,7 @@ to_view_checks <- TRUE
 to_view_checks_parallelized <- FALSE
 # Whether to parallelize each split_parts part into availableCores() - 1 chunks
 # Cuts down processing time from 120min to 15min.
-to_parallelize <- TRUE
+to_parallelize <- FALSE
 
 # Sample size divisor:
 # Formula for sample size is total_rows / split_parts / sample_size_divisor
@@ -172,7 +172,7 @@ if (to_profvis) {
         intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
       )
       # Each chunk and chunk summary is then combined by combine_chunk_summaries
-      # chunks are rbound to dt, chunk summaries are returned as combined_summary
+      # chunks rbind to dt, chunk summaries are returned as combined_summary
       dt <- result$dt
       all_parts_summaries[[part]] <- result$combined_summary
 
@@ -204,8 +204,7 @@ if (to_profvis) {
   # save profvis object as html
   htmlwidgets::saveWidget(
     p,
-    file = here("git-ignored-files", "profvis", "profvis.html"),
-    selfcontained = TRUE
+    file = here("git-ignored-files", "profvis", "profvis.html")
   )
 } else {
   # Split file into split_parts parts to stay below 32gb RAM
@@ -224,7 +223,7 @@ if (to_profvis) {
       intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
     )
     # Each chunk and chunk summary is then combined by combine_chunk_summaries
-    # chunks are rbound to dt, chunk summaries are returned as combined_summary
+    # chunks rbind to dt, chunk summaries are returned as combined_summary
     dt <- result$dt
     all_parts_summaries[[part]] <- result$combined_summary
 
@@ -271,12 +270,13 @@ total_time <- toc_data$toc - toc_data$tic
 # Calculate how many rows were actually processed
 # Not just how many rows exist in the actual dataframe
 # TODO: rename total_rows to something else to avoid confusion
-
 if (to_sample) {
   total_rows <- nrow(dt) * split_parts * sample_size_divisor
 } else {
   total_rows <- nrow(dt) * split_parts
 }
+
+
 print_time_estimates(dt, total_time, total_rows)
 
 

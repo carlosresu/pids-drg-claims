@@ -119,8 +119,15 @@ find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
   }
 
   dt[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-  dt[, valid_matches := lapply(matches, function(x) x[vapply(x, exists, logical(1), envir = valid_rvs_env)])]
-  dt[, clin_rvs := lapply(seq_along(clin_rvs), function(i) unique(c(clin_rvs[[i]], dt$valid_matches[[i]])))]
+
+  # Use lapply for improved performance
+  dt[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+
+  dt[, clin_rvs := mapply(
+    function(rvs, matches) unique(c(rvs, matches)),
+    clin_rvs, valid_matches,
+    SIMPLIFY = FALSE
+  )]
 }
 
 # Function to remove 5-digit codes

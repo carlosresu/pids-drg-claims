@@ -735,95 +735,6 @@ clean_data <- function(dt) {
   ))
 }
 
-# process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
-#   #' @title Process a chunk of data
-#   #'
-#   #' @description This function processes a chunk of data by cleaning it,
-#   #' mapping RVS and ICD codes, replacing empty strings, and finding PDX codes.
-#   #'
-#   #' @param chunk data.table. The chunk of data to be processed.
-#   #' @param to_view_checks logical. Whether to view checks and print statements.
-#   #' @param rvs_icd9 data.table. The RVS to ICD-9 mapping data.
-#   #' @param tdrg_icd10 data.table. The Thai DRG ICD-10 mapping data.
-#   #' @param acc_pdx character. A vector of acceptable PDX codes.
-#   #'
-#   #' @return list. A list containing the processed chunk and a summary of the processing.
-
-#   if (to_view_checks) {
-#     # print("Viewing checks")
-#   } else {
-#     sink(tempfile())
-#     on.exit(sink(), add = TRUE)
-#   }
-
-#   clean_result <- clean_data(chunk)
-#   chunk <- clean_result$data
-
-#   summary <- list(
-#     rename_success = clean_result$rename_success,
-#     ICD_replacements_1 = clean_result$ICD_replacements_1,
-#     ICD_replacements_2 = clean_result$ICD_replacements_2,
-#     pat_type_unmapped = clean_result$pat_type_unmapped,
-#     memcat_parent_unmapped = clean_result$memcat_parent_unmapped,
-#     memcat_child_unmapped = clean_result$memcat_child_unmapped,
-#     discharge_unmapped = clean_result$discharge_unmapped,
-#     discard_rvs_one = clean_result$discard_rvs_one,
-#     discard_rvs_two = clean_result$discard_rvs_two,
-#     empty_strings_replaced_1 = clean_result$empty_strings_replaced_1
-#   )
-
-#   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
-#   chunk[, icd9_list := rvs_mapping_result$icd9_list]
-
-#   clin_c1 <- chunk$clin_c1
-#   clin_c2 <- chunk$clin_c2
-#   clin_icd <- chunk$clin_icd
-
-#   icd10_mapping_result <- implement_icd10_mapping(
-#     clin_c1, clin_c2, clin_icd, tdrg_icd10
-#   )
-#   chunk[, clin_c1 := icd10_mapping_result$clin_c1]
-#   chunk[, clin_c2 := icd10_mapping_result$clin_c2]
-#   chunk[, clin_icd := icd10_mapping_result$clin_icd]
-
-#   chunk_replace_result <- replace_empty_with_na(chunk, to_view_checks)
-#   chunk <- chunk_replace_result$data
-#   summary$empty_strings_replaced_2 <- chunk_replace_result$replacement_summary
-
-#   pdx_result <- apply_find_pdx(
-#     chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
-#   )
-#   chunk$pdx <- pdx_result$pdx
-#   chunk$pdx_code <- pdx_result$pdx_code
-
-#   # Ensure consistent lengths of clin_rvs and icd9_list
-#   clin_rvs_len <- lengths(chunk$clin_rvs)
-#   icd9_list_len <- lengths(chunk$icd9_list)
-
-#   max_len <- max(c(clin_rvs_len, icd9_list_len))
-#   chunk$clin_rvs <- lapply(chunk$clin_rvs, function(x) {
-#     length(x) <- max_len
-#     x
-#   })
-#   chunk$icd9_list <- lapply(chunk$icd9_list, function(x) {
-#     length(x) <- max_len
-#     x
-#   })
-
-#   summary$unique_icds <- icd10_mapping_result$unique_icds
-#   summary$direct_matches <- icd10_mapping_result$direct_matches
-#   summary$unmatched <- icd10_mapping_result$unmatched
-#   summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
-
-#   summary$rvss <- rvs_mapping_result$rvss
-#   summary$mappable_rvs <- rvs_mapping_result$mappable_rvs
-#   summary$unmappable_rvs <- rvs_mapping_result$unmappable_rvs
-#   summary$multi_mapped_rvs <- rvs_mapping_result$multi_mapped_rvs
-#   summary$without_drg <- rvs_mapping_result$without_drg
-
-#   return(list(chunk = chunk, summary = summary))
-# }
-
 process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   if (to_view_checks) {
     # print("Viewing checks")
@@ -1723,8 +1634,15 @@ find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
   }
 
   dt[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-  dt[, valid_matches := lapply(matches, function(x) x[vapply(x, exists, logical(1), envir = valid_rvs_env)])]
-  dt[, clin_rvs := lapply(seq_along(clin_rvs), function(i) unique(c(clin_rvs[[i]], dt$valid_matches[[i]])))]
+
+  # Use lapply for improved performance
+  dt[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+
+  dt[, clin_rvs := mapply(
+    function(rvs, matches) unique(c(rvs, matches)),
+    clin_rvs, valid_matches,
+    SIMPLIFY = FALSE
+  )]
 }
 
 # Function to remove 5-digit codes
@@ -1798,21 +1716,8 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   )
 }
 # Function to find the primary diagnosis (PDX) based on the provided logic
-find_pdx <- function(row, acc_pdx_env) {
-  #' Finds the likeliest primary diagnosis for a claim
-  #'
-  #' @param row A data frame row containing clinical codes
-  #' @param acc_pdx_env A hash environment of acceptable primary diagnosis codes
-  #' @return A list with the primary diagnosis code
-  #' and a code to denote how it was obtained
-
+find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
   check_similarity <- function(x, y) {
-    #' See how many starting letters the two strings have in common
-    #'
-    #' @param x A string (ICD-10 code)
-    #' @param y A string (ICD-10 code)
-    #' @return An integer score based on the number of matching starting letters
-
     score <- 0
     min_len <- min(nchar(x), nchar(y))
     for (i in 1:min_len) {
@@ -1824,7 +1729,7 @@ find_pdx <- function(row, acc_pdx_env) {
   }
 
   # Convert clin_icd to a character vector
-  clin_icd <- unlist(strsplit(row[["clin_icd"]], ","))
+  clin_icd <- unlist(strsplit(clin_icd, ","))
 
   # Get a list of all SDx that may be chosen as PDx
   pdxs <- unique(clin_icd)
@@ -1839,11 +1744,11 @@ find_pdx <- function(row, acc_pdx_env) {
 
   # If there are multiple eligible PDx,
   # see if any are related to the starting letters
-  for (cr in c("clin_c1", "clin_c2")) {
-    if (!is.na(row[[cr]])) {
-      if (exists(row[[cr]], acc_pdx_env)) { # If clin_c* is a valid ICD-10
+  for (cr in c(clin_c1, clin_c2)) {
+    if (!is.na(cr)) {
+      if (exists(cr, acc_pdx_env)) { # If clin_c* is a valid ICD-10
         # Get starting letter of clin_c*
-        starting_letter <- substr(row[[cr]], 1, 1)
+        starting_letter <- substr(cr, 1, 1)
         # List all valid ICD-10 codes with same starting letter
         starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
         # If there's only one similar eligible PDx, choose that
@@ -1854,10 +1759,7 @@ find_pdx <- function(row, acc_pdx_env) {
         if (length(starting_codes) > 1) {
           # Obtain the one that most resembles the case rate
           starting_codes <- starting_codes[
-            order(sapply(
-              starting_codes,
-              function(x) check_similarity(row[[cr]], x)
-            ), decreasing = TRUE)
+            order(sapply(starting_codes, function(x) check_similarity(cr, x)), decreasing = TRUE)
           ]
           return(list(pdx = starting_codes[1], pdx_code = 5))
         }
@@ -1875,16 +1777,6 @@ find_pdx <- function(row, acc_pdx_env) {
 
 # Function to apply find_pdx to a dataset
 apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  #' Apply find_pdx to a dataset
-  #'
-  #' @param clin_c1 A vector of clinical code 1
-  #' @param clin_c2 A vector of clinical code 2
-  #' @param clin_icd A list of clinical ICD codes
-  #' @param acc_pdx A vector of acceptable primary diagnosis codes
-  #' @return A list with vectors of primary diagnosis codes
-  #' and their corresponding codes
-
-  # Convert acc_pdx to a hash environment
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
@@ -1906,30 +1798,26 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
 
   # Batch check clin_c1 and clin_c2
   dt[
-    pdx == NA_character_ &
-      !is.na(clin_c1) &
-      exists_in_acc_pdx_env(clin_c1),
+    is.na(pdx) & !is.na(clin_c1) & exists_in_acc_pdx_env(clin_c1),
     `:=`(pdx = clin_c1, pdx_code = 1)
   ]
   dt[
-    pdx == NA_character_ &
-      !is.na(clin_c2) &
-      exists_in_acc_pdx_env(clin_c2),
+    is.na(pdx) & !is.na(clin_c2) & exists_in_acc_pdx_env(clin_c2),
     `:=`(pdx = clin_c2, pdx_code = 2)
   ]
 
   # Apply find_pdx function to remaining rows
   remaining_rows <- dt[is.na(pdx)]
   if (nrow(remaining_rows) > 0) {
-    pdx_results <- mapply(
-      find_pdx, split(remaining_rows, seq(nrow(remaining_rows))),
-      MoreArgs = list(acc_pdx_env = acc_pdx_env), SIMPLIFY = FALSE
-    )
-    remaining_rows[, `:=`(
-      pdx = sapply(pdx_results, function(x) x$pdx),
-      pdx_code = sapply(pdx_results, function(x) x$pdx_code)
-    )]
-    dt[is.na(pdx)] <- remaining_rows
+    pdx_results <- remaining_rows[,
+      {
+        result <- find_pdx(clin_c1, clin_c2, clin_icd, acc_pdx_env)
+        .(pdx = result$pdx, pdx_code = result$pdx_code)
+      },
+      by = .(row_id = .I)
+    ]
+
+    dt[remaining_rows$row_id, `:=`(pdx = pdx_results$pdx, pdx_code = pdx_results$pdx_code)]
   }
 
   return(list(pdx = dt$pdx, pdx_code = dt$pdx_code))
