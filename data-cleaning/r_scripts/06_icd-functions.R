@@ -259,33 +259,33 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @return list. A list containing the deduplicated clinical columns.
 
   # Convert lists to data.table for efficient processing
-  dt <- data.table(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
+  datatable <- data.table(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
 
   # Deduplicate each column
-  dt[, clin_c1 := lapply(clin_c1, unique)]
-  dt[, clin_c2 := lapply(clin_c2, unique)]
-  dt[, clin_icd := lapply(clin_icd, unique)]
+  datatable[, clin_c1 := lapply(clin_c1, unique)]
+  datatable[, clin_c2 := lapply(clin_c2, unique)]
+  datatable[, clin_icd := lapply(clin_icd, unique)]
 
   # Remove entries in clin_icd that are in clin_c1 or clin_c2
-  dt[, clin_icd := Map(function(c1, c2, icd) {
+  datatable[, clin_icd := Map(function(c1, c2, icd) {
     setdiff(icd, union(c1, c2))
   }, clin_c1, clin_c2, clin_icd)]
 
   # Remove entries in clin_c1 that are in clin_c2
-  dt[, clin_c1 := Map(function(c1, c2) {
+  datatable[, clin_c1 := Map(function(c1, c2) {
     setdiff(c1, c2)
   }, clin_c1, clin_c2)]
 
   # Remove entries in clin_c2 that are in clin_c1
-  dt[, clin_c2 := Map(function(c1, c2) {
+  datatable[, clin_c2 := Map(function(c1, c2) {
     setdiff(c2, c1)
   }, clin_c1, clin_c2)]
 
   return(
     list(
-      clin_c1 = dt$clin_c1,
-      clin_c2 = dt$clin_c2,
-      clin_icd = dt$clin_icd
+      clin_c1 = datatable$clin_c1,
+      clin_c2 = datatable$clin_c2,
+      clin_icd = datatable$clin_icd
     )
   )
 }

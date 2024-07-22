@@ -29,7 +29,7 @@ to_group <- TRUE
 
 # Debug:
 # Conduct runtime duration analysis via profvis or not
-to_profvis <- TRUE
+to_profvis <- FALSE
 # Whether to view checks and print statements
 to_view_checks <- TRUE
 # Whether to view intermediate per part/chunk checks and print statements
@@ -37,7 +37,7 @@ to_view_checks <- TRUE
 to_view_checks_parallelized <- FALSE
 # Whether to parallelize each split_parts part into availableCores() - 1 chunks
 # Cuts down processing time from 120min to 15min.
-to_parallelize <- FALSE
+to_parallelize <- TRUE
 
 # Sample size divisor:
 # Formula for sample size is total_rows / split_parts / sample_size_divisor
@@ -164,7 +164,7 @@ if (to_profvis) {
       start_time <- Sys.time()
       # Read in the part and do initial processing
       # such as col dropping, type casting, and sampling
-      dt <- read_and_process_part(part)
+      dt <- read_part(part)
       # Main script parallelization call, mostly calls process_chunk
       # on each chunk
       result <- parallelize_and_summarize_data(
@@ -215,7 +215,7 @@ if (to_profvis) {
     start_time <- Sys.time()
     # Read in the part and do initial processing
     # such as col dropping, type casting, and sampling
-    dt <- read_and_process_part(part)
+    dt <- read_part(part)
     # Main script parallelization call, mostly calls process_chunk
     # on each chunk
     result <- parallelize_and_summarize_data(

@@ -92,7 +92,7 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
   }
 
-  dt <- data.table(
+  datatable <- data.table(
     clin_c1 = clin_c1,
     clin_c2 = clin_c2,
     clin_icd = clin_icd
@@ -139,9 +139,9 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
     return(list(pdx = pdx, pdx_code = pdx_code))
   }
 
-  pdx_results <- find_pdx_vectorized(dt$clin_c1, dt$clin_c2, dt$clin_icd)
-  dt[, pdx := pdx_results$pdx]
-  dt[, pdx_code := pdx_results$pdx_code]
+  pdx_results <- find_pdx_vectorized(datatable$clin_c1, datatable$clin_c2, datatable$clin_icd)
+  datatable[, pdx := pdx_results$pdx]
+  datatable[, pdx_code := pdx_results$pdx_code]
 
-  return(list(pdx = dt$pdx, pdx_code = dt$pdx_code))
+  return(list(pdx = datatable$pdx, pdx_code = datatable$pdx_code))
 }

@@ -95,25 +95,25 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
 }
 
 # Function to find and append valid RVS codes
-find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
+find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
   #' @title Find and append valid RVS codes
   #'
   #' @description This function finds and appends valid
   #' RVS codes to the provided data table.
   #'
-  #' @param dt data.table The input data table.
+  #' @param datatable data.table The input data table.
   #' @param valid_rvs_codes character The list of valid RVS codes.
 
   regex_5_digit <- "\\b\\d{5}\\b"
   valid_rvs_set <- unique(valid_rvs_codes)
-  dt[
+  datatable[
     ,
     matches := lapply(
       regmatches(col, gregexpr(regex_5_digit, col)),
       function(x) x[x %in% valid_rvs_set]
     )
   ]
-  dt[
+  datatable[
     ,
     clin_rvs := mapply(
       function(rvs, matches) unique(c(rvs, matches)),
@@ -177,15 +177,15 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   #' @return list A list containing updated clinical RVS codes,
   #' the modified column, and a table of discarded invalid RVS codes.
 
-  dt <- data.table(clin_rvs = clin_rvs, col = col)
+  datatable <- data.table(clin_rvs = clin_rvs, col = col)
   valid_rvs_codes <- rvs_icd9$rvs
-  find_and_append_valid_rvs(dt, valid_rvs_codes)
-  dt[, col := remove_5_digit_codes(col)]
-  discarded_rvs <- warn_invalid_rvs(dt$matches, valid_rvs_codes)
+  find_and_append_valid_rvs(datatable, valid_rvs_codes)
+  datatable[, col := remove_5_digit_codes(col)]
+  discarded_rvs <- warn_invalid_rvs(datatable$matches, valid_rvs_codes)
   return(
     list(
-      clin_rvs = dt$clin_rvs,
-      col = dt$col,
+      clin_rvs = datatable$clin_rvs,
+      col = datatable$col,
       discarded_rvs = discarded_rvs
     )
   )
