@@ -1,13 +1,15 @@
 clean_data <- function(dt) {
   #' @title Clean and preprocess the data table
   #'
-  #' @description This function performs various cleaning and preprocessing steps
-  #' on the input data table, including renaming columns, collapsing columns,
-  #' cleaning specific columns, and remapping certain categorical variables.
+  #' @description This function performs various cleaning and
+  #' preprocessing steps on the input data table, including
+  #' renaming columns, collapsing columns, cleaning specific columns,
+  #' and remapping certain categorical variables.
   #'
   #' @param dt data.table. The data table to be cleaned and preprocessed.
   #'
-  #' @return list. A list containing the cleaned data table and various summary information.
+  #' @return list. A list containing the cleaned data table and
+  #' various summary information.
 
   # Add year column
   dt[, SRC_YR := as.integer(year_to_load)]
@@ -43,7 +45,8 @@ clean_data <- function(dt) {
   dt[, clin_icd := split_to_vector(clin_icd)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
 
-  # Ensure clean_column function and na_like_strings are correctly defined and applied
+  # Ensure clean_column function and na_like_strings are
+  # correctly defined and applied
   dt[, clin_c1_orig := dt$clin_c1]
   dt[, clin_c1 := clean_column(clin_c1, na_like_strings)] # Clean clin_c1
 
@@ -174,7 +177,26 @@ clean_data <- function(dt) {
   ))
 }
 
-process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
+process_chunk <- function(
+    chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
+  #' @title Process and map clinical data chunk
+  #'
+  #' @description This function processes a data chunk by cleaning
+  #' the data, mapping ICD codes, replacing empty strings with NA,
+  #' and applying primary diagnosis logic. It returns the processed
+  #' chunk along with a summary of the processing steps.
+  #'
+  #' @param chunk data.table The input data chunk containing clinical
+  #' data to be processed.
+  #' @param to_view_checks logical If TRUE, enables viewing checks for
+  #' debugging. If FALSE, suppresses output.
+  #' @param rvs_icd9 data.frame Mapping data for RVS to ICD-9 codes.
+  #' @param tdrg_icd10 data.frame Mapping data for ICD-10 codes.
+  #' @param acc_pdx data.frame Data for primary diagnosis (PDX) application.
+  #'
+  #' @return list A list containing the processed data chunk and a
+  #' summary of the processing steps.
+
   if (to_view_checks) {
     # print("Viewing checks")
   } else {
@@ -250,6 +272,7 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   return(list(chunk = chunk, summary = summary))
 }
 
+
 split_and_save_parts <- function() {
   #' @title Split and save parts of the data
   #'
@@ -277,7 +300,7 @@ split_and_save_parts <- function() {
   }
 }
 
-read_and_process_part <- function(part) {
+read_part <- function(part) {
   #' @title Read and process a part of the data
   #'
   #' @description This function reads and processes a part
@@ -311,8 +334,9 @@ parallelize_and_summarize_data <- function(
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
   #' @title Parallelize and summarize data processing
   #'
-  #' @description This function parallelizes the data processing across multiple cores
-  #' and summarizes the results.
+  #' @description This function parallelizes the data processing
+  #' across multiple cores and summarizes the results.
+  #'
   #' Main processing step; calls process_chunk
   #' with or without parallelization
   #' Process chunk does (per chunk):
@@ -369,7 +393,10 @@ parallelize_and_summarize_data <- function(
 
   # Find the indices of invalid PDX codes, ignoring NAs
   invalid_pdx_indices <- which(
-    !is.na(dt$pdx) & dt$pdx != "" & !sapply(dt$pdx, function(x) exists(x, acc_pdx_env))
+    !is.na(dt$pdx) & dt$pdx != "" & !sapply(
+      dt$pdx,
+      function(x) exists(x, acc_pdx_env)
+    )
   )
 
   # Check if there are any invalid PDX codes
@@ -393,12 +420,14 @@ parallelize_and_summarize_data <- function(
 group_data <- function(to_group, part, dt) {
   #' @title Group data for batch processing
   #'
-  #' @description This function groups the data for batch processing and exports it for the batch grouper.
+  #' @description This function groups the data for batch processing
+  #' and exports it for the batch grouper.
   #'
   #' @param part integer. The part number of the data being processed.
   #' @param dt data.table. The data table to be grouped.
   #'
-  #' @return NULL. The function is used for its side effect of grouping and exporting the data.
+  #' @return NULL. The function is used for its side effect of
+  #' grouping and exporting the data.
 
   if (to_group) {
     export_for_batch_grouper(
@@ -426,7 +455,8 @@ write_intermediate_file <- function(to_write, part, dt) {
   #' @param part integer. The part number of the data being processed.
   #' @param dt data.table. The data table to be written.
   #'
-  #' @return NULL. The function is used for its side effect of writing the data table to a file.
+  #' @return NULL. The function is used for its side effect of
+  #' writing the data table to a file.
 
   if (to_write) {
     fwrite(dt, intermediate_file(part, fileext = TRUE))

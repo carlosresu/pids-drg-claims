@@ -16,8 +16,10 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   #' @description This function generates the file path for storing/retrieving
   #' the total number of rows in a claims file, based on the year and part.
   #'
-  #' @param part Integer. The part number of the file. Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension. Default is TRUE.
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
@@ -52,16 +54,20 @@ if (to_split) {
   sample_size <- ceiling(total_rows / sample_size_divisor)
 }
 
-suffix <- paste0(ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_"))
+suffix <- paste0(
+  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
+)
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the full claims file
   #'
-  #' @description This function generates the file path for the full claims file,
-  #' based on the year and part.
+  #' @description This function generates the file path for the
+  #' full claims file, based on the year and part.
   #'
-  #' @param part Integer. The part number of the file. Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension. Default is TRUE.
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
@@ -82,11 +88,13 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the sampled claims file
   #'
-  #' @description This function generates the file path for the sampled claims file,
-  #' based on the year, sample size, and part.
+  #' @description This function generates the file path for the sampled
+  #' claims file, based on the year, sample size, and part.
   #'
-  #' @param part Integer. The part number of the file. Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension. Default is TRUE.
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
@@ -109,11 +117,13 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
 intermediate_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the intermediate claims file
   #'
-  #' @description This function generates the file path for the intermediate claims file,
-  #' based on the year, suffix, and part.
+  #' @description This function generates the file path for the
+  #' intermediate claims file, based on the year, suffix, and part.
   #'
-  #' @param part Integer. The part number of the file. Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension. Default is TRUE.
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
@@ -133,11 +143,13 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
 cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the cleaned claims file
   #'
-  #' @description This function generates the file path for the cleaned claims file,
-  #' based on the year, suffix, and part.
+  #' @description This function generates the file path for the cleaned
+  #' claims file, based on the year, suffix, and part.
   #'
-  #' @param part Integer. The part number of the file. Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension. Default is TRUE.
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
@@ -160,8 +172,10 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   #' @description This function generates the file path for the output text file
   #' for DRG grouping, based on the year, suffix, and part.
   #'
-  #' @param part Integer. The part number of the file. Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension. Default is TRUE.
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
@@ -181,11 +195,13 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
 grouper_result_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the grouper result file
   #'
-  #' @description This function generates the file path for the grouper result file,
-  #' based on the year, suffix, and part.
+  #' @description This function generates the file path for the
+  #' grouper result file, based on the year, suffix, and part.
   #'
-  #' @param part Integer. The part number of the file. Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension. Default is TRUE.
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {

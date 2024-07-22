@@ -2,7 +2,8 @@
 generate_dob <- function(bdays, ages, date_adms) {
   #' @title Generate Date of Birth Vectorized
   #'
-  #' @description This function generates a vector of dates of birth (DOB) based on birthdates, ages, and admission dates.
+  #' @description This function generates a vector of dates of birth
+  #' (DOB) based on birthdates, ages, and admission dates.
   #'
   #' @param bdays character. A vector of birthdates in string format.
   #' @param ages numeric. A vector of ages.
@@ -29,7 +30,8 @@ generate_dob <- function(bdays, ages, date_adms) {
   ref_dates <- mdy(date_adms[missing_bday_indices])
 
   # Handle cases where ages are zero:
-  # For age 0, generate a random date within the past 27 days from the admission date.
+  # For age 0, generate a random date within the past 27 days
+  # from the admission date.
   zero_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
   )
@@ -43,7 +45,8 @@ generate_dob <- function(bdays, ages, date_adms) {
   )
 
   # Handle cases where ages are positive:
-  # For positive ages, subtract the truncated age in years and a random number of days (up to 170) from the admission date.
+  # For positive ages, subtract the truncated age in years and a random
+  # number of days (up to 170) from the admission date.
   positive_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0
   )
@@ -69,7 +72,8 @@ generate_dob <- function(bdays, ages, date_adms) {
 prepare_and_write_output <- function(output_dt, output_txt_file) {
   #' @title Prepare and Write Output
   #'
-  #' @description This function prepares and writes a data table to a file, converting list columns to comma-separated strings.
+  #' @description This function prepares and writes a data table to a file,
+  #' converting list columns to comma-separated strings.
   #'
   #' @param output_dt data.table. The output data table.
   #' @param output_txt_file character. The path to the output text file.
@@ -92,7 +96,8 @@ prepare_and_write_output <- function(output_dt, output_txt_file) {
 export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   #' @title Export Data for Batch Grouper
   #'
-  #' @description This function exports data for batch grouper, generating necessary columns and formatting them accordingly.
+  #' @description This function exports data for batch grouper,
+  #' generating necessary columns and formatting them accordingly.
   #'
   #' @param dt data.table. The input data table.
   #' @param year_to_load integer. The year to load.

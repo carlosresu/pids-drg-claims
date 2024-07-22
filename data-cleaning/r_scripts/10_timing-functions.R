@@ -2,7 +2,8 @@
 print_time_estimates <- function(dt, total_time, total_rows) {
   #' @title Print Time Estimates
   #'
-  #' @description This function prints time estimates for processing rows in a data table.
+  #' @description This function prints time estimates for 
+  #' processing rows in a data table.
   #'
   #' @param dt data.table. The input data table.
   #' @param total_time numeric. The total time spent processing.

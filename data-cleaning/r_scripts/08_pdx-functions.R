@@ -1,5 +1,18 @@
 # Function to find the primary diagnosis (PDX) based on the provided logic
 find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
+  #' @title Find primary diagnosis (PDX)
+  #'
+  #' @description This function finds the primary diagnosis (PDX) based
+  #' on the provided clinical codes and acceptable PDX environment.
+  #'
+  #' @param clin_c1 character The first clinical code.
+  #' @param clin_c2 character The second clinical code.
+  #' @param clin_icd list The list of clinical ICD codes.
+  #' @param acc_pdx_env environment The environment containing
+  #' acceptable PDX codes.
+  #'
+  #' @return list A list containing the PDX and PDX code.
+
   check_similarity <- function(x, y) {
     score <- 0
     min_len <- min(nchar(x), nchar(y))
@@ -41,7 +54,10 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
         if (length(starting_codes) > 1) {
           # Obtain the one that most resembles the case rate
           starting_codes <- starting_codes[
-            order(sapply(starting_codes, function(x) check_similarity(cr, x)), decreasing = TRUE)
+            order(sapply(
+              starting_codes,
+              function(x) check_similarity(cr, x)
+            ), decreasing = TRUE)
           ]
           return(list(pdx = starting_codes[1], pdx_code = 5))
         }
@@ -58,6 +74,19 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
 }
 
 apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+  #' @title Apply find PDX
+  #'
+  #' @description This function applies the find PDX logic
+  #' to a set of clinical codes and acceptable PDX codes.
+  #'
+  #' @param clin_c1 list The list of first clinical codes.
+  #' @param clin_c2 list The list of second clinical codes.
+  #' @param clin_icd list The list of clinical ICD codes.
+  #' @param acc_pdx character The list of acceptable PDX codes.
+  #'
+  #' @return list A list containing the PDX and PDX codes
+  #' for the input clinical codes.
+
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
@@ -72,9 +101,15 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   # Vectorized application of find_pdx function
   find_pdx_vectorized <- function(clin_c1, clin_c2, clin_icd) {
     # Convert lists to characters for easy handling
-    clin_c1_char <- sapply(clin_c1, function(x) if (is.null(x)) NA_character_ else x)
-    clin_c2_char <- sapply(clin_c2, function(x) if (is.null(x)) NA_character_ else x)
-    clin_icd_char <- sapply(clin_icd, function(x) paste(x, collapse = ","))
+    clin_c1_char <- sapply(
+      clin_c1, function(x) if (is.null(x)) NA_character_ else x
+    )
+    clin_c2_char <- sapply(
+      clin_c2, function(x) if (is.null(x)) NA_character_ else x
+    )
+    clin_icd_char <- sapply(
+      clin_icd, function(x) paste(x, collapse = ",")
+    )
 
     # Initialize result vectors
     pdx <- rep(NA_character_, length(clin_c1))
@@ -94,7 +129,9 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
     # Apply find_pdx function to remaining rows
     remaining_indices <- which(is.na(pdx))
     for (i in remaining_indices) {
-      result <- find_pdx(clin_c1_char[i], clin_c2_char[i], clin_icd_char[i], acc_pdx_env)
+      result <- find_pdx(
+        clin_c1_char[i], clin_c2_char[i], clin_icd_char[i], acc_pdx_env
+      )
       pdx[i] <- result$pdx
       pdx_code[i] <- result$pdx_code
     }

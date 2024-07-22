@@ -2,11 +2,12 @@
 handle_sampling <- function(dt = NULL, part) {
   #' @title Handle Sampling
   #'
-  #' @description This function handles the sampling of data. If a sampled file exists,
-  #' it reads the file and checks if the number of rows matches the sample size.
-  #' If not, it resamples the data.
+  #' @description This function handles the sampling of data.
+  #' If a sampled file exists, it reads the file and checks if
+  #' the number of rows matches the sample size. If not, it resamples the data.
   #'
-  #' @param dt data.table. The data table to be sampled. Default is NULL.
+  #' @param dt data.table. The data table to be sampled.
+  #' Default is NULL.
   #' @param part integer. The part number of the file.
   #'
   #' @return data.table. The sampled data table.
@@ -28,8 +29,8 @@ handle_sampling <- function(dt = NULL, part) {
 resample_data <- function(part) {
   #' @title Resample Data
   #'
-  #' @description This function resamples the data from the full claims file and writes
-  #' the sampled data to a new file.
+  #' @description This function resamples the data from the full
+  #' claims file and writes the sampled data to a new file.
   #'
   #' @param part integer. The part number of the file.
   #'
@@ -49,11 +50,13 @@ resample_data <- function(part) {
 read_entire_file <- function(file, initial_read = TRUE) {
   #' @title Read Entire File
   #'
-  #' @description This function reads the entire file with all columns. It handles
-  #' the initial read to get the header and then reads the data based on the header.
+  #' @description This function reads the entire file with all
+  #' columns. It handles the initial read to get the header and
+  #' then reads the data based on the header.
   #'
   #' @param file character. The file path to read.
-  #' @param initial_read logical. Whether this is the initial read to get the header. Default is TRUE.
+  #' @param initial_read logical. Whether this is the initial
+  #' read to get the header. Default is TRUE.
   #'
   #' @return data.table. The data table read from the file.
 
@@ -88,8 +91,8 @@ read_entire_file <- function(file, initial_read = TRUE) {
 read_sampled_file <- function(file) {
   #' @title Read Sampled File
   #'
-  #' @description This function reads the sampled file with the header and handles
-  #' the data based on the specified column classes.
+  #' @description This function reads the sampled file with the
+  #' header and handles the data based on the specified column classes.
   #'
   #' @param file character. The file path to read.
   #'
@@ -134,7 +137,8 @@ main_read_function <- function(file = NA) {
   #'
   #' @description This function reads and processes chunks of data from a file.
   #'
-  #' @param file character. The file path to read. Default is NA.
+  #' @param file character. The file path to read.
+  #' Default is NA.
   #'
   #' @return data.table. The processed data table.
 
@@ -149,7 +153,8 @@ main_read_function <- function(file = NA) {
     } else if (to_sample) {
       dt <- handle_sampling()
     } else {
-      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE. At least one must be TRUE.")
+      stop("Cannot proceed: to_read is FALSE and to_sample is FALSE.
+      At least one must be TRUE.")
     }
   } else {
     dt <- read_entire_file(file, initial_read = is_partial_file(part))
@@ -162,13 +167,15 @@ main_read_function <- function(file = NA) {
 read_and_save_partial <- function(start_row, end_row, part) {
   #' @title Read and Save Partial Files
   #'
-  #' @description This function reads and saves partial files from the full claims file.
+  #' @description This function reads and saves partial files
+  #' from the full claims file.
   #'
   #' @param start_row integer. The starting row number.
   #' @param end_row integer. The ending row number.
   #' @param part integer. The part number of the file.
   #'
-  #' @return NULL. The function is used for its side effect of reading and saving partial files.
+  #' @return NULL. The function is used for its side effect of
+  #' reading and saving partial files.
 
   partial_file_path <- full_claims_file(part, fileext = TRUE)
   header <- fread(full_claims_file(), nrows = 1, header = TRUE)

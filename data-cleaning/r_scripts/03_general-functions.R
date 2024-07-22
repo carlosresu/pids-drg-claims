@@ -54,9 +54,11 @@ replace_empty_with_na <- function(dt, to_view_checks) {
   #' Optionally provides a summary of replacements.
   #'
   #' @param dt data.table. The data table to be processed.
-  #' @param to_view_checks logical. Whether to provide a summary of replacements.
+  #' @param to_view_checks logical. Whether to provide a
+  #' summary of replacements.
   #'
-  #' @return list. A list containing the processed data table and the replacement summary.
+  #' @return list. A list containing the processed data table
+  #' and the replacement summary.
   char_factor_cols <- names(dt)[sapply(
     dt,
     function(col) is.character(col) || is.factor(col) || is.list(col)
@@ -140,7 +142,8 @@ remap_patient_type <- function(pat_type) {
   #'
   #' @param pat_type character. The patient type column.
   #'
-  #' @return list. A list containing the remapped patient types and the unknown types.
+  #' @return list. A list containing the remapped patient types
+  #' and the unknown types.
   known_types <- c("MEMBER", "DEPENDENT")
   remapped_pat_type <- fcase(
     pat_type == "MEMBER", "MEM",
@@ -159,9 +162,11 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
   #' @description This function remaps member category parent descriptions
   #' to standardized codes and identifies any unknown parents.
   #'
-  #' @param pat_memcat_parent character. The member category parent description column.
+  #' @param pat_memcat_parent character. The member category parent
+  #' description column.
   #'
-  #' @return list. A list containing the remapped parent descriptions and the unknown parents.
+  #' @return list. A list containing the remapped parent descriptions
+  #' and the unknown parents.
   known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
   remapped_memcat_parent <- fcase(
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
@@ -180,9 +185,11 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
   #' @description This function remaps member category child descriptions
   #' to standardized codes and identifies any unknown children.
   #'
-  #' @param pat_memcat_child character. The member category child description column.
+  #' @param pat_memcat_child character. The member category child
+  #' description column.
   #'
-  #' @return list. A list containing the remapped child descriptions and the unknown children.
+  #' @return list. A list containing the remapped child descriptions
+  #' and the unknown children.
   known_children <- c(
     "EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "SENIOR CITIZEN", "INDIGENT",
     "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
@@ -227,7 +234,8 @@ remap_disposition <- function(clin_discharge) {
   #'
   #' @param clin_discharge character. The clinical discharge disposition column.
   #'
-  #' @return list. A list containing the remapped discharge dispositions and the unknown dispositions.
+  #' @return list. A list containing the remapped discharge dispositions
+  #' and the unknown dispositions.
   known_dispositions <- c(
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
     "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED"
@@ -251,7 +259,8 @@ remap_disposition <- function(clin_discharge) {
 is_partial_file <- function(filename) {
   #' @title Check if a file is a partial file
   #'
-  #' @description This function checks if a given filename indicates a partial file.
+  #' @description This function checks if a given filename indicates
+  #' a partial file.
   #'
   #' @param filename character. The name of the file.
   #'
@@ -267,6 +276,7 @@ suppress_interim_output <- function(expr) {
   #'
   #' @param expr expression. The expression whose output is to be suppressed.
   #'
-  #' @return NULL. The function is used for its side effect of suppressing output.
+  #' @return NULL. The function is used for its side effect of
+  #' suppressing output.
   suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
 }

@@ -17,12 +17,14 @@ remove_lumped_icd_codes <- function(column) {
 transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
   #' @title Transfer Extra ICD-10 Codes to Clinical ICD
   #'
-  #' @description This function transfers extra ICD-10 codes from a column to the clinical ICD.
+  #' @description This function transfers extra ICD-10 codes from
+  #' a column to the clinical ICD.
   #'
   #' @param clin_icd list. The clinical ICD codes.
   #' @param col list. The column containing extra ICD-10 codes.
   #'
-  #' @return list. A list containing updated clinical ICD and the first code of the column.
+  #' @return list. A list containing updated clinical ICD and the
+  #' first code of the column.
 
   clin_icd <- lapply(clin_icd, function(x) if (is.null(x)) character() else x)
   col_first <- lapply(col, function(x) x[1])
@@ -38,7 +40,8 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
 get_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @title Get Unique ICD Codes
   #'
-  #' @description This function retrieves unique ICD codes from the given columns.
+  #' @description This function retrieves unique ICD codes from
+  #' the given columns.
   #'
   #' @param clin_c1 list. The clinical column 1 ICD codes.
   #' @param clin_c2 list. The clinical column 2 ICD codes.
@@ -71,7 +74,8 @@ create_thai_icd10_environment <- function(thai_icd10_codes) {
 find_direct_icd_matches <- function(icds, thai_icd10_env) {
   #' @title Find Direct ICD Matches
   #'
-  #' @description This function finds direct matches for ICD codes in the Thai ICD-10 environment.
+  #' @description This function finds direct matches for ICD codes
+  #' in the Thai ICD-10 environment.
   #'
   #' @param icds character. The ICD codes to be matched.
   #' @param thai_icd10_env environment. The environment with Thai ICD-10 codes.
@@ -92,13 +96,15 @@ find_direct_icd_matches <- function(icds, thai_icd10_env) {
 generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
   #' @title Generate ICD-10 Mapping
   #'
-  #' @description This function generates a mapping of ICD-10 codes based on the Thai ICD-10 environment.
+  #' @description This function generates a mapping of ICD-10 codes
+  #' based on the Thai ICD-10 environment.
   #'
   #' @param icds character. The ICD codes to be mapped.
   #' @param thai_icd10_env environment. The environment with Thai ICD-10 codes.
   #' @param neoplasms_env environment. The environment with neoplasm ICD codes.
   #'
-  #' @return list. A list containing the ICD mapping and the count of modified codes.
+  #' @return list. A list containing the ICD mapping and the count of
+  #' modified codes.
 
   icd_mapping <- list()
   modified_count <- 0
@@ -131,7 +137,8 @@ apply_icd10_mapping_to_columns <- function(
     clin_c1, clin_c2, clin_icd, icd10_env) {
   #' @title Apply ICD-10 Mapping to Columns
   #'
-  #' @description This function maps ICD-10 codes to the given columns using the provided environment.
+  #' @description This function maps ICD-10 codes to the given columns
+  #' using the provided environment.
   #'
   #' @param clin_c1 list. The clinical column 1 ICD codes.
   #' @param clin_c2 list. The clinical column 2 ICD codes.
@@ -162,14 +169,16 @@ apply_icd10_mapping_to_columns <- function(
 implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
   #' @title Implement ICD-10 Mapping
   #'
-  #' @description This function implements the ICD-10 mapping for the given clinical columns.
+  #' @description This function implements the ICD-10 mapping
+  #' for the given clinical columns.
   #'
   #' @param clin_c1 list. The clinical column 1 ICD codes.
   #' @param clin_c2 list. The clinical column 2 ICD codes.
   #' @param clin_icd list. The clinical ICD codes.
   #' @param tdrg_icd10 data.table. The table with Thai ICD-10 codes.
   #'
-  #' @return list. A list containing the mapped clinical columns and related information.
+  #' @return list. A list containing the mapped clinical columns
+  #' and related information.
 
   icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
 
@@ -240,7 +249,8 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
 ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @title Ensure Unique ICD Codes
   #'
-  #' @description This function ensures that ICD codes are unique within and across clinical columns.
+  #' @description This function ensures that ICD codes are unique
+  #' within and across clinical columns.
   #'
   #' @param clin_c1 list. The clinical column 1 ICD codes.
   #' @param clin_c2 list. The clinical column 2 ICD codes.
