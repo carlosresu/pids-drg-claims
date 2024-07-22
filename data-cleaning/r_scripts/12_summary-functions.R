@@ -205,6 +205,8 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   } else {
     cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
   }
+
+  cat("\n\nAll PDx's are in list of acceptable PDx's:\n", summary$final_rename_success, "\n\n")
 }
 
 combine_comparison_tables <- function(
@@ -426,7 +428,11 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
     without_drg = unique(na.omit(unlist(lapply(
       summaries,
       function(summary) summary$without_drg
-    ))))
+    )))),
+    pdx_success = all(unlist(sapply(
+      summaries,
+      function(summary) summary$pdx_success
+    )), na.rm = TRUE)
   )
 
   return(combined_summary)
@@ -515,7 +521,11 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
     final_without_drg = length(unique(na.omit(unlist(lapply(
       combined_summary,
       function(summary) summary$without_drg
-    )))))
+    ))))),
+    final_pdx_success = all(unlist(sapply(
+      combined_summary,
+      function(summary) summary$pdx_success
+    )), na.rm = TRUE)
   )
 
   return(final_combined_summaries)

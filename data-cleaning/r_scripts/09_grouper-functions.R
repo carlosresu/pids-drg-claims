@@ -1,5 +1,5 @@
 # Function to generate date of birth (DOB) vectorized
-generate_dob_vectorized <- function(bdays, ages, date_adms) {
+generate_dob <- function(bdays, ages, date_adms) {
   #' @title Generate Date of Birth Vectorized
   #'
   #' @description This function generates a vector of dates of birth (DOB) based on birthdates, ages, and admission dates.
@@ -28,7 +28,8 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   missing_bday_indices <- which(is.na(bdays) | bdays == "")
   ref_dates <- mdy(date_adms[missing_bday_indices])
 
-  # Handle cases where ages are zero
+  # Handle cases where ages are zero:
+  # For age 0, generate a random date within the past 27 days from the admission date.
   zero_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
   )
@@ -41,7 +42,8 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
     ), "%d/%m/%Y"
   )
 
-  # Handle cases where ages are positive
+  # Handle cases where ages are positive:
+  # For positive ages, subtract the truncated age in years and a random number of days (up to 170) from the admission date.
   positive_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0
   )
@@ -53,6 +55,12 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
       sample(1:170, length(positive_age_indices), replace = TRUE)
     ), "%d/%m/%Y"
   )
+
+  # Check that all years for dates are above 1900
+  # years <- year(mdy(dob))
+  # if (any(years < 1900)) {
+  #   stop("Generated dates have years below 1900")
+  # }
 
   return(dob)
 }
@@ -93,7 +101,7 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   #' @return NULL.
 
   output_dt <- data.table(CASEID = 1:nrow(dt))
-  output_dt[, DOB := generate_dob_vectorized(dt$pat_bdate, dt$pat_age, dt$date_adm)]
+  output_dt[, DOB := generate_dob(dt$pat_bdate, dt$pat_age, dt$date_adm)]
   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
   output_dt[, DateAdm := format(mdy(dt$date_adm), "%d/%m/%Y")]
   output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]

@@ -323,6 +323,16 @@ parallelize_and_summarize_data <- function(
   #'
   #' @description This function parallelizes the data processing across multiple cores
   #' and summarizes the results.
+  #' Main processing step; calls process_chunk
+  #' with or without parallelization
+  #' Process chunk does (per chunk):
+  #' 1. Clean data
+  #' 2. Maps RVS
+  #' 3. Maps ICD
+  #' 4. Replaces empty strings
+  #' 5. Finds PDXs
+  #' 6. Returns chunk and chunk summaries
+
   #'
   #' @param dt data.table. The data table to be processed.
   #' @param num_cores integer. The number of cores to use for parallel processing.
@@ -373,6 +383,21 @@ parallelize_and_summarize_data <- function(
   combined_summary <- combine_chunk_summaries(
     parallel_results, intermediate_rows_to_show
   )
+
+  # Find the indices of invalid PDX codes, ignoring NAs
+  invalid_pdx_indices <- which(!is.na(dt$pdx) & !dt$pdx == "" & !dt$pdx %in% acc_pdx)
+
+  # Check if there are any invalid PDX codes
+  if (length(invalid_pdx_indices) > 0) {
+    # Print the invalid PDX codes
+    print(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
+
+    # Set pdx_success to FALSE
+    combined_summary$pdx_success <- FALSE
+  } else {
+    # Set pdx_success to TRUE
+    combined_summary$pdx_success <- TRUE
+  }
 
   return(list(
     dt = dt,

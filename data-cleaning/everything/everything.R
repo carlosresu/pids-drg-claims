@@ -884,6 +884,16 @@ parallelize_and_summarize_data <- function(
   #'
   #' @description This function parallelizes the data processing across multiple cores
   #' and summarizes the results.
+  #' Main processing step; calls process_chunk
+  #' with or without parallelization
+  #' Process chunk does (per chunk):
+  #' 1. Clean data
+  #' 2. Maps RVS
+  #' 3. Maps ICD
+  #' 4. Replaces empty strings
+  #' 5. Finds PDXs
+  #' 6. Returns chunk and chunk summaries
+
   #'
   #' @param dt data.table. The data table to be processed.
   #' @param num_cores integer. The number of cores to use for parallel processing.
@@ -934,6 +944,21 @@ parallelize_and_summarize_data <- function(
   combined_summary <- combine_chunk_summaries(
     parallel_results, intermediate_rows_to_show
   )
+
+  # Find the indices of invalid PDX codes, ignoring NAs
+  invalid_pdx_indices <- which(!is.na(dt$pdx) & !dt$pdx == "" & !dt$pdx %in% acc_pdx)
+
+  # Check if there are any invalid PDX codes
+  if (length(invalid_pdx_indices) > 0) {
+    # Print the invalid PDX codes
+    print(paste("Invalid PDx found:", dt$pdx[invalid_pdx_indices]))
+
+    # Set pdx_success to FALSE
+    combined_summary$pdx_success <- FALSE
+  } else {
+    # Set pdx_success to TRUE
+    combined_summary$pdx_success <- TRUE
+  }
 
   return(list(
     dt = dt,
@@ -1687,76 +1712,41 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   )
 }
 # Function to find PDX from clinical ICD codes
-find_pdx_from_icd <- function(clin_icd) {
-  #' @title Find PDX from Clinical ICD Codes
-  #'
-  #' @description This function finds the primary diagnosis (PDX) from a list of clinical ICD codes.
-  #'
-  #' @param clin_icd character. The clinical ICD codes.
-  #'
-  #' @return list. A list containing the PDX and the PDX code.
-
+find_pdx_from_icd <- function(clin_icd, acc_pdx) {
   pdxs <- intersect(clin_icd, acc_pdx)
-  result <- if (length(pdxs) == 0) { # Check if no acceptable PDX codes are found
-    list(pdx = NA_character_, pdx_code = 99)
-  } else if (length(pdxs) == 1) { # Check if exactly one acceptable PDX code is found
-    list(pdx = pdxs[1], pdx_code = 3)
+  if (length(pdxs) == 0) {
+    return(list(pdx = NA_character_, pdx_code = 99))
+  } else if (length(pdxs) == 1) {
+    return(list(pdx = pdxs[1], pdx_code = 3))
   } else {
-    list(pdx = sample(pdxs, 1), pdx_code = 6) # If multiple acceptable PDX codes are found, return a random one
+    return(list(pdx = sample(pdxs, 1), pdx_code = 6))
   }
-  return(result)
 }
 
 # Function to find the most similar PDX
 find_most_similar_pdx <- function(code, pdxs) {
-  #' @title Find the Most Similar PDX
-  #'
-  #' @description This function finds the most similar primary diagnosis (PDX) based on the given code.
-  #'
-  #' @param code character. The code to compare.
-  #' @param pdxs character. The list of acceptable PDX codes.
-  #'
-  #' @return list. A list containing the most similar PDX and the PDX code.
+  if (is.null(pdxs) || length(pdxs) == 0) {
+    return(list(pdx = NA_character_, pdx_code = NA_integer_))
+  }
 
   starting_letter <- substr(code, 1, 1)
   starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
 
-  result <- if (length(starting_codes) == 1) { # Check if exactly one PDX code starts with the same letter
-    list(pdx = starting_codes[1], pdx_code = 4)
-  } else if (length(starting_codes) > 1) { # Check if multiple PDX codes start with the same letter
+  if (length(starting_codes) == 1) {
+    return(list(pdx = starting_codes[1], pdx_code = 4))
+  } else if (length(starting_codes) > 1) {
     similarities <- sapply(starting_codes, function(candidate) {
-      sum(
-        substr(
-          code, 1, nchar(candidate)
-        ) == substr(
-          candidate,
-          1,
-          nchar(candidate)
-        )
-      )
+      sum(substr(code, 1, nchar(candidate)) == substr(candidate, 1, nchar(candidate)))
     })
     most_similar_pdx <- starting_codes[which.max(similarities)]
-    list(pdx = most_similar_pdx, pdx_code = 5)
+    return(list(pdx = most_similar_pdx, pdx_code = 5))
   } else {
-    list(pdx = NA_character_, pdx_code = NA_integer_)
+    return(list(pdx = NA_character_, pdx_code = NA_integer_))
   }
-
-  return(result)
 }
 
 # Function to find the primary diagnosis (PDX)
 find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  #' @title Find the Primary Diagnosis (PDX)
-  #'
-  #' @description This function finds the primary diagnosis (PDX) from clinical codes.
-  #'
-  #' @param clin_c1 character. The first clinical code.
-  #' @param clin_c2 character. The second clinical code.
-  #' @param clin_icd list. The list of clinical ICD codes.
-  #' @param acc_pdx character. The list of acceptable PDX codes.
-  #'
-  #' @return list. A list containing the PDX and the PDX code.
-
   clin_icd <- unlist(clin_icd)
 
   # Helper function to check if a clinical code is an acceptable PDX
@@ -1780,7 +1770,7 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   }
 
   # Find PDX from clinical ICD codes
-  pdx_result <- find_pdx_from_icd(clin_icd)
+  pdx_result <- find_pdx_from_icd(clin_icd, acc_pdx)
   if (!is.na(pdx_result$pdx)) {
     return(pdx_result)
   }
@@ -1799,49 +1789,26 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   return(pdx_result)
 }
 
-# Function to apply the PDX finding process
+# Function to apply find_pdx to a dataset
 apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  #' @title Apply the PDX Finding Process
-  #'
-  #' @description This function applies the process of finding the primary diagnosis (PDX) to the given clinical codes.
-  #'
-  #' @param clin_c1 character. The first clinical code.
-  #' @param clin_c2 character. The second clinical code.
-  #' @param clin_icd list. The list of clinical ICD codes.
-  #' @param acc_pdx character. The list of acceptable PDX codes.
-  #'
-  #' @return list. A list containing the PDX and the PDX code for each entry.
-
   n <- length(clin_c1)
   pdx <- character(n)
   pdx_code <- integer(n)
 
   # Assign PDX based on clin_c1 and clin_c2
-  pdx[clin_c1 %in% acc_pdx] <- clin_c1[clin_c1 %in% acc_pdx]
-  pdx_code[clin_c1 %in% acc_pdx] <- 1
-
-  pdx[clin_c2 %in% acc_pdx] <- clin_c2[clin_c2 %in% acc_pdx]
-  pdx_code[clin_c2 %in% acc_pdx] <- 2
-
-  # Identify rows without a PDX
-  missing_pdx_indices <- which(is.na(pdx) | pdx == "")
-
-  if (length(missing_pdx_indices) > 0) {
-    # Check if there are rows without a PDX
-    for (i in missing_pdx_indices) {
-      result <- find_pdx(clin_c1[i], clin_c2[i], clin_icd[[i]], acc_pdx)
-      if (!is.na(result$pdx) && !(result$pdx %in% acc_pdx)) {
-        stop(sprintf("Invalid PDX code found: %s", result$pdx))
-      }
-      pdx[i] <- result$pdx
-      pdx_code[i] <- result$pdx_code
+  for (i in 1:n) {
+    result <- find_pdx(clin_c1[i], clin_c2[i], clin_icd[[i]], acc_pdx)
+    if (!is.na(result$pdx) && !(result$pdx %in% acc_pdx)) {
+      stop(sprintf("Invalid PDX code found: %s", result$pdx))
     }
+    pdx[i] <- result$pdx
+    pdx_code[i] <- result$pdx_code
   }
 
   return(list(pdx = pdx, pdx_code = pdx_code))
 }
 # Function to generate date of birth (DOB) vectorized
-generate_dob_vectorized <- function(bdays, ages, date_adms) {
+generate_dob <- function(bdays, ages, date_adms) {
   #' @title Generate Date of Birth Vectorized
   #'
   #' @description This function generates a vector of dates of birth (DOB) based on birthdates, ages, and admission dates.
@@ -1870,7 +1837,8 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
   missing_bday_indices <- which(is.na(bdays) | bdays == "")
   ref_dates <- mdy(date_adms[missing_bday_indices])
 
-  # Handle cases where ages are zero
+  # Handle cases where ages are zero:
+  # For age 0, generate a random date within the past 27 days from the admission date.
   zero_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
   )
@@ -1883,7 +1851,8 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
     ), "%d/%m/%Y"
   )
 
-  # Handle cases where ages are positive
+  # Handle cases where ages are positive:
+  # For positive ages, subtract the truncated age in years and a random number of days (up to 170) from the admission date.
   positive_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0
   )
@@ -1895,6 +1864,12 @@ generate_dob_vectorized <- function(bdays, ages, date_adms) {
       sample(1:170, length(positive_age_indices), replace = TRUE)
     ), "%d/%m/%Y"
   )
+
+  # Check that all years for dates are above 1900
+  # years <- year(mdy(dob))
+  # if (any(years < 1900)) {
+  #   stop("Generated dates have years below 1900")
+  # }
 
   return(dob)
 }
@@ -1935,7 +1910,7 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   #' @return NULL.
 
   output_dt <- data.table(CASEID = 1:nrow(dt))
-  output_dt[, DOB := generate_dob_vectorized(dt$pat_bdate, dt$pat_age, dt$date_adm)]
+  output_dt[, DOB := generate_dob(dt$pat_bdate, dt$pat_age, dt$date_adm)]
   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
   output_dt[, DateAdm := format(mdy(dt$date_adm), "%d/%m/%Y")]
   output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]
@@ -2236,6 +2211,8 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   } else {
     cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
   }
+
+  cat("\n\nAll PDx's are in list of acceptable PDx's:\n", summary$final_rename_success, "\n\n")
 }
 
 combine_comparison_tables <- function(
@@ -2457,7 +2434,11 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
     without_drg = unique(na.omit(unlist(lapply(
       summaries,
       function(summary) summary$without_drg
-    ))))
+    )))),
+    pdx_success = all(unlist(sapply(
+      summaries,
+      function(summary) summary$pdx_success
+    )), na.rm = TRUE)
   )
 
   return(combined_summary)
@@ -2546,7 +2527,11 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
     final_without_drg = length(unique(na.omit(unlist(lapply(
       combined_summary,
       function(summary) summary$without_drg
-    )))))
+    ))))),
+    final_pdx_success = all(unlist(sapply(
+      combined_summary,
+      function(summary) summary$pdx_success
+    )), na.rm = TRUE)
   )
 
   return(final_combined_summaries)

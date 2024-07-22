@@ -1,26 +1,26 @@
 # IMPORTANT PARAMETERS:
 # Which claims year to load
 # TODO: maybe add a script that loops through all claims?
-year_to_load <- "2018" 
+year_to_load <- "2018"
 # How many parts to split the 12+m row claims file into
 split_parts <- 5
 # How many rows/entries to show in summary tables
 rows_to_show <- 10
-# How many rows/entries each part/chunk's summary should have (leave at Inf) 
+# How many rows/entries each part/chunk's summary should have (leave at Inf)
 intermediate_rows_to_show <- Inf
 
 # Input:
-# Whether to forcibly read the whole file again instead 
+# Whether to forcibly read the whole file again instead
 # of using the split parts created even if available
 to_read <- FALSE
 # Whether to split into split_parts parts (i.e. to fit in 32gb RAM)
 to_split <- TRUE
-# Whether to sample each split_parts part by sample_size_divisor 
+# Whether to sample each split_parts part by sample_size_divisor
 # Useful when iterating through code runs in quick succession
 to_sample <- TRUE
 
 # Output:
-# Whether to write out intermediate files and caches 
+# Whether to write out intermediate files and caches
 # (i.e. part files, sample files).
 # TODO: upload to BQ as well
 to_write <- TRUE
@@ -37,13 +37,13 @@ to_view_checks <- TRUE
 to_view_checks_parallelized <- FALSE
 # Whether to parallelize each split_parts part into availableCores() - 1 chunks
 # Cuts down processing time from 120min to 15min.
-to_parallelize <- TRUE
+to_parallelize <- FALSE
 
 # Sample size divisor:
 # Formula for sample size is total_rows / split_parts / sample_size_divisor
 sample_size_divisor <- 125
 
-# Which columns to drop, note that ICDCODE15 
+# Which columns to drop, note that ICDCODE15
 # is misspelled as ICCODED15 in all claims
 drop_cols <- c(
   paste0("ICDCODE", 13:14),
@@ -98,6 +98,7 @@ for (script in scripts_to_source) {
 # Start total execution timer
 tic("Total execution time:")
 
+
 # Reenable warnings; we don't renable verbose outputs
 # since it makes it way too verbose
 # TODO: figure out a way to return to default outputs
@@ -117,7 +118,7 @@ rvs_icd9 <- fread(here(path_to_aux, "rvs_icd9cm.csv"),
 # Convert to character for further processing
 rvs_icd9[, rvs := as.character(rvs)]
 
-# Convert to character and also remove decimals 
+# Convert to character and also remove decimals
 # whilst keeping trailing zeroes
 rvs_icd9[, icd9cm := as.character(icd9cm * 100)]
 
@@ -132,7 +133,7 @@ rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE]
 # Remove DRGUSE and filter out NAs
 rvs_icd9 <- rvs_icd9[!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
 
-# Read in PHIC all case rates 
+# Read in PHIC all case rates
 acr_rvs <- fread(here(path_to_aux, "acr_rvs.csv"))
 
 # Read in the thai icd10 library
@@ -145,48 +146,60 @@ setkey(tdrg_icd10, "CODE")
 acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
 
 
-# Automatically detect how many available cores there are for 
+# Automatically detect how many available cores there are for
 # parallelization
 num_cores <- availableCores() - 1
 
-#Initialize consolidated output list
+# Initialize consolidated output list
 all_parts_summaries <- list()
+processing_times <- numeric(split_parts)
 
 if (to_profvis) {
-   # save profvis object
+  # save profvis object
   p <- profvis({
     # Split file into split_parts parts to stay below 32gb RAM
     split_and_save_parts()
 
     # Process each part one at a time
     for (part in 1:split_parts) {
+      start_time <- Sys.time()
       # Read in the part and do initial processing
       # such as col dropping, type casting, and sampling
       dt <- read_and_process_part(part)
 
-      # Main processing step; calls process_chunk with or without parallelization
-      # 
-      # Process chunk does (per chunk):
-      # 1. Clean data
-      # 2. Maps RVS
-      # 3. Maps ICD
-      # 4. Replaces empty strings
-      # 5. Finds PDXs
-      # 6. Returns chunk and chunk summaries
       result <- parallelize_and_summarize_data(
         dt, num_cores, to_view_checks, global_seed,
         intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
-      )  
+      )
       # Each chunk and chunk summary is then combined by combine_chunk_summaries
-      # chunks are rbound to dt, chunk summaries are returned as combined_summary
+      # chunks are rbound to dt, chunk summaries
+      # are returned as combined_summary
       dt <- result$dt
       all_parts_summaries[[part]] <- result$combined_summary
 
       # Writes out intermediate file if to_write is TRUE
       write_intermediate_file(part, dt)
-      
+
       # Exports for batch grouper if to_group is TRUE
       group_data(part, dt)
+
+      end_time <- Sys.time()
+      difftime <- difftime(end_time, start_time, units = "secs")
+      processing_times[part] <- as.numeric(difftime)
+
+      # Calculate and print ETA
+      elapsed_time <- sum(processing_times[1:part])
+      avg_time_per_part <- elapsed_time / part
+      estimated_total_time <- avg_time_per_part * split_parts
+      estimated_remaining_time <- estimated_total_time - elapsed_time
+      cat(sprintf(
+        "Status Update: Finished processing part %d of %d\n",
+        part, split_parts
+      ))
+      cat(sprintf(
+        "Estimated Time Remaining: %d seconds\n",
+        round(estimated_remaining_time)
+      ))
     }
   })
   # save profvis object as html
@@ -201,44 +214,53 @@ if (to_profvis) {
 
   # Process each part one at a time
   for (part in 1:split_parts) {
+    start_time <- Sys.time()
     # Read in the part and do initial processing
     # such as col dropping, type casting, and sampling
     dt <- read_and_process_part(part)
 
-    # Main processing step; calls process_chunk with or without parallelization
-    # 
-    # Process chunk does (per chunk):
-    # 1. Clean data
-    # 2. Maps RVS
-    # 3. Maps ICD
-    # 4. Replaces empty strings
-    # 5. Finds PDXs
-    # 6. Returns chunk and chunk summaries
     result <- parallelize_and_summarize_data(
       dt, num_cores, to_view_checks, global_seed,
       intermediate_rows_to_show, rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize
-    )  
+    )
     # Each chunk and chunk summary is then combined by combine_chunk_summaries
     # chunks are rbound to dt, chunk summaries are returned as combined_summary
     dt <- result$dt
     all_parts_summaries[[part]] <- result$combined_summary
-    
+
     # Writes out intermediate file if to_write is TRUE
-    write_intermediate_file(part, dt)
+    write_intermediate_file(to_write, part, dt)
 
     # Exports for batch grouper if to_group is TRUE
-    group_data(part, dt)
-  }
+    group_data(to_group, part, dt)
 
+    end_time <- Sys.time()
+    difftime <- difftime(end_time, start_time, units = "secs")
+    processing_times[part] <- as.numeric(difftime)
+
+    # Calculate and print ETA
+    elapsed_time <- sum(processing_times[1:part])
+    avg_time_per_part <- elapsed_time / part
+    estimated_total_time <- avg_time_per_part * split_parts
+    estimated_remaining_time <- estimated_total_time - elapsed_time
+    cat(sprintf(
+      "Status Update: Finished processing part %d of %d\n",
+      part, split_parts
+    ))
+    cat(sprintf(
+      "Estimated Time Remaining: %d seconds\n",
+      round(estimated_remaining_time)
+    ))
+  }
 }
 
-# Combine summaries of each of the split_parts parts
-final_parts_summaries <- combine_parts_summaries(
-  all_parts_summaries, intermediate_rows_to_show
-)
-
 # Print final summaries
-print_summary_tables(final_parts_summaries, rows_to_show)
+print_summary_tables(
+  combine_parts_summaries(
+    all_parts_summaries, intermediate_rows_to_show
+  ),
+  rows_to_show
+)
 
 
 # Stop the timer and capture total time
@@ -266,9 +288,6 @@ source(here("data-cleaning", "r_scripts", "11_debug-functions.R"))
 
 input_path <- here("data-cleaning", "r_scripts")
 output_file <- paste0(here("data-cleaning", "everything", "everything.R"))
-
-concatenate_r_files(input_path, output_file)
-
 
 concatenate_r_files(input_path, output_file)
 
