@@ -858,7 +858,7 @@ read_and_process_part <- function(part) {
     stop(paste("File does not exist:", chunk_file))
   }
 
-  dt <- read_entire_file(chunk_file, initial_read = is_partial_file(chunk_file))
+  dt <- fread(chunk_file, na.strings = na_values, colClasses = col_classes)
 
   if (to_sample) {
     dt <- handle_sampling(dt, part)
@@ -883,19 +883,6 @@ parallelize_and_summarize_data <- function(
   #' 4. Replaces empty strings
   #' 5. Finds PDXs
   #' 6. Returns chunk and chunk summaries
-
-  #'
-  #' @param dt data.table. The data table to be processed.
-  #' @param num_cores integer. The number of cores to use for parallel processing.
-  #' @param to_view_checks logical. Whether to view checks and print statements.
-  #' @param global_seed integer. The seed for reproducibility.
-  #' @param intermediate_rows_to_show integer. The number of intermediate rows to show in summaries.
-  #' @param rvs_icd9 data.table. The RVS to ICD-9 mapping data.
-  #' @param tdrg_icd10 data.table. The Thai DRG ICD-10 mapping data.
-  #' @param acc_pdx character. A vector of acceptable PDX codes.
-  #' @param to_parallelize logical. Whether to parallelize the data processing.
-  #'
-  #' @return list. A list containing the processed data table and the combined summary of the processing.
 
   chunk_size <- ceiling(nrow(dt) / num_cores)
   chunks <- split(dt, rep(1:num_cores,
@@ -1728,8 +1715,7 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
     return(score)
   }
 
-  # Convert clin_icd to a character vector
-  clin_icd <- unlist(strsplit(clin_icd, ","))
+  clin_icd <- unlist(clin_icd)
 
   # Get a list of all SDx that may be chosen as PDx
   pdxs <- unique(clin_icd)
@@ -1775,7 +1761,6 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
   return(list(pdx = NA_character_, pdx_code = 99))
 }
 
-# Function to apply find_pdx to a dataset
 apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
@@ -1783,42 +1768,47 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   }
 
   dt <- data.table(
-    clin_c1 = sapply(clin_c1, toString),
-    clin_c2 = sapply(clin_c2, toString),
-    clin_icd = sapply(clin_icd, function(icds) paste(icds, collapse = ","))
+    clin_c1 = clin_c1,
+    clin_c2 = clin_c2,
+    clin_icd = clin_icd
   )
 
-  # Helper function to check existence in acc_pdx_env
-  exists_in_acc_pdx_env <- function(x) {
-    sapply(x, function(code) exists(code, acc_pdx_env))
+  # Vectorized application of find_pdx function
+  find_pdx_vectorized <- function(clin_c1, clin_c2, clin_icd) {
+    # Convert lists to characters for easy handling
+    clin_c1_char <- sapply(clin_c1, function(x) if (is.null(x)) NA_character_ else x)
+    clin_c2_char <- sapply(clin_c2, function(x) if (is.null(x)) NA_character_ else x)
+    clin_icd_char <- sapply(clin_icd, function(x) paste(x, collapse = ","))
+
+    # Initialize result vectors
+    pdx <- rep(NA_character_, length(clin_c1))
+    pdx_code <- rep(NA_integer_, length(clin_c1))
+
+    # Batch check clin_c1 and clin_c2
+    clin_c1_check <- sapply(clin_c1_char, function(x) exists(x, acc_pdx_env))
+    clin_c2_check <- sapply(clin_c2_char, function(x) exists(x, acc_pdx_env))
+
+    pdx[clin_c1_check] <- clin_c1_char[clin_c1_check]
+    pdx_code[clin_c1_check] <- 1
+
+    clin_c2_only_check <- !clin_c1_check & clin_c2_check
+    pdx[clin_c2_only_check] <- clin_c2_char[clin_c2_only_check]
+    pdx_code[clin_c2_only_check] <- 2
+
+    # Apply find_pdx function to remaining rows
+    remaining_indices <- which(is.na(pdx))
+    for (i in remaining_indices) {
+      result <- find_pdx(clin_c1_char[i], clin_c2_char[i], clin_icd_char[i], acc_pdx_env)
+      pdx[i] <- result$pdx
+      pdx_code[i] <- result$pdx_code
+    }
+
+    return(list(pdx = pdx, pdx_code = pdx_code))
   }
 
-  # Initialize pdx and pdx_code columns
-  dt[, `:=`(pdx = NA_character_, pdx_code = NA_integer_)]
-
-  # Batch check clin_c1 and clin_c2
-  dt[
-    is.na(pdx) & !is.na(clin_c1) & exists_in_acc_pdx_env(clin_c1),
-    `:=`(pdx = clin_c1, pdx_code = 1)
-  ]
-  dt[
-    is.na(pdx) & !is.na(clin_c2) & exists_in_acc_pdx_env(clin_c2),
-    `:=`(pdx = clin_c2, pdx_code = 2)
-  ]
-
-  # Apply find_pdx function to remaining rows
-  remaining_rows <- dt[is.na(pdx)]
-  if (nrow(remaining_rows) > 0) {
-    pdx_results <- remaining_rows[,
-      {
-        result <- find_pdx(clin_c1, clin_c2, clin_icd, acc_pdx_env)
-        .(pdx = result$pdx, pdx_code = result$pdx_code)
-      },
-      by = .(row_id = .I)
-    ]
-
-    dt[remaining_rows$row_id, `:=`(pdx = pdx_results$pdx, pdx_code = pdx_results$pdx_code)]
-  }
+  pdx_results <- find_pdx_vectorized(dt$clin_c1, dt$clin_c2, dt$clin_icd)
+  dt[, pdx := pdx_results$pdx]
+  dt[, pdx_code := pdx_results$pdx_code]
 
   return(list(pdx = dt$pdx, pdx_code = dt$pdx_code))
 }
