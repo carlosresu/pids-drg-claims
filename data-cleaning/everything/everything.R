@@ -21,7 +21,6 @@ na_like_strings <- c(
   "\u2029", "\u202F", "\u205F", "\u3000"
 )
 
-# Define column types
 integer_cols <- c("OUT_PATIENT", "EMERGENCY")
 
 factor_cols <- c(
@@ -1186,7 +1185,7 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   without_drg <- unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
 
   return_list <- list(
-    icd9_list = icd9_list, 
+    icd9_list = icd9_list,
     rvs_map_list = rvs_maps$rvs_map_list,
     rvss = rvss,
     mappable_rvs = mappable_rvs,
@@ -1522,6 +1521,7 @@ concatenate_r_files <- function(input_path, output_file) {
   # Write concatenated content to the output file
   cat(concatenated_content, file = output_file, sep = "\n")
 }
+
 format_large_numbers <- function(x) {
   if (x >= 1e9) {
     return(sprintf("%.1fb", x / 1e9))

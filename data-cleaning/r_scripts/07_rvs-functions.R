@@ -1,10 +1,28 @@
+# Function to split RVS codes
 split_rvs_codes <- function(rvs_icd9) {
+  #' @title Split RVS Codes
+  #'
+  #' @description This function splits RVS codes into those with and without DRG.
+  #'
+  #' @param rvs_icd9 data.table. The RVS ICD-9 codes.
+  #'
+  #' @return list. A list containing RVS codes with DRG and without DRG.
+
   with_drg <- rvs_icd9[is_drg == TRUE]
   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]
   return(list(with_drg = with_drg, without_drg = without_drg))
 }
 
+# Function to create RVS map lists
 create_rvs_map_lists <- function(with_drg) {
+  #' @title Create RVS Map Lists
+  #'
+  #' @description This function creates lists for RVS mapping with DRG.
+  #'
+  #' @param with_drg data.table. The RVS codes with DRG.
+  #'
+  #' @return list. A list containing RVS map list and RVS map solo.
+
   with_drg <- with_drg[order(rvs, -is_drg)]
   unique_rvs <- unique(with_drg$rvs)
   rvs_grouped <- split(with_drg, with_drg$rvs)
@@ -24,7 +42,17 @@ create_rvs_map_lists <- function(with_drg) {
   return(list(rvs_map_list = rvs_map_list, rvs_map_solo = rvs_map_solo))
 }
 
+# Function to get ICD-9 codes from clinical RVS
 get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
+  #' @title Get ICD-9 Codes from Clinical RVS
+  #'
+  #' @description This function retrieves ICD-9 codes for clinical RVS.
+  #'
+  #' @param clin_rvs list. The clinical RVS codes.
+  #' @param rvs_map_solo_env environment. The environment with RVS map solo codes.
+  #'
+  #' @return list. The ICD-9 codes for clinical RVS.
+
   lapply(clin_rvs, function(x) {
     codes <- unlist(x)
     mappable <- codes[
@@ -38,7 +66,17 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
   })
 }
 
+# Function to map RVS to ICD-9
 map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
+  #' @title Map RVS to ICD-9
+  #'
+  #' @description This function maps RVS codes to ICD-9 codes.
+  #'
+  #' @param clin_rvs list. The clinical RVS codes.
+  #' @param rvs_icd9 data.table. The RVS ICD-9 codes.
+  #'
+  #' @return list. A list containing the mapped ICD-9 codes and related information.
+
   split_codes <- split_rvs_codes(rvs_icd9)
   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
   rvs_map_list <- rvs_maps$rvs_map_list
@@ -53,7 +91,7 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   without_drg <- unique(rvs_icd9[!rvs %in% names(rvs_map_list)]$rvs)
 
   return_list <- list(
-    icd9_list = icd9_list, 
+    icd9_list = icd9_list,
     rvs_map_list = rvs_maps$rvs_map_list,
     rvss = rvss,
     mappable_rvs = mappable_rvs,
@@ -70,7 +108,17 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   return(return_list)
 }
 
+# Function to find and append valid RVS codes
 find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
+  #' @title Find and Append Valid RVS Codes
+  #'
+  #' @description This function finds and appends valid RVS codes to the clinical RVS.
+  #'
+  #' @param dt data.table. The data table with clinical RVS codes.
+  #' @param valid_rvs_codes character. The valid RVS codes.
+  #'
+  #' @return None. The function modifies the input data.table in place.
+
   regex_5_digit <- "\\b\\d{5}\\b"
   dt[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
   dt[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
@@ -80,12 +128,31 @@ find_and_append_valid_rvs <- function(dt, valid_rvs_codes) {
   )]
 }
 
+# Function to remove 5-digit codes
 remove_5_digit_codes <- function(col) {
+  #' @title Remove 5-Digit Codes
+  #'
+  #' @description This function removes 5-digit codes from the given column.
+  #'
+  #' @param col character. The column to be processed.
+  #'
+  #' @return list. The column with 5-digit codes removed.
+
   regex_5_digit <- "\\b\\d{5}\\b"
   lapply(col, function(x) gsub(regex_5_digit, "", x))
 }
 
+# Function to warn about invalid RVS codes
 warn_invalid_rvs <- function(matches, valid_rvs_codes) {
+  #' @title Warn About Invalid RVS Codes
+  #'
+  #' @description This function warns about invalid RVS codes and creates a table of discarded codes.
+  #'
+  #' @param matches list. The matched RVS codes.
+  #' @param valid_rvs_codes character. The valid RVS codes.
+  #'
+  #' @return data.table. A table of discarded codes.
+
   invalid_matches <- lapply(matches, function(x) x[!x %in% valid_rvs_codes])
   discarded_codes <- unlist(invalid_matches)
   if (length(discarded_codes) > 0) {
@@ -100,7 +167,18 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
   return(discarded_table)
 }
 
+# Function to append and remove RVS codes
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
+  #' @title Append and Remove RVS Codes
+  #'
+  #' @description This function appends valid RVS codes and removes invalid RVS codes.
+  #'
+  #' @param clin_rvs list. The clinical RVS codes.
+  #' @param col character. The column with RVS codes.
+  #' @param rvs_icd9 data.table. The RVS ICD-9 codes.
+  #'
+  #' @return list. A list containing the updated clinical RVS, column, and discarded RVS codes.
+
   dt <- data.table(clin_rvs = clin_rvs, col = col)
   valid_rvs_codes <- rvs_icd9$rvs
 
@@ -116,5 +194,3 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
     )
   )
 }
-
-

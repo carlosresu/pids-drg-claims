@@ -1,27 +1,41 @@
+# Function to find PDX from clinical ICD codes
 find_pdx_from_icd <- function(clin_icd) {
+  #' @title Find PDX from Clinical ICD Codes
+  #'
+  #' @description This function finds the primary diagnosis (PDX) from a list of clinical ICD codes.
+  #'
+  #' @param clin_icd character. The clinical ICD codes.
+  #'
+  #' @return list. A list containing the PDX and the PDX code.
+
   pdxs <- intersect(clin_icd, acc_pdx)
-  result <- if (length(pdxs) == 0) { # Check if no acceptable PDX codes
-    # are found
+  result <- if (length(pdxs) == 0) { # Check if no acceptable PDX codes are found
     list(pdx = NA_character_, pdx_code = 99)
-  } else if (length(pdxs) == 1) { # Check if exactly one acceptable PDX
-    # code is found
+  } else if (length(pdxs) == 1) { # Check if exactly one acceptable PDX code is found
     list(pdx = pdxs[1], pdx_code = 3)
   } else {
-    list(pdx = sample(pdxs, 1), pdx_code = 6) # If multiple acceptable
-    # PDX codes are found, return a random one
+    list(pdx = sample(pdxs, 1), pdx_code = 6) # If multiple acceptable PDX codes are found, return a random one
   }
   return(result)
 }
 
+# Function to find the most similar PDX
 find_most_similar_pdx <- function(code, pdxs) {
+  #' @title Find the Most Similar PDX
+  #'
+  #' @description This function finds the most similar primary diagnosis (PDX) based on the given code.
+  #'
+  #' @param code character. The code to compare.
+  #' @param pdxs character. The list of acceptable PDX codes.
+  #'
+  #' @return list. A list containing the most similar PDX and the PDX code.
+
   starting_letter <- substr(code, 1, 1)
   starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
 
-  result <- if (length(starting_codes) == 1) { # Check if exactly one
-    # PDX code starts with the same letter
+  result <- if (length(starting_codes) == 1) { # Check if exactly one PDX code starts with the same letter
     list(pdx = starting_codes[1], pdx_code = 4)
-  } else if (length(starting_codes) > 1) { # Check if multiple PDX
-    # codes start with the same letter
+  } else if (length(starting_codes) > 1) { # Check if multiple PDX codes start with the same letter
     similarities <- sapply(starting_codes, function(candidate) {
       sum(
         substr(
@@ -42,7 +56,19 @@ find_most_similar_pdx <- function(code, pdxs) {
   return(result)
 }
 
+# Function to find the primary diagnosis (PDX)
 find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+  #' @title Find the Primary Diagnosis (PDX)
+  #'
+  #' @description This function finds the primary diagnosis (PDX) from clinical codes.
+  #'
+  #' @param clin_c1 character. The first clinical code.
+  #' @param clin_c2 character. The second clinical code.
+  #' @param clin_icd list. The list of clinical ICD codes.
+  #' @param acc_pdx character. The list of acceptable PDX codes.
+  #'
+  #' @return list. A list containing the PDX and the PDX code.
+
   clin_icd <- unlist(clin_icd)
 
   # Helper function to check if a clinical code is an acceptable PDX
@@ -85,7 +111,19 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   return(pdx_result)
 }
 
+# Function to apply the PDX finding process
 apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+  #' @title Apply the PDX Finding Process
+  #'
+  #' @description This function applies the process of finding the primary diagnosis (PDX) to the given clinical codes.
+  #'
+  #' @param clin_c1 character. The first clinical code.
+  #' @param clin_c2 character. The second clinical code.
+  #' @param clin_icd list. The list of clinical ICD codes.
+  #' @param acc_pdx character. The list of acceptable PDX codes.
+  #'
+  #' @return list. A list containing the PDX and the PDX code for each entry.
+
   n <- length(clin_c1)
   pdx <- character(n)
   pdx_code <- integer(n)

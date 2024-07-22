@@ -1,4 +1,12 @@
 format_large_numbers <- function(x) {
+  #' @title Format Large Numbers
+  #'
+  #' @description This function formats large numbers into a more readable string with units (k, m, b).
+  #'
+  #' @param x numeric. The number to be formatted.
+  #'
+  #' @return character. The formatted number as a string.
+
   if (x >= 1e9) {
     return(sprintf("%.1fb", x / 1e9))
   } else if (x >= 1e6) {
@@ -11,6 +19,15 @@ format_large_numbers <- function(x) {
 }
 
 print_summary_tables <- function(final_combined_summaries, rows_to_show) {
+  #' @title Print Summary Tables
+  #'
+  #' @description This function prints summary tables for a given dataset.
+  #'
+  #' @param final_combined_summaries list. The final combined summaries to be printed.
+  #' @param rows_to_show integer. The number of rows to show in the summary tables.
+  #'
+  #' @return NULL. Prints the summary tables.
+
   summary <- final_combined_summaries
   cat("Rename Success:\n", summary$final_rename_success, "\n\n")
 
@@ -192,6 +209,16 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
 
 combine_comparison_tables <- function(
     summaries, comparison_field, intermediate_rows_to_show = 10) {
+  #' @title Combine Comparison Tables
+  #'
+  #' @description This function combines comparison tables from multiple summaries into one.
+  #'
+  #' @param summaries list. A list of summary tables.
+  #' @param comparison_field character. The field in the summaries to compare.
+  #' @param intermediate_rows_to_show integer. The number of rows to show in the intermediate summary.
+  #'
+  #' @return data.table. The combined comparison table.
+
   comparison_list <- lapply(summaries, function(summary) {
     summary_data <- summary[[comparison_field]]
     if (!is.null(summary_data) && nrow(summary_data) > 0) {
@@ -221,6 +248,16 @@ combine_comparison_tables <- function(
 
 combine_discarded_rvs_tables <- function(
     summaries, field, intermediate_rows_to_show = 10) {
+  #' @title Combine Discarded RVS Tables
+  #'
+  #' @description This function combines discarded RVS tables from multiple summaries into one.
+  #'
+  #' @param summaries list. A list of summary tables.
+  #' @param field character. The field in the summaries that contains discarded RVS codes.
+  #' @param intermediate_rows_to_show integer. The number of rows to show in the intermediate summary.
+  #'
+  #' @return data.table. The combined discarded RVS table.
+
   discarded_list <- lapply(summaries, function(summary) summary[[field]])
   combined_discarded <- rbindlist(discarded_list, fill = TRUE)
 
@@ -237,6 +274,16 @@ combine_discarded_rvs_tables <- function(
 
 combine_unmatched_icd10_codes <- function(
     summaries, field, intermediate_rows_to_show = 10) {
+  #' @title Combine Unmatched ICD-10 Codes
+  #'
+  #' @description This function combines unmatched ICD-10 codes from multiple summaries into one.
+  #'
+  #' @param summaries list. A list of summary tables.
+  #' @param field character. The field in the summaries that contains unmatched ICD-10 codes.
+  #' @param intermediate_rows_to_show integer. The number of rows to show in the intermediate summary.
+  #'
+  #' @return data.table. The combined unmatched ICD-10 codes table.
+
   combined_list <- lapply(summaries, function(summary) summary[[field]])
   combined_table <- rbindlist(combined_list, fill = TRUE)
   combined_table <- combined_table[, .(count = sum(count)), by = .(code, source)]
@@ -246,6 +293,16 @@ combine_unmatched_icd10_codes <- function(
 
 combine_replace_empty_tables <- function(
     summaries, field, intermediate_rows_to_show = 10) {
+  #' @title Combine Replace Empty Tables
+  #'
+  #' @description This function combines tables for replaced empty values from multiple summaries into one.
+  #'
+  #' @param summaries list. A list of summary tables.
+  #' @param field character. The field in the summaries that contains information on replaced empty values.
+  #' @param intermediate_rows_to_show integer. The number of rows to show in the intermediate summary.
+  #'
+  #' @return data.table. The combined replace empty tables.
+
   replace_empty_list <- lapply(summaries, function(summary) summary[[field]])
   combined_replace_empty <- rbindlist(replace_empty_list, fill = TRUE)
 
@@ -272,12 +329,30 @@ combine_replace_empty_tables <- function(
 }
 
 combine_chunk_summaries <- function(parallel_results, intermediate_rows_to_show) {
+  #' @title Combine Chunk Summaries
+  #'
+  #' @description This function combines summaries from multiple chunks into one summary.
+  #'
+  #' @param parallel_results list. A list of results from parallel processing.
+  #' @param intermediate_rows_to_show integer. The number of rows to show in the intermediate summary.
+  #'
+  #' @return list. The combined summary.
+
   summaries <- lapply(parallel_results, function(res) res$summary)
   combined_summary <- combine_summaries(summaries, intermediate_rows_to_show)
   return(combined_summary)
 }
 
 combine_summaries <- function(summaries, intermediate_rows_to_show) {
+  #' @title Combine Summaries
+  #'
+  #' @description This function combines multiple summaries into one summary.
+  #'
+  #' @param summaries list. A list of summary tables.
+  #' @param intermediate_rows_to_show integer. The number of rows to show in the intermediate summary.
+  #'
+  #' @return list. The combined summary.
+
   combined_summary <- list(
     rename_success = all(unlist(sapply(
       summaries,
@@ -358,6 +433,15 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
 }
 
 combine_parts_summaries <- function(combined_summary, rows_to_show) {
+  #' @title Combine Parts Summaries
+  #'
+  #' @description This function combines summaries from multiple parts into one final summary.
+  #'
+  #' @param combined_summary list. A list of combined summaries.
+  #' @param rows_to_show integer. The number of rows to show in the final summary.
+  #'
+  #' @return list. The final combined summary.
+
   final_combined_summaries <- list(
     final_rename_success = all(unlist(sapply(
       combined_summary,

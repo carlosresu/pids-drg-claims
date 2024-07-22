@@ -1,9 +1,14 @@
-rename_columns <- function(dt) {
-  setnames(dt, old = old_colnames, new = new_colnames)
-  return(dt)
-}
-
 clean_column <- function(column_to_clean, na_like_strings) {
+  #' @title Clean a column
+  #'
+  #' @description This function cleans a column by converting it to UTF-8,
+  #' making it uppercase, removing specific characters, and replacing
+  #' NA-like strings with NA.
+  #'
+  #' @param column_to_clean character. The column to be cleaned.
+  #' @param na_like_strings character. A vector of strings considered as NA.
+  #'
+  #' @return character. The cleaned column.
   column_to_clean <- as.character(column_to_clean)
   cleaned_col <- iconv(column_to_clean, to = "UTF-8", sub = "byte")
   cleaned_col <- toupper(cleaned_col)
@@ -18,6 +23,16 @@ clean_column <- function(column_to_clean, na_like_strings) {
 }
 
 collapse_columns <- function(cols_to_process, na_like_strings) {
+  #' @title Collapse multiple columns into a single column
+  #'
+  #' @description This function collapses multiple columns into a single
+  #' column by concatenating their values, cleaning them, and replacing
+  #' NA-like strings with NA.
+  #'
+  #' @param cols_to_process list. A list of columns to be collapsed.
+  #' @param na_like_strings character. A vector of strings considered as NA.
+  #'
+  #' @return character. The collapsed and cleaned column.
   cleaned_columns <- lapply(cols_to_process, function(col) {
     clean_column(col, na_like_strings)
   })
@@ -32,6 +47,16 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
 }
 
 replace_empty_with_na <- function(dt, to_view_checks) {
+  #' @title Replace empty strings with NA
+  #'
+  #' @description This function replaces empty strings, "NA", and "character(0)"
+  #' with NA in character, factor, and list columns of the data table.
+  #' Optionally provides a summary of replacements.
+  #'
+  #' @param dt data.table. The data table to be processed.
+  #' @param to_view_checks logical. Whether to provide a summary of replacements.
+  #'
+  #' @return list. A list containing the processed data table and the replacement summary.
   char_factor_cols <- names(dt)[sapply(
     dt,
     function(col) is.character(col) || is.factor(col) || is.list(col)
@@ -89,6 +114,14 @@ replace_empty_with_na <- function(dt, to_view_checks) {
 }
 
 split_to_vector <- function(column) {
+  #' @title Split a column into a vector
+  #'
+  #' @description This function splits the elements of a column by "||"
+  #' and returns a list of vectors.
+  #'
+  #' @param column character. The column to be split.
+  #'
+  #' @return list. A list of vectors obtained by splitting the column.
   result <- lapply(column, function(x) {
     if (is.na(x)) {
       return(NA_character_)
@@ -100,6 +133,14 @@ split_to_vector <- function(column) {
 }
 
 remap_patient_type <- function(pat_type) {
+  #' @title Remap patient type
+  #'
+  #' @description This function remaps patient types to standardized codes
+  #' and identifies any unknown types.
+  #'
+  #' @param pat_type character. The patient type column.
+  #'
+  #' @return list. A list containing the remapped patient types and the unknown types.
   known_types <- c("MEMBER", "DEPENDENT")
   remapped_pat_type <- fcase(
     pat_type == "MEMBER", "MEM",
@@ -113,6 +154,14 @@ remap_patient_type <- function(pat_type) {
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
+  #' @title Remap member category parent description
+  #'
+  #' @description This function remaps member category parent descriptions
+  #' to standardized codes and identifies any unknown parents.
+  #'
+  #' @param pat_memcat_parent character. The member category parent description column.
+  #'
+  #' @return list. A list containing the remapped parent descriptions and the unknown parents.
   known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
   remapped_memcat_parent <- fcase(
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
@@ -126,6 +175,14 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
 }
 
 remap_memcat_child_desc <- function(pat_memcat_child) {
+  #' @title Remap member category child description
+  #'
+  #' @description This function remaps member category child descriptions
+  #' to standardized codes and identifies any unknown children.
+  #'
+  #' @param pat_memcat_child character. The member category child description column.
+  #'
+  #' @return list. A list containing the remapped child descriptions and the unknown children.
   known_children <- c(
     "EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "SENIOR CITIZEN", "INDIGENT",
     "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
@@ -163,6 +220,14 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
 }
 
 remap_disposition <- function(clin_discharge) {
+  #' @title Remap clinical discharge disposition
+  #'
+  #' @description This function remaps clinical discharge dispositions to
+  #' standardized codes and identifies any unknown dispositions.
+  #'
+  #' @param clin_discharge character. The clinical discharge disposition column.
+  #'
+  #' @return list. A list containing the remapped discharge dispositions and the unknown dispositions.
   known_dispositions <- c(
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
     "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED"
@@ -183,12 +248,25 @@ remap_disposition <- function(clin_discharge) {
   list(remapped = remapped_discharge, unmapped = unknown_dispositions)
 }
 
-# Helper function to determine if a file is a partial file
 is_partial_file <- function(filename) {
+  #' @title Check if a file is a partial file
+  #'
+  #' @description This function checks if a given filename indicates a partial file.
+  #'
+  #' @param filename character. The name of the file.
+  #'
+  #' @return logical. TRUE if the file is a partial file, otherwise FALSE.
   return(grepl("part", filename, ignore.case = TRUE))
 }
 
-# Suppress interim output
 suppress_interim_output <- function(expr) {
+  #' @title Suppress interim output
+  #'
+  #' @description This function suppresses interim messages and warnings
+  #' generated during the evaluation of an expression.
+  #'
+  #' @param expr expression. The expression whose output is to be suppressed.
+  #'
+  #' @return NULL. The function is used for its side effect of suppressing output.
   suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
 }

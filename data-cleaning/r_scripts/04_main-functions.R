@@ -1,4 +1,14 @@
 clean_data <- function(dt) {
+  #' @title Clean and preprocess the data table
+  #'
+  #' @description This function performs various cleaning and preprocessing steps
+  #' on the input data table, including renaming columns, collapsing columns,
+  #' cleaning specific columns, and remapping certain categorical variables.
+  #'
+  #' @param dt data.table. The data table to be cleaned and preprocessed.
+  #'
+  #' @return list. A list containing the cleaned data table and various summary information.
+
   # Add year column
   dt[, SRC_YR := as.integer(year_to_load)]
 
@@ -7,13 +17,7 @@ clean_data <- function(dt) {
 
   # Check if all columns were successfully renamed
   if (!all(new_colnames %in% colnames(dt))) {
-    # missing_cols <- setdiff(new_colnames, colnames(dt))
-    # warning(
-    #   "Failed to rename the following columns: ",
-    #   paste(missing_cols, collapse = ", ")
-    # )
     rename_success <- FALSE
-    # stop("Column renaming failed.")
   } else {
     rename_success <- TRUE
   }
@@ -39,10 +43,8 @@ clean_data <- function(dt) {
   dt[, clin_icd := split_to_vector(clin_icd)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
 
-  # Ensure clean_column function and na_like_
-  # strings are correctly defined and applied
+  # Ensure clean_column function and na_like_strings are correctly defined and applied
   dt[, clin_c1_orig := dt$clin_c1]
-  # Ensure clin_c1_orig captures original values
   dt[, clin_c1 := clean_column(clin_c1, na_like_strings)] # Clean clin_c1
 
   # Generate cleaning comparison table
@@ -172,8 +174,20 @@ clean_data <- function(dt) {
   ))
 }
 
-process_chunk <- function(
-    chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
+process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
+  #' @title Process a chunk of data
+  #'
+  #' @description This function processes a chunk of data by cleaning it,
+  #' mapping RVS and ICD codes, replacing empty strings, and finding PDX codes.
+  #'
+  #' @param chunk data.table. The chunk of data to be processed.
+  #' @param to_view_checks logical. Whether to view checks and print statements.
+  #' @param rvs_icd9 data.table. The RVS to ICD-9 mapping data.
+  #' @param tdrg_icd10 data.table. The Thai DRG ICD-10 mapping data.
+  #' @param acc_pdx character. A vector of acceptable PDX codes.
+  #'
+  #' @return list. A list containing the processed chunk and a summary of the processing.
+
   if (to_view_checks) {
     # print("Viewing checks")
   } else {
@@ -196,7 +210,6 @@ process_chunk <- function(
     discard_rvs_two = clean_result$discard_rvs_two,
     empty_strings_replaced_1 = clean_result$empty_strings_replaced_1
   )
-
 
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
@@ -250,8 +263,13 @@ process_chunk <- function(
   return(list(chunk = chunk, summary = summary))
 }
 
-# Function to split and save chunks
 split_and_save_parts <- function() {
+  #' @title Split and save parts of the data
+  #'
+  #' @description This function splits the data into parts and saves them as separate files.
+  #'
+  #' @return NULL. The function is used for its side effect of splitting and saving the data.
+
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
     for (part in 1:split_parts) {
@@ -270,8 +288,15 @@ split_and_save_parts <- function() {
   }
 }
 
-# Function to read and process each chunk
 read_and_process_part <- function(part) {
+  #' @title Read and process a part of the data
+  #'
+  #' @description This function reads and processes a part of the data from a file.
+  #'
+  #' @param part integer. The part number of the file to read.
+  #'
+  #' @return data.table. The processed part of the data.
+
   chunk_file <- if (to_sample) {
     sampled_claims_file(part)
   } else {
@@ -294,6 +319,23 @@ read_and_process_part <- function(part) {
 parallelize_and_summarize_data <- function(
     dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize) {
+  #' @title Parallelize and summarize data processing
+  #'
+  #' @description This function parallelizes the data processing across multiple cores
+  #' and summarizes the results.
+  #'
+  #' @param dt data.table. The data table to be processed.
+  #' @param num_cores integer. The number of cores to use for parallel processing.
+  #' @param to_view_checks logical. Whether to view checks and print statements.
+  #' @param global_seed integer. The seed for reproducibility.
+  #' @param intermediate_rows_to_show integer. The number of intermediate rows to show in summaries.
+  #' @param rvs_icd9 data.table. The RVS to ICD-9 mapping data.
+  #' @param tdrg_icd10 data.table. The Thai DRG ICD-10 mapping data.
+  #' @param acc_pdx character. A vector of acceptable PDX codes.
+  #' @param to_parallelize logical. Whether to parallelize the data processing.
+  #'
+  #' @return list. A list containing the processed data table and the combined summary of the processing.
+
   chunk_size <- ceiling(nrow(dt) / num_cores)
   chunks <- split(dt, rep(1:num_cores,
     each = chunk_size, length.out = nrow(dt)
@@ -338,7 +380,16 @@ parallelize_and_summarize_data <- function(
   ))
 }
 
-group_data <- function(part, dt) {
+group_data <- function(to_group, part, dt) {
+  #' @title Group data for batch processing
+  #'
+  #' @description This function groups the data for batch processing and exports it for the batch grouper.
+  #'
+  #' @param part integer. The part number of the data being processed.
+  #' @param dt data.table. The data table to be grouped.
+  #'
+  #' @return NULL. The function is used for its side effect of grouping and exporting the data.
+
   if (to_group) {
     export_for_batch_grouper(
       dt, year_to_load,
@@ -357,7 +408,16 @@ group_data <- function(part, dt) {
   }
 }
 
-write_intermediate_file <- function(part, dt) {
+write_intermediate_file <- function(to_write, part, dt) {
+  #' @title Write intermediate file
+  #'
+  #' @description This function writes the intermediate data table to a file.
+  #'
+  #' @param part integer. The part number of the data being processed.
+  #' @param dt data.table. The data table to be written.
+  #'
+  #' @return NULL. The function is used for its side effect of writing the data table to a file.
+
   if (to_write) {
     fwrite(dt, intermediate_file(part, fileext = TRUE))
   }
