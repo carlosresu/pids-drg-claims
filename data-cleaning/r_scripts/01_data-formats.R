@@ -9,6 +9,7 @@ na_like_strings <- c(
 
 # Define column types
 integer_cols <- c("OUT_PATIENT", "EMERGENCY")
+
 factor_cols <- c(
   "PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", "MEMCAT_PARENT_DESC",
   "MEMCAT_CHILD_DESC",
@@ -19,7 +20,7 @@ numeric_cols <- c(
   "ACR_AMOUNT_ACTUAL"
 )
 
-character_cols_after_drop <- c(
+character_cols <- c(
   "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "HCI_PMCC_NO", "HCP_NO_LIST",
   "PRIMARY_ILLNESS", "SECONDARY_ILLNESS", paste0("ICDCODE", c(1:12)),
   paste0("RVSCODE", 1:20), "DATE_ADM", "TIME_ADM",
@@ -28,15 +29,15 @@ character_cols_after_drop <- c(
 )
 
 # Define column classes
-col_classes_after_drop <- c(
-  rep("character", length(character_cols_after_drop)),
+col_classes <- c(
+  rep("character", length(character_cols)),
   rep("integer", length(integer_cols)),
   rep("factor", length(factor_cols)),
   rep("numeric", length(numeric_cols))
 )
 
-names(col_classes_after_drop) <- c(
-  character_cols_after_drop, integer_cols,
+names(col_classes) <- c(
+  character_cols, integer_cols,
   factor_cols, numeric_cols
 )
 

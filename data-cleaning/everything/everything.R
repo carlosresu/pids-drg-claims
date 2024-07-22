@@ -23,6 +23,7 @@ na_like_strings <- c(
 
 # Define column types
 integer_cols <- c("OUT_PATIENT", "EMERGENCY")
+
 factor_cols <- c(
   "PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", "MEMCAT_PARENT_DESC",
   "MEMCAT_CHILD_DESC",
@@ -33,7 +34,7 @@ numeric_cols <- c(
   "ACR_AMOUNT_ACTUAL"
 )
 
-character_cols_after_drop <- c(
+character_cols <- c(
   "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "HCI_PMCC_NO", "HCP_NO_LIST",
   "PRIMARY_ILLNESS", "SECONDARY_ILLNESS", paste0("ICDCODE", c(1:12)),
   paste0("RVSCODE", 1:20), "DATE_ADM", "TIME_ADM",
@@ -42,15 +43,15 @@ character_cols_after_drop <- c(
 )
 
 # Define column classes
-col_classes_after_drop <- c(
-  rep("character", length(character_cols_after_drop)),
+col_classes <- c(
+  rep("character", length(character_cols)),
   rep("integer", length(integer_cols)),
   rep("factor", length(factor_cols)),
   rep("numeric", length(numeric_cols))
 )
 
-names(col_classes_after_drop) <- c(
-  character_cols_after_drop, integer_cols,
+names(col_classes) <- c(
+  character_cols, integer_cols,
   factor_cols, numeric_cols
 )
 
@@ -92,10 +93,8 @@ path_to_raw_claims_parts <- "git-ignored-files/raw-claims/parts"
 path_to_raw_claims_samples <- "git-ignored-files/raw-claims/samples"
 path_to_raw_claims <- "git-ignored-files/raw-claims"
 
-# Here() let's you find files in your project directory
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"))
 
-# Ensure all other necessary functions and variables are defined
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("full_claims_", year_to_load)
@@ -150,8 +149,8 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
     paste0("cleaned_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "cleaned_claims_",
-      year_to_load, suffix, "part_", part, "_of_", split_chunks
+      "cleaned_claims_", year_to_load, suffix,
+      "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -177,11 +176,14 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
 
 grouper_result_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res"))
+    toupper(paste0(
+      "DRG_Grouped", "_", year_to_load, suffix,
+      "Res"
+    ))
   } else {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load,
-      suffix, "Res_", part, "_of_", split_chunks
+      "DRG_Grouped", "_", year_to_load, suffix,
+      "Res_", part, "_of_", split_chunks
     ))
   }
   if (fileext) {
@@ -805,8 +807,8 @@ read_entire_file <- function(file, initial_read = TRUE) {
     )
     setnames(dt, names(header))
     dt <- dt[, (drop_cols) := NULL]
-    for (col in names(col_classes_after_drop)) {
-      dt[[col]] <- switch(col_classes_after_drop[[col]],
+    for (col in names(col_classes)) {
+      dt[[col]] <- switch(col_classes[[col]],
         "character" = as.character(dt[[col]]),
         "factor" = as.factor(dt[[col]]),
         "integer" = as.integer(dt[[col]]),
@@ -827,8 +829,8 @@ read_sampled_file <- function(file) {
   )
   setnames(dt, names(header))
   dt <- dt[, (drop_cols) := NULL]
-  for (col in names(col_classes_after_drop)) {
-    dt[[col]] <- switch(col_classes_after_drop[[col]],
+  for (col in names(col_classes)) {
+    dt[[col]] <- switch(col_classes[[col]],
       "character" = as.character(dt[[col]]),
       "factor" = as.factor(dt[[col]]),
       "integer" = as.integer(dt[[col]]),

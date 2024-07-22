@@ -41,8 +41,8 @@ read_entire_file <- function(file, initial_read = TRUE) {
     )
     setnames(dt, names(header))
     dt <- dt[, (drop_cols) := NULL]
-    for (col in names(col_classes_after_drop)) {
-      dt[[col]] <- switch(col_classes_after_drop[[col]],
+    for (col in names(col_classes)) {
+      dt[[col]] <- switch(col_classes[[col]],
         "character" = as.character(dt[[col]]),
         "factor" = as.factor(dt[[col]]),
         "integer" = as.integer(dt[[col]]),
@@ -63,8 +63,8 @@ read_sampled_file <- function(file) {
   )
   setnames(dt, names(header))
   dt <- dt[, (drop_cols) := NULL]
-  for (col in names(col_classes_after_drop)) {
-    dt[[col]] <- switch(col_classes_after_drop[[col]],
+  for (col in names(col_classes)) {
+    dt[[col]] <- switch(col_classes[[col]],
       "character" = as.character(dt[[col]]),
       "factor" = as.factor(dt[[col]]),
       "integer" = as.integer(dt[[col]]),

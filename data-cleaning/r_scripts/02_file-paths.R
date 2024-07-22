@@ -9,10 +9,8 @@ path_to_raw_claims_parts <- "git-ignored-files/raw-claims/parts"
 path_to_raw_claims_samples <- "git-ignored-files/raw-claims/samples"
 path_to_raw_claims <- "git-ignored-files/raw-claims"
 
-# Here() let's you find files in your project directory
 suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"))
 
-# Ensure all other necessary functions and variables are defined
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("full_claims_", year_to_load)
@@ -67,8 +65,8 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
     paste0("cleaned_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "cleaned_claims_",
-      year_to_load, suffix, "part_", part, "_of_", split_chunks
+      "cleaned_claims_", year_to_load, suffix,
+      "part_", part, "_of_", split_chunks
     )
   }
   if (fileext) {
@@ -94,11 +92,14 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
 
 grouper_result_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
-    toupper(paste0("DRG_Grouped", "_", year_to_load, suffix, "Res"))
+    toupper(paste0(
+      "DRG_Grouped", "_", year_to_load, suffix,
+      "Res"
+    ))
   } else {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load,
-      suffix, "Res_", part, "_of_", split_chunks
+      "DRG_Grouped", "_", year_to_load, suffix,
+      "Res_", part, "_of_", split_chunks
     ))
   }
   if (fileext) {
