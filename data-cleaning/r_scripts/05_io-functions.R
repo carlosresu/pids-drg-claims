@@ -2,25 +2,58 @@ split_and_save_parts <- function() {
   #' @title Split and save parts of the data
   #' @description This function splits the data into parts and saves them as separate files.
   #' @return NULL. The function is used for its side effect of splitting and saving the data.
+
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
     header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
-    for (part in 1:split_parts) {
-      chunk_file <- full_claims_file(part)
-      if (!file.exists(chunk_file)) {
-        start_row <- (part - 1) * rows_per_part + 1
-        end_row <- min(part * rows_per_part, total_rows)
-        dt <- fread(
-          full_claims_file(),
-          skip = start_row,
-          nrows = end_row - start_row + 1,
-          na.strings = na_values,
-          colClasses = "character",
-          header = FALSE
-        )
-        setnames(dt, colnames(header))
-        fwrite(dt, chunk_file, quote = TRUE)
+    if (to_split_read) {
+      # Read the entire file in one go
+      files_exist <- sapply(1:split_parts, function(part) file.exists(full_claims_file(part)))
+      if (any(!files_exist)) {
+        full_data <- fread(full_claims_file(), na.strings = na_values, colClasses = "character", header = TRUE)
       }
+      split_and_save <- function(part) {
+        chunk_file <- full_claims_file(part)
+        if (!file.exists(chunk_file)) {
+          start_row <- (part - 1) * rows_per_part + 1
+          end_row <- min(part * rows_per_part, total_rows)
+          dt <- full_data[start_row:end_row]
+          setnames(dt, colnames(header))
+          if (to_debug) print(head(dt),2) # debug
+          fwrite(dt, chunk_file, quote = TRUE)
+          rm(dt)
+          gc()
+        }
+      }
+      lapply(1:split_parts, split_and_save)
+      # Clean up the full data from memory
+      if (exists("full_data")) {
+        if (to_debug) print(head(full_data), 2) # debug
+        rm(full_data)
+      }
+      gc()
+    } else {
+      split_and_save <- function(part) {
+        chunk_file <- full_claims_file(part)
+        if (!file.exists(chunk_file)) {
+          start_row <- (part - 1) * rows_per_part + 1
+          end_row <- min(part * rows_per_part, total_rows)
+          dt <- fread(
+            full_claims_file(),
+            skip = start_row,
+            nrows = end_row - start_row + 1,
+            na.strings = na_values,
+            colClasses = "character",
+            header = FALSE
+          )
+          setnames(dt, colnames(header))
+          if (to_debug) print(head(dt), 2) # debug
+          fwrite(dt, chunk_file, quote = TRUE)
+          rm(dt)
+          gc()
+        }
+      }
+      lapply(1:split_parts, split_and_save)
     }
   }
 }
@@ -78,7 +111,9 @@ read_appropriate_file <- function(part, to_sample) {
   }
   
   dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE)
-  
+
+  if (to_debug) print(head(dt),2) # debug
+
   # Drop columns
   if (any(drop_cols %in% colnames(dt))) {
     dt <- dt[, (drop_cols) := NULL]
@@ -88,6 +123,8 @@ read_appropriate_file <- function(part, to_sample) {
   dt <- replace_result$data
   replacement_summary <- replace_result$replacement_summary
   
+  if (to_debug) print(head(dt),2) # debug
+
   # Cast column types with checks
   for (col in names(col_classes)) {
     original_values <- dt[[col]]

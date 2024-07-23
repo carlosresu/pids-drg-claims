@@ -88,7 +88,6 @@ new_colnames <- c(
 )
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-"data-cleaning/r_scripts" <- "data-cleaning/r_scripts"
 intermediate_path <- "git-ignored-files/intermediate-claims"
 cache_path <- "data-cleaning/cache"
 aux_path <- "git-ignored-files/aux-files"
@@ -100,6 +99,31 @@ raw_claims_parts_path <- "git-ignored-files/raw-claims/parts"
 raw_claims_samples_path <- "git-ignored-files/raw-claims/samples"
 raw_claims_path <- "git-ignored-files/raw-claims"
 profvis_path <- "git-ignored-files/profvis/profvis.html"
+
+full_claims_file <- function(part = NULL, fileext = TRUE) {
+  #' @title Generate the file path for the full claims file
+  #'
+  #' @description This function generates the file path for the
+  #' full claims file, based on the year and part.
+  #'
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
+  #'
+  #' @return Character. The generated file path.
+  filename <- if (is.null(part)) {
+    paste0("full_claims_", year_to_load)
+  } else {
+    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
+  }
+  if (fileext) filename <- paste0(filename, ".csv")
+  if (is.null(part)) {
+    return(here(raw_claims_path, filename))
+  } else {
+    return(here(raw_claims_parts_path, filename))
+  }
+}
 
 total_rows_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for total rows file
@@ -148,31 +172,6 @@ if (to_split) {
 suffix <- paste0(
   ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
 )
-
-full_claims_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the full claims file
-  #'
-  #' @description This function generates the file path for the
-  #' full claims file, based on the year and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("full_claims_", year_to_load)
-  } else {
-    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
-  }
-  if (fileext) filename <- paste0(filename, ".csv")
-  if (is.null(part)) {
-    return(here(raw_claims_path, filename))
-  } else {
-    return(here(raw_claims_parts_path, filename))
-  }
-}
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the sampled claims file
@@ -883,7 +882,8 @@ process_chunk <- function(
   summary$unmappable_rvs <- rvs_mapping_result$unmappable_rvs
   summary$multi_mapped_rvs <- rvs_mapping_result$multi_mapped_rvs
   summary$without_drg <- rvs_mapping_result$without_drg
-
+  
+  gc() # debug
   return(list(chunk = chunk, summary = summary))
 }
 
@@ -928,9 +928,15 @@ parallelize_and_summarize_data <- function(
   }
 
   processed_chunks <- lapply(parallel_results, function(res) res$chunk)
+  
   dt <- rbindlist(processed_chunks)
-
+  
+  rm(processed_chunks) # debug
+  
   combined_summary <- combine_chunk_summaries(parallel_results, intermediate_rows_to_show)
+
+  rm(parallel_results) # debug
+  gc() # debug
 
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
@@ -947,6 +953,8 @@ parallelize_and_summarize_data <- function(
   } else {
     combined_summary$pdx_success <- TRUE
   }
+  
+  gc() # debug
 
   return(list(
     dt = dt,
@@ -1003,25 +1011,58 @@ split_and_save_parts <- function() {
   #' @title Split and save parts of the data
   #' @description This function splits the data into parts and saves them as separate files.
   #' @return NULL. The function is used for its side effect of splitting and saving the data.
+
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
     header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
-    for (part in 1:split_parts) {
-      chunk_file <- full_claims_file(part)
-      if (!file.exists(chunk_file)) {
-        start_row <- (part - 1) * rows_per_part + 1
-        end_row <- min(part * rows_per_part, total_rows)
-        dt <- fread(
-          full_claims_file(),
-          skip = start_row,
-          nrows = end_row - start_row + 1,
-          na.strings = na_values,
-          colClasses = "character",
-          header = FALSE
-        )
-        setnames(dt, colnames(header))
-        fwrite(dt, chunk_file, quote = TRUE)
+    if (to_split_read) {
+      # Read the entire file in one go
+      files_exist <- sapply(1:split_parts, function(part) file.exists(full_claims_file(part)))
+      if (any(!files_exist)) {
+        full_data <- fread(full_claims_file(), na.strings = na_values, colClasses = "character", header = TRUE)
       }
+      split_and_save <- function(part) {
+        chunk_file <- full_claims_file(part)
+        if (!file.exists(chunk_file)) {
+          start_row <- (part - 1) * rows_per_part + 1
+          end_row <- min(part * rows_per_part, total_rows)
+          dt <- full_data[start_row:end_row]
+          setnames(dt, colnames(header))
+          if (to_debug) print(head(dt),2) # debug
+          fwrite(dt, chunk_file, quote = TRUE)
+          rm(dt)
+          gc()
+        }
+      }
+      lapply(1:split_parts, split_and_save)
+      # Clean up the full data from memory
+      if (exists("full_data")) {
+        if (to_debug) print(head(full_data), 2) # debug
+        rm(full_data)
+      }
+      gc()
+    } else {
+      split_and_save <- function(part) {
+        chunk_file <- full_claims_file(part)
+        if (!file.exists(chunk_file)) {
+          start_row <- (part - 1) * rows_per_part + 1
+          end_row <- min(part * rows_per_part, total_rows)
+          dt <- fread(
+            full_claims_file(),
+            skip = start_row,
+            nrows = end_row - start_row + 1,
+            na.strings = na_values,
+            colClasses = "character",
+            header = FALSE
+          )
+          setnames(dt, colnames(header))
+          if (to_debug) print(head(dt), 2) # debug
+          fwrite(dt, chunk_file, quote = TRUE)
+          rm(dt)
+          gc()
+        }
+      }
+      lapply(1:split_parts, split_and_save)
     }
   }
 }
@@ -1079,7 +1120,9 @@ read_appropriate_file <- function(part, to_sample) {
   }
   
   dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE)
-  
+
+  if (to_debug) print(head(dt),2) # debug
+
   # Drop columns
   if (any(drop_cols %in% colnames(dt))) {
     dt <- dt[, (drop_cols) := NULL]
@@ -1089,6 +1132,8 @@ read_appropriate_file <- function(part, to_sample) {
   dt <- replace_result$data
   replacement_summary <- replace_result$replacement_summary
   
+  if (to_debug) print(head(dt),2) # debug
+
   # Cast column types with checks
   for (col in names(col_classes)) {
     original_values <- dt[[col]]
@@ -1901,6 +1946,10 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   output_dt[, (proc_cols) := rvs_codes]
 
   prepare_and_write_output(output_dt, output_txt_file)
+
+  rm(output_dt) # debug
+  gc() # debug
+  if (to_debug) return(NULL) # debug
 }
 
 group_data <- function(to_group, part, dt) {
@@ -1920,6 +1969,8 @@ group_data <- function(to_group, part, dt) {
       dt, year_to_load,
       output_txt_file(part)
     )
+    rm(dt) # debug
+    gc() # debug
     for_batch_grouping <- fread(
       output_txt_file(part),
       sep = "|", na.strings = "--"
@@ -1960,18 +2011,13 @@ print_time_estimates <- function() {
   #' @description This function prints time estimates for
   #' processing rows in a data table.
   #'
-  #' @param dt data.table. The input data table.
-  #' @param total_time numeric. The total time spent processing.
-  #' @param total_rows numeric. The total number of rows to estimate for.
-  #'
   #' @return NULL.
   toc_data <- toc(log = TRUE)
-  dt <- dt
   total_time <- toc_data$toc - toc_data$tic
-  total_rows <- if (to_sample) nrow(dt) * split_parts * sample_size_divisor else nrow(dt) * split_parts
+  total_rows <- if (to_sample) dim_dt[1] * split_parts * sample_size_divisor else dim_dt[1] * split_parts
 
-  total_rows_dt <- nrow(dt) * split_parts
-  total_cells <- nrow(dt) * ncol(dt)
+  total_rows_dt <- dim_dt[1] * split_parts
+  total_cells <- dim_dt[1] * dim_dt[2]
   time_per_cell <- total_time / total_cells
   time_per_row <- total_time / total_rows_dt
   time_estimate_total_rows <- time_per_row * total_rows

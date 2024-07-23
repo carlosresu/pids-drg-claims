@@ -135,6 +135,10 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
   output_dt[, (proc_cols) := rvs_codes]
 
   prepare_and_write_output(output_dt, output_txt_file)
+
+  rm(output_dt) # debug
+  gc() # debug
+  if (to_debug) return(NULL) # debug
 }
 
 group_data <- function(to_group, part, dt) {
@@ -154,6 +158,8 @@ group_data <- function(to_group, part, dt) {
       dt, year_to_load,
       output_txt_file(part)
     )
+    rm(dt) # debug
+    gc() # debug
     for_batch_grouping <- fread(
       output_txt_file(part),
       sep = "|", na.strings = "--"

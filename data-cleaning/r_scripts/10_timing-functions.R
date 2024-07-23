@@ -26,18 +26,13 @@ print_time_estimates <- function() {
   #' @description This function prints time estimates for
   #' processing rows in a data table.
   #'
-  #' @param dt data.table. The input data table.
-  #' @param total_time numeric. The total time spent processing.
-  #' @param total_rows numeric. The total number of rows to estimate for.
-  #'
   #' @return NULL.
   toc_data <- toc(log = TRUE)
-  dt <- dt
   total_time <- toc_data$toc - toc_data$tic
-  total_rows <- if (to_sample) nrow(dt) * split_parts * sample_size_divisor else nrow(dt) * split_parts
+  total_rows <- if (to_sample) dim_dt[1] * split_parts * sample_size_divisor else dim_dt[1] * split_parts
 
-  total_rows_dt <- nrow(dt) * split_parts
-  total_cells <- nrow(dt) * ncol(dt)
+  total_rows_dt <- dim_dt[1] * split_parts
+  total_cells <- dim_dt[1] * dim_dt[2]
   time_per_cell <- total_time / total_cells
   time_per_row <- total_time / total_rows_dt
   time_estimate_total_rows <- time_per_row * total_rows

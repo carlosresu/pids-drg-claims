@@ -1,6 +1,5 @@
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-"data-cleaning/r_scripts" <- "data-cleaning/r_scripts"
 intermediate_path <- "git-ignored-files/intermediate-claims"
 cache_path <- "data-cleaning/cache"
 aux_path <- "git-ignored-files/aux-files"
@@ -12,6 +11,31 @@ raw_claims_parts_path <- "git-ignored-files/raw-claims/parts"
 raw_claims_samples_path <- "git-ignored-files/raw-claims/samples"
 raw_claims_path <- "git-ignored-files/raw-claims"
 profvis_path <- "git-ignored-files/profvis/profvis.html"
+
+full_claims_file <- function(part = NULL, fileext = TRUE) {
+  #' @title Generate the file path for the full claims file
+  #'
+  #' @description This function generates the file path for the
+  #' full claims file, based on the year and part.
+  #'
+  #' @param part Integer. The part number of the file.
+  #' Default is NULL.
+  #' @param fileext Logical. Whether to include the file extension.
+  #' Default is TRUE.
+  #'
+  #' @return Character. The generated file path.
+  filename <- if (is.null(part)) {
+    paste0("full_claims_", year_to_load)
+  } else {
+    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
+  }
+  if (fileext) filename <- paste0(filename, ".csv")
+  if (is.null(part)) {
+    return(here(raw_claims_path, filename))
+  } else {
+    return(here(raw_claims_parts_path, filename))
+  }
+}
 
 total_rows_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for total rows file
@@ -60,31 +84,6 @@ if (to_split) {
 suffix <- paste0(
   ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
 )
-
-full_claims_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the full claims file
-  #'
-  #' @description This function generates the file path for the
-  #' full claims file, based on the year and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("full_claims_", year_to_load)
-  } else {
-    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
-  }
-  if (fileext) filename <- paste0(filename, ".csv")
-  if (is.null(part)) {
-    return(here(raw_claims_path, filename))
-  } else {
-    return(here(raw_claims_parts_path, filename))
-  }
-}
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the sampled claims file
