@@ -115,7 +115,6 @@ parallelize_and_summarize_data <- function(
   chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
   if (to_parallelize) {
-    plan(multisession, workers = num_cores)
     parallel_results <- future_lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
