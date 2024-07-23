@@ -1,15 +1,18 @@
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-path_to_intermediate <- "git-ignored-files/intermediate-claims"
-path_to_cache <- "data-cleaning/cache"
-path_to_aux <- "git-ignored-files/aux-files"
-path_to_excel <- "git-ignored-files/Excel"
-path_to_cleaned_claims <- "git-ignored-files/cleaned-claims"
-path_to_grouper_output <- "git-ignored-files/grouper-output"
-path_to_chunks <- "git-ignored-files/chunked-samples"
-path_to_raw_claims_parts <- "git-ignored-files/raw-claims/parts"
-path_to_raw_claims_samples <- "git-ignored-files/raw-claims/samples"
-path_to_raw_claims <- "git-ignored-files/raw-claims"
+r_scripts_path <- "data-cleaning/r_scripts"
+intermediate_path <- "git-ignored-files/intermediate-claims"
+cache_path <- "data-cleaning/cache"
+aux_path <- "git-ignored-files/aux-files"
+excel_path <- "git-ignored-files/Excel"
+cleaned_claims_path <- "git-ignored-files/cleaned-claims"
+grouper_output_path <- "git-ignored-files/grouper-output"
+chunks_path <- "git-ignored-files/chunked-samples"
+raw_claims_parts_path <- "git-ignored-files/raw-claims/parts"
+raw_claims_samples_path <- "git-ignored-files/raw-claims/samples"
+raw_claims_path <- "git-ignored-files/raw-claims"
+profvis_path <- "git-ignored-files/profvis/profvis.html"
+everything_path <- "data-cleaning/everything"
 
 total_rows_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for total rows file
@@ -34,7 +37,7 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   if (fileext) {
     filename <- paste0(filename, ".rds")
   }
-  return(here(path_to_cache, filename))
+  return(here(cache_path, filename))
 }
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
@@ -78,9 +81,9 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
-    return(here(path_to_raw_claims, filename))
+    return(here(raw_claims_path, filename))
   } else {
-    return(here(path_to_raw_claims_parts, filename))
+    return(here(raw_claims_parts_path, filename))
   }
 }
 
@@ -105,7 +108,7 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
     )
   }
   if (fileext) filename <- paste0(filename, ".csv")
-  return(here(path_to_raw_claims_samples, filename))
+  return(here(raw_claims_samples_path, filename))
 }
 
 intermediate_file <- function(part = NULL, fileext = TRUE) {
@@ -131,7 +134,7 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   if (fileext) {
     filename <- paste0(filename, ".csv")
   }
-  return(here(path_to_intermediate, filename))
+  return(here(intermediate_path, filename))
 }
 
 cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
@@ -157,7 +160,7 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   if (fileext) {
     filename <- paste0(filename, ".csv")
   }
-  return(here(path_to_cleaned_claims, filename))
+  return(here(cleaned_claims_path, filename))
 }
 
 output_txt_file <- function(part = NULL, fileext = TRUE) {
@@ -183,7 +186,7 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   if (fileext) {
     filename <- paste0(filename, ".txt")
   }
-  return(here(path_to_grouper_output, filename))
+  return(here(grouper_output_path, filename))
 }
 
 grouper_result_file <- function(part = NULL, fileext = TRUE) {
@@ -212,5 +215,5 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   if (fileext) {
     filename <- paste0(filename, ".TXT")
   }
-  return(here(path_to_grouper_output, filename))
+  return(here(grouper_output_path, filename))
 }

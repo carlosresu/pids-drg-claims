@@ -36,9 +36,9 @@ suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
 ```
 
 ```{r read python}
-pdt <- fread(here("git-ignored-files","intermediate-claims", paste0("python_output_", year_to_load,".csv")))
+pdt <- fread(here(intermediate_path, paste0("python_output_", year_to_load,".csv")))
 
-rdt <- fread(here("git-ignored-files","intermediate-claims", paste0("output_", year_to_load, suffix, ".csv")))
+rdt <- fread(here(intermediate_path, paste0("output_", year_to_load, suffix, ".csv")))
 
 # Define a function to safely split strings
 safe_split <- function(x) {

@@ -68,8 +68,8 @@ print_status_update <- function(part, split_parts, processing_times) { #
   estimated_total_time <- avg_time_per_part * split_parts
   estimated_remaining_time <- estimated_total_time - elapsed_time
   cat(sprintf(
-    "Status Update: Finished processing part %d of %d\n",
+    "Status Update\nFinished: Part %d of %d\n",
     part, split_parts
   ))
-  cat(sprintf("ETA: %d seconds\n", round(estimated_remaining_time)))
+  cat(sprintf("Elapsed: %d seconds\nETA: %d seconds\n", round(elapsed_time), round(estimated_remaining_time)))
 }

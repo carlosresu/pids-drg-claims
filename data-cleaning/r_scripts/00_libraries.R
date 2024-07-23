@@ -11,4 +11,5 @@ suppressPackageStartupMessages({
   library(future)
   library(future.apply)
   library(knitr)
+  library(htmlwidgets)
 })

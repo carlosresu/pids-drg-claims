@@ -11,7 +11,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   #' @return NULL. Prints the summary tables.
 
   summary <- final_combined_summaries
-  cat("Rename Success:\n", summary$final_rename_success, "\n\n")
+  cat("\n\nRename Success:\n", summary$final_rename_success, "\n\n")
 
   if (nrow(summary$final_ICD_replacements_1) > 0) {
     print(kable(head(summary$final_ICD_replacements_1, rows_to_show),
