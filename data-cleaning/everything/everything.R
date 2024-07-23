@@ -13,6 +13,8 @@ suppressPackageStartupMessages({
   library(knitr)
   library(htmlwidgets)
 })
+tic("Time spent (total)               ") # Start total execution timer
+
 na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
 na_like_strings <- c(
   "", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a",
@@ -86,7 +88,7 @@ new_colnames <- c(
 )
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-r_scripts_path <- "data-cleaning/r_scripts"
+"data-cleaning/r_scripts" <- "data-cleaning/r_scripts"
 intermediate_path <- "git-ignored-files/intermediate-claims"
 cache_path <- "data-cleaning/cache"
 aux_path <- "git-ignored-files/aux-files"
@@ -98,7 +100,6 @@ raw_claims_parts_path <- "git-ignored-files/raw-claims/parts"
 raw_claims_samples_path <- "git-ignored-files/raw-claims/samples"
 raw_claims_path <- "git-ignored-files/raw-claims"
 profvis_path <- "git-ignored-files/profvis/profvis.html"
-everything_path <- "data-cleaning/everything"
 
 total_rows_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for total rows file
@@ -1953,7 +1954,7 @@ format_large_numbers <- function(x) {
 }
 
 # Function to print time estimates
-print_time_estimates <- function(dt, total_time, total_rows) {
+print_time_estimates <- function() {
   #' @title Print Time Estimates
   #'
   #' @description This function prints time estimates for
@@ -1964,6 +1965,10 @@ print_time_estimates <- function(dt, total_time, total_rows) {
   #' @param total_rows numeric. The total number of rows to estimate for.
   #'
   #' @return NULL.
+  toc_data <- toc(log = TRUE)
+  dt <- dt
+  total_time <- toc_data$toc - toc_data$tic
+  total_rows <- if (to_sample) nrow(dt) * split_parts * sample_size_divisor else nrow(dt) * split_parts
 
   total_rows_dt <- nrow(dt) * split_parts
   total_cells <- nrow(dt) * ncol(dt)
@@ -1976,16 +1981,16 @@ print_time_estimates <- function(dt, total_time, total_rows) {
   formatted_total_rows <- format_large_numbers(total_rows)
 
   # Print the results for processing the whole file
+  # cat(sprintf(
+  #   "Time spent (total) for %s rows: %2.2f sec  (actual)\n",
+  #   formatted_total_rows_dt, total_time
+  # ))
   cat(sprintf(
-    "Time spent (total) for %s rows:  %1.2f sec  (actual)\n",
-    formatted_total_rows_dt, total_time
-  ))
-  cat(sprintf(
-    "Time spent (t/row) for %s rows:  %1.2f msec (actual)\n",
+    "Time spent (t/row) for %s rows: %2.2f msec\n",
     formatted_total_rows_dt, time_per_row * 1000
   ))
   cat(sprintf(
-    "Time spent (total) for %s rows: %2.2f min  (estimate)\n",
+    "Time (est) (total) for %s rows: %2.2f min\n",
     formatted_total_rows, time_estimate_total_rows / 60
   ))
 }

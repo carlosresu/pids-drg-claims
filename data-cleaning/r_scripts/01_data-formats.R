@@ -1,3 +1,5 @@
+tic("Time spent (total)               ") # Start total execution timer
+
 na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
 na_like_strings <- c(
   "", " ", "  ", "-", "none", "None", "NONE", "NA", "n/a",

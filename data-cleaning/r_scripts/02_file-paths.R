@@ -1,6 +1,6 @@
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-r_scripts_path <- "data-cleaning/r_scripts"
+"data-cleaning/r_scripts" <- "data-cleaning/r_scripts"
 intermediate_path <- "git-ignored-files/intermediate-claims"
 cache_path <- "data-cleaning/cache"
 aux_path <- "git-ignored-files/aux-files"
@@ -12,7 +12,6 @@ raw_claims_parts_path <- "git-ignored-files/raw-claims/parts"
 raw_claims_samples_path <- "git-ignored-files/raw-claims/samples"
 raw_claims_path <- "git-ignored-files/raw-claims"
 profvis_path <- "git-ignored-files/profvis/profvis.html"
-everything_path <- "data-cleaning/everything"
 
 total_rows_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for total rows file
