@@ -55,13 +55,7 @@ data-grouper-output/
 data-grouper-output
 data-excel/
 data-excel
-data-claims-intermediate/
-data-claims-intermediate
-data-claims-cleaned/
-data-claims-cleaned
-data-claims-chunked/
-data-claims-chunked
-data-claims-raw/
-data-claims-raw
+data-claims/
+data-claims
 profvis/
 profvis
