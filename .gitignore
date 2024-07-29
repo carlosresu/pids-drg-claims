@@ -45,3 +45,6 @@ python-code/
 # data-claims-raw
 data-claims-raw/
 data-claims-raw
+
+#ipynb checkpoints
+data-cleaning/.ipynb_checkpoints/
