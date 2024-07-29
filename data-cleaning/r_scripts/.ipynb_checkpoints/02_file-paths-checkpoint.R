@@ -1,15 +1,15 @@
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-intermediate_path <- "data-claims-intermediate"
+intermediate_path <- "data-claims/intermediate"
 cache_path <- "data-cleaning/cache"
 aux_path <- "data-aux-files"
 excel_path <- "data-excel"
-cleaned_claims_path <- "data-claims-cleaned"
+cleaned_claims_path <- "data-claims/cleaned"
 grouper_output_path <- "data-grouper-output"
-chunks_path <- "data-claims-chunked"
-raw_claims_parts_path <- "data-claims-raw/parts"
-raw_claims_samples_path <- "data-claims-raw/samples"
-raw_claims_path <- "data-claims-raw"
+chunks_path <- "data-claims/chunked"
+raw_claims_parts_path <- "data-claims/raw/parts"
+raw_claims_samples_path <- "data-claims/raw/samples"
+raw_claims_path <- "data-claims"
 profvis_path <- "profvis/profvis.html"
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
