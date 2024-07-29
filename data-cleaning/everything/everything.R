@@ -1,17 +1,33 @@
+required_packages <- c(
+  "data.table", 
+  "here", 
+  "tictoc", 
+  "stringr", 
+  "stringi", 
+  "lubridate", 
+  "docstring", 
+  "profvis", 
+  "hash", 
+  "future", 
+  "future.apply",
+  "knitr", 
+  "htmlwidgets",
+  "bigrquery"
+)
+
+# Function to install and load packages
+install_and_load <- function(package) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package, dependencies = TRUE)
+    library(package, character.only = TRUE)
+  }
+}
+
+# Install and load required packages
+lapply(required_packages, install_and_load)
+
 suppressPackageStartupMessages({
-  library(data.table)
-  library(here)
-  library(tictoc)
-  library(stringr)
-  library(stringi)
-  library(lubridate)
-  library(docstring)
-  library(profvis)
-  library(hash)
-  library(future)
-  library(future.apply)
-  library(knitr)
-  library(htmlwidgets)
+  lapply(required_packages, library, character.only = TRUE)
 })
 tic("Time spent (total)               ") # Start total execution timer
 
@@ -88,17 +104,17 @@ new_colnames <- c(
 )
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-intermediate_path <- "git-ignored-files/intermediate-claims"
+intermediate_path <- "data-claims-intermediate"
 cache_path <- "data-cleaning/cache"
-aux_path <- "git-ignored-files/aux-files"
-excel_path <- "git-ignored-files/Excel"
-cleaned_claims_path <- "git-ignored-files/cleaned-claims"
-grouper_output_path <- "git-ignored-files/grouper-output"
-chunks_path <- "git-ignored-files/chunked-samples"
-raw_claims_parts_path <- "git-ignored-files/raw-claims/parts"
-raw_claims_samples_path <- "git-ignored-files/raw-claims/samples"
-raw_claims_path <- "git-ignored-files/raw-claims"
-profvis_path <- "git-ignored-files/profvis/profvis.html"
+aux_path <- "data-aux-files"
+excel_path <- "data-excel"
+cleaned_claims_path <- "data-claims-cleaned"
+grouper_output_path <- "data-grouper-output"
+chunks_path <- "data-claims-chunked"
+raw_claims_parts_path <- "data-claims-raw/parts"
+raw_claims_samples_path <- "data-claims-raw/samples"
+raw_claims_path <- "data-claims-raw"
+profvis_path <- "profvis/profvis.html"
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the full claims file
@@ -113,9 +129,9 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("full_claims_", year_to_load)
+    paste0("claims_extract_CLAIMS ", year_to_load)
   } else {
-    paste0("full_claims_", year_to_load, "_part_", part, "_of_", split_parts)
+    paste0("claims_extract_CLAIMS ", year_to_load, "_part_", part, "_of_", split_parts)
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
