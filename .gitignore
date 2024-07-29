@@ -51,3 +51,7 @@ data-cleaning/.ipynb_checkpoints/
 data-cleaning/.ipynb_checkpoints
 data-cleaning/r_scripts/.ipynb_checkpoints/
 data-cleaning/r_scripts/.ipynb_checkpoints
+
+#git-ignored-files
+data-aux-files/
+data-aux-files
