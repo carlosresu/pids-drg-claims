@@ -1,15 +1,32 @@
+required_packages <- c(
+  "data.table", 
+  "here", 
+  "tictoc", 
+  "stringr", 
+  "stringi", 
+  "lubridate", 
+  "docstring", 
+  "profvis", 
+  "hash", 
+  "future", 
+  "future.apply",
+  "knitr", 
+  "htmlwidgets",
+  "googleCloudStorageR",
+  "googleAuthR"
+)
+
+# Function to install and load packages
+install_and_load <- function(package) {
+  if (!require(package, character.only = TRUE)) {
+    install.packages(package, dependencies = TRUE)
+    library(package, character.only = TRUE)
+  }
+}
+
+# Install and load required packages
+lapply(required_packages, install_and_load)
+
 suppressPackageStartupMessages({
-  library(data.table)
-  library(here)
-  library(tictoc)
-  library(stringr)
-  library(stringi)
-  library(lubridate)
-  library(docstring)
-  library(profvis)
-  library(hash)
-  library(future)
-  library(future.apply)
-  library(knitr)
-  library(htmlwidgets)
+  lapply(required_packages, library, character.only = TRUE)
 })
