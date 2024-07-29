@@ -41,3 +41,7 @@ git-ignored-files
 python-code
 python-code/
 /.quarto/
+
+# data-claims-raw
+data-claims-raw/
+data-claims-raw
