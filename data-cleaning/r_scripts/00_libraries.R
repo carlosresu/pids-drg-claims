@@ -11,7 +11,8 @@ required_packages <- c(
   "future", 
   "future.apply",
   "knitr", 
-  "htmlwidgets"
+  "htmlwidgets",
+  "bigrquery"
 )
 
 # Function to install and load packages
