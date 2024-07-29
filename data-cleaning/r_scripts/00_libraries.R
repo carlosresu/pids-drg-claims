@@ -11,9 +11,7 @@ required_packages <- c(
   "future", 
   "future.apply",
   "knitr", 
-  "htmlwidgets",
-  "googleCloudStorageR",
-  "googleAuthR"
+  "htmlwidgets"
 )
 
 # Function to install and load packages
