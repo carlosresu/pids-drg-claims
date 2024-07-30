@@ -49,13 +49,13 @@ data-cleaning/r_scripts/.ipynb_checkpoints/
 data-cleaning/r_scripts/.ipynb_checkpoints
 
 #git-ignored-files
-data-aux-files/
-data-aux-files
-data-grouper-output/
-data-grouper-output
-data-excel/
-data-excel
-data-claims/
-data-claims
-profvis/
-profvis
+data-cleaning/data-aux-files/
+data-cleaning/data-aux-files
+data-cleaning/data-grouper-output/
+data-cleaning/data-grouper-output
+data-cleaning/data-excel/
+data-cleaning/data-excel
+data-cleaning/data-claims/
+data-cleaning/data-claims
+data-cleaning/profvis/
+data-cleaning/profvis
