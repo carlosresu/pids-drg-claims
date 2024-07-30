@@ -115,17 +115,17 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
     if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
       paste0("claims_extract_CLAIMS ", year_to_load)
     } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
-      paste0("claims_extract_CLAIMS_", year_to_load)
+      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
     } else {
-      paste0("claims_extract_CLAIMS_", year_to_load)
+      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
     }
   } else {
     if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
-      paste0("claims_extract_CLAIMS ", year_to_load, "_part_", part, "_of_", split_parts)
+      paste0("claims_extract_CLAIMS ", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
     } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_parts)
+      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
     } else {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_parts)
+      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
     }
   }
   if (fileext) filename <- paste0(filename, ".csv")
@@ -197,10 +197,10 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("sampled_claims_", year_to_load, "_", sample_size)
+    paste0("sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size)
   } else {
     paste0(
-      "sampled_claims_", year_to_load, "_", sample_size,
+      "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size
       "_part_", part, "_of_", split_parts
     )
   }
@@ -221,10 +221,10 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("intermediate_claims_", year_to_load, suffix)
+    paste0("intermediate_claims_", year_to_load, "_", ver_to_use, suffix)
   } else {
     paste0(
-      "intermediate_claims_", year_to_load, suffix,
+      "intermediate_claims_", year_to_load, "_", ver_to_use, suffix,
       "part_", part, "_of_", split_parts
     )
   }
@@ -247,10 +247,10 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("cleaned_claims_", year_to_load, suffix)
+    paste0("cleaned_claims_", year_to_load, "_", ver_to_use, suffix)
   } else {
     paste0(
-      "cleaned_claims_", year_to_load, suffix,
+      "cleaned_claims_", year_to_load, "_", ver_to_use, suffix,
       "part_", part, "_of_", split_parts
     )
   }
@@ -273,10 +273,10 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("DRG_Grouped", "_", year_to_load, suffix)
+    paste0("DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix)
   } else {
     paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
+      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
       "part_", part, "_of_", split_parts
     )
   }
@@ -300,12 +300,12 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
+      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
       "Res"
     ))
   } else {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
+      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
       "Res_", part, "_of_", split_parts
     ))
   }
