@@ -188,7 +188,7 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
     paste0("sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size)
   } else {
     paste0(
-      "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size
+      "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size,
       "_part_", part, "_of_", split_parts
     )
   }

@@ -112,21 +112,9 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
-      paste0("claims_extract_CLAIMS ", year_to_load)
-    } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
-    } else {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
-    }
+    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
   } else {
-    if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
-      paste0("claims_extract_CLAIMS ", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
-    } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
-    } else {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
-    }
+    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
@@ -200,7 +188,7 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
     paste0("sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size)
   } else {
     paste0(
-      "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size
+      "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size,
       "_part_", part, "_of_", split_parts
     )
   }
