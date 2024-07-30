@@ -1145,7 +1145,7 @@ split_and_save_parts <- function() {
           end_row <- min(part * rows_per_part, total_rows)
           dt <- full_data[start_row:end_row]
           setnames(dt, colnames(header))
-          if (to_debug) print(head(dt),2) # debug
+          if (to_debug) print(head(dt), 2) # debug
           fwrite(dt, chunk_file, quote = TRUE)
           rm(dt)
           gc()
@@ -1229,16 +1229,16 @@ read_appropriate_file <- function(part, to_sample) {
   #' @param part integer. The part number to process.
   #' @param to_sample logical. Whether to read the sample file or the full partial file.
   #' @return data.table. The processed data table.
-  
+
   chunk_file <- if (to_sample) {
     sampled_claims_file(part)
   } else {
     full_claims_file(part)
   }
-  
+
   dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE)
 
-  if (to_debug) print(head(dt),2) # debug
+  if (to_debug) print(head(dt), 2) # debug
 
   # Drop columns
   if (any(drop_cols %in% colnames(dt))) {
@@ -1248,13 +1248,13 @@ read_appropriate_file <- function(part, to_sample) {
   replace_result <- replace_empty_with_na(dt, to_view_checks)
   dt <- replace_result$data
   replacement_summary <- replace_result$replacement_summary
-  
-  if (to_debug) print(head(dt),2) # debug
+
+  if (to_debug) print(head(dt), 2) # debug
 
   # Cast column types with checks
   for (col in names(col_classes)) {
     original_values <- dt[[col]]
-    
+
     dt[[col]] <- switch(col_classes[[col]],
       "character" = as.character(dt[[col]]),
       "factor" = {
@@ -1269,15 +1269,17 @@ read_appropriate_file <- function(part, to_sample) {
       },
       dt[[col]]
     )
-    
+
     # Check for NA coercion
     coerced_to_na <- which(is.na(dt[[col]]) & !is.na(original_values))
     if (length(coerced_to_na) > 0) {
-      cat(sprintf("Column '%s' coerced %d values to NA. First few original values: %s\n",
-                  col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5], collapse = ", ")))
+      cat(sprintf(
+        "Column '%s' coerced %d values to NA. First few original values: %s\n",
+        col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5], collapse = ", ")
+      ))
     }
   }
-  
+
   return(list(dt = dt, replacement_summary = replacement_summary))
 }
 
@@ -1361,7 +1363,6 @@ write_intermediate_file <- function(to_write, part, dt) {
     fwrite(dt, intermediate_file(part, fileext = TRUE), quote = TRUE)
   }
 }
-
 # Function to remove lumped ICD codes
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
