@@ -1,16 +1,95 @@
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
 intermediate_path <- "data-cleaning/data-claims/intermediate"
+# Create the directory if it does not exist
+if (!dir.exists(here(intermediate_path))) {
+  dir.create(here(intermediate_path), recursive = TRUE)
+  cat("Directory created:", intermediate_path, "\n")
+} else {
+  cat("Directory already exists:", intermediate_path, "\n")
+}
+
 cache_path <- "data-cleaning/cache"
 aux_path <- "data-cleaning/data-aux-files"
+# Create the directory if it does not exist
+if (!dir.exists(here(aux_path))) {
+  dir.create(here(aux_path), recursive = TRUE)
+  cat("Directory created:", aux_path, "\n")
+} else {
+  cat("Directory already exists:", aux_path, "\n")
+}
+
 excel_path <- "data-cleaning/data-excel"
+# Create the directory if it does not exist
+if (!dir.exists(here(excel_path))) {
+  dir.create(here(excel_path), recursive = TRUE)
+  cat("Directory created:", excel_path, "\n")
+} else {
+  cat("Directory already exists:", excel_path, "\n")
+}
+
 cleaned_claims_path <- "data-cleaning/data-claims/cleaned"
+# Create the directory if it does not exist
+if (!dir.exists(here(cleaned_claims_path))) {
+  dir.create(here(cleaned_claims_path), recursive = TRUE)
+  cat("Directory created:", cleaned_claims_path, "\n")
+} else {
+  cat("Directory already exists:", cleaned_claims_path, "\n")
+}
+
 grouper_output_path <- "data-cleaning/data-grouper-output"
+# Create the directory if it does not exist
+if (!dir.exists(here(grouper_output_path))) {
+  dir.create(here(grouper_output_path), recursive = TRUE)
+  cat("Directory created:", grouper_output_path, "\n")
+} else {
+  cat("Directory already exists:", grouper_output_path, "\n")
+}
+
 chunks_path <- "data-cleaning/data-claims/chunked"
+# Create the directory if it does not exist
+if (!dir.exists(here(chunks_path))) {
+  dir.create(here(chunks_path), recursive = TRUE)
+  cat("Directory created:", chunks_path, "\n")
+} else {
+  cat("Directory already exists:", chunks_path, "\n")
+}
+
 raw_claims_parts_path <- "data-cleaning/data-claims/raw/parts"
+# Create the directory if it does not exist
+if (!dir.exists(here(raw_claims_parts_path))) {
+  dir.create(here(raw_claims_parts_path), recursive = TRUE)
+  cat("Directory created:", raw_claims_parts_path, "\n")
+} else {
+  cat("Directory already exists:", raw_claims_parts_path, "\n")
+}
+
 raw_claims_samples_path <- "data-cleaning/data-claims/raw/samples"
+# Create the directory if it does not exist
+if (!dir.exists(here(raw_claims_samples_path))) {
+  dir.create(here(raw_claims_samples_path), recursive = TRUE)
+  cat("Directory created:", raw_claims_samples_path, "\n")
+} else {
+  cat("Directory already exists:", raw_claims_samples_path, "\n")
+}
+
 raw_claims_path <- "data-cleaning/data-claims/raw"
+# Create the directory if it does not exist
+if (!dir.exists(here(raw_claims_path))) {
+  dir.create(here(raw_claims_path), recursive = TRUE)
+  cat("Directory created:", raw_claims_path, "\n")
+} else {
+  cat("Directory already exists:", raw_claims_path, "\n")
+}
+
 profvis_path <- "data-cleaning/profvis/profvis.html"
+# Create the directory if it does not exist
+if (!dir.exists(here("data-cleaning/profvis"))) {
+  dir.create(here("data-cleaning/profvis"), recursive = TRUE)
+  cat("Directory created:", "data-cleaning/profvis", "\n")
+} else {
+  cat("Directory already exists:", "data-cleaning/profvis", "\n")
+}
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the full claims file
