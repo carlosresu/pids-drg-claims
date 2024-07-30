@@ -903,7 +903,7 @@ process_chunk <- function(
 }
 
 parallelize_and_summarize_data <- function(
-    dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+    dt, ncores, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel) {
   #' @title Parallelize and summarize data processing
   #'
@@ -920,8 +920,8 @@ parallelize_and_summarize_data <- function(
   #' 5. Finds PDXs
   #' 6. Returns chunk and chunk summaries
 
-  chunk_size <- ceiling(nrow(dt) / num_cores)
-  chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
+  chunk_size <- ceiling(nrow(dt) / ncores)
+  chunks <- split(dt, rep(1:ncores, each = chunk_size, length.out = nrow(dt)))
 
   if (to_parallel) {
     parallel_results <- future_lapply(
@@ -948,7 +948,7 @@ parallelize_and_summarize_data <- function(
 
   rm(processed_chunks) # debug
 
-  combined_summary <- combine_chunk_summaries(parallel_results, intermediate_rows_to_show)
+  combined_summary <- combine_chunk_summaries(parallel_results, tmp_nrow)
 
   rm(parallel_results) # debug
   gc() # debug
@@ -977,15 +977,15 @@ parallelize_and_summarize_data <- function(
   ))
 }
 process_part <- function(
-    part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+    part, ncores, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write, to_group, to_sample) {
   #' @title Process Part
   #' @description Process a single part of the data, including reading, processing, and summarizing.
   #' @param part integer. The part number to process.
-  #' @param num_cores integer. Number of cores to use for parallel processing.
+  #' @param ncores integer. Number of cores to use for parallel processing.
   #' @param to_view_checks logical. Whether to view checks.
   #' @param global_seed integer. Global seed for random operations.
-  #' @param intermediate_rows_to_show integer. Number of intermediate rows to show.
+  #' @param tmp_nrow integer. Number of intermediate rows to show.
   #' @param rvs_icd9 character. RVS ICD9 codes.
   #' @param tdrg_icd10 character. TDRG ICD10 codes.
   #' @param acc_pdx character. Accepted PDX codes.
@@ -1007,7 +1007,7 @@ process_part <- function(
   replacement_sumamry <- read_result$replacement_summary
 
   result <- parallelize_and_summarize_data(
-    dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+    dt, ncores, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel
   )
   dt <- result$dt
@@ -2105,14 +2105,14 @@ concatenate_r_files <- function(input_path, output_file) {
   # Write concatenated content to the output file
   cat(concatenated_content, file = output_file, sep = "\n")
 }
-print_summary_tables <- function(final_combined_summaries, rows_to_show) {
+print_summary_tables <- function(final_combined_summaries, end_nrow) {
   #' @title Print Summary Tables
   #'
   #' @description This function prints summary tables for a given dataset.
   #'
   #' @param final_combined_summaries list. The final combined
   #' summaries to be printed.
-  #' @param rows_to_show integer. The number of rows to show
+  #' @param end_nrow integer. The number of rows to show
   #' in the summary tables.
   #'
   #' @return NULL. Prints the summary tables.
@@ -2121,7 +2121,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   cat("\n\nRename Success:\n", summary$final_rename_success, "\n\n")
 
   if (nrow(summary$final_ICD_replacements_1) > 0) {
-    print(kable(head(summary$final_ICD_replacements_1, rows_to_show),
+    print(kable(head(summary$final_ICD_replacements_1, end_nrow),
       format = "markdown",
       caption = "ICD Replacements 1"
     ))
@@ -2130,7 +2130,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   }
 
   if (nrow(summary$final_ICD_replacements_2) > 0) {
-    print(kable(head(summary$final_ICD_replacements_2, rows_to_show),
+    print(kable(head(summary$final_ICD_replacements_2, end_nrow),
       format = "markdown",
       caption = "ICD Replacements 2"
     ))
@@ -2175,7 +2175,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   }
 
   if (nrow(summary$final_discard_rvs_one) > 0) {
-    print(kable(head(summary$final_discard_rvs_one, rows_to_show),
+    print(kable(head(summary$final_discard_rvs_one, end_nrow),
       format = "markdown",
       caption = "Discarded RVS Codes One"
     ))
@@ -2184,7 +2184,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   }
 
   if (nrow(summary$final_discard_rvs_two) > 0) {
-    print(kable(head(summary$final_discard_rvs_two, rows_to_show),
+    print(kable(head(summary$final_discard_rvs_two, end_nrow),
       format = "markdown",
       caption = "Discarded RVS Codes Two"
     ))
@@ -2195,7 +2195,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   if (nrow(summary$final_empty_strings_replaced_0) > 0) {
     print(kable(
       head(
-        summary$final_empty_strings_replaced_0, rows_to_show
+        summary$final_empty_strings_replaced_0, end_nrow
       ),
       format = "markdown",
       caption = "Empty Strings Replaced (Zeroth Set)"
@@ -2207,7 +2207,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   if (nrow(summary$final_empty_strings_replaced_1) > 0) {
     print(kable(
       head(
-        summary$final_empty_strings_replaced_1, rows_to_show
+        summary$final_empty_strings_replaced_1, end_nrow
       ),
       format = "markdown",
       caption = "Empty Strings Replaced (First Set)"
@@ -2219,7 +2219,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
   if (nrow(summary$final_empty_strings_replaced_2) > 0) {
     print(kable(
       head(
-        summary$final_empty_strings_replaced_2, rows_to_show
+        summary$final_empty_strings_replaced_2, end_nrow
       ),
       format = "markdown",
       caption = "Empty Strings Replaced (Second Set)"
@@ -2297,7 +2297,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
       kable(
         head(
           summary$final_unmatched_sources,
-          rows_to_show
+          end_nrow
         ),
         format = "markdown",
         caption = "Invalid ICD-10 Codes Not Found in Thai Library"
@@ -2314,7 +2314,7 @@ print_summary_tables <- function(final_combined_summaries, rows_to_show) {
 }
 
 combine_comparison_tables <- function(
-    summaries, comparison_field, intermediate_rows_to_show = 10) {
+    summaries, comparison_field, tmp_nrow = 10) {
   #' @title Combine Comparison Tables
   #'
   #' @description This function combines comparison tables from
@@ -2322,7 +2322,7 @@ combine_comparison_tables <- function(
   #'
   #' @param summaries list. A list of summary tables.
   #' @param comparison_field character. The field in the summaries to compare.
-  #' @param intermediate_rows_to_show integer. The number of
+  #' @param tmp_nrow integer. The number of
   #' rows to show in the intermediate summary.
   #'
   #' @return data.table. The combined comparison table.
@@ -2349,13 +2349,13 @@ combine_comparison_tables <- function(
     by = .(old_code, new_code)
   ]
   combined_comparison <- combined_comparison[order(-count)]
-  combined_comparison <- head(combined_comparison, intermediate_rows_to_show)
+  combined_comparison <- head(combined_comparison, tmp_nrow)
 
   return(combined_comparison)
 }
 
 combine_discarded_rvs_tables <- function(
-    summaries, field, intermediate_rows_to_show = 10) {
+    summaries, field, tmp_nrow = 10) {
   #' @title Combine Discarded RVS Tables
   #'
   #' @description This function combines discarded RVS tables
@@ -2364,7 +2364,7 @@ combine_discarded_rvs_tables <- function(
   #' @param summaries list. A list of summary tables.
   #' @param field character. The field in the summaries that
   #' contains discarded RVS codes.
-  #' @param intermediate_rows_to_show integer. The number of
+  #' @param tmp_nrow integer. The number of
   #' rows to show in the intermediate summary.
   #'
   #' @return data.table. The combined discarded RVS table.
@@ -2378,13 +2378,13 @@ combine_discarded_rvs_tables <- function(
 
   combined_discarded <- combined_discarded[, .(count = sum(count)), by = CODE]
   combined_discarded <- combined_discarded[order(-count)]
-  combined_discarded <- head(combined_discarded, intermediate_rows_to_show)
+  combined_discarded <- head(combined_discarded, tmp_nrow)
 
   return(combined_discarded)
 }
 
 combine_unmatched_icd10_codes <- function(
-    summaries, field, intermediate_rows_to_show = 10) {
+    summaries, field, tmp_nrow = 10) {
   #' @title Combine Unmatched ICD-10 Codes
   #'
   #' @description This function combines unmatched ICD-10 codes
@@ -2393,7 +2393,7 @@ combine_unmatched_icd10_codes <- function(
   #' @param summaries list. A list of summary tables.
   #' @param field character. The field in the summaries that
   #' contains unmatched ICD-10 codes.
-  #' @param intermediate_rows_to_show integer. The number of
+  #' @param tmp_nrow integer. The number of
   #' rows to show in the intermediate summary.
   #'
   #' @return data.table. The combined unmatched ICD-10 codes table.
@@ -2408,7 +2408,7 @@ combine_unmatched_icd10_codes <- function(
 }
 
 combine_replace_empty_tables <- function(
-    summaries, field, intermediate_rows_to_show = 10) {
+    summaries, field, tmp_nrow = 10) {
   #' @title Combine Replace Empty Tables
   #'
   #' @description This function combines tables for replaced
@@ -2417,7 +2417,7 @@ combine_replace_empty_tables <- function(
   #' @param summaries list. A list of summary tables.
   #' @param field character. The field in the summaries that
   #' contains information on replaced empty values.
-  #' @param intermediate_rows_to_show integer. The number of
+  #' @param tmp_nrow integer. The number of
   #' rows to show in the intermediate summary.
   #'
   #' @return data.table. The combined replace empty tables.
@@ -2444,14 +2444,14 @@ combine_replace_empty_tables <- function(
   ]
   combined_replace_empty <- head(
     combined_replace_empty,
-    intermediate_rows_to_show
+    tmp_nrow
   )
 
   return(combined_replace_empty)
 }
 
 combine_chunk_summaries <- function(
-    parallel_results, intermediate_rows_to_show) {
+    parallel_results, tmp_nrow) {
   #' @title Combine Chunk Summaries
   #'
   #' @description This function combines summaries from
@@ -2459,23 +2459,23 @@ combine_chunk_summaries <- function(
   #'
   #' @param parallel_results list. A list of results from
   #' parallel processing.
-  #' @param intermediate_rows_to_show integer. The number
+  #' @param tmp_nrow integer. The number
   #' of rows to show in the intermediate summary.
   #'
   #' @return list. The combined summary.
 
   summaries <- lapply(parallel_results, function(res) res$summary)
-  combined_summary <- combine_summaries(summaries, intermediate_rows_to_show)
+  combined_summary <- combine_summaries(summaries, tmp_nrow)
   return(combined_summary)
 }
 
-combine_summaries <- function(summaries, intermediate_rows_to_show) {
+combine_summaries <- function(summaries, tmp_nrow) {
   #' @title Combine Summaries
   #'
   #' @description This function combines multiple summaries into one summary.
   #'
   #' @param summaries list. A list of summary tables.
-  #' @param intermediate_rows_to_show integer.
+  #' @param tmp_nrow integer.
   #' The number of rows to show in the intermediate summary.
   #'
   #' @return list. The combined summary.
@@ -2486,10 +2486,10 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
       function(summary) summary$rename_success
     )), na.rm = TRUE),
     ICD_replacements_1 = combine_comparison_tables(
-      summaries, "ICD_replacements_1", intermediate_rows_to_show
+      summaries, "ICD_replacements_1", tmp_nrow
     ),
     ICD_replacements_2 = combine_comparison_tables(
-      summaries, "ICD_replacements_2", intermediate_rows_to_show
+      summaries, "ICD_replacements_2", tmp_nrow
     ),
     pat_type_unmapped = unique(unlist(lapply(
       summaries,
@@ -2508,16 +2508,16 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
       function(summary) summary$discharge_unmapped
     ))),
     discard_rvs_one = combine_discarded_rvs_tables(
-      summaries, "discard_rvs_one", intermediate_rows_to_show
+      summaries, "discard_rvs_one", tmp_nrow
     ),
     discard_rvs_two = combine_discarded_rvs_tables(
-      summaries, "discard_rvs_two", intermediate_rows_to_show
+      summaries, "discard_rvs_two", tmp_nrow
     ),
     empty_strings_replaced_1 = combine_replace_empty_tables(
-      summaries, "empty_strings_replaced_1", intermediate_rows_to_show
+      summaries, "empty_strings_replaced_1", tmp_nrow
     ),
     empty_strings_replaced_2 = combine_replace_empty_tables(
-      summaries, "empty_strings_replaced_2", intermediate_rows_to_show
+      summaries, "empty_strings_replaced_2", tmp_nrow
     ),
     unique_icds_count = unique(unlist(lapply(
       summaries,
@@ -2532,7 +2532,7 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
       function(summary) summary$unmatched
     ))),
     unmatched_sources = combine_unmatched_icd10_codes(
-      summaries, "unmatched_sources", intermediate_rows_to_show
+      summaries, "unmatched_sources", tmp_nrow
     ),
     rvss = unique(na.omit(unlist(lapply(
       summaries,
@@ -2563,14 +2563,14 @@ combine_summaries <- function(summaries, intermediate_rows_to_show) {
   return(combined_summary)
 }
 
-combine_parts_summaries <- function(combined_summary, rows_to_show) {
+combine_parts_summaries <- function(combined_summary, end_nrow) {
   #' @title Combine Parts Summaries
   #'
   #' @description This function combines summaries from multiple
   #' parts into one final summary.
   #'
   #' @param combined_summary list. A list of combined summaries.
-  #' @param rows_to_show integer. The number of rows to show in
+  #' @param end_nrow integer. The number of rows to show in
   #' the final summary.
   #'
   #' @return list. The final combined summary.
@@ -2581,10 +2581,10 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
       function(summary) summary$rename_success
     )), na.rm = TRUE),
     final_ICD_replacements_1 = combine_comparison_tables(
-      combined_summary, "ICD_replacements_1", rows_to_show
+      combined_summary, "ICD_replacements_1", end_nrow
     ),
     final_ICD_replacements_2 = combine_comparison_tables(
-      combined_summary, "ICD_replacements_2", rows_to_show
+      combined_summary, "ICD_replacements_2", end_nrow
     ),
     final_pat_type_unmapped = unique(unlist(lapply(
       combined_summary,
@@ -2603,19 +2603,19 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
       function(summary) summary$discharge_unmapped
     ))),
     final_discard_rvs_one = combine_discarded_rvs_tables(
-      combined_summary, "discard_rvs_one", rows_to_show
+      combined_summary, "discard_rvs_one", end_nrow
     ),
     final_discard_rvs_two = combine_discarded_rvs_tables(
-      combined_summary, "discard_rvs_two", rows_to_show
+      combined_summary, "discard_rvs_two", end_nrow
     ),
     final_empty_strings_replaced_0 = combine_replace_empty_tables(
-      combined_summary, "replacement_summary", rows_to_show
+      combined_summary, "replacement_summary", end_nrow
     ),
     final_empty_strings_replaced_1 = combine_replace_empty_tables(
-      combined_summary, "empty_strings_replaced_1", rows_to_show
+      combined_summary, "empty_strings_replaced_1", end_nrow
     ),
     final_empty_strings_replaced_2 = combine_replace_empty_tables(
-      combined_summary, "empty_strings_replaced_2", rows_to_show
+      combined_summary, "empty_strings_replaced_2", end_nrow
     ),
     final_unique_icds = length(unique(unlist(lapply(
       combined_summary,
@@ -2630,7 +2630,7 @@ combine_parts_summaries <- function(combined_summary, rows_to_show) {
       function(summary) summary$unmatched_count
     )))),
     final_unmatched_sources = combine_unmatched_icd10_codes(
-      combined_summary, "unmatched_sources", rows_to_show
+      combined_summary, "unmatched_sources", end_nrow
     ),
     final_rvss = length(unique(na.omit(unlist(lapply(
       combined_summary,
