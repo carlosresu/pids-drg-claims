@@ -1,5 +1,5 @@
 process_part <- function(
-    part, ncores, to_view_checks, global_seed, intermediate_rows_to_show,
+    part, ncores, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write, to_group, to_sample) {
   #' @title Process Part
   #' @description Process a single part of the data, including reading, processing, and summarizing.
@@ -7,7 +7,7 @@ process_part <- function(
   #' @param ncores integer. Number of cores to use for parallel processing.
   #' @param to_view_checks logical. Whether to view checks.
   #' @param global_seed integer. Global seed for random operations.
-  #' @param intermediate_rows_to_show integer. Number of intermediate rows to show.
+  #' @param tmp_nrow integer. Number of intermediate rows to show.
   #' @param rvs_icd9 character. RVS ICD9 codes.
   #' @param tdrg_icd10 character. TDRG ICD10 codes.
   #' @param acc_pdx character. Accepted PDX codes.
@@ -29,7 +29,7 @@ process_part <- function(
   replacement_sumamry <- read_result$replacement_summary
 
   result <- parallelize_and_summarize_data(
-    dt, ncores, to_view_checks, global_seed, intermediate_rows_to_show,
+    dt, ncores, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel
   )
   dt <- result$dt
