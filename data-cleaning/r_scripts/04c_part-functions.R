@@ -1,6 +1,6 @@
 process_part <- function(
-  part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-  rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize, to_write, to_group, to_sample) {
+    part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write, to_group, to_sample) {
   #' @title Process Part
   #' @description Process a single part of the data, including reading, processing, and summarizing.
   #' @param part integer. The part number to process.
@@ -11,7 +11,7 @@ process_part <- function(
   #' @param rvs_icd9 character. RVS ICD9 codes.
   #' @param tdrg_icd10 character. TDRG ICD10 codes.
   #' @param acc_pdx character. Accepted PDX codes.
-  #' @param to_parallelize logical. Whether to parallelize the process.
+  #' @param to_parallel logical. Whether to parallelize the process.
   #' @param to_write logical. Whether to write intermediate files.
   #' @param to_group logical. Whether to group data for batch processing.
   #' @param to_sample logical. Whether to read sample files instead of full partial files.
@@ -28,11 +28,13 @@ process_part <- function(
   dt <- read_result$dt
   replacement_sumamry <- read_result$replacement_summary
 
-  result <- parallelize_and_summarize_data(dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-                                           rvs_icd9, tdrg_icd10, acc_pdx, to_parallelize)
+  result <- parallelize_and_summarize_data(
+    dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel
+  )
   dt <- result$dt
   combined_summary <- result$combined_summary
-  
+
   combined_summary$replacement_summary <- replacement_sumamry
 
   if (to_write) write_intermediate_file(to_write, part, dt)
