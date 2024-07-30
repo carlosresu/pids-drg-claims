@@ -1,6 +1,6 @@
 process_part <- function(
     part, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-    rvs_icd9, tdrg_icd10, acc_pdx, para, to_write, to_group, to_sample) {
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write, to_group, to_sample) {
   #' @title Process Part
   #' @description Process a single part of the data, including reading, processing, and summarizing.
   #' @param part integer. The part number to process.
@@ -30,7 +30,7 @@ process_part <- function(
 
   result <- parallelize_and_summarize_data(
     dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-    rvs_icd9, tdrg_icd10, acc_pdx, para
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel
   )
   dt <- result$dt
   combined_summary <- result$combined_summary
