@@ -25,9 +25,17 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("claims_extract_CLAIMS ", year_to_load)
+    if (gcp_proj == "drg-pipeline") {
+      paste0("claims_extract_CLAIMS ", year_to_load)
+    } else if (gcp_proj == "gphdrg") {
+      paste0("claims_extract_CLAIMS_", year_to_load)
+    }
   } else {
-    paste0("claims_extract_CLAIMS ", year_to_load, "_part_", part, "_of_", split_parts)
+    if (gcp_proj == "drg-pipeline") {
+      paste0("claims_extract_CLAIMS ", year_to_load, "_part_", part, "_of_", split_parts)
+    } else if (gcp_proj == "gphdrg") {
+      paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_parts)
+    }
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
