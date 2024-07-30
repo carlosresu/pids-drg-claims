@@ -1,7 +1,7 @@
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
 intermediate_path <- "data-cleaning/data-claims/intermediate"
-cache_path <- "data-cleaning/data-cleaning/cache"
+cache_path <- "data-cleaning/cache"
 aux_path <- "data-cleaning/data-aux-files"
 excel_path <- "data-cleaning/data-excel"
 cleaned_claims_path <- "data-cleaning/data-claims/cleaned"
