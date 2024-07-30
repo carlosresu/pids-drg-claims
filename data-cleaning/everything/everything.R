@@ -216,21 +216,9 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
-      paste0("claims_extract_CLAIMS ", year_to_load)
-    } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
-      paste0("claims_extract_CLAIMS_", year_to_load)
-    } else {
-      paste0("claims_extract_CLAIMS_", year_to_load)
-    }
+    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
   } else {
-    if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
-      paste0("claims_extract_CLAIMS ", year_to_load, "_part_", part, "_of_", split_parts)
-    } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_parts)
-    } else {
-      paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_parts)
-    }
+    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
@@ -301,10 +289,10 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("sampled_claims_", year_to_load, "_", sample_size)
+    paste0("sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size)
   } else {
     paste0(
-      "sampled_claims_", year_to_load, "_", sample_size,
+      "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size,
       "_part_", part, "_of_", split_parts
     )
   }
@@ -325,10 +313,10 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("intermediate_claims_", year_to_load, suffix)
+    paste0("intermediate_claims_", year_to_load, "_", ver_to_use, suffix)
   } else {
     paste0(
-      "intermediate_claims_", year_to_load, suffix,
+      "intermediate_claims_", year_to_load, "_", ver_to_use, suffix,
       "part_", part, "_of_", split_parts
     )
   }
@@ -351,10 +339,10 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("cleaned_claims_", year_to_load, suffix)
+    paste0("cleaned_claims_", year_to_load, "_", ver_to_use, suffix)
   } else {
     paste0(
-      "cleaned_claims_", year_to_load, suffix,
+      "cleaned_claims_", year_to_load, "_", ver_to_use, suffix,
       "part_", part, "_of_", split_parts
     )
   }
@@ -377,10 +365,10 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("DRG_Grouped", "_", year_to_load, suffix)
+    paste0("DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix)
   } else {
     paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
+      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
       "part_", part, "_of_", split_parts
     )
   }
@@ -404,12 +392,12 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
+      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
       "Res"
     ))
   } else {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
+      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
       "Res_", part, "_of_", split_parts
     ))
   }
@@ -1131,12 +1119,12 @@ split_and_save_parts <- function() {
 
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
+    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
     if (to_split_read) {
       # Read the entire file in one go
       files_exist <- sapply(1:split_parts, function(part) file.exists(full_claims_file(part)))
       if (any(!files_exist)) {
-        full_data <- fread(full_claims_file(), na.strings = na_values, colClasses = "character", header = TRUE)
+        full_data <- fread(full_claims_file(), na.strings = na_values, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
       }
       split_and_save <- function(part) {
         chunk_file <- full_claims_file(part)
@@ -1170,7 +1158,9 @@ split_and_save_parts <- function() {
             nrows = end_row - start_row + 1,
             na.strings = na_values,
             colClasses = "character",
-            header = FALSE
+            header = FALSE,
+            encoding = encode,
+            sep = sep
           )
           setnames(dt, colnames(header))
           if (to_debug) print(head(dt), 2) # debug
@@ -1194,14 +1184,16 @@ ensure_partial_files_exist <- function(part) {
     rows_per_part <- ceiling(total_rows / split_parts)
     start_row <- (part - 1) * rows_per_part + 1
     end_row <- min(part * rows_per_part, total_rows)
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
+    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
     dt <- fread(
       full_claims_file(),
       skip = start_row,
       nrows = end_row - start_row + 1,
       na.strings = na_values,
       colClasses = "character",
-      header = FALSE
+      header = FALSE,
+      encoding = encode,
+      sep = sep
     )
     setnames(dt, colnames(header))
     fwrite(dt, chunk_file, quote = TRUE)
@@ -1215,8 +1207,8 @@ ensure_sample_files_exist <- function(part) {
   #' @return NULL. Creates sample files as a side effect if they do not exist.
   sampled_file <- sampled_claims_file(part)
   if (!file.exists(sampled_file)) {
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
-    dt <- fread(full_claims_file(part), skip = 1, na.strings = na_values, colClasses = "character", header = FALSE)
+    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+    dt <- fread(full_claims_file(part), skip = 1, na.strings = na_values, colClasses = "character", header = FALSE, encoding = encode, sep = sep)
     dt <- dt[sample(.N, min(sample_size, .N))]
     setnames(dt, colnames(header))
     if (to_write) fwrite(dt, sampled_file, quote = TRUE)
@@ -1236,7 +1228,7 @@ read_appropriate_file <- function(part, to_sample) {
     full_claims_file(part)
   }
 
-  dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE)
+  dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
 
   if (to_debug) print(head(dt), 2) # debug
 
@@ -1299,7 +1291,7 @@ read_and_save_partial <- function(start_row, end_row, part) {
   #' @param part integer. The part number of the file.
   #' @return NULL. The function is used for its side effect of reading and saving partial files.
   partial_file_path <- full_claims_file(part, fileext = TRUE)
-  header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE)
+  header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
 
   cat(paste("Reading header from:", full_claims_file()))
   cat(paste("Partial file path:", partial_file_path))
@@ -1313,7 +1305,9 @@ read_and_save_partial <- function(start_row, end_row, part) {
       colClasses = "character",
       nrows = end_row - start_row + 1,
       skip = start_row,
-      header = FALSE
+      header = FALSE,
+      encoding = encode,
+      sep = sep
     )
     setnames(dt, colnames(header))
     cat(paste("Number of rows read:", nrow(dt)))
@@ -1328,7 +1322,7 @@ read_and_save_partial <- function(start_row, end_row, part) {
       "Partial file already exists. Skipping creation:",
       partial_file_path
     ))
-    dt <- fread(partial_file_path, na.strings = na_values, colClasses = "character")
+    dt <- fread(partial_file_path, na.strings = na_values, colClasses = "character", encoding = encode, sep = sep)
   }
 
   if (to_sample) {
