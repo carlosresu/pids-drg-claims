@@ -25,15 +25,19 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    if (gcp_proj == "drg-pipeline") {
+    if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
       paste0("claims_extract_CLAIMS ", year_to_load)
-    } else if (gcp_proj == "gphdrg") {
+    } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
+      paste0("claims_extract_CLAIMS_", year_to_load)
+    } else {
       paste0("claims_extract_CLAIMS_", year_to_load)
     }
   } else {
-    if (gcp_proj == "drg-pipeline") {
+    if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
       paste0("claims_extract_CLAIMS ", year_to_load, "_part_", part, "_of_", split_parts)
-    } else if (gcp_proj == "gphdrg") {
+    } else if (!is.null(gcp_proj) && gcp_proj == "gphdrg") {
+      paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_parts)
+    } else {
       paste0("claims_extract_CLAIMS_", year_to_load, "_part_", part, "_of_", split_parts)
     }
   }
