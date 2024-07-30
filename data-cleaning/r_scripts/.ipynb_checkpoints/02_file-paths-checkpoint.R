@@ -10,6 +10,14 @@ if (!dir.exists(here(intermediate_path))) {
 }
 
 cache_path <- "data-cleaning/cache"
+# Create the directory if it does not exist
+if (!dir.exists(here(cache_path))) {
+  dir.create(here(cache_path), recursive = TRUE)
+  cat("Directory created:", cache_path, "\n")
+} else {
+  cat("Directory already exists:", cache_path, "\n")
+}
+
 aux_path <- "data-cleaning/data-aux-files"
 # Create the directory if it does not exist
 if (!dir.exists(here(aux_path))) {
