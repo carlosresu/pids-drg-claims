@@ -96,7 +96,7 @@ process_chunk <- function(
 
 parallelize_and_summarize_data <- function(
     dt, num_cores, to_view_checks, global_seed, intermediate_rows_to_show,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel) {
+    rvs_icd9, tdrg_icd10, acc_pdx, para) {
   #' @title Parallelize and summarize data processing
   #'
   #' @description This function parallelizes the data processing
@@ -115,7 +115,7 @@ parallelize_and_summarize_data <- function(
   chunk_size <- ceiling(nrow(dt) / num_cores)
   chunks <- split(dt, rep(1:num_cores, each = chunk_size, length.out = nrow(dt)))
 
-  if (to_parallel) {
+  if (para) {
     parallel_results <- future_lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
