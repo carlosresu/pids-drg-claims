@@ -150,6 +150,28 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   return(here(cache_path, filename))
 }
 
+# Load cached total rows file if available, saves ~10 seconds of runtime
+if (file.exists(total_rows_file())) {
+  total_rows <- readRDS(total_rows_file())
+  cat(paste("Total Rows via cached object:", total_rows))
+} else {
+  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
+  saveRDS(total_rows, file = total_rows_file())
+  cat(paste("Total Rows via fread:", total_rows))
+}
+
+# Compute sample size when splitting and when not,
+# only relevant when sampling
+if (to_split) {
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+} else {
+  sample_size <- ceiling(total_rows / sample_size_divisor)
+}
+
+suffix <- paste0(
+  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
+)
+
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the sampled claims file
   #'
