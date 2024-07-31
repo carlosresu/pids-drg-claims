@@ -1,5 +1,6 @@
 if (!require("renv")) {
   install.packages("renv")
+  renv::init()
 }
 
 required_packages <- c(
