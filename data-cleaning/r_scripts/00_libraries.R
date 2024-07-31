@@ -1,3 +1,7 @@
+if (!require("renv")) {
+  install.packages("renv")
+}
+
 required_packages <- c(
   "data.table", 
   "here", 
@@ -15,15 +19,15 @@ required_packages <- c(
   "parallelly"
 )
 
-# Function to install and load packages
+# Function to install and load packages using renv
 install_and_load <- function(package) {
   if (!require(package, character.only = TRUE)) {
-    install.packages(package, dependencies = TRUE)
+    renv::install(package)
     library(package, character.only = TRUE)
   }
 }
 
-# Install and load required packages
+# Install and load required packages using renv
 lapply(required_packages, install_and_load)
 
 suppressPackageStartupMessages({
