@@ -114,7 +114,7 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
   } else {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
+    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", sprintf("%02d", part), "_of_", split_parts)
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
@@ -141,7 +141,7 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "total_rows_", year_to_load, "_part_",
-      part, "_of_", split_parts
+      sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -149,28 +149,6 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   }
   return(here(cache_path, filename))
 }
-
-# Load cached total rows file if available, saves ~10 seconds of runtime
-if (file.exists(total_rows_file())) {
-  total_rows <- readRDS(total_rows_file())
-  cat(paste("Total Rows via cached object:", total_rows))
-} else {
-  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
-  saveRDS(total_rows, file = total_rows_file())
-  cat(paste("Total Rows via fread:", total_rows))
-}
-
-# Compute sample size when splitting and when not,
-# only relevant when sampling
-if (to_split) {
-  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
-} else {
-  sample_size <- ceiling(total_rows / sample_size_divisor)
-}
-
-suffix <- paste0(
-  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
-)
 
 sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the sampled claims file
@@ -189,7 +167,7 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size,
-      "_part_", part, "_of_", split_parts
+      "_part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) filename <- paste0(filename, ".csv")
@@ -213,7 +191,7 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "intermediate_claims_", year_to_load, "_", ver_to_use, suffix,
-      "part_", part, "_of_", split_parts
+      "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -239,7 +217,7 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "cleaned_claims_", year_to_load, "_", ver_to_use, suffix,
-      "part_", part, "_of_", split_parts
+      "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -265,7 +243,7 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
-      "part_", part, "_of_", split_parts
+      "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -294,11 +272,10 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   } else {
     toupper(paste0(
       "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
-      "Res_", part, "_of_", split_parts
+      "Res_", sprintf("%02d", part), "_of_", split_parts
     ))
   }
   if (fileext) {
     filename <- paste0(filename, ".TXT")
   }
   return(here(grouper_output_path, filename))
-}
