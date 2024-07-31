@@ -59,3 +59,7 @@ data-cleaning/data-claims/
 data-cleaning/data-claims
 data-cleaning/profvis/
 data-cleaning/profvis
+
+#python venv
+venv
+venv/
