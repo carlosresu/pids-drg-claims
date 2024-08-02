@@ -1,16 +1,16 @@
 required_packages <- c(
-  "data.table", 
-  "here", 
-  "tictoc", 
-  "stringr", 
-  "stringi", 
-  "lubridate", 
-  "docstring", 
-  "profvis", 
-  "hash", 
-  "future", 
+  "data.table",
+  "here",
+  "tictoc",
+  "stringr",
+  "stringi",
+  "lubridate",
+  "docstring",
+  "profvis",
+  "hash",
+  "future",
   "future.apply",
-  "knitr", 
+  "knitr",
   "htmlwidgets",
   "parallelly"
 )
@@ -218,7 +218,7 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
   } else {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", part, "_of_", split_parts)
+    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", sprintf("%02d", part), "_of_", split_parts)
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
@@ -245,7 +245,7 @@ total_rows_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "total_rows_", year_to_load, "_part_",
-      part, "_of_", split_parts
+      sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -293,7 +293,7 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size,
-      "_part_", part, "_of_", split_parts
+      "_part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) filename <- paste0(filename, ".csv")
@@ -317,7 +317,7 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "intermediate_claims_", year_to_load, "_", ver_to_use, suffix,
-      "part_", part, "_of_", split_parts
+      "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -343,7 +343,7 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "cleaned_claims_", year_to_load, "_", ver_to_use, suffix,
-      "part_", part, "_of_", split_parts
+      "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -369,7 +369,7 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   } else {
     paste0(
       "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
-      "part_", part, "_of_", split_parts
+      "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
   if (fileext) {
@@ -398,7 +398,7 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   } else {
     toupper(paste0(
       "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
-      "Res_", part, "_of_", split_parts
+      "Res_", sprintf("%02d", part), "_of_", split_parts
     ))
   }
   if (fileext) {
