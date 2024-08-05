@@ -13,7 +13,8 @@ required_packages <- c(
   "knitr",
   "htmlwidgets",
   "parallelly",
-  "stringdist"
+  "stringdist",
+  "progress"
 )
 
 # Function to install and load packages

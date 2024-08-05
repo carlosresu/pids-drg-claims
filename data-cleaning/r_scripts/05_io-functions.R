@@ -7,6 +7,7 @@ split_and_save_parts <- function() {
 
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
+
     header <- fread(full_claims_file(),
       nrows = 1, colClasses = "character",
       header = TRUE, encoding = encode, sep = sep
@@ -67,6 +68,8 @@ split_and_save_parts <- function() {
       }
       lapply(1:split_parts, split_and_save)
     }
+  } else {
+    stop("Error: to_split = FALSE is deprecated")
   }
 }
 
@@ -184,6 +187,8 @@ read_appropriate_file <- function(part, to_sample) {
       ))
     }
   }
+
+  nrow_start[[part]] <<- nrow(dt)
 
   return(list(dt = dt, replacement_summary = replacement_summary))
 }

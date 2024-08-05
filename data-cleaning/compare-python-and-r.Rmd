@@ -36,7 +36,7 @@ suffix <- paste0(ifelse(to_sample, "_sampled_", "_full_"), version)
 ```
 
 ```{r read python}
-pdt <- fread(here(intermediate_path, paste0("python_output_", year_to_load,".csv")))
+pdt <- fread(here(intermediate_path, paste0("python_output_", year_to_load, ".csv")))
 
 rdt <- fread(here(intermediate_path, paste0("output_", year_to_load, suffix, ".csv")))
 
@@ -60,8 +60,10 @@ rdt[, clin_rvs := lapply(clin_rvs, safe_split)]
 rdt[, icd9_list := lapply(icd9_list, safe_split)]
 rdt[, rvs_unmap_list := lapply(rvs_unmap_list, safe_split)]
 
-setnames(pdt, old = c("clin_sdx", "clin_proc", "xrvs_unmap", "clin_pdx", "clin_pdx_code"), 
-         new = c("clin_icd", "icd9_list", "rvs_unmap_list", "pdx", "pdx_code"))
+setnames(pdt,
+  old = c("clin_sdx", "clin_proc", "xrvs_unmap", "clin_pdx", "clin_pdx_code"),
+  new = c("clin_icd", "icd9_list", "rvs_unmap_list", "pdx", "pdx_code")
+)
 
 # Get column names of both data tables
 columns_rdt <- colnames(rdt)
@@ -80,10 +82,10 @@ uncommon_in_rdt <- setdiff(columns_rdt, columns_pdt)
 uncommon_in_pdt <- setdiff(columns_pdt, columns_rdt)
 
 # Print uncommon columns
-cat("Columns in rdt but not in pdt:\n")
+message("Columns in rdt but not in pdt:\n")
 print(uncommon_in_rdt)
 
-cat("\nColumns in pdt but not in rdt:\n")
+message("\nColumns in pdt but not in rdt:\n")
 print(uncommon_in_pdt)
 
 # Find common columns
@@ -113,5 +115,4 @@ differing_rows <- comparison[pdx_rdt != pdx_pdt | pdx_code_rdt != pdx_code_pdt, 
 
 # Print differing rows
 print(differing_rows)
-
 ```

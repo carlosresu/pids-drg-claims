@@ -1373,6 +1373,7 @@ split_and_save_parts <- function() {
 
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
+
     header <- fread(full_claims_file(),
       nrows = 1, colClasses = "character",
       header = TRUE, encoding = encode, sep = sep
@@ -1433,6 +1434,8 @@ split_and_save_parts <- function() {
       }
       lapply(1:split_parts, split_and_save)
     }
+  } else {
+    stop("Error: to_split = FALSE is deprecated")
   }
 }
 
@@ -1550,6 +1553,8 @@ read_appropriate_file <- function(part, to_sample) {
       ))
     }
   }
+
+  nrow_start[[part]] <<- nrow(dt)
 
   return(list(dt = dt, replacement_summary = replacement_summary))
 }
@@ -1872,7 +1877,7 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
     phl_icd10 = names(icd_mapping),
     tdrg_icd10 = unlist(icd_mapping)
   )
-  fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
+  if (to_debug) fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
   icd10_env <- list2env(
     setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10)
   )
@@ -2459,24 +2464,61 @@ print_time_estimates <- function() {
   ))
 }
 
-print_status_update <- function(part, split_parts, processing_times) { #
+print_status_update <- function(part, split_parts, processing_times) {
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
   #' @param part integer. The current part number.
   #' @param split_parts integer. Total number of parts.
   #' @param processing_times numeric. Array of processing times for each part.
+
+  # Calculate elapsed time and averages
   elapsed_time <- sum(processing_times[1:part])
   avg_time_per_part <- elapsed_time / part
   estimated_total_time <- avg_time_per_part * split_parts
   estimated_remaining_time <- estimated_total_time - elapsed_time
-  cat(sprintf(
-    "Status Update\nFinished: Part %d of %d\n",
-    part, split_parts
-  ))
-  cat(sprintf(
-    "Elapsed: %d seconds\nETA: %d seconds\n",
-    round(elapsed_time), round(estimated_remaining_time)
-  ))
+
+  # Convert time to hours, minutes, and seconds
+  convert_to_hr_min_sec <- function(seconds) {
+    hours <- floor(seconds / 3600)
+    minutes <- floor((seconds %% 3600) / 60)
+    remaining_seconds <- round(seconds %% 60) # rounding to handle floating-point
+    return(list(hours = hours, minutes = minutes, seconds = remaining_seconds))
+  }
+
+  # Calculate elapsed and remaining time in hr:min:sec format
+  elapsed <- convert_to_hr_min_sec(elapsed_time)
+  remaining <- convert_to_hr_min_sec(estimated_remaining_time)
+
+  # Construct time strings based on non-zero values
+  format_time <- function(time) {
+    time_str <- ""
+    if (time$hours > 0) {
+      time_str <- paste0(time_str, time$hours, " hr ")
+    }
+    if (time$minutes > 0 || time$hours > 0) { # Include minutes if hours are present
+      time_str <- paste0(time_str, time$minutes, " min ")
+    }
+    time_str <- paste0(time_str, time$seconds, " sec")
+    return(time_str)
+  }
+
+  elapsed_str <- format_time(elapsed)
+  remaining_str <- format_time(remaining)
+
+  # Determine when to print the status update
+  if (avg_time_per_part >= 4) {
+    # Print status updates for every part
+    message(sprintf(
+      "Status Update\nFinished: Part %d of %d\nElapsed: %s\nETA: %s",
+      part, split_parts, elapsed_str, remaining_str
+    ))
+  } else if (avg_time_per_part < 4 && part %% 5 == 0) {
+    # Print status updates for every 5th, 10th, 15th part
+    message(sprintf(
+      "Status Update\nFinished: Part %d of %d\nElapsed: %s\nETA: %s",
+      part, split_parts, elapsed_str, remaining_str
+    ))
+  }
 }
 concatenate_r_files <- function(input_path, output_file) {
   #' @title Concatenate R Files
