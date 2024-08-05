@@ -275,9 +275,11 @@ combine_comparison_tables <- function(
     min_length <- min(length(vec1), length(vec2))
     diff_count <- 0
 
+    skip_chars <- c("+", " ", "*", ",")
+
     for (i in 1:min_length) {
       # Skip '+' and '*' characters
-      if (vec1[i] %in% c("+", "*", ",") || vec2[i] %in% c("+", "*", ",")) {
+      if (vec1[i] %in% skip_chars || vec2[i] %in% skip_chars) {
         next
       }
 
@@ -295,7 +297,7 @@ combine_comparison_tables <- function(
     # Add differences for extra characters in the longer vector, ignoring '+' and '*'
     longer_vec <- if (length(vec1) > length(vec2)) vec1 else vec2
     extra_chars <- longer_vec[(min_length + 1):length(longer_vec)]
-    extra_diff <- sum(!extra_chars %in% c("+", "*", ","))
+    extra_diff <- sum(!extra_chars %in% skip_chars)
 
     diff_count <- diff_count + extra_diff
 
