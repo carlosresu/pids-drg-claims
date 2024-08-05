@@ -13,7 +13,9 @@ required_packages <- c(
   "knitr",
   "htmlwidgets",
   "parallelly",
-  "stringdist"
+  "stringdist",
+  "progress",
+  "parallel"
 )
 
 # Function to install and load packages
@@ -1256,7 +1258,16 @@ parallelize_and_summarize_data <- function(
   chunk_size <- ceiling(nrow(dt) / ncores)
   chunks <- split(dt, rep(1:ncores, each = chunk_size, length.out = nrow(dt)))
 
-  if (to_parallel) {
+  if (to_parallel && .Platform$OS.type != "unix") {
+    parallel_results <- mclapply(
+      chunks, process_chunk,
+      mc.cores = ncores,
+      to_view_checks = to_view_checks,
+      rvs_icd9 = rvs_icd9,
+      tdrg_icd10 = tdrg_icd10,
+      acc_pdx = acc_pdx
+    )
+  } else if (to_parallel && .Platform$OS.type == "windows") {
     parallel_results <- future_lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
@@ -2481,7 +2492,7 @@ print_status_update <- function(part, split_parts, processing_times) {
   convert_to_hr_min_sec <- function(seconds) {
     hours <- floor(seconds / 3600)
     minutes <- floor((seconds %% 3600) / 60)
-    remaining_seconds <- round(seconds %% 60) # rounding to handle floating-point
+    remaining_seconds <- round(seconds %% 60)
     return(list(hours = hours, minutes = minutes, seconds = remaining_seconds))
   }
 
@@ -2495,7 +2506,8 @@ print_status_update <- function(part, split_parts, processing_times) {
     if (time$hours > 0) {
       time_str <- paste0(time_str, time$hours, " hr ")
     }
-    if (time$minutes > 0 || time$hours > 0) { # Include minutes if hours are present
+    if (time$minutes > 0 || time$hours > 0) {
+      # Include minutes if hours are present
       time_str <- paste0(time_str, time$minutes, " min ")
     }
     time_str <- paste0(time_str, time$seconds, " sec")
@@ -2508,16 +2520,18 @@ print_status_update <- function(part, split_parts, processing_times) {
   # Determine when to print the status update
   if (avg_time_per_part >= 4) {
     # Print status updates for every part
-    message(sprintf(
-      "Status Update\nFinished: Part %d of %d\nElapsed: %s\nETA: %s",
+    cat(sprintf(
+      "\rFinished %d of %d parts in %s (ETA %s)       ",
       part, split_parts, elapsed_str, remaining_str
     ))
+    flush.console()
   } else if (avg_time_per_part < 4 && part %% 5 == 0) {
     # Print status updates for every 5th, 10th, 15th part
-    message(sprintf(
-      "Status Update\nFinished: Part %d of %d\nElapsed: %s\nETA: %s",
+    cat(sprintf(
+      "\rFinished %d of %d parts in %s (ETA %s)       ",
       part, split_parts, elapsed_str, remaining_str
     ))
+    flush.console()
   }
 }
 concatenate_r_files <- function(input_path, output_file) {

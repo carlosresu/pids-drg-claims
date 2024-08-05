@@ -14,7 +14,8 @@ required_packages <- c(
   "htmlwidgets",
   "parallelly",
   "stringdist",
-  "progress"
+  "progress",
+  "parallel"
 )
 
 # Function to install and load packages
