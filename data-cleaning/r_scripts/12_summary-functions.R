@@ -39,50 +39,38 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     )
   }
 
-  if (is.null(summary$final_pat_type_unmapped)) {
-    cat("\n\nPatient Type Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Patient Type Unmapped:\n",
-      summary$final_pat_type_unmapped, "\n\n"
-    )
+  # Display unique before and after mappings for each categorical variable
+  display_unique_mappings <- function(mapped_data, mapping_name, tmp_nrow) {
+    #' @title Display Unique Mappings
+    #'
+    #' @description Displays the unique before-and-after mappings for a given dataset.
+    #'
+    #' @param mapped_data data.table. The data table with Original and Mapped columns.
+    #' @param mapping_name character. The name of the mapping being displayed.
+    #' @param tmp_nrow integer. Number of rows to display in the output.
+    #'
+    #' @return NULL. Prints the unique mappings.
+
+    # Ensure the data has the correct columns
+    if (!("Original" %in% names(mapped_data)) || !("Mapped" %in% names(mapped_data))) {
+      stop("The data table must contain 'Original' and 'Mapped' columns.")
+    }
+
+    # Create a data table to display unique before and after mappings
+    unique_mappings <- unique(mapped_data)
+
+    # Print the mappings using kable
+    print(kable(head(unique_mappings, tmp_nrow),
+      format = "markdown",
+      caption = sprintf("Unique Before and After Mappings for %s", mapping_name)
+    ))
   }
 
-  if (is.null(summary$final_memcat_parent_unmapped)) {
-    cat("Memcat Parent Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Memcat Parent Unmapped:\n",
-      summary$final_memcat_parent_unmapped, "\n\n"
-    )
-  }
-
-  if (is.null(summary$final_memcat_child_unmapped)) {
-    cat("Memcat Child Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Memcat Child Unmapped:\n",
-      summary$final_memcat_child_unmapped, "\n\n"
-    )
-  }
-
-  if (is.null(summary$final_discharge_unmapped)) {
-    cat("Discharge Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Discharge Unmapped:\n",
-      summary$final_discharge_unmapped, "\n\n"
-    )
-  }
-
-  if (is.null(summary$final_claim_status_unmapped)) {
-    cat("Claim Status Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Claim Status Unmapped:\n",
-      summary$final_claim_status_unmapped, "\n\n"
-    )
-  }
+  display_unique_mappings(summary$final_pat_type_mapped, "Patient Type", tmp_nrow)
+  display_unique_mappings(summary$final_memcat_parent_mapped, "Memcat Parent", tmp_nrow)
+  display_unique_mappings(summary$final_memcat_child_mapped, "Memcat Child", tmp_nrow)
+  display_unique_mappings(summary$final_clin_discharge_mapped, "Discharge", tmp_nrow)
+  display_unique_mappings(summary$final_claim_status_mapped, "Claim Status", tmp_nrow)
 
   if (nrow(summary$final_discard_rvs_one) > 0) {
     print(kable(head(summary$final_discard_rvs_one, end_nrow),
@@ -246,7 +234,8 @@ combine_comparison_tables <- function(
   #'
   #' @description This function combines comparison tables from
   #' multiple summaries into one, and ranks rows by a custom fuzzy match score
-  #' that prioritizes letter differences in ICD codes, ignoring '+', '*', ',', '.', and spaces.
+  #' that prioritizes letter differences in ICD codes,
+  #' ignoring '+', '*', ',', '.', and spaces.
   #'
   #' @param summaries list. A list of summary tables.
   #' @param comparison_field character. The field in the summaries to compare.
@@ -282,7 +271,8 @@ combine_comparison_tables <- function(
     ))
   }
 
-  # Calculate Levenshtein distance (exact character differences) and add differing_chars column
+  # Calculate Levenshtein distance (exact character differences)
+  # and add differing_chars column
   combined_comparison[, differing_chars := mapply(
     function(old, new) {
       clean_old <- clean_string(old)
@@ -575,6 +565,26 @@ combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
     icd10_map_dt = rbindlist(lapply(
       summaries,
       function(summary) summary$icd10_map_dt
+    )),
+    pat_type_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$pat_type_mapped
+    )),
+    pat_memcat_parent_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$pat_memcat_parent_mapped
+    )),
+    pat_memcat_child_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$pat_memcat_child_mapped
+    )),
+    clin_discharge_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$clin_discharge_mapped
+    )),
+    claim_status_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$claim_status_mapped
     ))
   )
 
@@ -681,8 +691,30 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
     final_icd10_map_dt = unique(rbindlist(lapply(
       combined_summary,
       function(summary) summary$icd10_map_dt
+    ))),
+    final_pat_type_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$pat_type_mapped
+    ))),
+    final_memcat_parent_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$pat_memcat_parent_mapped
+    ))),
+    final_memcat_child_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$pat_memcat_child_mapped
+    ))),
+    final_clin_discharge_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$clin_discharge_mapped
+    ))),
+    final_claim_status_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$claim_status_mapped
     )))
   )
+
+  # print(head(final_combined_summaries$final_pat_type_mapped))
 
   return(final_combined_summaries)
 }

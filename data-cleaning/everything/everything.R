@@ -572,19 +572,27 @@ remap_patient_type <- function(pat_type) {
     pat_type[!is.na(pat_type)],
     known_types
   )
-  list(remapped = remapped_pat_type, unmapped = unknown_types)
+
+  # Check for unmapped types and print a warning
+  if (length(unknown_types) > 0) {
+    warning(sprintf("Unmapped Patient Types: %s", paste(unknown_types, collapse = ", ")))
+    cat("Unmapped Patient Types:\n")
+    print(unknown_types)
+  }
+
+  list(original = pat_type, remapped = remapped_pat_type, unmapped = unknown_types)
 }
 
 remap_claim_status <- function(claim_status) {
-  #' @title Remap patient type
+  #' @title Remap claim status
   #'
-  #' @description This function remaps patient types to standardized codes
-  #' and identifies any unknown types.
+  #' @description This function remaps claim statuses to standardized codes
+  #' and identifies any unknown statuses.
   #'
-  #' @param pat_type character. The patient type column.
+  #' @param claim_status character. The claim status column.
   #'
-  #' @return list. A list containing the remapped patient types
-  #' and the unknown types.
+  #' @return list. A list containing the remapped claim statuses
+  #' and the unknown statuses.
   known_types <- c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT")
   remapped_claim_status <- fcase(
     claim_status == "DENIED", "D",
@@ -597,7 +605,15 @@ remap_claim_status <- function(claim_status) {
     claim_status[!is.na(claim_status)],
     known_types
   )
-  list(remapped = remapped_claim_status, unmapped = unknown_types)
+
+  # Check for unmapped claim statuses and print a warning
+  if (length(unknown_types) > 0) {
+    warning(sprintf("Unmapped Claim Statuses: %s", paste(unknown_types, collapse = ", ")))
+    cat("Unmapped Claim Statuses:\n")
+    print(unknown_types)
+  }
+
+  list(original = claim_status, remapped = remapped_claim_status, unmapped = unknown_types)
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
@@ -620,7 +636,15 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
     pat_memcat_parent[!is.na(pat_memcat_parent)],
     known_parents
   )
-  list(remapped = remapped_memcat_parent, unmapped = unknown_parents)
+
+  # Check for unmapped parent descriptions and print a warning
+  if (length(unknown_parents) > 0) {
+    warning(sprintf("Unmapped Memcat Parent Descriptions: %s", paste(unknown_parents, collapse = ", ")))
+    cat("Unmapped Memcat Parent Descriptions:\n")
+    print(unknown_parents)
+  }
+
+  list(original = pat_memcat_parent, remapped = remapped_memcat_parent, unmapped = unknown_parents)
 }
 
 remap_memcat_child_desc <- function(pat_memcat_child) {
@@ -667,7 +691,15 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child[!is.na(pat_memcat_child)],
     known_children
   )
-  list(remapped = remapped_memcat_child, unmapped = unknown_children)
+
+  # Check for unmapped child descriptions and print a warning
+  if (length(unknown_children) > 0) {
+    warning(sprintf("Unmapped Memcat Child Descriptions: %s", paste(unknown_children, collapse = ", ")))
+    cat("Unmapped Memcat Child Descriptions:\n")
+    print(unknown_children)
+  }
+
+  list(original = pat_memcat_child, remapped = remapped_memcat_child, unmapped = unknown_children)
 }
 
 remap_disposition <- function(clin_discharge) {
@@ -697,7 +729,15 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge[!is.na(clin_discharge)],
     known_dispositions
   )
-  list(remapped = remapped_discharge, unmapped = unknown_dispositions)
+
+  # Check for unmapped discharge dispositions and print a warning
+  if (length(unknown_dispositions) > 0) {
+    warning(sprintf("Unmapped Discharge Dispositions: %s", paste(unknown_dispositions, collapse = ", ")))
+    cat("Unmapped Discharge Dispositions:\n")
+    print(unknown_dispositions)
+  }
+
+  list(original = clin_discharge, remapped = remapped_discharge, unmapped = unknown_dispositions)
 }
 
 is_partial_file <- function(filename) {
@@ -811,6 +851,11 @@ clean_data <- function(dt) {
     rename_success = rename_success,
     ICD_replacements_1 = clin_c1_cleaning_comparison,
     ICD_replacements_2 = clin_c2_cleaning_comparison,
+    pat_type_mapped = remapping_results$pat_type_mapped,
+    pat_memcat_parent_mapped = remapping_results$pat_memcat_parent_mapped,
+    pat_memcat_child_mapped = remapping_results$pat_memcat_child_mapped,
+    clin_discharge_mapped = remapping_results$clin_discharge_mapped,
+    claim_status_mapped = remapping_results$claim_status_mapped,
     pat_type_unmapped = remapping_results$pat_type_unmapped,
     memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
     memcat_child_unmapped = remapping_results$memcat_child_unmapped,
@@ -918,52 +963,100 @@ deduplicate_icd_codes <- function(dt) {
 
 remap_patient_data <- function(dt, to_view_checks) {
   #' @title Remap patient data
+  #'
   #' @description This function remaps patient data such as
   #' patient type, member category, and discharge disposition
   #' in the data.table.
+  #'
   #' @param dt data.table. The data table to be processed.
   #' @param to_view_checks logical. Whether to view checks.
+  #'
   #' @return list. A list containing the processed data and summaries.
 
+  # Load necessary library
+  library(data.table)
+
+  # Initialize lists for unmapped variables
   pat_unmap <- NULL
   parent_unmap <- NULL
   child_unmap <- NULL
   discharge_unmap <- NULL
   claim_status_unmap <- NULL
 
+  # Initialize data tables for mapped variables
+  pat_mapped <- data.table(Original = character(), Mapped = character())
+  parent_mapped <- data.table(Original = character(), Mapped = character())
+  child_mapped <- data.table(Original = character(), Mapped = character())
+  discharge_mapped <- data.table(Original = character(), Mapped = character())
+  claim_status_mapped <- data.table(Original = character(), Mapped = character())
 
+  # Remap patient type
   result <- remap_patient_type(dt$pat_type)
   dt$pat_type <- result$remapped
+
+  # Create a data table for mapped patient types
+  pat_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped patient types if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     pat_unmap <- result$unmapped
   }
 
+  # Remap member category parent
   result <- remap_memcat_parent_desc(dt$pat_memcat_parent)
   dt$pat_memcat_parent <- result$remapped
+
+  # Create a data table for mapped member category parents
+  parent_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped member category parents if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     parent_unmap <- result$unmapped
   }
 
+  # Remap member category child
   result <- remap_memcat_child_desc(dt$pat_memcat_child)
   dt$pat_memcat_child <- result$remapped
+
+  # Create a data table for mapped member category children
+  child_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped member category children if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     child_unmap <- result$unmapped
   }
 
+  # Remap discharge disposition
   result <- remap_disposition(dt$clin_discharge)
   dt$clin_discharge <- result$remapped
+
+  # Create a data table for mapped discharge dispositions
+  discharge_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped discharge dispositions if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     discharge_unmap <- result$unmapped
   }
 
+  # Remap claim status
   result <- remap_claim_status(dt$claim_status)
   dt$claim_status <- result$remapped
+
+  # Create a data table for mapped claim statuses
+  claim_status_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped claim statuses if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     claim_status_unmap <- result$unmapped
   }
 
   return(list(
     data = dt,
+    pat_type_mapped = pat_mapped,
+    pat_memcat_parent_mapped = parent_mapped,
+    pat_memcat_child_mapped = child_mapped,
+    clin_discharge_mapped = discharge_mapped,
+    claim_status_mapped = claim_status_mapped,
     pat_type_unmapped = pat_unmap,
     memcat_parent_unmapped = parent_unmap,
     memcat_child_unmapped = child_unmap,
@@ -1005,6 +1098,11 @@ process_chunk <- function(
     rename_success = clean_result$rename_success,
     ICD_replacements_1 = clean_result$ICD_replacements_1,
     ICD_replacements_2 = clean_result$ICD_replacements_2,
+    pat_type_mapped = clean_result$pat_type_mapped,
+    pat_memcat_parent_mapped = clean_result$pat_memcat_parent_mapped,
+    pat_memcat_child_mapped = clean_result$pat_memcat_child_mapped,
+    clin_discharge_mapped = clean_result$clin_discharge_mapped,
+    claim_status_mapped = clean_result$claim_status_mapped,
     pat_type_unmapped = clean_result$pat_type_unmapped,
     memcat_parent_unmapped = clean_result$memcat_parent_unmapped,
     memcat_child_unmapped = clean_result$memcat_child_unmapped,
@@ -2326,50 +2424,40 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     )
   }
 
-  if (is.null(summary$final_pat_type_unmapped)) {
-    cat("\n\nPatient Type Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Patient Type Unmapped:\n",
-      summary$final_pat_type_unmapped, "\n\n"
-    )
-  }
+  # Display unique before and after mappings for each categorical variable
+  display_unique_mappings <- function(mapped_data, mapping_name, tmp_nrow) {
+    #' @title Display Unique Mappings
+    #'
+    #' @description Displays the unique before-and-after mappings for a given dataset.
+    #'
+    #' @param mapped_data data.table. The data table with Original and Mapped columns.
+    #' @param mapping_name character. The name of the mapping being displayed.
+    #' @param tmp_nrow integer. Number of rows to display in the output.
+    #'
+    #' @return NULL. Prints the unique mappings.
 
-  if (is.null(summary$final_memcat_parent_unmapped)) {
-    cat("Memcat Parent Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Memcat Parent Unmapped:\n",
-      summary$final_memcat_parent_unmapped, "\n\n"
-    )
-  }
+    # Ensure the data has the correct columns
+    if (!("Original" %in% names(mapped_data)) || !("Mapped" %in% names(mapped_data))) {
+      stop("The data table must contain 'Original' and 'Mapped' columns.")
+    }
 
-  if (is.null(summary$final_memcat_child_unmapped)) {
-    cat("Memcat Child Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Memcat Child Unmapped:\n",
-      summary$final_memcat_child_unmapped, "\n\n"
-    )
-  }
+    # Create a data table to display unique before and after mappings
+    unique_mappings <- unique(mapped_data)
 
-  if (is.null(summary$final_discharge_unmapped)) {
-    cat("Discharge Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Discharge Unmapped:\n",
-      summary$final_discharge_unmapped, "\n\n"
-    )
+    # Print the mappings using kable
+    print(kable(head(unique_mappings, tmp_nrow),
+      format = "markdown",
+      caption = sprintf("Unique Before and After Mappings for %s", mapping_name)
+    ))
   }
+  
+  # print(summary$final_pat_type_mapped)
 
-  if (is.null(summary$final_claim_status_unmapped)) {
-    cat("Claim Status Unmapped: NULL\n\n")
-  } else {
-    cat(
-      "Claim Status Unmapped:\n",
-      summary$final_claim_status_unmapped, "\n\n"
-    )
-  }
+  display_unique_mappings(summary$final_pat_type_mapped, "Patient Type", tmp_nrow)
+  display_unique_mappings(summary$final_memcat_parent_mapped, "Memcat Parent", tmp_nrow)
+  display_unique_mappings(summary$final_memcat_child_mapped, "Memcat Child", tmp_nrow)
+  display_unique_mappings(summary$final_clin_discharge_mapped, "Discharge", tmp_nrow)
+  display_unique_mappings(summary$final_claim_status_mapped, "Claim Status", tmp_nrow)
 
   if (nrow(summary$final_discard_rvs_one) > 0) {
     print(kable(head(summary$final_discard_rvs_one, end_nrow),
@@ -2533,7 +2621,8 @@ combine_comparison_tables <- function(
   #'
   #' @description This function combines comparison tables from
   #' multiple summaries into one, and ranks rows by a custom fuzzy match score
-  #' that prioritizes letter differences in ICD codes, ignoring '+', '*', ',', '.', and spaces.
+  #' that prioritizes letter differences in ICD codes,
+  #' ignoring '+', '*', ',', '.', and spaces.
   #'
   #' @param summaries list. A list of summary tables.
   #' @param comparison_field character. The field in the summaries to compare.
@@ -2569,7 +2658,8 @@ combine_comparison_tables <- function(
     ))
   }
 
-  # Calculate Levenshtein distance (exact character differences) and add differing_chars column
+  # Calculate Levenshtein distance (exact character differences)
+  # and add differing_chars column
   combined_comparison[, differing_chars := mapply(
     function(old, new) {
       clean_old <- clean_string(old)
@@ -2862,6 +2952,26 @@ combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
     icd10_map_dt = rbindlist(lapply(
       summaries,
       function(summary) summary$icd10_map_dt
+    )),
+    pat_type_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$pat_type_mapped
+    )),
+    pat_memcat_parent_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$pat_memcat_parent_mapped
+    )),
+    pat_memcat_child_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$pat_memcat_child_mapped
+    )),
+    clin_discharge_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$clin_discharge_mapped
+    )),
+    claim_status_mapped = rbindlist(lapply(
+      summaries,
+      function(summary) summary$claim_status_mapped
     ))
   )
 
@@ -2968,8 +3078,30 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
     final_icd10_map_dt = unique(rbindlist(lapply(
       combined_summary,
       function(summary) summary$icd10_map_dt
+    ))),
+    final_pat_type_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$pat_type_mapped
+    ))),
+    final_memcat_parent_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$pat_memcat_parent_mapped
+    ))),
+    final_memcat_child_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$pat_memcat_child_mapped
+    ))),
+    final_clin_discharge_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$clin_discharge_mapped
+    ))),
+    final_claim_status_mapped = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$claim_status_mapped
     )))
   )
+
+  # print(head(final_combined_summaries$final_pat_type_mapped))
 
   return(final_combined_summaries)
 }

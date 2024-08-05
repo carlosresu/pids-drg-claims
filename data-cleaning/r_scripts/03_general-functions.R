@@ -158,19 +158,27 @@ remap_patient_type <- function(pat_type) {
     pat_type[!is.na(pat_type)],
     known_types
   )
-  list(remapped = remapped_pat_type, unmapped = unknown_types)
+
+  # Check for unmapped types and print a warning
+  if (length(unknown_types) > 0) {
+    warning(sprintf("Unmapped Patient Types: %s", paste(unknown_types, collapse = ", ")))
+    cat("Unmapped Patient Types:\n")
+    print(unknown_types)
+  }
+
+  list(original = pat_type, remapped = remapped_pat_type, unmapped = unknown_types)
 }
 
 remap_claim_status <- function(claim_status) {
-  #' @title Remap patient type
+  #' @title Remap claim status
   #'
-  #' @description This function remaps patient types to standardized codes
-  #' and identifies any unknown types.
+  #' @description This function remaps claim statuses to standardized codes
+  #' and identifies any unknown statuses.
   #'
-  #' @param pat_type character. The patient type column.
+  #' @param claim_status character. The claim status column.
   #'
-  #' @return list. A list containing the remapped patient types
-  #' and the unknown types.
+  #' @return list. A list containing the remapped claim statuses
+  #' and the unknown statuses.
   known_types <- c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT")
   remapped_claim_status <- fcase(
     claim_status == "DENIED", "D",
@@ -183,7 +191,15 @@ remap_claim_status <- function(claim_status) {
     claim_status[!is.na(claim_status)],
     known_types
   )
-  list(remapped = remapped_claim_status, unmapped = unknown_types)
+
+  # Check for unmapped claim statuses and print a warning
+  if (length(unknown_types) > 0) {
+    warning(sprintf("Unmapped Claim Statuses: %s", paste(unknown_types, collapse = ", ")))
+    cat("Unmapped Claim Statuses:\n")
+    print(unknown_types)
+  }
+
+  list(original = claim_status, remapped = remapped_claim_status, unmapped = unknown_types)
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
@@ -199,14 +215,22 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
   #' and the unknown parents.
   known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
   remapped_memcat_parent <- fcase(
-    pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
-    pat_memcat_parent == "INDIRECT CONTRIBUTOR", "INDIRECT"
+    pat_memcat_parent == "DIRECT CONTRIBUTOR", "D",
+    pat_memcat_parent == "INDIRECT CONTRIBUTOR", "I"
   )
   unknown_parents <- setdiff(
     pat_memcat_parent[!is.na(pat_memcat_parent)],
     known_parents
   )
-  list(remapped = remapped_memcat_parent, unmapped = unknown_parents)
+
+  # Check for unmapped parent descriptions and print a warning
+  if (length(unknown_parents) > 0) {
+    warning(sprintf("Unmapped Memcat Parent Descriptions: %s", paste(unknown_parents, collapse = ", ")))
+    cat("Unmapped Memcat Parent Descriptions:\n")
+    print(unknown_parents)
+  }
+
+  list(original = pat_memcat_parent, remapped = remapped_memcat_parent, unmapped = unknown_parents)
 }
 
 remap_memcat_child_desc <- function(pat_memcat_child) {
@@ -253,7 +277,15 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child[!is.na(pat_memcat_child)],
     known_children
   )
-  list(remapped = remapped_memcat_child, unmapped = unknown_children)
+
+  # Check for unmapped child descriptions and print a warning
+  if (length(unknown_children) > 0) {
+    warning(sprintf("Unmapped Memcat Child Descriptions: %s", paste(unknown_children, collapse = ", ")))
+    cat("Unmapped Memcat Child Descriptions:\n")
+    print(unknown_children)
+  }
+
+  list(original = pat_memcat_child, remapped = remapped_memcat_child, unmapped = unknown_children)
 }
 
 remap_disposition <- function(clin_discharge) {
@@ -283,7 +315,15 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge[!is.na(clin_discharge)],
     known_dispositions
   )
-  list(remapped = remapped_discharge, unmapped = unknown_dispositions)
+
+  # Check for unmapped discharge dispositions and print a warning
+  if (length(unknown_dispositions) > 0) {
+    warning(sprintf("Unmapped Discharge Dispositions: %s", paste(unknown_dispositions, collapse = ", ")))
+    cat("Unmapped Discharge Dispositions:\n")
+    print(unknown_dispositions)
+  }
+
+  list(original = clin_discharge, remapped = remapped_discharge, unmapped = unknown_dispositions)
 }
 
 is_partial_file <- function(filename) {

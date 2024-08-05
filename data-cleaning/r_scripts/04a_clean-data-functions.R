@@ -85,6 +85,11 @@ clean_data <- function(dt) {
     rename_success = rename_success,
     ICD_replacements_1 = clin_c1_cleaning_comparison,
     ICD_replacements_2 = clin_c2_cleaning_comparison,
+    pat_type_mapped = remapping_results$pat_type_mapped,
+    pat_memcat_parent_mapped = remapping_results$pat_memcat_parent_mapped,
+    pat_memcat_child_mapped = remapping_results$pat_memcat_child_mapped,
+    clin_discharge_mapped = remapping_results$clin_discharge_mapped,
+    claim_status_mapped = remapping_results$claim_status_mapped,
     pat_type_unmapped = remapping_results$pat_type_unmapped,
     memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
     memcat_child_unmapped = remapping_results$memcat_child_unmapped,
@@ -192,52 +197,100 @@ deduplicate_icd_codes <- function(dt) {
 
 remap_patient_data <- function(dt, to_view_checks) {
   #' @title Remap patient data
+  #'
   #' @description This function remaps patient data such as
   #' patient type, member category, and discharge disposition
   #' in the data.table.
+  #'
   #' @param dt data.table. The data table to be processed.
   #' @param to_view_checks logical. Whether to view checks.
+  #'
   #' @return list. A list containing the processed data and summaries.
 
+  # Load necessary library
+  library(data.table)
+
+  # Initialize lists for unmapped variables
   pat_unmap <- NULL
   parent_unmap <- NULL
   child_unmap <- NULL
   discharge_unmap <- NULL
   claim_status_unmap <- NULL
 
+  # Initialize data tables for mapped variables
+  pat_mapped <- data.table(Original = character(), Mapped = character())
+  parent_mapped <- data.table(Original = character(), Mapped = character())
+  child_mapped <- data.table(Original = character(), Mapped = character())
+  discharge_mapped <- data.table(Original = character(), Mapped = character())
+  claim_status_mapped <- data.table(Original = character(), Mapped = character())
 
+  # Remap patient type
   result <- remap_patient_type(dt$pat_type)
   dt$pat_type <- result$remapped
+
+  # Create a data table for mapped patient types
+  pat_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped patient types if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     pat_unmap <- result$unmapped
   }
 
+  # Remap member category parent
   result <- remap_memcat_parent_desc(dt$pat_memcat_parent)
   dt$pat_memcat_parent <- result$remapped
+
+  # Create a data table for mapped member category parents
+  parent_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped member category parents if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     parent_unmap <- result$unmapped
   }
 
+  # Remap member category child
   result <- remap_memcat_child_desc(dt$pat_memcat_child)
   dt$pat_memcat_child <- result$remapped
+
+  # Create a data table for mapped member category children
+  child_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped member category children if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     child_unmap <- result$unmapped
   }
 
+  # Remap discharge disposition
   result <- remap_disposition(dt$clin_discharge)
   dt$clin_discharge <- result$remapped
+
+  # Create a data table for mapped discharge dispositions
+  discharge_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped discharge dispositions if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     discharge_unmap <- result$unmapped
   }
 
+  # Remap claim status
   result <- remap_claim_status(dt$claim_status)
   dt$claim_status <- result$remapped
+
+  # Create a data table for mapped claim statuses
+  claim_status_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+
+  # Capture unmapped claim statuses if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
     claim_status_unmap <- result$unmapped
   }
 
   return(list(
     data = dt,
+    pat_type_mapped = pat_mapped,
+    pat_memcat_parent_mapped = parent_mapped,
+    pat_memcat_child_mapped = child_mapped,
+    clin_discharge_mapped = discharge_mapped,
+    claim_status_mapped = claim_status_mapped,
     pat_type_unmapped = pat_unmap,
     memcat_parent_unmapped = parent_unmap,
     memcat_child_unmapped = child_unmap,
