@@ -8,51 +8,90 @@ clean_data <- function(dt) {
   #' @return list. A list containing the cleaned data and
   #' various summaries.
 
+  # Convert source year to integer
   dt[, SRC_YR := as.integer(year_to_load)]
+
+  # Rename columns
   setnames(dt, old = old_colnames, new = new_colnames)
 
+  # Check if renaming was successful
   rename_success <- all(new_colnames %in% colnames(dt))
 
+  # Collapse and clean ICD and RVS columns
   dt <- collapse_and_clean_icd_rvs(dt)
 
+  # Clean clin_c1 column
   dt[, clin_c1_orig := dt$clin_c1]
   dt[, clin_c1 := clean_column(clin_c1, na_like_strings)]
-  dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
-  dt[, clin_c1 := split_to_vector(clin_c1)]
   dt[, clin_c1_orig := sapply(clin_c1_orig, toString)]
   dt[, clin_c1 := sapply(clin_c1, toString)]
+
+  # Compare cleaning results for clin_c1
   clin_c1_cleaning_comparison <- dt[
     !is.na(clin_c1_orig) & clin_c1 != clin_c1_orig,
     .(old_code = clin_c1_orig, new_code = clin_c1, count = .N),
     by = .(clin_c1_orig, clin_c1)
   ]
 
+  # Clean clin_c2 column
   dt[, clin_c2_orig := dt$clin_c2]
   dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
-  dt[, clin_c2 := remove_lumped_icd_codes(clin_c2)]
-  dt[, clin_c2 := split_to_vector(clin_c2)]
   dt[, clin_c2_orig := sapply(clin_c2_orig, toString)]
   dt[, clin_c2 := sapply(clin_c2, toString)]
+
+  # Compare cleaning results for clin_c2
   clin_c2_cleaning_comparison <- dt[
     !is.na(clin_c2_orig) & clin_c2 != clin_c2_orig,
     .(old_code = clin_c2_orig, new_code = clin_c2, count = .N),
     by = .(clin_c2_orig, clin_c2)
   ]
 
+  # # Apply gsub to each element in the list for clin_icd
+  # dt[, clin_icd := lapply(clin_icd, function(code) {
+  #   gsub("\\b0800\\b", "O800", code)
+  # })]
+
+  # dt[, clin_icd := lapply(clin_icd, function(code) {
+  #   gsub("\\b0809\\b", "O809", code)
+  # })]
+
+  # # Repeat for clin_c1 and clin_c2
+  # dt[, clin_c1 := lapply(clin_c1, function(code) {
+  #   gsub("\\b0800\\b", "O800", code)
+  # })]
+
+  # dt[, clin_c1 := lapply(clin_c1, function(code) {
+  #   gsub("\\b0809\\b", "O809", code)
+  # })]
+
+  # dt[, clin_c2 := lapply(clin_c2, function(code) {
+  #   gsub("\\b0800\\b", "O800", code)
+  # })]
+
+  # dt[, clin_c2 := lapply(clin_c2, function(code) {
+  #   gsub("\\b0809\\b", "O809", code)
+  # })]
+
+  # Remove lumped ICD codes
+  dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
+  dt[, clin_c2 := remove_lumped_icd_codes(clin_c2)]
+
+  # Clean clinical columns
   clean_clin_col_res <- clean_clinical_columns(dt)
-
   dt <- clean_clin_col_res$dt
-
   discard_rvs_one <- clean_clin_col_res$discard_rvs_one
   discard_rvs_two <- clean_clin_col_res$discard_rvs_two
 
+  # Replace empty strings with NA
   replace_result <- replace_empty_with_na(dt, to_view_checks)
   dt <- replace_result$data
   empty_strings_replaced_1 <- replace_result$replacement_summary
 
+  # Remap patient data
   remapping_results <- remap_patient_data(dt, to_view_checks)
   dt <- remapping_results$data
 
+  # Return the cleaned data and summaries
   return(list(
     data = dt,
     rename_success = rename_success,
@@ -67,6 +106,7 @@ clean_data <- function(dt) {
     empty_strings_replaced_1 = empty_strings_replaced_1
   ))
 }
+
 
 collapse_and_clean_icd_rvs <- function(dt) {
   #' @title Collapse and clean ICD and RVS columns

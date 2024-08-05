@@ -17,7 +17,7 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   if (nrow(summary$final_ICD_replacements_1) > 0) {
     print(kable(head(summary$final_ICD_replacements_1, end_nrow),
       format = "markdown",
-      caption = "ICD Text Normalization for clin_c1"
+      caption = "ICD Text Normalization for clin_c1 Before Splitting"
     ))
   } else {
     cat(
@@ -30,7 +30,7 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   if (nrow(summary$final_ICD_replacements_2) > 0) {
     print(kable(head(summary$final_ICD_replacements_2, end_nrow),
       format = "markdown",
-      caption = "ICD Text Normalization for clin_c2"
+      caption = "ICD Text Normalization for clin_c2 Before Splitting"
     ))
   } else {
     cat(
@@ -404,7 +404,7 @@ combine_unmatched_icd10_codes <- function(
   combined_table <- combined_table[, .(count = sum(count)),
     by = .(code, source)
   ]
-  combined_table[order(-count)]
+  combined_table <- combined_table[order(-count)]
   return(combined_table)
 }
 
