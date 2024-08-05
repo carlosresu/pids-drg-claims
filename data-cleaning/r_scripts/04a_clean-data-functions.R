@@ -46,31 +46,19 @@ clean_data <- function(dt) {
     by = .(clin_c2_orig, clin_c2)
   ]
 
-  # # Apply gsub to each element in the list for clin_icd
-  # dt[, clin_icd := lapply(clin_icd, function(code) {
-  #   gsub("\\b0800\\b", "O800", code)
-  # })]
+  manual_multi_replace <- function(code, replacements) {
+    # Iterate over each pattern and its corresponding replacement in the list
+    for (pattern in names(replacements)) {
+      replacement <- replacements[[pattern]]
+      code <- gsub(paste0("\\b", pattern, "\\b"), replacement, code)
+    }
+    return(code)
+  }
 
-  # dt[, clin_icd := lapply(clin_icd, function(code) {
-  #   gsub("\\b0809\\b", "O809", code)
-  # })]
-
-  # # Repeat for clin_c1 and clin_c2
-  # dt[, clin_c1 := lapply(clin_c1, function(code) {
-  #   gsub("\\b0800\\b", "O800", code)
-  # })]
-
-  # dt[, clin_c1 := lapply(clin_c1, function(code) {
-  #   gsub("\\b0809\\b", "O809", code)
-  # })]
-
-  # dt[, clin_c2 := lapply(clin_c2, function(code) {
-  #   gsub("\\b0800\\b", "O800", code)
-  # })]
-
-  # dt[, clin_c2 := lapply(clin_c2, function(code) {
-  #   gsub("\\b0809\\b", "O809", code)
-  # })]
+  # Apply the multi-replacement function using the named list
+  dt[, clin_icd := lapply(clin_icd, manual_multi_replace, replacements = manual_code_replacements)]
+  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace, replacements = manual_code_replacements)]
+  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace, replacements = manual_code_replacements)]
 
   # Remove lumped ICD codes
   dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]

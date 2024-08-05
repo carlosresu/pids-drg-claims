@@ -12,8 +12,11 @@ clean_column <- function(column_to_clean, na_like_strings) {
   column_to_clean <- as.character(column_to_clean)
   cleaned_col <- iconv(column_to_clean, to = "UTF-8", sub = "byte")
   cleaned_col <- toupper(cleaned_col)
-  cleaned_col <- stri_replace_all_regex(cleaned_col, "[ \n]", "")
-  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d\\/\\s]+", "")
+  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[\\s]", "")
+  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[\n]", "")
+  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[\\]", "")
+  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[/]", "")
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d]+", "")
   cleaned_col <- stri_trim_both(cleaned_col)
   cleaned_col <- ifelse(cleaned_col %in% na_like_strings,
     NA_character_, cleaned_col
