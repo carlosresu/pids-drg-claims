@@ -224,7 +224,10 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
   } else {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", sprintf("%02d", part), "_of_", split_parts)
+    paste0(
+      "claims_extract_CLAIMS_", year_to_load, "_", ver_to_use,
+      "_part_", sprintf("%02d", part), "_of_", split_parts
+    )
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {
@@ -575,12 +578,19 @@ remap_patient_type <- function(pat_type) {
 
   # Check for unmapped types and print a warning
   if (length(unknown_types) > 0) {
-    warning(sprintf("Unmapped Patient Types: %s", paste(unknown_types, collapse = ", ")))
-    cat("Unmapped Patient Types:\n")
-    print(unknown_types)
+    warning(sprintf(
+      "Unmapped Patient Types: %s",
+      paste(unknown_types, collapse = ", ")
+    ))
+    # cat("Unmapped Patient Types:\n")
+    # print(unknown_types)
   }
 
-  list(original = pat_type, remapped = remapped_pat_type, unmapped = unknown_types)
+  list(
+    original = pat_type,
+    remapped = remapped_pat_type,
+    unmapped = unknown_types
+  )
 }
 
 remap_claim_status <- function(claim_status) {
@@ -608,12 +618,19 @@ remap_claim_status <- function(claim_status) {
 
   # Check for unmapped claim statuses and print a warning
   if (length(unknown_types) > 0) {
-    warning(sprintf("Unmapped Claim Statuses: %s", paste(unknown_types, collapse = ", ")))
-    cat("Unmapped Claim Statuses:\n")
-    print(unknown_types)
+    warning(sprintf(
+      "Unmapped Claim Statuses: %s",
+      paste(unknown_types, collapse = ", ")
+    ))
+    # cat("Unmapped Claim Statuses:\n")
+    # print(unknown_types)
   }
 
-  list(original = claim_status, remapped = remapped_claim_status, unmapped = unknown_types)
+  list(
+    original = claim_status,
+    remapped = remapped_claim_status,
+    unmapped = unknown_types
+  )
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
@@ -629,8 +646,8 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
   #' and the unknown parents.
   known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
   remapped_memcat_parent <- fcase(
-    pat_memcat_parent == "DIRECT CONTRIBUTOR", "DIRECT",
-    pat_memcat_parent == "INDIRECT CONTRIBUTOR", "INDIRECT"
+    pat_memcat_parent == "DIRECT CONTRIBUTOR", "D",
+    pat_memcat_parent == "INDIRECT CONTRIBUTOR", "I"
   )
   unknown_parents <- setdiff(
     pat_memcat_parent[!is.na(pat_memcat_parent)],
@@ -639,12 +656,19 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
 
   # Check for unmapped parent descriptions and print a warning
   if (length(unknown_parents) > 0) {
-    warning(sprintf("Unmapped Memcat Parent Descriptions: %s", paste(unknown_parents, collapse = ", ")))
-    cat("Unmapped Memcat Parent Descriptions:\n")
-    print(unknown_parents)
+    warning(sprintf(
+      "Unmapped Memcat Parent Descriptions: %s",
+      paste(unknown_parents, collapse = ", ")
+    ))
+    # cat("Unmapped Memcat Parent Descriptions:\n")
+    # print(unknown_parents)
   }
 
-  list(original = pat_memcat_parent, remapped = remapped_memcat_parent, unmapped = unknown_parents)
+  list(
+    original = pat_memcat_parent,
+    remapped = remapped_memcat_parent,
+    unmapped = unknown_parents
+  )
 }
 
 remap_memcat_child_desc <- function(pat_memcat_child) {
@@ -694,12 +718,19 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
 
   # Check for unmapped child descriptions and print a warning
   if (length(unknown_children) > 0) {
-    warning(sprintf("Unmapped Memcat Child Descriptions: %s", paste(unknown_children, collapse = ", ")))
-    cat("Unmapped Memcat Child Descriptions:\n")
-    print(unknown_children)
+    warning(sprintf(
+      "Unmapped Memcat Child Descriptions: %s",
+      paste(unknown_children, collapse = ", ")
+    ))
+    # cat("Unmapped Memcat Child Descriptions:\n")
+    # print(unknown_children)
   }
 
-  list(original = pat_memcat_child, remapped = remapped_memcat_child, unmapped = unknown_children)
+  list(
+    original = pat_memcat_child,
+    remapped = remapped_memcat_child,
+    unmapped = unknown_children
+  )
 }
 
 remap_disposition <- function(clin_discharge) {
@@ -732,12 +763,19 @@ remap_disposition <- function(clin_discharge) {
 
   # Check for unmapped discharge dispositions and print a warning
   if (length(unknown_dispositions) > 0) {
-    warning(sprintf("Unmapped Discharge Dispositions: %s", paste(unknown_dispositions, collapse = ", ")))
-    cat("Unmapped Discharge Dispositions:\n")
-    print(unknown_dispositions)
+    warning(sprintf(
+      "Unmapped Discharge Dispositions: %s",
+      paste(unknown_dispositions, collapse = ", ")
+    ))
+    # cat("Unmapped Discharge Dispositions:\n")
+    # print(unknown_dispositions)
   }
 
-  list(original = clin_discharge, remapped = remapped_discharge, unmapped = unknown_dispositions)
+  list(
+    original = clin_discharge,
+    remapped = remapped_discharge,
+    unmapped = unknown_dispositions
+  )
 }
 
 is_partial_file <- function(filename) {
@@ -822,9 +860,15 @@ clean_data <- function(dt) {
   }
 
   # Apply the multi-replacement function using the named list
-  dt[, clin_icd := lapply(clin_icd, manual_multi_replace, replacements = manual_code_replacements)]
-  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace, replacements = manual_code_replacements)]
-  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace, replacements = manual_code_replacements)]
+  dt[, clin_icd := lapply(clin_icd, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
+  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
+  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
 
   # Remove lumped ICD codes
   dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
@@ -874,9 +918,13 @@ collapse_and_clean_icd_rvs <- function(dt) {
   #' and RVS columns in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
+  dt[, clin_icd := collapse_columns(
+    mget(paste0("clin_icd", 1:12)), na_like_strings
+  )]
   dt[, paste0("clin_icd", 1:12) := NULL]
-  dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
+  dt[, clin_rvs := collapse_columns(
+    mget(paste0("clin_rvs", 1:20)), na_like_strings
+  )]
   dt[, paste0("clin_rvs", 1:20) := NULL]
   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
   dt[, clin_icd := split_to_vector(clin_icd)]
@@ -984,18 +1032,30 @@ remap_patient_data <- function(dt, to_view_checks) {
   claim_status_unmap <- NULL
 
   # Initialize data tables for mapped variables
-  pat_mapped <- data.table(Original = character(), Mapped = character())
-  parent_mapped <- data.table(Original = character(), Mapped = character())
-  child_mapped <- data.table(Original = character(), Mapped = character())
-  discharge_mapped <- data.table(Original = character(), Mapped = character())
-  claim_status_mapped <- data.table(Original = character(), Mapped = character())
+  pat_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  parent_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  child_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  discharge_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  claim_status_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
 
   # Remap patient type
   result <- remap_patient_type(dt$pat_type)
   dt$pat_type <- result$remapped
 
   # Create a data table for mapped patient types
-  pat_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  pat_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped patient types if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -1007,7 +1067,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$pat_memcat_parent <- result$remapped
 
   # Create a data table for mapped member category parents
-  parent_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  parent_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped member category parents if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -1019,7 +1081,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$pat_memcat_child <- result$remapped
 
   # Create a data table for mapped member category children
-  child_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  child_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped member category children if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -1031,7 +1095,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$clin_discharge <- result$remapped
 
   # Create a data table for mapped discharge dispositions
-  discharge_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  discharge_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped discharge dispositions if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -1043,7 +1109,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$claim_status <- result$remapped
 
   # Create a data table for mapped claim statuses
-  claim_status_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  claim_status_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped claim statuses if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -1246,7 +1314,8 @@ process_part <- function(
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write,
     to_group, to_sample, diff_chars) {
   #' @title Process Part
-  #' @description Process a single part of the data, including reading, processing, and summarizing.
+  #' @description Process a single part of the data, including reading,
+  #' processing, and summarizing.
   #' @param part integer. The part number to process.
   #' @param ncores integer. Number of cores to use for parallel processing.
   #' @param to_view_checks logical. Whether to view checks.
@@ -1258,7 +1327,8 @@ process_part <- function(
   #' @param para logical. Whether to parallelize the process.
   #' @param to_write logical. Whether to write intermediate files.
   #' @param to_group logical. Whether to group data for batch processing.
-  #' @param to_sample logical. Whether to read sample files instead of full partial files.
+  #' @param to_sample logical. Whether to read sample files instead of
+  #' full partial files.
   #' @return list. A list containing the processed data and summary.
 
   start_time <- Sys.time()
@@ -1283,26 +1353,40 @@ process_part <- function(
 
   if (to_write) write_intermediate_file(to_write, part, dt)
 
-  if (to_group) export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
+  if (to_group) export_for_grouper(dt, year_to_load, output_txt_file(part))
 
   end_time <- Sys.time()
   processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
-  return(list(dt = dt, combined_summary = combined_summary, processing_time = processing_time))
+  return(list(
+    dt = dt,
+    combined_summary = combined_summary,
+    processing_time = processing_time
+  ))
 }
 split_and_save_parts <- function() {
   #' @title Split and save parts of the data
-  #' @description This function splits the data into parts and saves them as separate files.
-  #' @return NULL. The function is used for its side effect of splitting and saving the data.
+  #' @description This function splits the data into parts and
+  #' saves them as separate files.
+  #' @return NULL. The function is used for its side effect of
+  #' splitting and saving the data.
 
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+    header <- fread(full_claims_file(),
+      nrows = 1, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
     if (to_split_read) {
       # Read the entire file in one go
-      files_exist <- sapply(1:split_parts, function(part) file.exists(full_claims_file(part)))
+      files_exist <- sapply(1:split_parts, function(part) {
+        file.exists(full_claims_file(part))
+      })
       if (any(!files_exist)) {
-        full_data <- fread(full_claims_file(), na.strings = na_values, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+        full_data <- fread(full_claims_file(),
+          na.strings = na_values,
+          colClasses = "character", header = TRUE, encoding = encode, sep = sep
+        )
       }
       split_and_save <- function(part) {
         chunk_file <- full_claims_file(part)
@@ -1354,7 +1438,8 @@ split_and_save_parts <- function() {
 
 ensure_partial_files_exist <- function(part) {
   #' @title Ensure Partial Files Exist
-  #' @description This function checks if partial files exist for a given part and creates them if they don't.
+  #' @description This function checks if partial files exist for a
+  #' given part and creates them if they don't.
   #' @param part integer. The part number to process.
   #' @return NULL. Creates partial files as a side effect if they do not exist.
   chunk_file <- full_claims_file(part)
@@ -1362,7 +1447,10 @@ ensure_partial_files_exist <- function(part) {
     rows_per_part <- ceiling(total_rows / split_parts)
     start_row <- (part - 1) * rows_per_part + 1
     end_row <- min(part * rows_per_part, total_rows)
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+    header <- fread(full_claims_file(),
+      nrows = 1, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
     dt <- fread(
       full_claims_file(),
       skip = start_row,
@@ -1385,8 +1473,14 @@ ensure_sample_files_exist <- function(part) {
   #' @return NULL. Creates sample files as a side effect if they do not exist.
   sampled_file <- sampled_claims_file(part)
   if (!file.exists(sampled_file)) {
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
-    dt <- fread(full_claims_file(part), skip = 1, na.strings = na_values, colClasses = "character", header = FALSE, encoding = encode, sep = sep)
+    header <- fread(full_claims_file(),
+      nrows = 1, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
+    dt <- fread(full_claims_file(part),
+      skip = 1, na.strings = na_values,
+      colClasses = "character", header = FALSE, encoding = encode, sep = sep
+    )
     dt <- dt[sample(.N, min(sample_size, .N))]
     setnames(dt, colnames(header))
     if (to_write) fwrite(dt, sampled_file, quote = TRUE)
@@ -1395,9 +1489,11 @@ ensure_sample_files_exist <- function(part) {
 
 read_appropriate_file <- function(part, to_sample) {
   #' @title Read Appropriate File
-  #' @description This function reads the appropriate file (partial or sample) for a given part, drops specified columns, and casts column types.
+  #' @description This function reads the appropriate file (partial or sample)
+  #' for a given part, drops specified columns, and casts column types.
   #' @param part integer. The part number to process.
-  #' @param to_sample logical. Whether to read the sample file or the full partial file.
+  #' @param to_sample logical. Whether to read the sample file or the
+  #' full partial file.
   #' @return data.table. The processed data table.
 
   chunk_file <- if (to_sample) {
@@ -1406,7 +1502,10 @@ read_appropriate_file <- function(part, to_sample) {
     full_claims_file(part)
   }
 
-  dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+  dt <- fread(chunk_file,
+    na.strings = na_values, colClasses = "character",
+    header = TRUE, encoding = encode, sep = sep
+  )
 
   if (to_debug) print(head(dt), 2) # debug
 
@@ -1445,7 +1544,9 @@ read_appropriate_file <- function(part, to_sample) {
     if (length(coerced_to_na) > 0) {
       cat(sprintf(
         "Column '%s' coerced %d values to NA. First few original values: %s\n",
-        col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5], collapse = ", ")
+        col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5],
+          collapse = ", "
+        )
       ))
     }
   }
@@ -1463,13 +1564,18 @@ suppressedWarnings <- function(expr) {
 
 read_and_save_partial <- function(start_row, end_row, part) {
   #' @title Read and Save Partial Files
-  #' @description This function reads and saves partial files from the full claims file.
+  #' @description This function reads and saves partial files from the
+  #' full claims file.
   #' @param start_row integer. The starting row number.
   #' @param end_row integer. The ending row number.
   #' @param part integer. The part number of the file.
-  #' @return NULL. The function is used for its side effect of reading and saving partial files.
+  #' @return NULL. The function is used for its side effect of reading and
+  #' saving partial files.
   partial_file_path <- full_claims_file(part, fileext = TRUE)
-  header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+  header <- fread(full_claims_file(),
+    nrows = 1, colClasses = "character",
+    header = TRUE, encoding = encode, sep = sep
+  )
 
   cat(paste("Reading header from:", full_claims_file()))
   cat(paste("Partial file path:", partial_file_path))
@@ -1500,7 +1606,10 @@ read_and_save_partial <- function(start_row, end_row, part) {
       "Partial file already exists. Skipping creation:",
       partial_file_path
     ))
-    dt <- fread(partial_file_path, na.strings = na_values, colClasses = "character", encoding = encode, sep = sep)
+    dt <- fread(partial_file_path,
+      na.strings = na_values, colClasses = "character",
+      encoding = encode, sep = sep
+    )
   }
 
   if (to_sample) {
@@ -1530,7 +1639,8 @@ write_intermediate_file <- function(to_write, part, dt) {
   #' @description This function writes the intermediate data table to a file.
   #' @param part integer. The part number of the data being processed.
   #' @param dt data.table. The data table to be written.
-  #' @return NULL. The function is used for its side effect of writing the data table to a file.
+  #' @return NULL. The function is used for its side effect of writing the
+  #' data table to a file.
   if (to_write) {
     fwrite(dt, intermediate_file(part, fileext = TRUE), quote = TRUE)
   }
@@ -1903,7 +2013,10 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
   }
 
   datatable[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-  datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+  datatable[, valid_matches := lapply(
+    matches,
+    function(x) x[x %in% valid_rvs_codes]
+  )]
   datatable[, clin_rvs := mapply(
     function(rvs, matches) unique(c(rvs, matches)),
     clin_rvs, valid_matches,
@@ -2098,7 +2211,11 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
     return(list(pdx = pdx, pdx_code = pdx_code))
   }
 
-  pdx_results <- find_pdx_vectorized(datatable$clin_c1, datatable$clin_c2, datatable$clin_icd)
+  pdx_results <- find_pdx_vectorized(
+    datatable$clin_c1,
+    datatable$clin_c2,
+    datatable$clin_icd
+  )
   datatable[, pdx := pdx_results$pdx]
   datatable[, pdx_code := pdx_results$pdx_code]
 
@@ -2165,7 +2282,7 @@ generate_dob <- function(bdays, ages, date_adms) {
     ), "%d/%m/%Y"
   )
 
-  # Check that all years for dates are above 1900
+  # # Check that all years for dates are above 1900
   # years <- year(mdy(dob))
   # if (any(years < 1900)) {
   #   stop("Generated dates have years below 1900")
@@ -2199,7 +2316,7 @@ prepare_and_write_output <- function(output_dt, output_txt_file) {
 }
 
 # Function to export data for batch grouper
-export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
+export_for_grouper <- function(dt, year_to_load, output_txt_file) {
   #' @title Export Data for Batch Grouper
   #'
   #' @description This function exports data for batch grouper,
@@ -2244,7 +2361,9 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
 
   rm(output_dt) # debug
   gc() # debug
-  if (to_debug) return(NULL) # debug
+  if (to_debug) {
+    return(NULL)
+  } # debug
 }
 
 group_data <- function(to_group, part, dt) {
@@ -2260,7 +2379,7 @@ group_data <- function(to_group, part, dt) {
   #' grouping and exporting the data.
 
   if (to_group) {
-    export_for_batch_grouper(
+    export_for_grouper(
       dt, year_to_load,
       output_txt_file(part)
     )
@@ -2309,7 +2428,11 @@ print_time_estimates <- function() {
   #' @return NULL.
   toc_data <- toc(log = TRUE)
   total_time <- toc_data$toc - toc_data$tic
-  total_rows <- if (to_sample) dim_dt[1] * split_parts * sample_size_divisor else dim_dt[1] * split_parts
+  total_rows <- if (to_sample) {
+    dim_dt[1] * split_parts * sample_size_divisor
+  } else {
+    dim_dt[1] * split_parts
+  }
 
   total_rows_dt <- dim_dt[1] * split_parts
   total_cells <- dim_dt[1] * dim_dt[2]
@@ -2350,17 +2473,20 @@ print_status_update <- function(part, split_parts, processing_times) { #
     "Status Update\nFinished: Part %d of %d\n",
     part, split_parts
   ))
-  cat(sprintf("Elapsed: %d seconds\nETA: %d seconds\n", round(elapsed_time), round(estimated_remaining_time)))
+  cat(sprintf(
+    "Elapsed: %d seconds\nETA: %d seconds\n",
+    round(elapsed_time), round(estimated_remaining_time)
+  ))
 }
 concatenate_r_files <- function(input_path, output_file) {
   #' @title Concatenate R Files
   #'
-  #' @description This function concatenates all .R files in 
+  #' @description This function concatenates all .R files in
   #' a specified directory into a single output file.
   #'
-  #' @param input_path character. The directory containing the 
+  #' @param input_path character. The directory containing the
   #' .R files to concatenate.
-  #' @param output_file character. The path to the output file 
+  #' @param output_file character. The path to the output file
   #' where the concatenated content will be written.
   #'
   #' @return NULL.
@@ -2450,8 +2576,6 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
       caption = sprintf("Unique Before and After Mappings for %s", mapping_name)
     ))
   }
-  
-  # print(summary$final_pat_type_mapped)
 
   display_unique_mappings(summary$final_pat_type_mapped, "Patient Type", tmp_nrow)
   display_unique_mappings(summary$final_memcat_parent_mapped, "Memcat Parent", tmp_nrow)
@@ -3100,8 +3224,6 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
       function(summary) summary$claim_status_mapped
     )))
   )
-
-  # print(head(final_combined_summaries$final_pat_type_mapped))
 
   return(final_combined_summaries)
 }

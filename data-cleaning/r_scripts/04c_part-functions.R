@@ -3,7 +3,8 @@ process_part <- function(
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write,
     to_group, to_sample, diff_chars) {
   #' @title Process Part
-  #' @description Process a single part of the data, including reading, processing, and summarizing.
+  #' @description Process a single part of the data, including reading,
+  #' processing, and summarizing.
   #' @param part integer. The part number to process.
   #' @param ncores integer. Number of cores to use for parallel processing.
   #' @param to_view_checks logical. Whether to view checks.
@@ -15,7 +16,8 @@ process_part <- function(
   #' @param para logical. Whether to parallelize the process.
   #' @param to_write logical. Whether to write intermediate files.
   #' @param to_group logical. Whether to group data for batch processing.
-  #' @param to_sample logical. Whether to read sample files instead of full partial files.
+  #' @param to_sample logical. Whether to read sample files instead of
+  #' full partial files.
   #' @return list. A list containing the processed data and summary.
 
   start_time <- Sys.time()
@@ -40,10 +42,14 @@ process_part <- function(
 
   if (to_write) write_intermediate_file(to_write, part, dt)
 
-  if (to_group) export_for_batch_grouper(dt, year_to_load, output_txt_file(part))
+  if (to_group) export_for_grouper(dt, year_to_load, output_txt_file(part))
 
   end_time <- Sys.time()
   processing_time <- as.numeric(difftime(end_time, start_time, units = "secs"))
 
-  return(list(dt = dt, combined_summary = combined_summary, processing_time = processing_time))
+  return(list(
+    dt = dt,
+    combined_summary = combined_summary,
+    processing_time = processing_time
+  ))
 }

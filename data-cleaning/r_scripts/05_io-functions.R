@@ -1,16 +1,26 @@
 split_and_save_parts <- function() {
   #' @title Split and save parts of the data
-  #' @description This function splits the data into parts and saves them as separate files.
-  #' @return NULL. The function is used for its side effect of splitting and saving the data.
+  #' @description This function splits the data into parts and
+  #' saves them as separate files.
+  #' @return NULL. The function is used for its side effect of
+  #' splitting and saving the data.
 
   if (to_split) {
     rows_per_part <- ceiling(total_rows / split_parts)
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+    header <- fread(full_claims_file(),
+      nrows = 1, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
     if (to_split_read) {
       # Read the entire file in one go
-      files_exist <- sapply(1:split_parts, function(part) file.exists(full_claims_file(part)))
+      files_exist <- sapply(1:split_parts, function(part) {
+        file.exists(full_claims_file(part))
+      })
       if (any(!files_exist)) {
-        full_data <- fread(full_claims_file(), na.strings = na_values, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+        full_data <- fread(full_claims_file(),
+          na.strings = na_values,
+          colClasses = "character", header = TRUE, encoding = encode, sep = sep
+        )
       }
       split_and_save <- function(part) {
         chunk_file <- full_claims_file(part)
@@ -62,7 +72,8 @@ split_and_save_parts <- function() {
 
 ensure_partial_files_exist <- function(part) {
   #' @title Ensure Partial Files Exist
-  #' @description This function checks if partial files exist for a given part and creates them if they don't.
+  #' @description This function checks if partial files exist for a
+  #' given part and creates them if they don't.
   #' @param part integer. The part number to process.
   #' @return NULL. Creates partial files as a side effect if they do not exist.
   chunk_file <- full_claims_file(part)
@@ -70,7 +81,10 @@ ensure_partial_files_exist <- function(part) {
     rows_per_part <- ceiling(total_rows / split_parts)
     start_row <- (part - 1) * rows_per_part + 1
     end_row <- min(part * rows_per_part, total_rows)
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+    header <- fread(full_claims_file(),
+      nrows = 1, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
     dt <- fread(
       full_claims_file(),
       skip = start_row,
@@ -93,8 +107,14 @@ ensure_sample_files_exist <- function(part) {
   #' @return NULL. Creates sample files as a side effect if they do not exist.
   sampled_file <- sampled_claims_file(part)
   if (!file.exists(sampled_file)) {
-    header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
-    dt <- fread(full_claims_file(part), skip = 1, na.strings = na_values, colClasses = "character", header = FALSE, encoding = encode, sep = sep)
+    header <- fread(full_claims_file(),
+      nrows = 1, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
+    dt <- fread(full_claims_file(part),
+      skip = 1, na.strings = na_values,
+      colClasses = "character", header = FALSE, encoding = encode, sep = sep
+    )
     dt <- dt[sample(.N, min(sample_size, .N))]
     setnames(dt, colnames(header))
     if (to_write) fwrite(dt, sampled_file, quote = TRUE)
@@ -103,9 +123,11 @@ ensure_sample_files_exist <- function(part) {
 
 read_appropriate_file <- function(part, to_sample) {
   #' @title Read Appropriate File
-  #' @description This function reads the appropriate file (partial or sample) for a given part, drops specified columns, and casts column types.
+  #' @description This function reads the appropriate file (partial or sample)
+  #' for a given part, drops specified columns, and casts column types.
   #' @param part integer. The part number to process.
-  #' @param to_sample logical. Whether to read the sample file or the full partial file.
+  #' @param to_sample logical. Whether to read the sample file or the
+  #' full partial file.
   #' @return data.table. The processed data table.
 
   chunk_file <- if (to_sample) {
@@ -114,7 +136,10 @@ read_appropriate_file <- function(part, to_sample) {
     full_claims_file(part)
   }
 
-  dt <- fread(chunk_file, na.strings = na_values, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+  dt <- fread(chunk_file,
+    na.strings = na_values, colClasses = "character",
+    header = TRUE, encoding = encode, sep = sep
+  )
 
   if (to_debug) print(head(dt), 2) # debug
 
@@ -153,7 +178,9 @@ read_appropriate_file <- function(part, to_sample) {
     if (length(coerced_to_na) > 0) {
       cat(sprintf(
         "Column '%s' coerced %d values to NA. First few original values: %s\n",
-        col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5], collapse = ", ")
+        col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5],
+          collapse = ", "
+        )
       ))
     }
   }
@@ -171,13 +198,18 @@ suppressedWarnings <- function(expr) {
 
 read_and_save_partial <- function(start_row, end_row, part) {
   #' @title Read and Save Partial Files
-  #' @description This function reads and saves partial files from the full claims file.
+  #' @description This function reads and saves partial files from the
+  #' full claims file.
   #' @param start_row integer. The starting row number.
   #' @param end_row integer. The ending row number.
   #' @param part integer. The part number of the file.
-  #' @return NULL. The function is used for its side effect of reading and saving partial files.
+  #' @return NULL. The function is used for its side effect of reading and
+  #' saving partial files.
   partial_file_path <- full_claims_file(part, fileext = TRUE)
-  header <- fread(full_claims_file(), nrows = 1, colClasses = "character", header = TRUE, encoding = encode, sep = sep)
+  header <- fread(full_claims_file(),
+    nrows = 1, colClasses = "character",
+    header = TRUE, encoding = encode, sep = sep
+  )
 
   cat(paste("Reading header from:", full_claims_file()))
   cat(paste("Partial file path:", partial_file_path))
@@ -208,7 +240,10 @@ read_and_save_partial <- function(start_row, end_row, part) {
       "Partial file already exists. Skipping creation:",
       partial_file_path
     ))
-    dt <- fread(partial_file_path, na.strings = na_values, colClasses = "character", encoding = encode, sep = sep)
+    dt <- fread(partial_file_path,
+      na.strings = na_values, colClasses = "character",
+      encoding = encode, sep = sep
+    )
   }
 
   if (to_sample) {
@@ -238,7 +273,8 @@ write_intermediate_file <- function(to_write, part, dt) {
   #' @description This function writes the intermediate data table to a file.
   #' @param part integer. The part number of the data being processed.
   #' @param dt data.table. The data table to be written.
-  #' @return NULL. The function is used for its side effect of writing the data table to a file.
+  #' @return NULL. The function is used for its side effect of writing the
+  #' data table to a file.
   if (to_write) {
     fwrite(dt, intermediate_file(part, fileext = TRUE), quote = TRUE)
   }

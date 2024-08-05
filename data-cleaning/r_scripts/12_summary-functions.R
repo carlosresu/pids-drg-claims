@@ -714,7 +714,5 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
     )))
   )
 
-  # print(head(final_combined_summaries$final_pat_type_mapped))
-
   return(final_combined_summaries)
 }

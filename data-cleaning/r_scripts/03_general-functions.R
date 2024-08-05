@@ -161,12 +161,19 @@ remap_patient_type <- function(pat_type) {
 
   # Check for unmapped types and print a warning
   if (length(unknown_types) > 0) {
-    warning(sprintf("Unmapped Patient Types: %s", paste(unknown_types, collapse = ", ")))
-    cat("Unmapped Patient Types:\n")
-    print(unknown_types)
+    warning(sprintf(
+      "Unmapped Patient Types: %s",
+      paste(unknown_types, collapse = ", ")
+    ))
+    # cat("Unmapped Patient Types:\n")
+    # print(unknown_types)
   }
 
-  list(original = pat_type, remapped = remapped_pat_type, unmapped = unknown_types)
+  list(
+    original = pat_type,
+    remapped = remapped_pat_type,
+    unmapped = unknown_types
+  )
 }
 
 remap_claim_status <- function(claim_status) {
@@ -194,12 +201,19 @@ remap_claim_status <- function(claim_status) {
 
   # Check for unmapped claim statuses and print a warning
   if (length(unknown_types) > 0) {
-    warning(sprintf("Unmapped Claim Statuses: %s", paste(unknown_types, collapse = ", ")))
-    cat("Unmapped Claim Statuses:\n")
-    print(unknown_types)
+    warning(sprintf(
+      "Unmapped Claim Statuses: %s",
+      paste(unknown_types, collapse = ", ")
+    ))
+    # cat("Unmapped Claim Statuses:\n")
+    # print(unknown_types)
   }
 
-  list(original = claim_status, remapped = remapped_claim_status, unmapped = unknown_types)
+  list(
+    original = claim_status,
+    remapped = remapped_claim_status,
+    unmapped = unknown_types
+  )
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
@@ -225,12 +239,19 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
 
   # Check for unmapped parent descriptions and print a warning
   if (length(unknown_parents) > 0) {
-    warning(sprintf("Unmapped Memcat Parent Descriptions: %s", paste(unknown_parents, collapse = ", ")))
-    cat("Unmapped Memcat Parent Descriptions:\n")
-    print(unknown_parents)
+    warning(sprintf(
+      "Unmapped Memcat Parent Descriptions: %s",
+      paste(unknown_parents, collapse = ", ")
+    ))
+    # cat("Unmapped Memcat Parent Descriptions:\n")
+    # print(unknown_parents)
   }
 
-  list(original = pat_memcat_parent, remapped = remapped_memcat_parent, unmapped = unknown_parents)
+  list(
+    original = pat_memcat_parent,
+    remapped = remapped_memcat_parent,
+    unmapped = unknown_parents
+  )
 }
 
 remap_memcat_child_desc <- function(pat_memcat_child) {
@@ -280,12 +301,19 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
 
   # Check for unmapped child descriptions and print a warning
   if (length(unknown_children) > 0) {
-    warning(sprintf("Unmapped Memcat Child Descriptions: %s", paste(unknown_children, collapse = ", ")))
-    cat("Unmapped Memcat Child Descriptions:\n")
-    print(unknown_children)
+    warning(sprintf(
+      "Unmapped Memcat Child Descriptions: %s",
+      paste(unknown_children, collapse = ", ")
+    ))
+    # cat("Unmapped Memcat Child Descriptions:\n")
+    # print(unknown_children)
   }
 
-  list(original = pat_memcat_child, remapped = remapped_memcat_child, unmapped = unknown_children)
+  list(
+    original = pat_memcat_child,
+    remapped = remapped_memcat_child,
+    unmapped = unknown_children
+  )
 }
 
 remap_disposition <- function(clin_discharge) {
@@ -318,12 +346,19 @@ remap_disposition <- function(clin_discharge) {
 
   # Check for unmapped discharge dispositions and print a warning
   if (length(unknown_dispositions) > 0) {
-    warning(sprintf("Unmapped Discharge Dispositions: %s", paste(unknown_dispositions, collapse = ", ")))
-    cat("Unmapped Discharge Dispositions:\n")
-    print(unknown_dispositions)
+    warning(sprintf(
+      "Unmapped Discharge Dispositions: %s",
+      paste(unknown_dispositions, collapse = ", ")
+    ))
+    # cat("Unmapped Discharge Dispositions:\n")
+    # print(unknown_dispositions)
   }
 
-  list(original = clin_discharge, remapped = remapped_discharge, unmapped = unknown_dispositions)
+  list(
+    original = clin_discharge,
+    remapped = remapped_discharge,
+    unmapped = unknown_dispositions
+  )
 }
 
 is_partial_file <- function(filename) {

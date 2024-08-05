@@ -139,7 +139,11 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
     return(list(pdx = pdx, pdx_code = pdx_code))
   }
 
-  pdx_results <- find_pdx_vectorized(datatable$clin_c1, datatable$clin_c2, datatable$clin_icd)
+  pdx_results <- find_pdx_vectorized(
+    datatable$clin_c1,
+    datatable$clin_c2,
+    datatable$clin_icd
+  )
   datatable[, pdx := pdx_results$pdx]
   datatable[, pdx_code := pdx_results$pdx_code]
 

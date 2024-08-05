@@ -70,7 +70,10 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
   }
 
   datatable[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-  datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+  datatable[, valid_matches := lapply(
+    matches,
+    function(x) x[x %in% valid_rvs_codes]
+  )]
   datatable[, clin_rvs := mapply(
     function(rvs, matches) unique(c(rvs, matches)),
     clin_rvs, valid_matches,

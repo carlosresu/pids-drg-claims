@@ -29,7 +29,11 @@ print_time_estimates <- function() {
   #' @return NULL.
   toc_data <- toc(log = TRUE)
   total_time <- toc_data$toc - toc_data$tic
-  total_rows <- if (to_sample) dim_dt[1] * split_parts * sample_size_divisor else dim_dt[1] * split_parts
+  total_rows <- if (to_sample) {
+    dim_dt[1] * split_parts * sample_size_divisor
+  } else {
+    dim_dt[1] * split_parts
+  }
 
   total_rows_dt <- dim_dt[1] * split_parts
   total_cells <- dim_dt[1] * dim_dt[2]
@@ -70,5 +74,8 @@ print_status_update <- function(part, split_parts, processing_times) { #
     "Status Update\nFinished: Part %d of %d\n",
     part, split_parts
   ))
-  cat(sprintf("Elapsed: %d seconds\nETA: %d seconds\n", round(elapsed_time), round(estimated_remaining_time)))
+  cat(sprintf(
+    "Elapsed: %d seconds\nETA: %d seconds\n",
+    round(elapsed_time), round(estimated_remaining_time)
+  ))
 }

@@ -114,7 +114,10 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   filename <- if (is.null(part)) {
     paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
   } else {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use, "_part_", sprintf("%02d", part), "_of_", split_parts)
+    paste0(
+      "claims_extract_CLAIMS_", year_to_load, "_", ver_to_use,
+      "_part_", sprintf("%02d", part), "_of_", split_parts
+    )
   }
   if (fileext) filename <- paste0(filename, ".csv")
   if (is.null(part)) {

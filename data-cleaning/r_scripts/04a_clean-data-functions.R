@@ -56,9 +56,15 @@ clean_data <- function(dt) {
   }
 
   # Apply the multi-replacement function using the named list
-  dt[, clin_icd := lapply(clin_icd, manual_multi_replace, replacements = manual_code_replacements)]
-  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace, replacements = manual_code_replacements)]
-  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace, replacements = manual_code_replacements)]
+  dt[, clin_icd := lapply(clin_icd, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
+  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
+  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
 
   # Remove lumped ICD codes
   dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
@@ -108,9 +114,13 @@ collapse_and_clean_icd_rvs <- function(dt) {
   #' and RVS columns in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
+  dt[, clin_icd := collapse_columns(
+    mget(paste0("clin_icd", 1:12)), na_like_strings
+  )]
   dt[, paste0("clin_icd", 1:12) := NULL]
-  dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
+  dt[, clin_rvs := collapse_columns(
+    mget(paste0("clin_rvs", 1:20)), na_like_strings
+  )]
   dt[, paste0("clin_rvs", 1:20) := NULL]
   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
   dt[, clin_icd := split_to_vector(clin_icd)]
@@ -218,18 +228,30 @@ remap_patient_data <- function(dt, to_view_checks) {
   claim_status_unmap <- NULL
 
   # Initialize data tables for mapped variables
-  pat_mapped <- data.table(Original = character(), Mapped = character())
-  parent_mapped <- data.table(Original = character(), Mapped = character())
-  child_mapped <- data.table(Original = character(), Mapped = character())
-  discharge_mapped <- data.table(Original = character(), Mapped = character())
-  claim_status_mapped <- data.table(Original = character(), Mapped = character())
+  pat_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  parent_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  child_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  discharge_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
+  claim_status_mapped <- data.table(
+    Original = character(), Mapped = character()
+  )
 
   # Remap patient type
   result <- remap_patient_type(dt$pat_type)
   dt$pat_type <- result$remapped
 
   # Create a data table for mapped patient types
-  pat_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  pat_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped patient types if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -241,7 +263,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$pat_memcat_parent <- result$remapped
 
   # Create a data table for mapped member category parents
-  parent_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  parent_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped member category parents if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -253,7 +277,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$pat_memcat_child <- result$remapped
 
   # Create a data table for mapped member category children
-  child_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  child_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped member category children if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -265,7 +291,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$clin_discharge <- result$remapped
 
   # Create a data table for mapped discharge dispositions
-  discharge_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  discharge_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped discharge dispositions if needed
   if (length(result$unmapped) > 0 && to_view_checks) {
@@ -277,7 +305,9 @@ remap_patient_data <- function(dt, to_view_checks) {
   dt$claim_status <- result$remapped
 
   # Create a data table for mapped claim statuses
-  claim_status_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  claim_status_mapped <- unique(
+    data.table(Original = result$original, Mapped = result$remapped)
+  )
 
   # Capture unmapped claim statuses if needed
   if (length(result$unmapped) > 0 && to_view_checks) {

@@ -59,7 +59,7 @@ generate_dob <- function(bdays, ages, date_adms) {
     ), "%d/%m/%Y"
   )
 
-  # Check that all years for dates are above 1900
+  # # Check that all years for dates are above 1900
   # years <- year(mdy(dob))
   # if (any(years < 1900)) {
   #   stop("Generated dates have years below 1900")
@@ -93,7 +93,7 @@ prepare_and_write_output <- function(output_dt, output_txt_file) {
 }
 
 # Function to export data for batch grouper
-export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
+export_for_grouper <- function(dt, year_to_load, output_txt_file) {
   #' @title Export Data for Batch Grouper
   #'
   #' @description This function exports data for batch grouper,
@@ -138,7 +138,9 @@ export_for_batch_grouper <- function(dt, year_to_load, output_txt_file) {
 
   rm(output_dt) # debug
   gc() # debug
-  if (to_debug) return(NULL) # debug
+  if (to_debug) {
+    return(NULL)
+  } # debug
 }
 
 group_data <- function(to_group, part, dt) {
@@ -154,7 +156,7 @@ group_data <- function(to_group, part, dt) {
   #' grouping and exporting the data.
 
   if (to_group) {
-    export_for_batch_grouper(
+    export_for_grouper(
       dt, year_to_load,
       output_txt_file(part)
     )
