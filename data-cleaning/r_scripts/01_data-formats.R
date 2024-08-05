@@ -16,7 +16,8 @@ integer_cols <- c("OUT_PATIENT", "EMERGENCY")
 factor_cols <- c(
   "PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", "MEMCAT_PARENT_DESC",
   "MEMCAT_CHILD_DESC",
-  "MEMCAT_SUBCHILD_DESC", "DISPOSITION", "CLAIMS_STATUS"
+  # "MEMCAT_SUBCHILD_DESC",
+  "DISPOSITION", "CLAIMS_STATUS"
 )
 numeric_cols <- c(
   "PATAGE", "PAT_BWT_KG", "CLAIMS_PAID_AMT",
@@ -56,7 +57,8 @@ old_colnames <- c(
   "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", "CHKDT", "EXTRACTION_DATE",
   "HCI_PMCC_NO", "HCP_NO_LIST", "PATIENT_TYPE", "DEP_REL", "PATSEX", "PATAGE",
   "PAT_BDAY", "PAT_BWT_KG", "MEMCAT_PARENT_DESC", "MEMCAT_CHILD_DESC",
-  "MEMCAT_SUBCHILD_DESC", "OUT_PATIENT", "EMERGENCY", "ROOM_TYPE",
+  # "MEMCAT_SUBCHILD_DESC",
+  "OUT_PATIENT", "EMERGENCY", "ROOM_TYPE",
   "DISPOSITION", "PRIMARY_ILLNESS", "SECONDARY_ILLNESS",
   paste0("ICDCODE", 1:12), paste0("RVSCODE", 1:20),
   "CLAIMS_STATUS", "ACR_AMOUNT_ACTUAL", "CLAIMS_PAID_AMT"
@@ -67,7 +69,8 @@ new_colnames <- c(
   "date_dis", "time_dis", "date_rec", "date_ref", "date_check", "date_ext",
   "id_hci", "id_hcp", "pat_type", "pat_rel", "pat_sex", "pat_age",
   "pat_bdate", "pat_bwt", "pat_memcat_parent", "pat_memcat_child",
-  "pat_memcat_subchild", "clin_outpatient", "clin_emergency", "clin_acc",
+  # "pat_memcat_subchild",
+  "clin_outpatient", "clin_emergency", "clin_acc",
   "clin_discharge", "clin_c1", "clin_c2", paste0("clin_icd", 1:12),
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
