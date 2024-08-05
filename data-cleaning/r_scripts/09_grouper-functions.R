@@ -136,8 +136,8 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file) {
 
   prepare_and_write_output(output_dt, output_txt_file)
 
-  rm(output_dt) # debug
-  gc() # debug
+  if (to_dec_mem_usage) rm(output_dt) # debug
+  if (to_dec_mem_usage) gc() # debug
   if (to_debug) {
     return(NULL)
   } # debug
@@ -160,8 +160,8 @@ group_data <- function(to_group, part, dt) {
       dt, year_to_load,
       output_txt_file(part)
     )
-    rm(dt) # debug
-    gc() # debug
+    if (to_dec_mem_usage) rm(dt) # debug
+    if (to_dec_mem_usage) gc() # debug
     for_batch_grouping <- fread(
       output_txt_file(part),
       sep = "|", na.strings = "--"

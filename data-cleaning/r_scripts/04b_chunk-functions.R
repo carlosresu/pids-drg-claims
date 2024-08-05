@@ -97,7 +97,7 @@ process_chunk <- function(
   summary$multi_mapped_rvs <- rvs_mapping_result$multi_mapped_rvs
   summary$without_drg <- rvs_mapping_result$without_drg
 
-  gc() # debug
+  if (to_dec_mem_usage) gc() # debug
   return(list(chunk = chunk, summary = summary))
 }
 
@@ -145,12 +145,12 @@ parallelize_and_summarize_data <- function(
 
   dt <- rbindlist(processed_chunks)
 
-  rm(processed_chunks) # debug
+  if (to_dec_mem_usage) rm(processed_chunks) # debug
 
   combined_summary <- combine_chunk_summaries(parallel_results, tmp_nrow, diff_chars)
 
-  rm(parallel_results) # debug
-  gc() # debug
+  if (to_dec_mem_usage) rm(parallel_results) # debug
+  if (to_dec_mem_usage) gc() # debug
 
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
@@ -168,7 +168,7 @@ parallelize_and_summarize_data <- function(
     combined_summary$pdx_success <- TRUE
   }
 
-  gc() # debug
+  if (to_dec_mem_usage) gc() # debug
 
   return(list(
     dt = dt,

@@ -31,17 +31,17 @@ split_and_save_parts <- function() {
           setnames(dt, colnames(header))
           if (to_debug) print(head(dt), 2) # debug
           fwrite(dt, chunk_file, quote = TRUE)
-          rm(dt)
-          gc()
+          if (to_dec_mem_usage) rm(dt)
+          if (to_dec_mem_usage) gc()
         }
       }
       lapply(1:split_parts, split_and_save)
       # Clean up the full data from memory
       if (exists("full_data")) {
         if (to_debug) print(head(full_data), 2) # debug
-        rm(full_data)
+        if (to_dec_mem_usage) rm(full_data)
       }
-      gc()
+      if (to_dec_mem_usage) gc()
     } else {
       split_and_save <- function(part) {
         chunk_file <- full_claims_file(part)
@@ -61,8 +61,8 @@ split_and_save_parts <- function() {
           setnames(dt, colnames(header))
           if (to_debug) print(head(dt), 2) # debug
           fwrite(dt, chunk_file, quote = TRUE)
-          rm(dt)
-          gc()
+          if (to_dec_mem_usage) rm(dt)
+          if (to_dec_mem_usage) gc()
         }
       }
       lapply(1:split_parts, split_and_save)

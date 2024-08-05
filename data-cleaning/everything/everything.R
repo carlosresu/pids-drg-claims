@@ -1231,7 +1231,7 @@ process_chunk <- function(
   summary$multi_mapped_rvs <- rvs_mapping_result$multi_mapped_rvs
   summary$without_drg <- rvs_mapping_result$without_drg
 
-  gc() # debug
+  if (to_minimize_mem_usage) gc() # debug
   return(list(chunk = chunk, summary = summary))
 }
 
@@ -1279,12 +1279,12 @@ parallelize_and_summarize_data <- function(
 
   dt <- rbindlist(processed_chunks)
 
-  rm(processed_chunks) # debug
+  if (to_minimize_mem_usage) rm(processed_chunks) # debug
 
   combined_summary <- combine_chunk_summaries(parallel_results, tmp_nrow, diff_chars)
 
-  rm(parallel_results) # debug
-  gc() # debug
+  if (to_minimize_mem_usage) rm(parallel_results) # debug
+  if (to_minimize_mem_usage) gc() # debug
 
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
@@ -1302,7 +1302,7 @@ parallelize_and_summarize_data <- function(
     combined_summary$pdx_success <- TRUE
   }
 
-  gc() # debug
+  if (to_minimize_mem_usage) gc() # debug
 
   return(list(
     dt = dt,
@@ -1397,17 +1397,17 @@ split_and_save_parts <- function() {
           setnames(dt, colnames(header))
           if (to_debug) print(head(dt), 2) # debug
           fwrite(dt, chunk_file, quote = TRUE)
-          rm(dt)
-          gc()
+          if (to_minimize_mem_usage) rm(dt)
+          if (to_minimize_mem_usage) gc()
         }
       }
       lapply(1:split_parts, split_and_save)
       # Clean up the full data from memory
       if (exists("full_data")) {
         if (to_debug) print(head(full_data), 2) # debug
-        rm(full_data)
+        if (to_minimize_mem_usage) rm(full_data)
       }
-      gc()
+      if (to_minimize_mem_usage) gc()
     } else {
       split_and_save <- function(part) {
         chunk_file <- full_claims_file(part)
@@ -1427,8 +1427,8 @@ split_and_save_parts <- function() {
           setnames(dt, colnames(header))
           if (to_debug) print(head(dt), 2) # debug
           fwrite(dt, chunk_file, quote = TRUE)
-          rm(dt)
-          gc()
+          if (to_minimize_mem_usage) rm(dt)
+          if (to_minimize_mem_usage) gc()
         }
       }
       lapply(1:split_parts, split_and_save)
@@ -2359,8 +2359,8 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file) {
 
   prepare_and_write_output(output_dt, output_txt_file)
 
-  rm(output_dt) # debug
-  gc() # debug
+  if (to_minimize_mem_usage) rm(output_dt) # debug
+  if (to_minimize_mem_usage) gc() # debug
   if (to_debug) {
     return(NULL)
   } # debug
@@ -2383,8 +2383,8 @@ group_data <- function(to_group, part, dt) {
       dt, year_to_load,
       output_txt_file(part)
     )
-    rm(dt) # debug
-    gc() # debug
+    if (to_minimize_mem_usage) rm(dt) # debug
+    if (to_minimize_mem_usage) gc() # debug
     for_batch_grouping <- fread(
       output_txt_file(part),
       sep = "|", na.strings = "--"
