@@ -75,6 +75,15 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     )
   }
 
+  if (is.null(summary$final_claim_status_unmapped)) {
+    cat("Claim Status Unmapped: NULL\n\n")
+  } else {
+    cat(
+      "Claim Status Unmapped:\n",
+      summary$final_claim_status_unmapped, "\n\n"
+    )
+  }
+
   if (nrow(summary$final_discard_rvs_one) > 0) {
     print(kable(head(summary$final_discard_rvs_one, end_nrow),
       format = "markdown",
@@ -508,6 +517,10 @@ combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
       summaries,
       function(summary) summary$discharge_unmapped
     ))),
+    claim_status_unmapped = unique(unlist(lapply(
+      summaries,
+      function(summary) summary$claim_status_unmapped
+    ))),
     discard_rvs_one = combine_discarded_rvs_tables(
       summaries, "discard_rvs_one", tmp_nrow
     ),
@@ -606,6 +619,10 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
     final_discharge_unmapped = unique(unlist(lapply(
       combined_summary,
       function(summary) summary$discharge_unmapped
+    ))),
+    final_claim_status_unmapped = unique(unlist(lapply(
+      combined_summary,
+      function(summary) summary$claim_status_unmapped
     ))),
     final_discard_rvs_one = combine_discarded_rvs_tables(
       combined_summary, "discard_rvs_one", end_nrow

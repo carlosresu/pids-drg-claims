@@ -89,6 +89,7 @@ clean_data <- function(dt) {
     memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
     memcat_child_unmapped = remapping_results$memcat_child_unmapped,
     discharge_unmapped = remapping_results$discharge_unmapped,
+    claim_status_unmapped = remapping_results$claim_status_unmapped,
     discard_rvs_one = discard_rvs_one,
     discard_rvs_two = discard_rvs_two,
     empty_strings_replaced_1 = empty_strings_replaced_1
@@ -197,10 +198,13 @@ remap_patient_data <- function(dt, to_view_checks) {
   #' @param dt data.table. The data table to be processed.
   #' @param to_view_checks logical. Whether to view checks.
   #' @return list. A list containing the processed data and summaries.
+
   pat_unmap <- NULL
   parent_unmap <- NULL
   child_unmap <- NULL
   discharge_unmap <- NULL
+  claim_status_unmap <- NULL
+
 
   result <- remap_patient_type(dt$pat_type)
   dt$pat_type <- result$remapped
@@ -226,11 +230,18 @@ remap_patient_data <- function(dt, to_view_checks) {
     discharge_unmap <- result$unmapped
   }
 
+  result <- remap_claim_status(dt$claim_status)
+  dt$claim_status <- result$remapped
+  if (length(result$unmapped) > 0 && to_view_checks) {
+    claim_status_unmap <- result$unmapped
+  }
+
   return(list(
     data = dt,
     pat_type_unmapped = pat_unmap,
     memcat_parent_unmapped = parent_unmap,
     memcat_child_unmapped = child_unmap,
-    discharge_unmapped = discharge_unmap
+    discharge_unmapped = discharge_unmap,
+    claim_status_unmapped = claim_status_unmap
   ))
 }

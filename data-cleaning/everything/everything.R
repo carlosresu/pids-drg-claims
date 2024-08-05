@@ -565,14 +565,39 @@ remap_patient_type <- function(pat_type) {
   #' and the unknown types.
   known_types <- c("MEMBER", "DEPENDENT")
   remapped_pat_type <- fcase(
-    pat_type == "MEMBER", "MEM",
-    pat_type == "DEPENDENT", "DEP"
+    pat_type == "MEMBER", "M",
+    pat_type == "DEPENDENT", "D"
   )
   unknown_types <- setdiff(
     pat_type[!is.na(pat_type)],
     known_types
   )
   list(remapped = remapped_pat_type, unmapped = unknown_types)
+}
+
+remap_claim_status <- function(claim_status) {
+  #' @title Remap patient type
+  #'
+  #' @description This function remaps patient types to standardized codes
+  #' and identifies any unknown types.
+  #'
+  #' @param pat_type character. The patient type column.
+  #'
+  #' @return list. A list containing the remapped patient types
+  #' and the unknown types.
+  known_types <- c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT")
+  remapped_claim_status <- fcase(
+    claim_status == "DENIED", "D",
+    claim_status == "IN-PROCESS", "I",
+    claim_status == "PAID", "G",
+    claim_status == "RTH", "R",
+    claim_status == "APRV4PAYMENT", "G"
+  )
+  unknown_types <- setdiff(
+    claim_status[!is.na(claim_status)],
+    known_types
+  )
+  list(remapped = remapped_claim_status, unmapped = unknown_types)
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
@@ -790,6 +815,7 @@ clean_data <- function(dt) {
     memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
     memcat_child_unmapped = remapping_results$memcat_child_unmapped,
     discharge_unmapped = remapping_results$discharge_unmapped,
+    claim_status_unmapped = remapping_results$claim_status_unmapped,
     discard_rvs_one = discard_rvs_one,
     discard_rvs_two = discard_rvs_two,
     empty_strings_replaced_1 = empty_strings_replaced_1
@@ -898,10 +924,13 @@ remap_patient_data <- function(dt, to_view_checks) {
   #' @param dt data.table. The data table to be processed.
   #' @param to_view_checks logical. Whether to view checks.
   #' @return list. A list containing the processed data and summaries.
+
   pat_unmap <- NULL
   parent_unmap <- NULL
   child_unmap <- NULL
   discharge_unmap <- NULL
+  claim_status_unmap <- NULL
+
 
   result <- remap_patient_type(dt$pat_type)
   dt$pat_type <- result$remapped
@@ -927,12 +956,19 @@ remap_patient_data <- function(dt, to_view_checks) {
     discharge_unmap <- result$unmapped
   }
 
+  result <- remap_claim_status(dt$claim_status)
+  dt$claim_status <- result$remapped
+  if (length(result$unmapped) > 0 && to_view_checks) {
+    claim_status_unmap <- result$unmapped
+  }
+
   return(list(
     data = dt,
     pat_type_unmapped = pat_unmap,
     memcat_parent_unmapped = parent_unmap,
     memcat_child_unmapped = child_unmap,
-    discharge_unmapped = discharge_unmap
+    discharge_unmapped = discharge_unmap,
+    claim_status_unmapped = claim_status_unmap
   ))
 }
 process_chunk <- function(
@@ -973,6 +1009,7 @@ process_chunk <- function(
     memcat_parent_unmapped = clean_result$memcat_parent_unmapped,
     memcat_child_unmapped = clean_result$memcat_child_unmapped,
     discharge_unmapped = clean_result$discharge_unmapped,
+    claim_status_unmapped = clean_result$claim_status_unmapped,
     discard_rvs_one = clean_result$discard_rvs_one,
     discard_rvs_two = clean_result$discard_rvs_two,
     empty_strings_replaced_1 = clean_result$empty_strings_replaced_1
@@ -2325,6 +2362,15 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     )
   }
 
+  if (is.null(summary$final_claim_status_unmapped)) {
+    cat("Claim Status Unmapped: NULL\n\n")
+  } else {
+    cat(
+      "Claim Status Unmapped:\n",
+      summary$final_claim_status_unmapped, "\n\n"
+    )
+  }
+
   if (nrow(summary$final_discard_rvs_one) > 0) {
     print(kable(head(summary$final_discard_rvs_one, end_nrow),
       format = "markdown",
@@ -2758,6 +2804,10 @@ combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
       summaries,
       function(summary) summary$discharge_unmapped
     ))),
+    claim_status_unmapped = unique(unlist(lapply(
+      summaries,
+      function(summary) summary$claim_status_unmapped
+    ))),
     discard_rvs_one = combine_discarded_rvs_tables(
       summaries, "discard_rvs_one", tmp_nrow
     ),
@@ -2856,6 +2906,10 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
     final_discharge_unmapped = unique(unlist(lapply(
       combined_summary,
       function(summary) summary$discharge_unmapped
+    ))),
+    final_claim_status_unmapped = unique(unlist(lapply(
+      combined_summary,
+      function(summary) summary$claim_status_unmapped
     ))),
     final_discard_rvs_one = combine_discarded_rvs_tables(
       combined_summary, "discard_rvs_one", end_nrow

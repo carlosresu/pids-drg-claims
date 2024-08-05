@@ -36,6 +36,7 @@ process_chunk <- function(
     memcat_parent_unmapped = clean_result$memcat_parent_unmapped,
     memcat_child_unmapped = clean_result$memcat_child_unmapped,
     discharge_unmapped = clean_result$discharge_unmapped,
+    claim_status_unmapped = clean_result$claim_status_unmapped,
     discard_rvs_one = clean_result$discard_rvs_one,
     discard_rvs_two = clean_result$discard_rvs_two,
     empty_strings_replaced_1 = clean_result$empty_strings_replaced_1

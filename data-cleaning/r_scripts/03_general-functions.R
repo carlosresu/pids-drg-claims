@@ -151,14 +151,39 @@ remap_patient_type <- function(pat_type) {
   #' and the unknown types.
   known_types <- c("MEMBER", "DEPENDENT")
   remapped_pat_type <- fcase(
-    pat_type == "MEMBER", "MEM",
-    pat_type == "DEPENDENT", "DEP"
+    pat_type == "MEMBER", "M",
+    pat_type == "DEPENDENT", "D"
   )
   unknown_types <- setdiff(
     pat_type[!is.na(pat_type)],
     known_types
   )
   list(remapped = remapped_pat_type, unmapped = unknown_types)
+}
+
+remap_claim_status <- function(claim_status) {
+  #' @title Remap patient type
+  #'
+  #' @description This function remaps patient types to standardized codes
+  #' and identifies any unknown types.
+  #'
+  #' @param pat_type character. The patient type column.
+  #'
+  #' @return list. A list containing the remapped patient types
+  #' and the unknown types.
+  known_types <- c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT")
+  remapped_claim_status <- fcase(
+    claim_status == "DENIED", "D",
+    claim_status == "IN-PROCESS", "I",
+    claim_status == "PAID", "G",
+    claim_status == "RTH", "R",
+    claim_status == "APRV4PAYMENT", "G"
+  )
+  unknown_types <- setdiff(
+    claim_status[!is.na(claim_status)],
+    known_types
+  )
+  list(remapped = remapped_claim_status, unmapped = unknown_types)
 }
 
 remap_memcat_parent_desc <- function(pat_memcat_parent) {
