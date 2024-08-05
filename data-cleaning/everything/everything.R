@@ -15,8 +15,7 @@ required_packages <- c(
   "parallelly",
   "stringdist",
   "progress",
-  "parallel",
-  "hms"
+  "parallel"
 )
 
 # Function to install and load packages
@@ -1239,7 +1238,7 @@ process_chunk <- function(
 }
 
 parallelize_and_summarize_data <- function(
-    dt, ncores, to_view_checks, global_seed, tmp_nrow,
+    dt, nthreads, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, diff_chars) {
   #' @title Parallelize and summarize data processing
   #'
@@ -1256,19 +1255,19 @@ parallelize_and_summarize_data <- function(
   #' 5. Finds PDXs
   #' 6. Returns chunk and chunk summaries
 
-  chunk_size <- ceiling(nrow(dt) / ncores)
-  chunks <- split(dt, rep(1:ncores, each = chunk_size, length.out = nrow(dt)))
+  chunk_size <- ceiling(nrow(dt) / nthreads)
+  chunks <- split(dt, rep(1:nthreads, each = chunk_size, length.out = nrow(dt)))
 
-  if (to_parallel && .Platform$OS.type == "unix") {
+  if (to_parallel && is_unix) {
     parallel_results <- mclapply(
       chunks, process_chunk,
-      mc.cores = ncores,
+      mc.cores = nthreads,
       to_view_checks = to_view_checks,
       rvs_icd9 = rvs_icd9,
       tdrg_icd10 = tdrg_icd10,
       acc_pdx = acc_pdx
     )
-  } else if (to_parallel && .Platform$OS.type == "windows") {
+  } else if (to_parallel && !is_unix) {
     parallel_results <- future_lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
@@ -1322,14 +1321,14 @@ parallelize_and_summarize_data <- function(
   ))
 }
 process_part <- function(
-    part, ncores, to_view_checks, global_seed, tmp_nrow,
+    part, nthreads, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write,
     to_group, to_sample, diff_chars) {
   #' @title Process Part
   #' @description Process a single part of the data, including reading,
   #' processing, and summarizing.
   #' @param part integer. The part number to process.
-  #' @param ncores integer. Number of cores to use for parallel processing.
+  #' @param nthreads integer. Number of cores to use for parallel processing.
   #' @param to_view_checks logical. Whether to view checks.
   #' @param global_seed integer. Global seed for random operations.
   #' @param tmp_nrow integer. Number of intermediate rows to show.
@@ -1355,7 +1354,7 @@ process_part <- function(
   replacement_sumamry <- read_result$replacement_summary
 
   result <- parallelize_and_summarize_data(
-    dt, ncores, to_view_checks, global_seed, tmp_nrow,
+    dt, nthreads, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, diff_chars
   )
   dt <- result$dt
@@ -2492,7 +2491,8 @@ print_status_update <- function(part, split_parts, processing_times) {
 
   # Convert time to period (using lubridate)
   convert_to_hr_min_sec <- function(seconds) {
-    period <- seconds_to_period(round(seconds)) # Round seconds to the nearest whole number
+    # Round seconds to the nearest whole number
+    period <- seconds_to_period(round(seconds))
     return(period)
   }
 
@@ -2509,13 +2509,9 @@ print_status_update <- function(part, split_parts, processing_times) {
 
     # Construct time string with labels
     time_components <- c()
-    if (h > 0) {
-      time_components <- c(time_components, paste(h, "hr"))
-    }
-    if (m > 0 || h > 0) { # Include minutes if hours are present
-      time_components <- c(time_components, paste(m, "min"))
-    }
-    time_components <- c(time_components, paste(s, "sec"))
+    if (h > 0) time_components <- c(time_components, paste0(h, "h"))
+    if (m > 0 || h > 0) time_components <- c(time_components, paste0(m, "m"))
+    time_components <- c(time_components, paste0(s, "s"))
 
     # Join components and return
     time_str <- paste(time_components, collapse = " ")
