@@ -193,13 +193,13 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     ), "be mapped to the Thai ICD10 library.\n"
   )
 
-  processed_icd10_map <- process_final_icd10_map(summary$final_icd10_map_dt, tmp_nrow)
-  cat(head(processed_icd10_map, end_nrow))
-  if (nrow(processed_icd10_map) > 0) {
+  unique_icd10_map <- process_final_icd10_map(summary$final_icd10_map_dt, tmp_nrow)
+
+  if (nrow(unique_icd10_map) > 0) {
     print(
       kable(
         head(
-          processed_icd10_map,
+          unique_icd10_map,
           end_nrow
         ),
         format = "markdown",

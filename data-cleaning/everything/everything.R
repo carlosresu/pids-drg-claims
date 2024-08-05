@@ -2403,8 +2403,22 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     ), "be mapped to the Thai ICD10 library.\n"
   )
 
-  processed_icd10_map <- process_final_icd10_map(summary$final_icd10_map_dt, tmp_nrow)
-  print(head(processed_icd10_map, end_nrow))
+  unique_icd10_map <- process_final_icd10_map(summary$final_icd10_map_dt, tmp_nrow)
+
+  if (nrow(unique_icd10_map) > 0) {
+    print(
+      kable(
+        head(
+          unique_icd10_map,
+          end_nrow
+        ),
+        format = "markdown",
+        caption = "Modified ICD-10 codes ordered by descending Jaro-Winkler distance"
+      )
+    )
+  } else {
+    cat("\nNo modified ICD-10 codes found.\n\n")
+  }
 
   if (nrow(summary$final_unmatched_sources) > 0) {
     print(
