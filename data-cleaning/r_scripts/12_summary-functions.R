@@ -16,19 +16,19 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   if (nrow(summary$final_ICD_replacements_1) > 0) {
     print(kable(head(summary$final_ICD_replacements_1, end_nrow),
       format = "markdown",
-      caption = "ICD Replacements 1"
+      caption = "ICD Text Normalization for clin_c1"
     ))
   } else {
-    cat("\nNo ICD replacements found in the first set.\n\n")
+    cat("\nNo ICD replacements found in clin_c1.\n\n")
   }
 
   if (nrow(summary$final_ICD_replacements_2) > 0) {
     print(kable(head(summary$final_ICD_replacements_2, end_nrow),
       format = "markdown",
-      caption = "ICD Replacements 2"
+      caption = "ICD Text Normalization for clin_c2"
     ))
   } else {
-    cat("\nNo ICD replacements found in the second set.\n\n")
+    cat("\nNo ICD replacements found in clin_c2.\n\n")
   }
 
   if (is.null(summary$final_pat_type_unmapped)) {
@@ -233,7 +233,8 @@ combine_comparison_tables <- function(
   if (nrow(combined_comparison) == 0) {
     return(data.table(
       old_code = character(),
-      new_code = character(), count = integer()
+      new_code = character(),
+      count = integer()
     ))
   }
 

@@ -259,7 +259,11 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @return list. A list containing the deduplicated clinical columns.
 
   # Convert lists to data.table for efficient processing
-  datatable <- data.table(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
+  datatable <- data.table(
+    clin_c1 = clin_c1,
+    clin_c2 = clin_c2,
+    clin_icd = clin_icd
+  )
 
   # Deduplicate each column
   datatable[, clin_c1 := lapply(clin_c1, unique)]
