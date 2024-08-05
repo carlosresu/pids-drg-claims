@@ -32,8 +32,10 @@ lapply(required_packages, install_and_load)
 suppressPackageStartupMessages({
   lapply(required_packages, library, character.only = TRUE)
 })
+
 to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
 to_split <- TRUE # TODO: Deprecated, only used when to_sample is TRUE # Whether to split into split_parts parts (i.e. to fit in 32gb RAM).
+
 tic("Time spent (total)               ") # Start total execution timer
 
 na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
@@ -110,9 +112,9 @@ new_colnames <- c(
   "clin_discharge", "clin_c1", "clin_c2", paste0("clin_icd", 1:12),
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
+
 # Paths to various directories for intermediate files,
 # cache, auxiliary files, etc.
-intermediate_path <- "data-cleaning/data-claims/intermediate"
 # Create the directory if it does not exist
 if (!dir.exists(here(intermediate_path))) {
   dir.create(here(intermediate_path), recursive = TRUE)
@@ -121,7 +123,6 @@ if (!dir.exists(here(intermediate_path))) {
   cat("Directory already exists:", intermediate_path, "\n")
 }
 
-cache_path <- "data-cleaning/cache"
 # Create the directory if it does not exist
 if (!dir.exists(here(cache_path))) {
   dir.create(here(cache_path), recursive = TRUE)
@@ -130,7 +131,6 @@ if (!dir.exists(here(cache_path))) {
   cat("Directory already exists:", cache_path, "\n")
 }
 
-aux_path <- "data-cleaning/data-aux-files"
 # Create the directory if it does not exist
 if (!dir.exists(here(aux_path))) {
   dir.create(here(aux_path), recursive = TRUE)
@@ -139,7 +139,6 @@ if (!dir.exists(here(aux_path))) {
   cat("Directory already exists:", aux_path, "\n")
 }
 
-excel_path <- "data-cleaning/data-excel"
 # Create the directory if it does not exist
 if (!dir.exists(here(excel_path))) {
   dir.create(here(excel_path), recursive = TRUE)
@@ -148,7 +147,6 @@ if (!dir.exists(here(excel_path))) {
   cat("Directory already exists:", excel_path, "\n")
 }
 
-cleaned_claims_path <- "data-cleaning/data-claims/cleaned"
 # Create the directory if it does not exist
 if (!dir.exists(here(cleaned_claims_path))) {
   dir.create(here(cleaned_claims_path), recursive = TRUE)
@@ -157,7 +155,6 @@ if (!dir.exists(here(cleaned_claims_path))) {
   cat("Directory already exists:", cleaned_claims_path, "\n")
 }
 
-grouper_output_path <- "data-cleaning/data-grouper-output"
 # Create the directory if it does not exist
 if (!dir.exists(here(grouper_output_path))) {
   dir.create(here(grouper_output_path), recursive = TRUE)
@@ -166,7 +163,6 @@ if (!dir.exists(here(grouper_output_path))) {
   cat("Directory already exists:", grouper_output_path, "\n")
 }
 
-chunks_path <- "data-cleaning/data-claims/chunked"
 # Create the directory if it does not exist
 if (!dir.exists(here(chunks_path))) {
   dir.create(here(chunks_path), recursive = TRUE)
@@ -175,7 +171,6 @@ if (!dir.exists(here(chunks_path))) {
   cat("Directory already exists:", chunks_path, "\n")
 }
 
-raw_claims_parts_path <- "data-cleaning/data-claims/raw/parts"
 # Create the directory if it does not exist
 if (!dir.exists(here(raw_claims_parts_path))) {
   dir.create(here(raw_claims_parts_path), recursive = TRUE)
@@ -184,7 +179,6 @@ if (!dir.exists(here(raw_claims_parts_path))) {
   cat("Directory already exists:", raw_claims_parts_path, "\n")
 }
 
-raw_claims_samples_path <- "data-cleaning/data-claims/raw/samples"
 # Create the directory if it does not exist
 if (!dir.exists(here(raw_claims_samples_path))) {
   dir.create(here(raw_claims_samples_path), recursive = TRUE)
@@ -193,7 +187,6 @@ if (!dir.exists(here(raw_claims_samples_path))) {
   cat("Directory already exists:", raw_claims_samples_path, "\n")
 }
 
-raw_claims_path <- "data-cleaning/data-claims/raw"
 # Create the directory if it does not exist
 if (!dir.exists(here(raw_claims_path))) {
   dir.create(here(raw_claims_path), recursive = TRUE)
@@ -202,7 +195,6 @@ if (!dir.exists(here(raw_claims_path))) {
   cat("Directory already exists:", raw_claims_path, "\n")
 }
 
-profvis_path <- "data-cleaning/profvis/profvis.html"
 # Create the directory if it does not exist
 if (!dir.exists(here("data-cleaning/profvis"))) {
   dir.create(here("data-cleaning/profvis"), recursive = TRUE)
@@ -804,6 +796,7 @@ suppress_interim_output <- function(expr) {
   #' suppressing output.
   suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
 }
+
 clean_data <- function(dt) {
   #' @title Clean and preprocess data
   #' @description This function cleans and preprocesses
@@ -1134,6 +1127,7 @@ remap_patient_data <- function(dt, to_view_checks) {
     claim_status_unmapped = claim_status_unmap
   ))
 }
+
 process_chunk <- function(
     chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
   #' @title Process and map clinical data chunk
@@ -1320,6 +1314,7 @@ parallelize_and_summarize_data <- function(
     combined_summary = combined_summary
   ))
 }
+
 process_part <- function(
     part, nthreads, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write,
@@ -1375,6 +1370,7 @@ process_part <- function(
     processing_time = processing_time
   ))
 }
+
 split_and_save_parts <- function() {
   #' @title Split and save parts of the data
   #' @description This function splits the data into parts and
@@ -1957,6 +1953,7 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
     )
   )
 }
+
 # Function to split RVS codes
 split_rvs_codes <- function(rvs_icd9) {
   with_drg <- rvs_icd9[is_drg == TRUE]
@@ -2086,6 +2083,7 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
     )
   )
 }
+
 # Function to find the primary diagnosis (PDX) based on the provided logic
 find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
   #' @title Find primary diagnosis (PDX)
@@ -2237,6 +2235,7 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
 
   return(list(pdx = datatable$pdx, pdx_code = datatable$pdx_code))
 }
+
 # Function to generate date of birth (DOB) vectorized
 generate_dob <- function(bdays, ages, date_adms) {
   #' @title Generate Date of Birth Vectorized
@@ -2538,6 +2537,7 @@ print_status_update <- function(part, split_parts, processing_times) {
     flush.console()
   }
 }
+
 concatenate_r_files <- function(input_path, output_file) {
   #' @title Concatenate R Files
   #'
