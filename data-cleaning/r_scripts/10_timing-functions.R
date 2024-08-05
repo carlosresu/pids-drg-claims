@@ -76,7 +76,8 @@ print_status_update <- function(part, split_parts, processing_times) {
 
   # Convert time to period (using lubridate)
   convert_to_hr_min_sec <- function(seconds) {
-    period <- seconds_to_period(round(seconds)) # Round seconds to the nearest whole number
+    # Round seconds to the nearest whole number
+    period <- seconds_to_period(round(seconds))
     return(period)
   }
 
@@ -93,12 +94,8 @@ print_status_update <- function(part, split_parts, processing_times) {
 
     # Construct time string with labels
     time_components <- c()
-    if (h > 0) {
-      time_components <- c(time_components, paste0(h, "h"))
-    }
-    if (m > 0 || h > 0) { # Include minutes if hours are present
-      time_components <- c(time_components, paste0(m, "m"))
-    }
+    if (h > 0) time_components <- c(time_components, paste0(h, "h"))
+    if (m > 0 || h > 0) time_components <- c(time_components, paste0(m, "m"))
     time_components <- c(time_components, paste0(s, "s"))
 
     # Join components and return

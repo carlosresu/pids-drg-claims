@@ -122,7 +122,7 @@ parallelize_and_summarize_data <- function(
   chunk_size <- ceiling(nrow(dt) / nthreads)
   chunks <- split(dt, rep(1:nthreads, each = chunk_size, length.out = nrow(dt)))
 
-  if (to_parallel && .Platform$OS.type == "unix") {
+  if (to_parallel && is_unix) {
     parallel_results <- mclapply(
       chunks, process_chunk,
       mc.cores = nthreads,
@@ -131,7 +131,7 @@ parallelize_and_summarize_data <- function(
       tdrg_icd10 = tdrg_icd10,
       acc_pdx = acc_pdx
     )
-  } else if (to_parallel && .Platform$OS.type == "windows") {
+  } else if (to_parallel && !is_unix) {
     parallel_results <- future_lapply(
       chunks, process_chunk,
       to_view_checks = to_view_checks,
