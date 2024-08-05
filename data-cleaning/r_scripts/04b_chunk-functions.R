@@ -96,7 +96,7 @@ process_chunk <- function(
 
 parallelize_and_summarize_data <- function(
     dt, ncores, to_view_checks, global_seed, tmp_nrow,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel) {
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, diff_chars) {
   #' @title Parallelize and summarize data processing
   #'
   #' @description This function parallelizes the data processing
@@ -140,7 +140,7 @@ parallelize_and_summarize_data <- function(
 
   rm(processed_chunks) # debug
 
-  combined_summary <- combine_chunk_summaries(parallel_results, tmp_nrow)
+  combined_summary <- combine_chunk_summaries(parallel_results, tmp_nrow, diff_chars)
 
   rm(parallel_results) # debug
   gc() # debug

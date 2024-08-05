@@ -12,7 +12,8 @@ required_packages <- c(
   "future.apply",
   "knitr",
   "htmlwidgets",
-  "parallelly"
+  "parallelly",
+  "stringdist"
 )
 
 # Function to install and load packages

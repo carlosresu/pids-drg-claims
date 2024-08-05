@@ -12,7 +12,8 @@ required_packages <- c(
   "future.apply",
   "knitr",
   "htmlwidgets",
-  "parallelly"
+  "parallelly",
+  "stringdist"
 )
 
 # Function to install and load packages
@@ -992,7 +993,7 @@ process_chunk <- function(
 
 parallelize_and_summarize_data <- function(
     dt, ncores, to_view_checks, global_seed, tmp_nrow,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel) {
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, diff_chars) {
   #' @title Parallelize and summarize data processing
   #'
   #' @description This function parallelizes the data processing
@@ -1036,7 +1037,7 @@ parallelize_and_summarize_data <- function(
 
   rm(processed_chunks) # debug
 
-  combined_summary <- combine_chunk_summaries(parallel_results, tmp_nrow)
+  combined_summary <- combine_chunk_summaries(parallel_results, tmp_nrow, diff_chars)
 
   rm(parallel_results) # debug
   gc() # debug
@@ -1066,7 +1067,8 @@ parallelize_and_summarize_data <- function(
 }
 process_part <- function(
     part, ncores, to_view_checks, global_seed, tmp_nrow,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write, to_group, to_sample) {
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, to_write,
+    to_group, to_sample, diff_chars) {
   #' @title Process Part
   #' @description Process a single part of the data, including reading, processing, and summarizing.
   #' @param part integer. The part number to process.
@@ -1096,7 +1098,7 @@ process_part <- function(
 
   result <- parallelize_and_summarize_data(
     dt, ncores, to_view_checks, global_seed, tmp_nrow,
-    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel
+    rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, diff_chars
   )
   dt <- result$dt
   combined_summary <- result$combined_summary
@@ -1618,7 +1620,11 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   #' @return list. A list containing the deduplicated clinical columns.
 
   # Convert lists to data.table for efficient processing
-  datatable <- data.table(clin_c1 = clin_c1, clin_c2 = clin_c2, clin_icd = clin_icd)
+  datatable <- data.table(
+    clin_c1 = clin_c1,
+    clin_c2 = clin_c2,
+    clin_icd = clin_icd
+  )
 
   # Deduplicate each column
   datatable[, clin_c1 := lapply(clin_c1, unique)]
@@ -2218,19 +2224,20 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   if (nrow(summary$final_ICD_replacements_1) > 0) {
     print(kable(head(summary$final_ICD_replacements_1, end_nrow),
       format = "markdown",
-      caption = "ICD Replacements 1"
+      caption = "ICD Text Normalization for clin_c1"
     ))
   } else {
-    cat("\nNo ICD replacements found in the first set.\n\n")
+    cat(sprintf("\nNo ICD replacements found in clin_c1 with more than %d different characters.\n\n", diff_chars))
   }
+
 
   if (nrow(summary$final_ICD_replacements_2) > 0) {
     print(kable(head(summary$final_ICD_replacements_2, end_nrow),
       format = "markdown",
-      caption = "ICD Replacements 2"
+      caption = "ICD Text Normalization for clin_c2"
     ))
   } else {
-    cat("\nNo ICD replacements found in the second set.\n\n")
+    cat(sprintf("\nNo ICD replacements found in clin_c2 with more than %d different characters.\n\n", diff_chars))
   }
 
   if (is.null(summary$final_pat_type_unmapped)) {
@@ -2408,20 +2415,102 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   )
 }
 
+# combine_comparison_tables <- function(
+#     summaries, comparison_field, tmp_nrow = 10) {
+#   #' @title Combine Comparison Tables
+#   #'
+#   #' @description This function combines comparison tables from
+#   #' multiple summaries into one.
+#   #'
+#   #' @param summaries list. A list of summary tables.
+#   #' @param comparison_field character. The field in the summaries to compare.
+#   #' @param tmp_nrow integer. The number of
+#   #' rows to show in the intermediate summary.
+#   #'
+#   #' @return data.table. The combined comparison table.
+
+#   comparison_list <- lapply(summaries, function(summary) {
+#     summary_data <- summary[[comparison_field]]
+#     if (!is.null(summary_data) && nrow(summary_data) > 0) {
+#       summary_data <- summary_data[, .(old_code, new_code, count)]
+#     }
+#     return(summary_data)
+#   })
+
+#   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
+
+#   if (nrow(combined_comparison) == 0) {
+#     return(data.table(
+#       old_code = character(),
+#       new_code = character(),
+#       count = integer()
+#     ))
+#   }
+
+#   combined_comparison <- combined_comparison[,
+#     .(count = sum(count, na.rm = TRUE)),
+#     by = .(old_code, new_code)
+#   ]
+#   combined_comparison <- combined_comparison[order(-count)]
+#   combined_comparison <- head(combined_comparison, tmp_nrow)
+
+#   return(combined_comparison)
+# }
+
 combine_comparison_tables <- function(
-    summaries, comparison_field, tmp_nrow = 10) {
+    summaries, comparison_field, tmp_nrow, diff_chars) {
   #' @title Combine Comparison Tables
   #'
   #' @description This function combines comparison tables from
-  #' multiple summaries into one.
+  #' multiple summaries into one, and ranks rows by a custom fuzzy match score
+  #' that prioritizes letter differences in ICD codes, ignoring '+' and '*'.
   #'
   #' @param summaries list. A list of summary tables.
   #' @param comparison_field character. The field in the summaries to compare.
   #' @param tmp_nrow integer. The number of
   #' rows to show in the intermediate summary.
+  #' @param diff_chars numeric. The minimum fuzzy match score to filter.
   #'
   #' @return data.table. The combined comparison table.
 
+  # Custom helper function to calculate weighted character differences
+  weighted_difference <- function(str1, str2) {
+    # Convert strings to character vectors
+    vec1 <- strsplit(str1, NULL)[[1]]
+    vec2 <- strsplit(str2, NULL)[[1]]
+
+    # Calculate the number of differing characters
+    min_length <- min(length(vec1), length(vec2))
+    diff_count <- 0
+
+    for (i in 1:min_length) {
+      # Skip '+' and '*' characters
+      if (vec1[i] %in% c("+", "*") || vec2[i] %in% c("+", "*")) {
+        next
+      }
+
+      if (vec1[i] != vec2[i]) {
+        if (grepl("[A-Za-z]", vec1[i]) || grepl("[A-Za-z]", vec2[i])) {
+          # Letters: higher weight for differences
+          diff_count <- diff_count + 2
+        } else {
+          # Numbers: lower weight for differences
+          diff_count <- diff_count + 1
+        }
+      }
+    }
+
+    # Add differences for extra characters in the longer vector, ignoring '+' and '*'
+    longer_vec <- if (length(vec1) > length(vec2)) vec1 else vec2
+    extra_chars <- longer_vec[(min_length + 1):length(longer_vec)]
+    extra_diff <- sum(!extra_chars %in% c("+", "*"))
+
+    diff_count <- diff_count + extra_diff
+
+    return(diff_count)
+  }
+
+  # Process each summary to extract comparison data
   comparison_list <- lapply(summaries, function(summary) {
     summary_data <- summary[[comparison_field]]
     if (!is.null(summary_data) && nrow(summary_data) > 0) {
@@ -2430,20 +2519,31 @@ combine_comparison_tables <- function(
     return(summary_data)
   })
 
+  # Combine all comparison data into a single data.table
   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
 
   if (nrow(combined_comparison) == 0) {
     return(data.table(
       old_code = character(),
-      new_code = character(), count = integer()
+      new_code = character(),
+      count = integer(),
+      differing_chars = integer()
     ))
   }
 
+  # Calculate weighted fuzzy match score and add differing_chars column
+  combined_comparison[, differing_chars := mapply(weighted_difference, old_code, new_code)]
+
+  # Filter rows based on diff_chars
+  combined_comparison <- combined_comparison[differing_chars > diff_chars]
+
+  # Sum counts, sort by differing_chars, and order by descending count
   combined_comparison <- combined_comparison[,
-    .(count = sum(count, na.rm = TRUE)),
+    .(count = sum(count, na.rm = TRUE), differing_chars = max(differing_chars)),
     by = .(old_code, new_code)
-  ]
-  combined_comparison <- combined_comparison[order(-count)]
+  ][order(-differing_chars, -count)]
+
+  # Select the top rows based on tmp_nrow
   combined_comparison <- head(combined_comparison, tmp_nrow)
 
   return(combined_comparison)
@@ -2546,7 +2646,7 @@ combine_replace_empty_tables <- function(
 }
 
 combine_chunk_summaries <- function(
-    parallel_results, tmp_nrow) {
+    parallel_results, tmp_nrow, diff_chars) {
   #' @title Combine Chunk Summaries
   #'
   #' @description This function combines summaries from
@@ -2560,11 +2660,11 @@ combine_chunk_summaries <- function(
   #' @return list. The combined summary.
 
   summaries <- lapply(parallel_results, function(res) res$summary)
-  combined_summary <- combine_summaries(summaries, tmp_nrow)
+  combined_summary <- combine_summaries(summaries, tmp_nrow, diff_chars)
   return(combined_summary)
 }
 
-combine_summaries <- function(summaries, tmp_nrow) {
+combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
   #' @title Combine Summaries
   #'
   #' @description This function combines multiple summaries into one summary.
@@ -2581,10 +2681,10 @@ combine_summaries <- function(summaries, tmp_nrow) {
       function(summary) summary$rename_success
     )), na.rm = TRUE),
     ICD_replacements_1 = combine_comparison_tables(
-      summaries, "ICD_replacements_1", tmp_nrow
+      summaries, "ICD_replacements_1", tmp_nrow, diff_chars
     ),
     ICD_replacements_2 = combine_comparison_tables(
-      summaries, "ICD_replacements_2", tmp_nrow
+      summaries, "ICD_replacements_2", tmp_nrow, diff_chars
     ),
     pat_type_unmapped = unique(unlist(lapply(
       summaries,
@@ -2676,10 +2776,10 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
       function(summary) summary$rename_success
     )), na.rm = TRUE),
     final_ICD_replacements_1 = combine_comparison_tables(
-      combined_summary, "ICD_replacements_1", end_nrow
+      combined_summary, "ICD_replacements_1", end_nrow, diff_chars
     ),
     final_ICD_replacements_2 = combine_comparison_tables(
-      combined_summary, "ICD_replacements_2", end_nrow
+      combined_summary, "ICD_replacements_2", end_nrow, diff_chars
     ),
     final_pat_type_unmapped = unique(unlist(lapply(
       combined_summary,
