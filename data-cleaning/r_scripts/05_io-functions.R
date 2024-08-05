@@ -117,7 +117,7 @@ ensure_sample_files_exist <- function(part) {
     )
     dt <- dt[sample(.N, min(sample_size, .N))]
     setnames(dt, colnames(header))
-    if (to_write) fwrite(dt, sampled_file, quote = TRUE)
+    fwrite(dt, sampled_file, quote = TRUE)
   }
 }
 

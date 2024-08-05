@@ -225,7 +225,7 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
     phl_icd10 = names(icd_mapping),
     tdrg_icd10 = unlist(icd_mapping)
   )
-  fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
+  if (to_debug) fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
   icd10_env <- list2env(
     setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10)
   )
