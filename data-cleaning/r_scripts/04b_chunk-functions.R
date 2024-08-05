@@ -102,7 +102,7 @@ process_chunk <- function(
 }
 
 parallelize_and_summarize_data <- function(
-    dt, ncores, to_view_checks, global_seed, tmp_nrow,
+    dt, nthreads, to_view_checks, global_seed, tmp_nrow,
     rvs_icd9, tdrg_icd10, acc_pdx, to_parallel, diff_chars) {
   #' @title Parallelize and summarize data processing
   #'
@@ -119,13 +119,13 @@ parallelize_and_summarize_data <- function(
   #' 5. Finds PDXs
   #' 6. Returns chunk and chunk summaries
 
-  chunk_size <- ceiling(nrow(dt) / ncores)
-  chunks <- split(dt, rep(1:ncores, each = chunk_size, length.out = nrow(dt)))
+  chunk_size <- ceiling(nrow(dt) / nthreads)
+  chunks <- split(dt, rep(1:nthreads, each = chunk_size, length.out = nrow(dt)))
 
-  if (to_parallel && .Platform$OS.type != "unix") {
+  if (to_parallel && .Platform$OS.type == "unix") {
     parallel_results <- mclapply(
       chunks, process_chunk,
-      mc.cores = ncores,
+      mc.cores = nthreads,
       to_view_checks = to_view_checks,
       rvs_icd9 = rvs_icd9,
       tdrg_icd10 = tdrg_icd10,

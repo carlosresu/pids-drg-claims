@@ -60,6 +60,7 @@ print_time_estimates <- function() {
   ))
 }
 
+# Function to print status updates using lubridate
 print_status_update <- function(part, split_parts, processing_times) {
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
@@ -73,30 +74,36 @@ print_status_update <- function(part, split_parts, processing_times) {
   estimated_total_time <- avg_time_per_part * split_parts
   estimated_remaining_time <- estimated_total_time - elapsed_time
 
-  # Convert time to hours, minutes, and seconds
+  # Convert time to period (using lubridate)
   convert_to_hr_min_sec <- function(seconds) {
-    hours <- floor(seconds / 3600)
-    minutes <- floor((seconds %% 3600) / 60)
-    remaining_seconds <- round(seconds %% 60)
-    return(list(hours = hours, minutes = minutes, seconds = remaining_seconds))
+    period <- seconds_to_period(round(seconds)) # Round seconds to the nearest whole number
+    return(period)
   }
 
-  # Calculate elapsed and remaining time in hr:min:sec format
+  # Calculate elapsed and remaining time
   elapsed <- convert_to_hr_min_sec(elapsed_time)
   remaining <- convert_to_hr_min_sec(estimated_remaining_time)
 
-  # Construct time strings based on non-zero values
-  format_time <- function(time) {
-    time_str <- ""
-    if (time$hours > 0) {
-      time_str <- paste0(time_str, time$hours, " hr ")
+  # Format period to string
+  format_time <- function(period) {
+    # Extract components
+    h <- hour(period)
+    m <- minute(period)
+    s <- second(period)
+
+    # Construct time string with labels
+    time_components <- c()
+    if (h > 0) {
+      time_components <- c(time_components, paste0(h, "h"))
     }
-    if (time$minutes > 0 || time$hours > 0) {
-      # Include minutes if hours are present
-      time_str <- paste0(time_str, time$minutes, " min ")
+    if (m > 0 || h > 0) { # Include minutes if hours are present
+      time_components <- c(time_components, paste0(m, "m"))
     }
-    time_str <- paste0(time_str, time$seconds, " sec")
-    return(time_str)
+    time_components <- c(time_components, paste0(s, "s"))
+
+    # Join components and return
+    time_str <- paste(time_components, collapse = " ")
+    return(trimws(time_str))
   }
 
   elapsed_str <- format_time(elapsed)
