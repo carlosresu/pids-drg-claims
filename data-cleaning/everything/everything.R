@@ -980,6 +980,7 @@ process_chunk <- function(
   summary$direct_matches <- icd10_mapping_result$direct_matches
   summary$unmatched <- icd10_mapping_result$unmatched
   summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
+  summary$icd10_map_dt <- icd10_mapping_result$icd10_map_dt
 
   summary$rvss <- rvs_mapping_result$rvss
   summary$mappable_rvs <- rvs_mapping_result$mappable_rvs
@@ -1599,6 +1600,7 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
     clin_c1 = mapped_columns$clin_c1,
     clin_c2 = mapped_columns$clin_c2,
     clin_icd = mapped_columns$clin_icd,
+    icd10_map_dt = icd10_map,
     unique_icds = icds,
     direct_matches = direct_match_codes,
     unmatched = unmatched_icds,
@@ -2219,6 +2221,7 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   #' @return NULL. Prints the summary tables.
 
   summary <- final_combined_summaries
+
   cat("\n\nRename Success:\n", summary$final_rename_success, "\n\n")
 
   if (nrow(summary$final_ICD_replacements_1) > 0) {
@@ -2227,7 +2230,10 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
       caption = "ICD Text Normalization for clin_c1"
     ))
   } else {
-    cat(sprintf("\nNo ICD replacements found in clin_c1 with more than %d different characters.\n\n", diff_chars))
+    cat(
+      sprintf("\nNo ICD replacements found in clin_c1 with more than %d different characters.", diff_chars),
+      "\nNote that commas, asterisks, plus signs, and whitespaces are ignored.\n"
+    )
   }
 
 
@@ -2237,7 +2243,10 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
       caption = "ICD Text Normalization for clin_c2"
     ))
   } else {
-    cat(sprintf("\nNo ICD replacements found in clin_c2 with more than %d different characters.\n\n", diff_chars))
+    cat(
+      sprintf("\nNo ICD replacements found in clin_c2 with more than %d different characters.", diff_chars),
+      "\nNote that commas, asterisks, plus signs, and whitespaces are ignored.\n"
+    )
   }
 
   if (is.null(summary$final_pat_type_unmapped)) {
@@ -2394,6 +2403,9 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     ), "be mapped to the Thai ICD10 library.\n"
   )
 
+  processed_icd10_map <- process_final_icd10_map(summary$final_icd10_map_dt, tmp_nrow)
+  print(head(processed_icd10_map, end_nrow))
+
   if (nrow(summary$final_unmatched_sources) > 0) {
     print(
       kable(
@@ -2414,48 +2426,6 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     summary$final_rename_success, "\n\n"
   )
 }
-
-# combine_comparison_tables <- function(
-#     summaries, comparison_field, tmp_nrow = 10) {
-#   #' @title Combine Comparison Tables
-#   #'
-#   #' @description This function combines comparison tables from
-#   #' multiple summaries into one.
-#   #'
-#   #' @param summaries list. A list of summary tables.
-#   #' @param comparison_field character. The field in the summaries to compare.
-#   #' @param tmp_nrow integer. The number of
-#   #' rows to show in the intermediate summary.
-#   #'
-#   #' @return data.table. The combined comparison table.
-
-#   comparison_list <- lapply(summaries, function(summary) {
-#     summary_data <- summary[[comparison_field]]
-#     if (!is.null(summary_data) && nrow(summary_data) > 0) {
-#       summary_data <- summary_data[, .(old_code, new_code, count)]
-#     }
-#     return(summary_data)
-#   })
-
-#   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
-
-#   if (nrow(combined_comparison) == 0) {
-#     return(data.table(
-#       old_code = character(),
-#       new_code = character(),
-#       count = integer()
-#     ))
-#   }
-
-#   combined_comparison <- combined_comparison[,
-#     .(count = sum(count, na.rm = TRUE)),
-#     by = .(old_code, new_code)
-#   ]
-#   combined_comparison <- combined_comparison[order(-count)]
-#   combined_comparison <- head(combined_comparison, tmp_nrow)
-
-#   return(combined_comparison)
-# }
 
 combine_comparison_tables <- function(
     summaries, comparison_field, tmp_nrow, diff_chars) {
@@ -2535,6 +2505,50 @@ combine_comparison_tables <- function(
   combined_comparison <- head(combined_comparison, tmp_nrow)
 
   return(combined_comparison)
+}
+
+# Function to filter and sort the final ICD-10 map
+process_final_icd10_map <- function(icd10_map_dt, tmp_nrow = 10) {
+  #' @title Process Final ICD-10 Map
+  #'
+  #' @description This function processes the final ICD-10 map data table
+  #' by filtering out rows where the original and mapped codes are the same
+  #' and sorts the result by descending Jaro-Winkler distance.
+  #'
+  #' @param icd10_map_dt data.table. The ICD-10 map data table.
+  #' @param tmp_nrow integer. The number of rows to show in the final summary.
+  #'
+  #' @return data.table. The processed and sorted ICD-10 map.
+
+  # Ensure the required package is available
+  if (!requireNamespace("stringdist", quietly = TRUE)) {
+    stop("The 'stringdist' package is required for Jaro-Winkler distance calculation.")
+  }
+
+  # Filter rows where phl_icd10 and tdrg_icd10 are different
+  icd10_map_dt <- icd10_map_dt[phl_icd10 != tdrg_icd10]
+
+  if (nrow(icd10_map_dt) == 0) {
+    return(data.table(
+      phl_icd10 = character(),
+      tdrg_icd10 = character(),
+      jw_distance = numeric()
+    ))
+  }
+
+  # Calculate Jaro-Winkler distance and add jw_distance column
+  icd10_map_dt[, jw_distance := stringdist::stringdist(
+    phl_icd10, tdrg_icd10,
+    method = "jw"
+  )]
+
+  # Sort by descending Jaro-Winkler distance
+  icd10_map_dt <- icd10_map_dt[order(-jw_distance)]
+
+  # Select the top rows based on tmp_nrow
+  final_icd10_map <- head(icd10_map_dt, tmp_nrow)
+
+  return(final_icd10_map)
 }
 
 combine_discarded_rvs_tables <- function(
@@ -2740,7 +2754,11 @@ combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
     pdx_success = all(unlist(sapply(
       summaries,
       function(summary) summary$pdx_success
-    )), na.rm = TRUE)
+    )), na.rm = TRUE),
+    icd10_map_dt = rbindlist(lapply(
+      summaries,
+      function(summary) summary$icd10_map_dt
+    ))
   )
 
   return(combined_summary)
@@ -2838,7 +2856,11 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
     final_pdx_success = all(unlist(sapply(
       combined_summary,
       function(summary) summary$pdx_success
-    )), na.rm = TRUE)
+    )), na.rm = TRUE),
+    final_icd10_map_dt = unique(rbindlist(lapply(
+      combined_summary,
+      function(summary) summary$icd10_map_dt
+    )))
   )
 
   return(final_combined_summaries)

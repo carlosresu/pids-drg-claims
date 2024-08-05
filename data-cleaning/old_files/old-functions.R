@@ -1667,3 +1667,45 @@
 
 #   return(dt)
 # }
+
+# combine_comparison_tables <- function(
+#     summaries, comparison_field, tmp_nrow = 10) {
+#   #' @title Combine Comparison Tables
+#   #'
+#   #' @description This function combines comparison tables from
+#   #' multiple summaries into one.
+#   #'
+#   #' @param summaries list. A list of summary tables.
+#   #' @param comparison_field character. The field in the summaries to compare.
+#   #' @param tmp_nrow integer. The number of
+#   #' rows to show in the intermediate summary.
+#   #'
+#   #' @return data.table. The combined comparison table.
+
+#   comparison_list <- lapply(summaries, function(summary) {
+#     summary_data <- summary[[comparison_field]]
+#     if (!is.null(summary_data) && nrow(summary_data) > 0) {
+#       summary_data <- summary_data[, .(old_code, new_code, count)]
+#     }
+#     return(summary_data)
+#   })
+
+#   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
+
+#   if (nrow(combined_comparison) == 0) {
+#     return(data.table(
+#       old_code = character(),
+#       new_code = character(),
+#       count = integer()
+#     ))
+#   }
+
+#   combined_comparison <- combined_comparison[,
+#     .(count = sum(count, na.rm = TRUE)),
+#     by = .(old_code, new_code)
+#   ]
+#   combined_comparison <- combined_comparison[order(-count)]
+#   combined_comparison <- head(combined_comparison, tmp_nrow)
+
+#   return(combined_comparison)
+# }

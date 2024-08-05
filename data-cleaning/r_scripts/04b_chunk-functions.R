@@ -83,6 +83,7 @@ process_chunk <- function(
   summary$direct_matches <- icd10_mapping_result$direct_matches
   summary$unmatched <- icd10_mapping_result$unmatched
   summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
+  summary$icd10_map_dt <- icd10_mapping_result$icd10_map_dt
 
   summary$rvss <- rvs_mapping_result$rvss
   summary$mappable_rvs <- rvs_mapping_result$mappable_rvs

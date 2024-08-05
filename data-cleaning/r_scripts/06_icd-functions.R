@@ -238,6 +238,7 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
     clin_c1 = mapped_columns$clin_c1,
     clin_c2 = mapped_columns$clin_c2,
     clin_icd = mapped_columns$clin_icd,
+    icd10_map_dt = icd10_map,
     unique_icds = icds,
     direct_matches = direct_match_codes,
     unmatched = unmatched_icds,
