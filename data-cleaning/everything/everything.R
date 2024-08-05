@@ -710,6 +710,8 @@ clean_data <- function(dt) {
 
   dt[, clin_c1_orig := dt$clin_c1]
   dt[, clin_c1 := clean_column(clin_c1, na_like_strings)]
+  dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
+  dt[, clin_c1 := split_to_vector(clin_c1)]
   dt[, clin_c1_orig := sapply(clin_c1_orig, toString)]
   dt[, clin_c1 := sapply(clin_c1, toString)]
   clin_c1_cleaning_comparison <- dt[
@@ -720,6 +722,8 @@ clean_data <- function(dt) {
 
   dt[, clin_c2_orig := dt$clin_c2]
   dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
+  dt[, clin_c2 := remove_lumped_icd_codes(clin_c2)]
+  dt[, clin_c2 := split_to_vector(clin_c2)]
   dt[, clin_c2_orig := sapply(clin_c2_orig, toString)]
   dt[, clin_c2 := sapply(clin_c2, toString)]
   clin_c2_cleaning_comparison <- dt[
