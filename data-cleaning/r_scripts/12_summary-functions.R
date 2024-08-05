@@ -255,7 +255,7 @@ combine_comparison_tables <- function(
   #'
   #' @description This function combines comparison tables from
   #' multiple summaries into one, and ranks rows by a custom fuzzy match score
-  #' that prioritizes letter differences in ICD codes, ignoring '+' and '*'.
+  #' that prioritizes letter differences in ICD codes, ignoring '+', '*', ',', '.', and spaces.
   #'
   #' @param summaries list. A list of summary tables.
   #' @param comparison_field character. The field in the summaries to compare.
@@ -265,43 +265,9 @@ combine_comparison_tables <- function(
   #'
   #' @return data.table. The combined comparison table.
 
-  # Custom helper function to calculate weighted character differences
-  weighted_difference <- function(str1, str2) {
-    # Convert strings to character vectors
-    vec1 <- strsplit(str1, NULL)[[1]]
-    vec2 <- strsplit(str2, NULL)[[1]]
-
-    # Calculate the number of differing characters
-    min_length <- min(length(vec1), length(vec2))
-    diff_count <- 0
-
-    skip_chars <- c("+", " ", "*", ",")
-
-    for (i in 1:min_length) {
-      # Skip '+' and '*' characters
-      if (vec1[i] %in% skip_chars || vec2[i] %in% skip_chars) {
-        next
-      }
-
-      if (vec1[i] != vec2[i]) {
-        if (grepl("[A-Za-z]", vec1[i]) || grepl("[A-Za-z]", vec2[i])) {
-          # Letters: higher weight for differences
-          diff_count <- diff_count + 2
-        } else {
-          # Numbers: lower weight for differences
-          diff_count <- diff_count + 1
-        }
-      }
-    }
-
-    # Add differences for extra characters in the longer vector, ignoring '+' and '*'
-    longer_vec <- if (length(vec1) > length(vec2)) vec1 else vec2
-    extra_chars <- longer_vec[(min_length + 1):length(longer_vec)]
-    extra_diff <- sum(!extra_chars %in% skip_chars)
-
-    diff_count <- diff_count + extra_diff
-
-    return(diff_count)
+  # Helper function to clean strings by removing specified characters
+  clean_string <- function(str) {
+    gsub("[+*,.\\s]", "", str) # Remove '+', '*', ',', '.', and spaces
   }
 
   # Process each summary to extract comparison data
@@ -321,19 +287,39 @@ combine_comparison_tables <- function(
       old_code = character(),
       new_code = character(),
       count = integer(),
-      differing_chars = integer()
+      differing_chars = numeric()
     ))
   }
 
-  # Calculate weighted fuzzy match score and add differing_chars column
-  combined_comparison[, differing_chars := mapply(weighted_difference, old_code, new_code)]
+  # Calculate Levenshtein distance (exact character differences) and add differing_chars column
+  combined_comparison[, differing_chars := mapply(
+    function(old, new) {
+      clean_old <- clean_string(old)
+      clean_new <- clean_string(new)
+      # Calculate distance only if both cleaned strings are not empty
+      if (nchar(clean_old) > 0 && nchar(clean_new) > 0) {
+        stringdist(clean_old, clean_new, method = "lv") / max(nchar(clean_old), nchar(clean_new))
+      } else {
+        0 # Return 0 if either string is empty, meaning no difference
+      }
+    }, old_code, new_code
+  )]
 
   # Filter rows based on diff_chars
   combined_comparison <- combined_comparison[differing_chars > diff_chars]
 
+  if (nrow(combined_comparison) == 0) {
+    return(data.table(
+      old_code = character(),
+      new_code = character(),
+      count = integer(),
+      differing_chars = numeric()
+    ))
+  }
+
   # Sum counts, sort by differing_chars, and order by descending count
   combined_comparison <- combined_comparison[,
-    .(count = sum(count, na.rm = TRUE), differing_chars = max(differing_chars)),
+    .(count = sum(count, na.rm = TRUE), differing_chars = max(differing_chars, na.rm = TRUE)),
     by = .(old_code, new_code)
   ][order(-differing_chars, -count)]
 
