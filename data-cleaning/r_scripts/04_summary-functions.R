@@ -451,20 +451,19 @@ combine_replace_empty_tables <- function(
 }
 
 combine_chunk_summaries <- function(
-    parallel_results, tmp_nrow, diff_chars) {
+    summaries, tmp_nrow, diff_chars) {
   #' @title Combine Chunk Summaries
   #'
   #' @description This function combines summaries from
   #' multiple chunks into one summary.
   #'
-  #' @param parallel_results list. A list of results from
-  #' parallel processing.
+  #' @param summaries list. A list of results from
+  #' summaries from parallel processing.
   #' @param tmp_nrow integer. The number
   #' of rows to show in the intermediate summary.
   #'
   #' @return list. The combined summary.
 
-  summaries <- lapply(parallel_results, function(res) res$summary)
   combined_summary <- combine_summaries(summaries, tmp_nrow, diff_chars)
   return(combined_summary)
 }
