@@ -6,7 +6,7 @@ is_unix <- if (.Platform$OS.type == "unix") TRUE else FALSE # Detect operating s
 gcp_proj <- if (is_unix) system("gcloud config get-value project", intern = TRUE) else NULL
 max_bq_rows <- 15000 # Max rows to return for bq query
 cat(paste("GCP Project:", gcp_proj, "\n"))
-ver_to_use <- "latest" # Deprecated, must be set to latest, local and bak have been deleted
+# ver_to_use <- "latest" # Deprecated, must be set to latest, local and bak have been deleted
 encode <- "unknown" # Choices: unknown, UTF-8, Latin-1
 sep <- "," # Choices: "," or "\t"
 
@@ -15,17 +15,17 @@ to_sample <- TRUE # Whether to sample each split_parts part by sample_size_divis
 sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # File Paths:
-intermediate_path <- "data-cleaning/data-claims/intermediate"
+intermediate_path <- "data-cleaning/data/data-claims/intermediate"
 cache_path <- "data-cleaning/cache"
-aux_path <- "data-cleaning/data-aux-files"
-excel_path <- "data-cleaning/data-excel"
-cleaned_claims_path <- "data-cleaning/data-claims/cleaned"
-grouper_output_path <- "data-cleaning/data-grouper-output"
-chunks_path <- "data-cleaning/data-claims/chunked"
-raw_claims_parts_path <- "data-cleaning/data-claims/raw/parts"
-raw_claims_samples_path <- "data-cleaning/data-claims/raw/samples"
-raw_claims_path <- "data-cleaning/data-claims/raw"
-profvis_path <- "data-cleaning/profvis/profvis.html"
+aux_path <- "data-cleaning/data/data-aux-files"
+excel_path <- "data-cleaning/data/data-excel"
+cleaned_claims_path <- "data-cleaning/data/data-claims/cleaned"
+grouper_output_path <- "data-cleaning/data/data-grouper-output"
+chunks_path <- "data-cleaning/data/data-claims/chunked"
+raw_claims_parts_path <- "data-cleaning/data/data-claims/raw/parts"
+raw_claims_samples_path <- "data-cleaning/data/data-claims/raw/samples"
+raw_claims_path <- "data-cleaning/data/data-claims/raw"
+profvis_path <- "data-cleaning/data/profvis/profvis.html"
 
 # Manual Tweaks:
 manual_code_replacements <- list(
@@ -104,8 +104,8 @@ options(warn = 1) # Reenable warnings; see above comments
 
 # Loop through the years 2018 to 2021
 for (year in 2018:2021) {
-  file_name <- paste0("claims_extract_CLAIMS_", year, "_", ver_to_use, ".csv")
-  bq_name <- paste0("claims_extract_CLAIMS_", year, "_", ver_to_use, ".csv")
+  file_name <- paste0("claims_extract_CLAIMS ", year, ".csv")
+  bq_name <- paste0("claims_extract_CLAIMS\\ ", year, ".csv")
 
   # Check if the file exists in the target directory
   file_path <- here(raw_claims_path, file_name)
@@ -113,12 +113,12 @@ for (year in 2018:2021) {
 
   # If the file does not exist, run the gsutil cp command
   if (!exists) {
-    if (!is.null(gcp_proj) && gcp_proj == "test-drg-pipeline") {
-      system(paste0("cd .. && gsutil cp gs://test-phic-claims-raw/", bq_name, " ", raw_claims_path),
+    if (!is.null(gcp_proj) && gcp_proj == "drg-pipeline") {
+      system(paste0("cd .. && gsutil cp gs://phic-claims-raw/", bq_name, " ", raw_claims_path),
         intern = FALSE, ignore.stderr = FALSE
       )
     } else {
-      stop("Error: GCP Project is not null and is not test-drg-pipeline")
+      stop("Error: GCP Project is not null and is not drg-pipeline")
     }
   } else {
     cat(paste("File", file_name, "already exists in the target directory. Skipping download.\n"))
@@ -131,7 +131,7 @@ for (year in 2018:2021) {
 if (!file.exists(here(aux_path, "proc.csv"))) {
   system(
     paste0(
-      "bq query --use_legacy_sql=false --format=csv --max_bq_rows=", max_bq_rows,
+      "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
       " 'SELECT * FROM `", gcp_proj, ".grouper_v5.proc`' > ", here(aux_path, "proc.csv")
     ),
     intern = FALSE, ignore.stderr = FALSE
@@ -148,7 +148,7 @@ proc <- fread(here(aux_path, "proc.csv"))[, CODE := as.character(CODE)]
 if (!file.exists(here(aux_path, "rvs_icd9cm.csv"))) {
   system(
     paste0(
-      "bq query --use_legacy_sql=false --format=csv --max_bq_rows=", max_bq_rows,
+      "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
       " 'SELECT * FROM `", gcp_proj, ".phic.acr_rvs_map`' > ", here(aux_path, "rvs_icd9cm.csv")
     ),
     intern = FALSE, ignore.stderr = FALSE
@@ -168,7 +168,7 @@ rvs_icd9 <- rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE][!is.na(rvs) & !is.na(i
 if (!file.exists(here(aux_path, "acr_rvs.csv"))) {
   system(
     paste0(
-      "bq query --use_legacy_sql=false --format=csv --max_bq_rows=", max_bq_rows,
+      "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
       " 'SELECT * FROM `", gcp_proj, ".phic.acr_procedure`' > ", here(aux_path, "acr_rvs.csv")
     ),
     intern = FALSE, ignore.stderr = FALSE
@@ -183,7 +183,7 @@ acr_rvs <- fread(here(aux_path, "acr_rvs.csv"))
 if (!file.exists(here(aux_path, "i10.csv"))) {
   system(
     paste0(
-      "bq query --use_legacy_sql=false --format=csv --max_bq_rows=", max_bq_rows,
+      "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
       " 'SELECT * FROM `", gcp_proj, ".grouper_v5.i10`' > ", here(aux_path, "i10.csv")
     ),
     intern = FALSE, ignore.stderr = FALSE
@@ -202,6 +202,191 @@ setkey(tdrg_icd10, "CODE")
 acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
 
 
+clean_data <- function(dt) {
+  dt[, SRC_YR := as.integer(year_to_load)] # Convert source year to integer
+
+  setnames(dt, old = old_colnames, new = new_colnames) # Rename columns
+  rename_success <- all(new_colnames %in% colnames(dt)) # Check if renaming was successful
+
+  dt <- collapse_and_clean_icd_rvs(dt) # Collapse and clean ICD and RVS columns
+
+  # Clean clin_c1 column
+  dt[, clin_c1_orig := dt$clin_c1]
+  dt[, clin_c1 := clean_column(clin_c1, na_like_strings)]
+  dt[, clin_c1_orig := sapply(clin_c1_orig, toString)]
+  dt[, clin_c1 := sapply(clin_c1, toString)]
+
+  # Compare cleaning results for clin_c1
+  clin_c1_cleaning_comparison <- dt[
+    !is.na(clin_c1_orig) & clin_c1 != clin_c1_orig,
+    .(old_code = clin_c1_orig, new_code = clin_c1, count = .N),
+    by = .(clin_c1_orig, clin_c1)
+  ]
+
+  # Clean clin_c2 column
+  dt[, clin_c2_orig := dt$clin_c2]
+  dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
+  dt[, clin_c2_orig := sapply(clin_c2_orig, toString)]
+  dt[, clin_c2 := sapply(clin_c2, toString)]
+
+  # Compare cleaning results for clin_c2
+  clin_c2_cleaning_comparison <- dt[
+    !is.na(clin_c2_orig) & clin_c2 != clin_c2_orig,
+    .(old_code = clin_c2_orig, new_code = clin_c2, count = .N),
+    by = .(clin_c2_orig, clin_c2)
+  ]
+
+  manual_multi_replace <- function(code, replacements) {
+    # Iterate over each pattern and its corresponding replacement in the list
+    for (pattern in names(replacements)) {
+      replacement <- replacements[[pattern]]
+      code <- gsub(paste0("\\b", pattern, "\\b"), replacement, code)
+    }
+    return(code)
+  }
+
+  # Apply the multi-replacement function using the named list
+  dt[, clin_icd := lapply(clin_icd, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
+  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
+  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace,
+    replacements = manual_code_replacements
+  )]
+
+  # Remove lumped ICD codes
+  dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
+  dt[, clin_c2 := remove_lumped_icd_codes(clin_c2)]
+
+  # Clean clinical columns
+  clean_clin_col_res <- clean_clinical_columns(dt)
+  dt <- clean_clin_col_res$dt
+  discard_rvs_one <- clean_clin_col_res$discard_rvs_one
+  discard_rvs_two <- clean_clin_col_res$discard_rvs_two
+
+  # Replace empty strings with NA
+  replace_result <- replace_empty_with_na(dt = dt, to_view_checks)
+  dt <- replace_result$return_data
+  empty_strings_replaced_1 <- replace_result$return_replacement_summary
+
+  # Remap patient data
+  remapping_results <- remap_patient_data(dt, to_view_checks)
+  dt <- remapping_results$data
+
+  return(
+    list(
+      return_data = dt,
+      return_summary = list(
+        rename_success = rename_success,
+        ICD_replacements_1 = clin_c1_cleaning_comparison,
+        ICD_replacements_2 = clin_c2_cleaning_comparison,
+        pat_type_mapped = remapping_results$pat_type_mapped,
+        pat_memcat_parent_mapped = remapping_results$pat_memcat_parent_mapped,
+        pat_memcat_child_mapped = remapping_results$pat_memcat_child_mapped,
+        clin_discharge_mapped = remapping_results$clin_discharge_mapped,
+        claim_status_mapped = remapping_results$claim_status_mapped,
+        pat_type_unmapped = remapping_results$pat_type_unmapped,
+        memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
+        memcat_child_unmapped = remapping_results$memcat_child_unmapped,
+        discharge_unmapped = remapping_results$discharge_unmapped,
+        claim_status_unmapped = remapping_results$claim_status_unmapped,
+        discard_rvs_one = discard_rvs_one,
+        discard_rvs_two = discard_rvs_two,
+        empty_strings_replaced_1 = empty_strings_replaced_1
+      )
+    )
+  )
+}
+
+
+map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
+  split_codes <- split_rvs_codes(rvs_icd9)
+  rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
+
+  rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
+
+  return(list(
+    icd9_list = get_icd9_codes(clin_rvs, rvs_map_solo_env),
+    rvs_map_list = rvs_maps$rvs_map_list,
+    rvss = unique(unlist(clin_rvs)),
+    mappable_rvs = intersect(unique(unlist(clin_rvs)), rvs_icd9$rvs),
+    unmappable_rvs = setdiff(unique(unlist(clin_rvs)), rvs_icd9$rvs),
+    multi_mapped_rvs = intersect(unique(unlist(clin_rvs)), names(rvs_maps$rvs_map_list)),
+    without_drg = unique(rvs_icd9[!rvs %in% names(rvs_maps$rvs_map_list)]$rvs)
+  ))
+}
+
+
+implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
+  icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
+
+  thai_icd10_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10$CODE)
+  )
+  neoplasms_env <- create_thai_icd10_environment(
+    unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"])
+  )
+
+  direct_match_codes <- find_direct_icd_matches(
+    icds, thai_icd10_env
+  )
+
+  icd_mapping_info <- generate_icd10_mapping(
+    icds, thai_icd10_env, neoplasms_env
+  )
+  icd_mapping <- icd_mapping_info$icd_mapping
+  modified_count <- icd_mapping_info$modified_count
+
+  unmatched_icds <- setdiff(icds, names(icd_mapping))
+
+  if (length(unmatched_icds) > 0) {
+    unmatched_sources <- data.table(
+      code = unmatched_icds, source = NA_character_, count = 0
+    )
+    for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
+      col_values <- get(col_name)
+      unmatched_sources[
+        code %in% unlist(col_values),
+        source := col_name
+      ]
+      unmatched_sources[
+        code %in% unlist(col_values),
+        count := count + table(unlist(col_values))[code]
+      ]
+    }
+    unmatched_sources <- unmatched_sources[order(-count)]
+  } else {
+    unmatched_sources <- data.table()
+  }
+
+  icd10_map <- data.table(
+    phl_icd10 = names(icd_mapping),
+    tdrg_icd10 = unlist(icd_mapping)
+  )
+  if (to_debug) fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
+  icd10_env <- list2env(
+    setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10)
+  )
+
+  mapped_columns <- apply_icd10_mapping_to_columns(
+    clin_c1, clin_c2, clin_icd, icd10_env
+  )
+
+  return(list(
+    clin_c1 = mapped_columns$clin_c1,
+    clin_c2 = mapped_columns$clin_c2,
+    clin_icd = mapped_columns$clin_icd,
+    icd10_map_dt = icd10_map,
+    unique_icds = icds,
+    direct_matches = direct_match_codes,
+    unmatched = unmatched_icds,
+    unmatched_sources = unmatched_sources
+  ))
+}
+
+
 # Define a codeblock to avoid repeating it twice when
 # to_profvis is TRUE and again if FALSE
 # Makes it easier to maintain as well, since we only need
@@ -210,8 +395,16 @@ unified_block <- function() {
   # Start main execution logic
   # split_and_save_parts() # Read, split, and save partial files
 
-  ### START OF SPLIT AND SAVE PARTS ###
+  ####################################################################################################################################
+  ################################################## START OF SPLIT AND SAVE PART ####################################################
+  ####################################################################################################################################
+
   split_and_save <- function(part) {
+    rows_per_part <- ceiling(total_rows / split_parts)
+    header <- fread(full_claims_file(),
+      nrows = 1, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
     chunk_file <- full_claims_file(part)
     if (!file.exists(chunk_file)) {
       start_row <- (part - 1) * rows_per_part + 1
@@ -234,14 +427,20 @@ unified_block <- function() {
     }
   }
   lapply(1:split_parts, split_and_save)
-  ### END OF SPLIT AND SAVE PARTS ###
-  # Start the parallelization session or remain sequential
-  if (to_parallel && !is_unix) plan(multisession, workers = nthreads)
 
-  # For each partial file (part) of 1:N (split_parts) files,
-  for (part in 1:split_parts) {
+  ####################################################################################################################################
+  ################################################## END OF SPLIT AND SAVE PART ######################################################
+  ####################################################################################################################################
+
+  if (to_parallel && !is_unix) plan(multisession, workers = nthreads) # Start the parallelization session or remain sequential
+
+  for (part in 1:split_parts) { # For each partial file (part) of 1:N (split_parts) files
     # Process the partial file with or without parallelization
-    ### START OF PROCESS PART ###
+
+    ##################################################################################################################################
+    ################################################### START OF PROCESS PART ########################################################
+    ##################################################################################################################################
+
     start_time <- Sys.time()
 
     ensure_partial_files_exist(part) # Ensure partial exist
@@ -251,9 +450,16 @@ unified_block <- function() {
     read_in_dt <- read_result$read_result_dt
     read_in_replacement_summary <- read_result$read_result_replacement_summary
 
-    ### START OF PARALLELIZE AND SUMMARIZE DATA
+    ##################################################################################################################################
+    ############################################ START OF PARALLELIZE AND SUMMARIZE DATA #############################################
+    ##################################################################################################################################
+
     chunk_size <- ceiling(nrow(read_in_dt) / nthreads)
     chunks <- split(read_in_dt, rep(1:nthreads, each = chunk_size, length.out = nrow(read_in_dt)))
+
+    ##################################################################################################################################
+    ##################################################### START OF PROCESS CHUNK #####################################################
+    ##################################################################################################################################
 
     process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) {
       if (to_view_checks) {
@@ -263,124 +469,9 @@ unified_block <- function() {
         on.exit(sink(), add = TRUE)
       }
 
-      clean_data <- function(dt) {
-        dt[, SRC_YR := as.integer(year_to_load)] # Convert source year to integer
-
-        setnames(dt, old = old_colnames, new = new_colnames) # Rename columns
-        rename_success <- all(new_colnames %in% colnames(dt)) # Check if renaming was successful
-
-        dt <- collapse_and_clean_icd_rvs(dt) # Collapse and clean ICD and RVS columns
-
-        # Clean clin_c1 column
-        dt[, clin_c1_orig := dt$clin_c1]
-        dt[, clin_c1 := clean_column(clin_c1, na_like_strings)]
-        dt[, clin_c1_orig := sapply(clin_c1_orig, toString)]
-        dt[, clin_c1 := sapply(clin_c1, toString)]
-
-        # Compare cleaning results for clin_c1
-        clin_c1_cleaning_comparison <- dt[
-          !is.na(clin_c1_orig) & clin_c1 != clin_c1_orig,
-          .(old_code = clin_c1_orig, new_code = clin_c1, count = .N),
-          by = .(clin_c1_orig, clin_c1)
-        ]
-
-        # Clean clin_c2 column
-        dt[, clin_c2_orig := dt$clin_c2]
-        dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
-        dt[, clin_c2_orig := sapply(clin_c2_orig, toString)]
-        dt[, clin_c2 := sapply(clin_c2, toString)]
-
-        # Compare cleaning results for clin_c2
-        clin_c2_cleaning_comparison <- dt[
-          !is.na(clin_c2_orig) & clin_c2 != clin_c2_orig,
-          .(old_code = clin_c2_orig, new_code = clin_c2, count = .N),
-          by = .(clin_c2_orig, clin_c2)
-        ]
-
-        manual_multi_replace <- function(code, replacements) {
-          # Iterate over each pattern and its corresponding replacement in the list
-          for (pattern in names(replacements)) {
-            replacement <- replacements[[pattern]]
-            code <- gsub(paste0("\\b", pattern, "\\b"), replacement, code)
-          }
-          return(code)
-        }
-
-        # Apply the multi-replacement function using the named list
-        dt[, clin_icd := lapply(clin_icd, manual_multi_replace,
-          replacements = manual_code_replacements
-        )]
-        dt[, clin_c1 := lapply(clin_c1, manual_multi_replace,
-          replacements = manual_code_replacements
-        )]
-        dt[, clin_c2 := lapply(clin_c2, manual_multi_replace,
-          replacements = manual_code_replacements
-        )]
-
-        # Remove lumped ICD codes
-        dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
-        dt[, clin_c2 := remove_lumped_icd_codes(clin_c2)]
-
-        # Clean clinical columns
-        clean_clin_col_res <- clean_clinical_columns(dt)
-        dt <- clean_clin_col_res$dt
-        discard_rvs_one <- clean_clin_col_res$discard_rvs_one
-        discard_rvs_two <- clean_clin_col_res$discard_rvs_two
-
-        # Replace empty strings with NA
-        replace_result <- replace_empty_with_na(dt = dt, to_view_checks)
-        dt <- replace_result$return_data
-        empty_strings_replaced_1 <- replace_result$return_replacement_summary
-
-        # Remap patient data
-        remapping_results <- remap_patient_data(dt, to_view_checks)
-        dt <- remapping_results$data
-
-        return(
-          list(
-            return_data = dt,
-            return_summary = list(
-              rename_success = rename_success,
-              ICD_replacements_1 = clin_c1_cleaning_comparison,
-              ICD_replacements_2 = clin_c2_cleaning_comparison,
-              pat_type_mapped = remapping_results$pat_type_mapped,
-              pat_memcat_parent_mapped = remapping_results$pat_memcat_parent_mapped,
-              pat_memcat_child_mapped = remapping_results$pat_memcat_child_mapped,
-              clin_discharge_mapped = remapping_results$clin_discharge_mapped,
-              claim_status_mapped = remapping_results$claim_status_mapped,
-              pat_type_unmapped = remapping_results$pat_type_unmapped,
-              memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
-              memcat_child_unmapped = remapping_results$memcat_child_unmapped,
-              discharge_unmapped = remapping_results$discharge_unmapped,
-              claim_status_unmapped = remapping_results$claim_status_unmapped,
-              discard_rvs_one = discard_rvs_one,
-              discard_rvs_two = discard_rvs_two,
-              empty_strings_replaced_1 = empty_strings_replaced_1
-            )
-          )
-        )
-      }
-
       clean_result <- clean_data(chunk)
       chunk <- clean_result$return_data
       chunk_summary <- clean_result$return_summary
-
-      map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
-        split_codes <- split_rvs_codes(rvs_icd9)
-        rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
-
-        rvs_map_solo_env <- as.environment(rvs_maps$rvs_map_solo)
-
-        return(list(
-          icd9_list = get_icd9_codes(clin_rvs, rvs_map_solo_env),
-          rvs_map_list = rvs_maps$rvs_map_list,
-          rvss = unique(unlist(clin_rvs)),
-          mappable_rvs = intersect(unique(unlist(clin_rvs)), rvs_icd9$rvs),
-          unmappable_rvs = setdiff(unique(unlist(clin_rvs)), rvs_icd9$rvs),
-          multi_mapped_rvs = intersect(unique(unlist(clin_rvs)), names(rvs_maps$rvs_map_list)),
-          without_drg = unique(rvs_icd9[!rvs %in% names(rvs_maps$rvs_map_list)]$rvs)
-        ))
-      }
 
       rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
       chunk[, icd9_list := rvs_mapping_result$icd9_list]
@@ -388,73 +479,6 @@ unified_block <- function() {
       clin_c1 <- chunk$clin_c1
       clin_c2 <- chunk$clin_c2
       clin_icd <- chunk$clin_icd
-
-      implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
-        icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
-
-        thai_icd10_env <- create_thai_icd10_environment(
-          unique(tdrg_icd10$CODE)
-        )
-        neoplasms_env <- create_thai_icd10_environment(
-          unique(tdrg_icd10[grepl("/", tdrg_icd10$CODE), "CODE"])
-        )
-
-        direct_match_codes <- find_direct_icd_matches(
-          icds, thai_icd10_env
-        )
-
-        icd_mapping_info <- generate_icd10_mapping(
-          icds, thai_icd10_env, neoplasms_env
-        )
-        icd_mapping <- icd_mapping_info$icd_mapping
-        modified_count <- icd_mapping_info$modified_count
-
-        unmatched_icds <- setdiff(icds, names(icd_mapping))
-
-        if (length(unmatched_icds) > 0) {
-          unmatched_sources <- data.table(
-            code = unmatched_icds, source = NA_character_, count = 0
-          )
-          for (col_name in c("clin_c1", "clin_c2", "clin_icd")) {
-            col_values <- get(col_name)
-            unmatched_sources[
-              code %in% unlist(col_values),
-              source := col_name
-            ]
-            unmatched_sources[
-              code %in% unlist(col_values),
-              count := count + table(unlist(col_values))[code]
-            ]
-          }
-          unmatched_sources <- unmatched_sources[order(-count)]
-        } else {
-          unmatched_sources <- data.table()
-        }
-
-        icd10_map <- data.table(
-          phl_icd10 = names(icd_mapping),
-          tdrg_icd10 = unlist(icd_mapping)
-        )
-        if (to_debug) fwrite(icd10_map, paste0("cache/icd10_map_file_", year_to_load, ".csv"))
-        icd10_env <- list2env(
-          setNames(as.list(icd10_map$tdrg_icd10), icd10_map$phl_icd10)
-        )
-
-        mapped_columns <- apply_icd10_mapping_to_columns(
-          clin_c1, clin_c2, clin_icd, icd10_env
-        )
-
-        return(list(
-          clin_c1 = mapped_columns$clin_c1,
-          clin_c2 = mapped_columns$clin_c2,
-          clin_icd = mapped_columns$clin_icd,
-          icd10_map_dt = icd10_map,
-          unique_icds = icds,
-          direct_matches = direct_match_codes,
-          unmatched = unmatched_icds,
-          unmatched_sources = unmatched_sources
-        ))
-      }
 
       icd10_mapping_result <- implement_icd10_mapping(
         clin_c1, clin_c2, clin_icd, tdrg_icd10
@@ -492,7 +516,6 @@ unified_block <- function() {
       chunk_summary$unmatched <- icd10_mapping_result$unmatched
       chunk_summary$unmatched_sources <- icd10_mapping_result$unmatched_sources
       chunk_summary$icd10_map_dt <- icd10_mapping_result$icd10_map_dt
-
       chunk_summary$rvss <- rvs_mapping_result$rvss
       chunk_summary$mappable_rvs <- rvs_mapping_result$mappable_rvs
       chunk_summary$unmappable_rvs <- rvs_mapping_result$unmappable_rvs
@@ -507,6 +530,10 @@ unified_block <- function() {
         )
       )
     }
+
+    ###################################################################################################################################
+    ##################################################### END OF PROCESS CHUNK ########################################################
+    ###################################################################################################################################
 
     if (to_parallel && is_unix) {
       if (to_debug) message("Conducting mclapply")
@@ -566,7 +593,10 @@ unified_block <- function() {
     }
 
     if (to_dec_mem_usage) gc() # debug
-    ### END OF PARALLELIZE AND SUMMARIZE DATA
+
+    ##################################################################################################################################
+    ############################################## END OF PARALLELIZE AND SUMMARIZE DATA #############################################
+    ##################################################################################################################################
 
     summarized_dt <- rbound_dt
     combined_parallel_summary <- combined_chunk_summary
@@ -574,7 +604,10 @@ unified_block <- function() {
 
     write_intermediate_file(to_write, part, summarized_dt)
     if (to_group) export_for_grouper(summarized_dt, year_to_load, output_txt_file(part))
-    ### END OF PROCESS PART ###
+
+    ##################################################################################################################################
+    ####################################################### END OF PROCESS PART ######################################################
+    ##################################################################################################################################
 
     all_parts_summaries[[part]] <- combined_parallel_summary # Save partial summaries to a list
     processing_times[[part]] <- as.numeric(difftime(Sys.time(), start_time, units = "secs")) # Save partial processing time to a list
@@ -611,7 +644,7 @@ unified_block <- function() {
 
   # End main execution logic
   if (to_debug) {
-    # return(NULL)
+    return(NULL)
   } # debug
 }
 
@@ -623,7 +656,11 @@ nthreads <- parallelly::availableCores() # detect available threads
 cat(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
 
 # Call the main function with or without profvis
-if (to_profvis) saveWidget(profvis({unified_block()}), here(profvis_path)) else {
+if (to_profvis) {
+  saveWidget(profvis({
+    unified_block()
+  }), here(profvis_path))
+} else {
   unified_block()
 }
 

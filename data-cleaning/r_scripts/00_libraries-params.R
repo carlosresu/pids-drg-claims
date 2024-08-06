@@ -196,11 +196,11 @@ if (!dir.exists(here(raw_claims_path))) {
 }
 
 # Create the directory if it does not exist
-if (!dir.exists(here("data-cleaning/profvis"))) {
-  dir.create(here("data-cleaning/profvis"), recursive = TRUE)
-  cat("Directory created:", "data-cleaning/profvis", "\n")
+if (!dir.exists(here("data-cleaning/data/profvis"))) {
+  dir.create(here("data-cleaning/data/profvis"), recursive = TRUE)
+  cat("Directory created:", "data-cleaning/data/profvis", "\n")
 } else {
-  cat("Directory already exists:", "data-cleaning/profvis", "\n")
+  cat("Directory already exists:", "data-cleaning/data/profvis", "\n")
 }
 
 full_claims_file <- function(part = NULL, fileext = TRUE) {
@@ -216,10 +216,10 @@ full_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("claims_extract_CLAIMS_", year_to_load, "_", ver_to_use)
+    paste0("claims_extract_CLAIMS ", year_to_load)
   } else {
     paste0(
-      "claims_extract_CLAIMS_", year_to_load, "_", ver_to_use,
+      "claims_extract_CLAIMS ", year_to_load,
       "_part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
@@ -292,10 +292,10 @@ sampled_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size)
+    paste0("sampled_claims_", year_to_load, "_", sample_size)
   } else {
     paste0(
-      "sampled_claims_", year_to_load, "_", ver_to_use, "_", sample_size,
+      "sampled_claims_", year_to_load, "_", sample_size,
       "_part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
@@ -316,10 +316,10 @@ intermediate_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("intermediate_claims_", year_to_load, "_", ver_to_use, suffix)
+    paste0("intermediate_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "intermediate_claims_", year_to_load, "_", ver_to_use, suffix,
+      "intermediate_claims_", year_to_load, suffix,
       "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
@@ -342,10 +342,10 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("cleaned_claims_", year_to_load, "_", ver_to_use, suffix)
+    paste0("cleaned_claims_", year_to_load, suffix)
   } else {
     paste0(
-      "cleaned_claims_", year_to_load, "_", ver_to_use, suffix,
+      "cleaned_claims_", year_to_load, suffix,
       "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
@@ -368,10 +368,10 @@ output_txt_file <- function(part = NULL, fileext = TRUE) {
   #'
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
-    paste0("DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix)
+    paste0("DRG_Grouped", "_", year_to_load, suffix)
   } else {
     paste0(
-      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
+      "DRG_Grouped", "_", year_to_load, suffix,
       "part_", sprintf("%02d", part), "_of_", split_parts
     )
   }
@@ -395,12 +395,12 @@ grouper_result_file <- function(part = NULL, fileext = TRUE) {
   #' @return Character. The generated file path.
   filename <- if (is.null(part)) {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
+      "DRG_Grouped", "_", year_to_load, suffix,
       "Res"
     ))
   } else {
     toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, "_", ver_to_use, suffix,
+      "DRG_Grouped", "_", year_to_load, suffix,
       "Res_", sprintf("%02d", part), "_of_", split_parts
     ))
   }
