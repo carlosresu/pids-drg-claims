@@ -49,16 +49,8 @@ data-cleaning/r_scripts/.ipynb_checkpoints/
 data-cleaning/r_scripts/.ipynb_checkpoints
 
 #git-ignored-files
-data-cleaning/data-aux-files/
-data-cleaning/data-aux-files
-data-cleaning/data-grouper-output/
-data-cleaning/data-grouper-output
-data-cleaning/data-excel/
-data-cleaning/data-excel
-data-cleaning/data-claims/
-data-cleaning/data-claims
-data-cleaning/profvis/
-data-cleaning/profvis
+data-cleaning/data/
+data-cleaning/data
 
 #python venv
 venv
