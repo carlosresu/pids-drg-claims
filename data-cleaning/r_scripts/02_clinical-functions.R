@@ -609,7 +609,7 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file) {
   if (to_dec_mem_usage) rm(output_dt) # debug
   if (to_dec_mem_usage) gc() # debug
   if (to_debug) {
-    # return(NULL)
+    return(NULL)
   } # debug
 }
 

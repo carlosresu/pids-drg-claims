@@ -577,7 +577,7 @@ unified_block <- function() {
     ### END OF PROCESS PART ###
 
     all_parts_summaries[[part]] <- combined_parallel_summary # Save partial summaries to a list
-    processing_times[part] <- as.numeric(difftime(Sys.time(), start_time, units = "secs")) # Save partial processing time to a list
+    processing_times[[part]] <- as.numeric(difftime(Sys.time(), start_time, units = "secs")) # Save partial processing time to a list
     # Print status update and ETA
     print_status_update(part, split_parts, processing_times)
     if (part == 1) dim_dt <<- dim(summarized_dt)
@@ -623,11 +623,7 @@ nthreads <- parallelly::availableCores() # detect available threads
 cat(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
 
 # Call the main function with or without profvis
-if (to_profvis) {
-  saveWidget(profvis({
-    unified_block()
-  }), here(profvis_path))
-} else {
+if (to_profvis) saveWidget(profvis({unified_block()}), here(profvis_path)) else {
   unified_block()
 }
 
