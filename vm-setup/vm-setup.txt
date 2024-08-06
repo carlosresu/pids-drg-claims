@@ -1,0 +1,131 @@
+gcloud compute instances create drg-data-pipeline \
+    --project=drg-pipeline \
+    --zone=us-central1-a \
+    --machine-type=n2d-standard-8 \
+    --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
+    --metadata=^,@^enable-osconfig=TRUE,@ssh-keys=resur:ssh-rsa\ \
+AAAAB3NzaC1yc2EAAAADAQABAAABgQCvskXKEaH3gmIWUXYL7RKhA986gXZGYLfoOdUczxgPZ68HBBtpyOhifB22GprL9cYsI4QApr5lg3S5BRWjzYT1VSxPMW1dqcLvVbncfjwjYHH4FhY0fk7ijFihR2B6wQbE2LquZW3OtDcIfUP/zSE3IQ0Q9EaygJPeTItrLbEEwZ89kVAXX2knIG84xr5WClTxbP782xYoqg8tyQ25sr\+dJD9dsEGGgRnm\+d9J6D5a4UyiFjb5qU/0H5emv9ZX/20rufr5DEJAgOWw9umtwcTuwp/eRRh\+Id3y3BE3Q\+lQvd\+yZQXV3O5HPiC0Rw06\+dRs3gsROJaXqFG4dtsQ7SvMLvDbsXJwgFGyAyslKIJwCvOCnvWD7l0Tca5KydUkQttdDET08hkIj3yNLI\+P\+IdVCPVFFSACCgQ3HIH7nIPiVPRIP1q4d2f6M1PzuG87zaUOhjJBvYPz7kGhCNhEZL77b4dhVOS7LOTnv6AKbEKRjo9p91Wxj9IHc4nECcE4smE=\ resur$'\n'resurreccion_cmc:ecdsa-sha2-nistp256\ AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBE8qW7rtzzuBFcg6RrzAcmZHguh\+YCLhMWIJdngKnM4OF9O/fWHlYDYyyE0/SOYrbneLNjLWZ2wUR45KQFEj7tM=\ google-ssh\ \{\"userName\":\"resurreccion.cmc@gmail.com\",\"expireOn\":\"2024-08-06T15:54:20\+0000\"\}$'\n'resurreccion_cmc:ssh-rsa\ AAAAB3NzaC1yc2EAAAADAQABAAABAQCbu21YIOVt0hhjv81ZR4PQ7QxvMNzk/gqDwhZuHO\+Yh1y\+TJMk3pTr\+MkU7iiSVpfJPXMxzahRMxe6UxZjZQ93aJ8dDTThPYjLVdL9PpZ932xtfXYRWBinU\+yzMsEYZUyxo0d5NRpirK0rH\+7olyB0yiDucGc4NP2m3XYwEVhQRnkKdsS6X1F1wWMCJNaUBe4ONM5fcVqmowbFAw7Fv2TSfwDYYTatzSfcYxaP2yXZyItnQJ8AVi2g03zesTftboi66YfJFFVkS8dBh7b/GNaTzTU/gchHAdFYKIqNBQwfrCA9z5UP06FXQ\+NZRT5Zitz7pCrJ\+BdZSIcBUSfu9plb\ google-ssh\ \{\"userName\":\"resurreccion.cmc@gmail.com\",\"expireOn\":\"2024-08-06T15:54:27\+0000\"\} \
+    --maintenance-policy=MIGRATE \
+    --provisioning-model=STANDARD \
+    --service-account=862836755032-compute@developer.gserviceaccount.com \
+    --scopes=https://www.googleapis.com/auth/cloud-platform \
+    --tags=http-server,https-server,lb-health-check \
+    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20240726,mode=rw,size=100,type=pd-ssd \
+    --shielded-secure-boot \
+    --shielded-vtpm \
+    --shielded-integrity-monitoring \
+    --labels=goog-ec-src=vm_add-gcloud \
+    --reservation-affinity=any
+
+ssh-keygen -t rsa -f "C:\\Users\\resur\\.ssh\\gcp-resur" -C resur # change resur to your username
+
+gcloud compute ssh drg-data-pipeline --dry-run --tunnel-through-iap
+
+# Output will be something like this:
+
+C:\Users\resur>gcloud compute ssh drg-data-pipeline --dry-run --tunnel-through-iap
+
+No zone specified. Using zone [us-central1-a] for instance: [drg-data-pipeline].
+
+"C:\Users\resur\AppData\Local\Google\Cloud SDK\google-cloud-sdk\bin\sdk\putty.exe" -t -i "D:\Documents (D)\OneDrive - Philippine Institute for Development Studies\DRG\.ssh\google_compute_engine.ppk" -proxycmd ""C:\\Users\\resur\\AppData\\Local\\Google\\Cloud SDK\\google-cloud-sdk\\bin\\..\\platform\\bundledpython\\python.exe" "-S" "C:\\Users\\resur\\AppData\\Local\\Google\\Cloud SDK\\google-cloud-sdk\\bin\\..\\lib\\gcloud.py" compute start-iap-tunnel "drg-data-pipeline" "%port" --listen-on-stdin --project=drg-pipeline --zone=us-central1-a --verbosity=warning" resur@compute.43711418562236796
+
+Host test-drg-data-pipeline # CHANGE INSTANCE NAME
+    HostName compute.43711418562236796 # CHANGE THE NUMBER AFTER THE PERIOD
+    User resur # CHANGE THIS TO YOUR USERNAME
+    IdentityFile "C:\\Users\\resur\\.ssh\\gcp-resur" # CHANGE USERNAME, GENERATE YOUR OWN IDENTITY FILE, UPLOAD PUBLIC KEY TO VM
+    CheckHostIP no
+    HashKnownHosts no
+    HostKeyAlias compute.43711418562236796 # CHANGE THE NUMBER AFTER THE PERIOD
+    IdentitiesOnly yes
+    StrictHostKeyChecking yes # START WITH THIS DISABLED, THEN ENABLE AFTER FIRST RUN
+    UserKnownHostsFile "C:\\Users\\resur\\.ssh\\google_compute_known_hosts" # CHANGE USERNAME TO YOUR OWN
+    ProxyCommand "C:\\Users\\resur\\.pyenv\\pyenv-win\\versions\\3.12.4\\python.exe" "C:\\Users\\resur\\AppData\\Local\\Google\\Cloud SDK\\google-cloud-sdk\\bin\\..\\lib\\gcloud.py" compute start-iap-tunnel "test-drg-data-pipeline" "%p" --listen-on-stdin --project=test-drg-pipeline --zone=us-central1-a --verbosity=warning # CHANGE USERNAME, PYENV PYTHON VERSION, INSTANCE NAME, PROJ NAME, ZONE
+    ProxyUseFdpass no
+
+
+ssh drg-data-pipeline
+
+# Update the package list:
+sudo apt update
+
+# Install Jupyter:
+sudo apt install jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev
+
+# Install R
+## Update package list
+sudo apt update
+sudo apt install -y software-properties-common dirmngr
+## Add CRAN GPG Key
+wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
+## Add CRAN repository
+sudo add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu noble-cran40/'
+## Update package list again
+sudo apt update
+## Install R 4.4.1
+sudo apt install -y r-base
+## Check R Version
+R --version
+
+sudo R
+
+install.packages("languageserver")
+install.packages("jsonlite")
+install.packages("rlang")
+install.packages("yaml")
+install.packages("IRkernel")
+install.packages("here")
+
+
+IRkernel::installspec(user = FALSE)
+quit()
+
+jupyter kernelspec list
+
+
+sudo chmod -R 777 /usr/local/lib/R/site-library
+sudo chmod -R 777 /usr/lib/R/site-library
+
+
+sudo apt-get update
+
+sudo apt-get install apt-transport-https ca-certificates gnupg curl
+
+curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+
+echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+
+sudo apt-get update && sudo apt-get install google-cloud-cli
+
+gcloud init
+
+git config --global user.name "Carlos Miguel Resurreccion"
+git config --global user.email resurreccion.cmc@gmail.com
+
+code tunnel service install
+sudo loginctl enable-linger $USER
+code tunnel service log
+# open the link in the log and type in the authentication code XXXX-XXXX
+
+# https://console.cloud.google.com/compute/patch/dashboard enable patch
+# https://console.cloud.google.com/apis/api/osconfig.googleapis.com/overview
+# Manually install OS Config agent
+sudo su -c "echo 'deb http://packages.cloud.google.com/apt google-compute-engine-focal-stable main' > \
+/etc/apt/sources.list.d/google-compute-engine.list"
+
+sudo apt update
+sudo apt -y install google-osconfig-agent
+
+# Apply OS Config to all instances in a project
+gcloud compute project-info add-metadata --project drg-pipeline --metadata=enable-osconfig=TRUE
+
+# Apply OS Config to an individual VM
+gcloud compute instances add-metadata drg-data-pipeline --metadata=enable-osconfig=TRUE
+
+# Apply OS Config when creating an instance
+gcloud compute instances create drg-data-pipeline --metadata=enable-osconfig=TRUE
+
+# Enable full VM Manager features
+gcloud compute os-config project-feature-settings update --project drg-pipeline --patch-and-config-feature-set=full
+
+# Verify it's working
+gcloud compute os-config project-feature-settings describe --project drg-pipeline
