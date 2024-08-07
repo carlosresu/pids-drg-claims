@@ -1927,6 +1927,76 @@ combine_replace_empty_tables <- function(
   return(combined_replace_empty)
 }
 
+final_combine_replace_empty_tables <- function(
+    summaries, field, tmp_nrow = 10) {
+  #' @title Combine Replace Empty Tables
+  #'
+  #' @description This function combines tables for replaced
+  #' empty values from multiple summaries into one.
+  #'
+  #' @param summaries list. A list of summary tables.
+  #' @param field character. The field in the summaries that
+  #' contains information on replaced empty values.
+  #' @param tmp_nrow integer. The number of
+  #' rows to show in the intermediate summary.
+  #'
+  #' @return data.table. The combined replace empty tables.
+
+  replace_empty_list <- lapply(summaries, function(summary) summary[[field]])
+  combined_replace_empty <- rbindlist(replace_empty_list, fill = TRUE)
+
+  if (nrow(combined_replace_empty) == 0) {
+    return(data.table(
+      Column = character(),
+      Total_Empty_Replaced = integer(),
+      Total_NA_Replaced = integer(),
+      Total_Character0_Replaced = integer(),
+      Total_Elements = integer(),
+      Empty_Replaced_Percentage = character(),
+      NA_Replaced_Percentage = character(),
+      Character0_Replaced_Percentage = character()
+    ))
+  }
+
+  combined_replace_empty <- combined_replace_empty[, .(
+    Total_Empty_Replaced = sum(Empty_Replaced, na.rm = TRUE),
+    Total_NA_Replaced = sum(NA_Replaced, na.rm = TRUE),
+    Total_Character0_Replaced = sum(Character0_Replaced, na.rm = TRUE),
+    Total_Elements = if (to_sample) sample_size * split_parts else total_rows
+  ), by = Column]
+
+  combined_replace_empty[, `:=`(
+    Empty_Replaced_Percentage = (Total_Empty_Replaced / Total_Elements) * 100,
+    NA_Replaced_Percentage = (Total_NA_Replaced / Total_Elements) * 100,
+    Character0_Replaced_Percentage = (Total_Character0_Replaced / Total_Elements) * 100
+  )]
+
+  # Format percentages as "XX.X%"
+  combined_replace_empty[, `:=`(
+    Empty_Replaced_Percentage = sprintf("%.2f%%", Empty_Replaced_Percentage),
+    NA_Replaced_Percentage = sprintf("%.2f%%", NA_Replaced_Percentage),
+    Character0_Replaced_Percentage = sprintf("%.2f%%", Character0_Replaced_Percentage)
+  )]
+
+  combined_replace_empty <- combined_replace_empty[
+    order(
+      -as.numeric(gsub("%", "", Empty_Replaced_Percentage)),
+      -as.numeric(gsub("%", "", NA_Replaced_Percentage)),
+      -as.numeric(gsub("%", "", Character0_Replaced_Percentage))
+    )
+  ]
+
+  combined_replace_empty <- head(combined_replace_empty, tmp_nrow)
+
+  return(combined_replace_empty[, .(
+    Column,
+    Empty_Replaced_Percentage,
+    NA_Replaced_Percentage,
+    Character0_Replaced_Percentage
+  )])
+}
+
+
 combine_chunk_summaries <- function(
     summaries, tmp_nrow) {
   #' @title Combine Chunk Summaries
@@ -2116,13 +2186,13 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
     final_discard_rvs_two = combine_discarded_rvs_tables(
       combined_summary, "discard_rvs_two", end_nrow
     ),
-    final_empty_strings_replaced_0 = combine_replace_empty_tables(
+    final_empty_strings_replaced_0 = final_combine_replace_empty_tables(
       combined_summary, "replacement_summary", end_nrow
     ),
-    final_empty_strings_replaced_1 = combine_replace_empty_tables(
+    final_empty_strings_replaced_1 = final_combine_replace_empty_tables(
       combined_summary, "empty_strings_replaced_1", end_nrow
     ),
-    final_empty_strings_replaced_2 = combine_replace_empty_tables(
+    final_empty_strings_replaced_2 = final_combine_replace_empty_tables(
       combined_summary, "empty_strings_replaced_2", end_nrow
     ),
     final_unique_icds = length(unique(unlist(lapply(
