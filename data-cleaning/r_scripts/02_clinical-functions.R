@@ -612,35 +612,3 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file) {
     return(NULL)
   } # debug
 }
-
-group_data <- function(to_group, part, dt) {
-  #' @title Group data for batch processing
-  #'
-  #' @description This function groups the data for batch processing
-  #' and exports it for the batch grouper.
-  #'
-  #' @param part integer. The part number of the data being processed.
-  #' @param dt data.table. The data table to be grouped.
-  #'
-  #' @return NULL. The function is used for its side effect of
-  #' grouping and exporting the data.
-
-  if (to_group) {
-    export_for_grouper(
-      dt, year_to_load,
-      output_txt_file(part)
-    )
-    if (to_dec_mem_usage) rm(dt) # debug
-    if (to_dec_mem_usage) gc() # debug
-    for_batch_grouping <- fread(
-      output_txt_file(part),
-      sep = "|", na.strings = "--"
-    )
-    if (file.exists(grouper_result_file(part))) {
-      batch_grouping_result <- fread(
-        grouper_result_file(part),
-        sep = "|", na.strings = "--"
-      )
-    }
-  }
-}

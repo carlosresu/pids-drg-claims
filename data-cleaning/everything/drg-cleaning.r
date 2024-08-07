@@ -1,4 +1,9 @@
+source(here::here("data-cleaning", "r_scripts", "00_libraries-params.R"))
+
+
 # IMPORTANT PARAMETERS:
+full_claims_prefix <- "claims_extract_CLAIMS "
+full_claims_bq_prefix <- "claims_extract_CLAIMS\\ "
 year_to_load <- "2018" # Which claims year to load # TODO: maybe add a script that loops through all claims?
 split_parts <- 15 # How many (integer) parts to split the 12+m row claims file into # TODO: a value of 10 for claims year 2018 leads to quoted newline errors
 end_nrow <- 10 # How many rows/entries to show in summary tables
@@ -14,18 +19,39 @@ sep <- "," # Choices: "," or "\t"
 to_sample <- TRUE # Whether to sample each split_parts part by sample_size_divisor (useful when iterating through code runs in quick succession)
 sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
+# File Path Prefixes:
+clean_prefix <- "data-cleaning"
+data_prefix <- file.path(clean_prefix, "data")
+claims_prefix <- file.path(data_prefix, "data-claims")
+
 # File Paths:
-intermediate_path <- "data-cleaning/data/data-claims/intermediate"
-cache_path <- "data-cleaning/cache"
-aux_path <- "data-cleaning/data/data-aux-files"
-excel_path <- "data-cleaning/data/data-excel"
-cleaned_claims_path <- "data-cleaning/data/data-claims/cleaned"
-grouper_output_path <- "data-cleaning/data/data-grouper-output"
-chunks_path <- "data-cleaning/data/data-claims/chunked"
-raw_claims_parts_path <- "data-cleaning/data/data-claims/raw/parts"
-raw_claims_samples_path <- "data-cleaning/data/data-claims/raw/samples"
-raw_claims_path <- "data-cleaning/data/data-claims/raw"
-profvis_path <- "data-cleaning/data/profvis/profvis.html"
+checkpoints_path <- file.path(data_prefix, "data-checkpoints")
+checkpoint_1_path <- file.path(checkpoints_path, "checkpoint_1_cleaned_partial_claims")
+checkpoint_2_path <- file.path(checkpoints_path, "checkpoint_2_thai_grouper_input")
+checkpoint_3_path <- file.path(checkpoints_path, "checkpoint_3_thai_grouper_output")
+cache_path <- file.path(clean_prefix, "cache")
+aux_path <- file.path(data_prefix, "data-aux-files")
+excel_path <- file.path(data_prefix, "data-excel")
+cleaned_claims_path <- file.path(claims_prefix, "cleaned")
+grouper_output_path <- file.path(data_prefix, "data-grouper-output")
+chunks_path <- file.path(claims_prefix, "chunked")
+raw_claims_path <- file.path(claims_prefix, "raw")
+raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
+raw_claims_samples_path <- file.path(claims_prefix, "raw", "samples")
+profvis_path <- file.path(data_prefix, "profvis", "profvis.html")
+
+# Create directories:
+create_dirs(mget(ls(pattern = "_path$"), envir = .GlobalEnv))
+
+# Commonly Used File Paths:
+full_claims_file <- here(
+  raw_claims_path,
+  paste0(full_claims_prefix, year_to_load, ".csv")
+)
+full_header <- fread(full_claims_file,
+  nrows = 1, colClasses = "character",
+  header = TRUE, encoding = encode, sep = sep
+)
 
 # Manual Tweaks:
 manual_code_replacements <- list(
@@ -37,11 +63,11 @@ drop_cols <- c( # Which columns to drop
   paste0("ICDCODE", 13:14), # Start
   "ICCODED15", # note that ICDCODE15 is misspelled as ICCODED15 in all claims
   paste0("ICDCODE", 16:170), # Continuation
-  "MEMCAT_SUBCHILD_DESC"
+  "MEMCAT_SUBCHILD_DESC" # Drop as per Cel's suggestion
 )
 
 # Output:
-to_write <- TRUE # Whether to write out intermediate files (everything up until converting for grouper export)
+to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
 to_group <- TRUE # Whether to export for the batch grouper or not
 
 # Debug:
@@ -82,7 +108,6 @@ if (ram_size <= 32 && to_split_read == TRUE) stop("Please set to_split_read to T
 
 options(verbose = FALSE) # Hide verbose output for script and library loading
 options(warn = -1) # Hide warnings for script sourcing and library loading
-library(here) # Library here() so scripts can be loaded
 
 
 scripts <- list( # List of scripts to source
@@ -96,6 +121,29 @@ scripts <- list( # List of scripts to source
 # Loop to source above scripts
 for (script in scripts) source(here("data-cleaning/r_scripts", script))
 
+# Load cached total rows file if available, saves ~10 seconds of runtime
+total_rows_file <- here(cache_path, paste0("total_rows_", year_to_load, ".rds"))
+if (file.exists(total_rows_file)) {
+  total_rows <- readRDS(total_rows_file)
+  cat(paste("Total Rows via cached object:", total_rows))
+} else {
+  total_rows <- fread(full_claims_file, select = 1L, header = TRUE)[, .N]
+  saveRDS(total_rows, file = total_rows_file)
+  cat(paste("Total Rows via fread:", total_rows))
+}
+
+# Compute sample size when splitting and when not,
+# only relevant when sampling
+if (to_split) {
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+} else {
+  sample_size <- ceiling(total_rows / sample_size_divisor)
+}
+
+suffix <- paste0(
+  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
+)
+
 
 # TODO: figure out a way to return to default outputs
 # since verbose = TRUE is way too verbose compared to default
@@ -104,8 +152,8 @@ options(warn = 1) # Reenable warnings; see above comments
 
 # Loop through the years 2018 to 2021
 for (year in 2018:2021) {
-  file_name <- paste0("claims_extract_CLAIMS ", year, ".csv")
-  bq_name <- paste0("claims_extract_CLAIMS\\ ", year, ".csv")
+  file_name <- paste0(full_claims_prefix, year, ".csv")
+  bq_name <- paste0(full_claims_bq_prefix, year, ".csv")
 
   # Check if the file exists in the target directory
   file_path <- here(raw_claims_path, file_name)
@@ -203,41 +251,37 @@ acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
 
 
 clean_data <- function(dt) {
-  dt[, SRC_YR := as.integer(year_to_load)] # Convert source year to integer
+  # Convert source year to integer
+  dt[, SRC_YR := as.integer(year_to_load)]
 
-  setnames(dt, old = old_colnames, new = new_colnames) # Rename columns
-  rename_success <- all(new_colnames %in% colnames(dt)) # Check if renaming was successful
+  # Rename columns and check if renaming was successful
+  setnames(dt, old = old_colnames, new = new_colnames)
+  rename_success <- all(new_colnames %in% colnames(dt))
 
-  dt <- collapse_and_clean_icd_rvs(dt) # Collapse and clean ICD and RVS columns
+  # Collapse and clean ICD and RVS columns
+  dt <- collapse_and_clean_icd_rvs(dt)
 
-  # Clean clin_c1 column
-  dt[, clin_c1_orig := dt$clin_c1]
-  dt[, clin_c1 := clean_column(clin_c1, na_like_strings)]
-  dt[, clin_c1_orig := sapply(clin_c1_orig, toString)]
-  dt[, clin_c1 := sapply(clin_c1, toString)]
+  # Helper function to clean and compare clinical columns
+  clean_clinical_column <- function(col_name) {
+    dt[, (paste0(col_name, "_orig")) := dt[[col_name]]]
+    dt[, (col_name) := clean_column(dt[[col_name]], na_like_strings)]
+    dt[, (paste0(col_name, "_orig")) := sapply(get(paste0(col_name, "_orig")), toString)]
+    dt[, (col_name) := sapply(get(col_name), toString)]
 
-  # Compare cleaning results for clin_c1
-  clin_c1_cleaning_comparison <- dt[
-    !is.na(clin_c1_orig) & clin_c1 != clin_c1_orig,
-    .(old_code = clin_c1_orig, new_code = clin_c1, count = .N),
-    by = .(clin_c1_orig, clin_c1)
-  ]
+    # Compare cleaning results
+    dt[
+      !is.na(get(paste0(col_name, "_orig"))) & get(col_name) != get(paste0(col_name, "_orig")),
+      .(old_code = get(paste0(col_name, "_orig")), new_code = get(col_name), count = .N),
+      by = .(get(paste0(col_name, "_orig")), get(col_name))
+    ]
+  }
 
-  # Clean clin_c2 column
-  dt[, clin_c2_orig := dt$clin_c2]
-  dt[, clin_c2 := clean_column(clin_c2, na_like_strings)]
-  dt[, clin_c2_orig := sapply(clin_c2_orig, toString)]
-  dt[, clin_c2 := sapply(clin_c2, toString)]
+  # Clean and compare clin_c1 and clin_c2 columns
+  clin_c1_cleaning_comparison <- clean_clinical_column("clin_c1")
+  clin_c2_cleaning_comparison <- clean_clinical_column("clin_c2")
 
-  # Compare cleaning results for clin_c2
-  clin_c2_cleaning_comparison <- dt[
-    !is.na(clin_c2_orig) & clin_c2 != clin_c2_orig,
-    .(old_code = clin_c2_orig, new_code = clin_c2, count = .N),
-    by = .(clin_c2_orig, clin_c2)
-  ]
-
+  # Function for manual multi-replacement
   manual_multi_replace <- function(code, replacements) {
-    # Iterate over each pattern and its corresponding replacement in the list
     for (pattern in names(replacements)) {
       replacement <- replacements[[pattern]]
       code <- gsub(paste0("\\b", pattern, "\\b"), replacement, code)
@@ -245,16 +289,10 @@ clean_data <- function(dt) {
     return(code)
   }
 
-  # Apply the multi-replacement function using the named list
-  dt[, clin_icd := lapply(clin_icd, manual_multi_replace,
-    replacements = manual_code_replacements
-  )]
-  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace,
-    replacements = manual_code_replacements
-  )]
-  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace,
-    replacements = manual_code_replacements
-  )]
+  # Apply multi-replacement function
+  dt[, clin_icd := lapply(clin_icd, manual_multi_replace, replacements = manual_code_replacements)]
+  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace, replacements = manual_code_replacements)]
+  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace, replacements = manual_code_replacements)]
 
   # Remove lumped ICD codes
   dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
@@ -263,41 +301,33 @@ clean_data <- function(dt) {
   # Clean clinical columns
   clean_clin_col_res <- clean_clinical_columns(dt)
   dt <- clean_clin_col_res$dt
-  discard_rvs_one <- clean_clin_col_res$discard_rvs_one
-  discard_rvs_two <- clean_clin_col_res$discard_rvs_two
 
-  # Replace empty strings with NA
+  # Replace empty strings with NA and remap patient data
   replace_result <- replace_empty_with_na(dt = dt, to_view_checks)
   dt <- replace_result$return_data
   empty_strings_replaced_1 <- replace_result$return_replacement_summary
 
-  # Remap patient data
   remapping_results <- remap_patient_data(dt, to_view_checks)
   dt <- remapping_results$data
 
-  return(
-    list(
-      return_data = dt,
-      return_summary = list(
-        rename_success = rename_success,
-        ICD_replacements_1 = clin_c1_cleaning_comparison,
-        ICD_replacements_2 = clin_c2_cleaning_comparison,
-        pat_type_mapped = remapping_results$pat_type_mapped,
-        pat_memcat_parent_mapped = remapping_results$pat_memcat_parent_mapped,
-        pat_memcat_child_mapped = remapping_results$pat_memcat_child_mapped,
-        clin_discharge_mapped = remapping_results$clin_discharge_mapped,
-        claim_status_mapped = remapping_results$claim_status_mapped,
-        pat_type_unmapped = remapping_results$pat_type_unmapped,
-        memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
-        memcat_child_unmapped = remapping_results$memcat_child_unmapped,
-        discharge_unmapped = remapping_results$discharge_unmapped,
-        claim_status_unmapped = remapping_results$claim_status_unmapped,
-        discard_rvs_one = discard_rvs_one,
-        discard_rvs_two = discard_rvs_two,
-        empty_strings_replaced_1 = empty_strings_replaced_1
-      )
-    )
-  )
+  return(list(return_data = dt, return_summary = list(
+    rename_success = rename_success,
+    ICD_replacements_1 = clin_c1_cleaning_comparison,
+    ICD_replacements_2 = clin_c2_cleaning_comparison,
+    pat_type_mapped = remapping_results$pat_type_mapped,
+    pat_memcat_parent_mapped = remapping_results$pat_memcat_parent_mapped,
+    pat_memcat_child_mapped = remapping_results$pat_memcat_child_mapped,
+    clin_discharge_mapped = remapping_results$clin_discharge_mapped,
+    claim_status_mapped = remapping_results$claim_status_mapped,
+    pat_type_unmapped = remapping_results$pat_type_unmapped,
+    memcat_parent_unmapped = remapping_results$memcat_parent_unmapped,
+    memcat_child_unmapped = remapping_results$memcat_child_unmapped,
+    discharge_unmapped = remapping_results$discharge_unmapped,
+    claim_status_unmapped = remapping_results$claim_status_unmapped,
+    discard_rvs_one = clean_clin_col_res$discard_rvs_one,
+    discard_rvs_two = clean_clin_col_res$discard_rvs_two,
+    empty_strings_replaced_1 = empty_strings_replaced_1
+  )))
 }
 
 
@@ -401,16 +431,15 @@ unified_block <- function() {
 
   split_and_save <- function(part) {
     rows_per_part <- ceiling(total_rows / split_parts)
-    header <- fread(full_claims_file(),
-      nrows = 1, colClasses = "character",
-      header = TRUE, encoding = encode, sep = sep
-    )
-    chunk_file <- full_claims_file(part)
+    chunk_file <- here(raw_claims_parts_path, paste0(
+      full_claims_prefix, year_to_load,
+      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+    ))
     if (!file.exists(chunk_file)) {
       start_row <- (part - 1) * rows_per_part + 1
       end_row <- min(part * rows_per_part, total_rows)
       chunk_dt <- fread(
-        full_claims_file(),
+        full_claims_file,
         skip = start_row,
         nrows = end_row - start_row + 1,
         na.strings = na_values,
@@ -419,7 +448,7 @@ unified_block <- function() {
         encoding = encode,
         sep = sep
       )
-      setnames(chunk_dt, colnames(header))
+      setnames(chunk_dt, colnames(full_header))
       if (to_debug) print(head(chunk_dt), 2) # debug
       fwrite(chunk_dt, chunk_file, quote = TRUE)
       if (to_dec_mem_usage) rm(chunk_dt)
@@ -443,9 +472,19 @@ unified_block <- function() {
 
     start_time <- Sys.time()
 
+    partial_claims_file <<- here(raw_claims_parts_path, paste0(
+      full_claims_prefix, year_to_load,
+      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+    ))
     ensure_partial_files_exist(part) # Ensure partial exist
-    if (to_sample) ensure_sample_files_exist(part) # Ensure sample files exist
 
+    if (to_sample) {
+      sampled_claims_file <<- here(raw_claims_samples_path, paste0(
+        "sampled_claims_", year_to_load, "_", sample_size,
+        "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+      ))
+      ensure_sample_files_exist(part) # Ensure sample files exist
+    }
     read_result <- read_appropriate_file(part, to_sample) # Read the appropriate file
     read_in_dt <- read_result$read_result_dt
     read_in_replacement_summary <- read_result$read_result_replacement_summary
@@ -602,8 +641,24 @@ unified_block <- function() {
     combined_parallel_summary <- combined_chunk_summary
     combined_parallel_summary$replacement_summary <- read_in_replacement_summary
 
-    write_intermediate_file(to_write, part, summarized_dt)
-    if (to_group) export_for_grouper(summarized_dt, year_to_load, output_txt_file(part))
+    if (to_write) {
+      fwrite(
+        summarized_dt, here(checkpoints_path, paste0(
+          "checkpoint_1_claims_", year_to_load, suffix,
+          "part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+        )),
+        quote = TRUE
+      )
+    }
+    if (to_group) {
+      export_for_grouper(
+        summarized_dt, year_to_load,
+        here(grouper_output_path, paste0(
+          "DRG_Grouped", "_", year_to_load, suffix, "part_",
+          sprintf("%02d", part), "_of_", split_parts, ".txt"
+        ))
+      )
+    }
 
     ##################################################################################################################################
     ####################################################### END OF PROCESS PART ######################################################

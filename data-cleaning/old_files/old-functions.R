@@ -1709,3 +1709,192 @@
 
 #   return(combined_comparison)
 # }
+# group_data <- function(to_group, part, dt) {
+#   #' @title Group data for batch processing
+#   #'
+#   #' @description This function groups the data for batch processing
+#   #' and exports it for the batch grouper.
+#   #'
+#   #' @param part integer. The part number of the data being processed.
+#   #' @param dt data.table. The data table to be grouped.
+#   #'
+#   #' @return NULL. The function is used for its side effect of
+#   #' grouping and exporting the data.
+
+#   if (to_group) {
+#     output_txt_fpath <- here(grouper_output_path, paste0(
+#       "DRG_Grouped", "_", year_to_load, suffix,
+#       "part_", sprintf("%02d", part), "_of_", split_parts, ".txt"
+#     ))
+#     grouper_output_fpath <- here(grouper_output_path, paste0(
+#       "DRG_Grouped", "_", year_to_load, suffix,
+#       "Res_", sprintf("%02d", part), "_of_", split_parts, ".TXT"
+#     ))
+#     export_for_grouper(dt, year_to_load, output_txt_fpath)
+#     if (to_dec_mem_usage) rm(dt) # debug
+#     if (to_dec_mem_usage) gc() # debug
+#     for_batch_grouping <- fread(output_txt_fpath,
+#       sep = "|", na.strings = "--"
+#     )
+#     if (file.exists(grouper_output_fpath)) {
+#       batch_grouping_result <- fread(grouper_output_fpath,
+#         sep = "|", na.strings = "--"
+#       )
+#     }
+#   }
+# }
+# output_txt_file <- function(part = NULL, fileext = TRUE) {
+#   #' @title Generate the file path for the output text file for DRG grouping
+#   #'
+#   #' @description This function generates the file path for the output text file
+#   #' for DRG grouping, based on the year, suffix, and part.
+#   #'
+#   #' @param part Integer. The part number of the file.
+#   #' Default is NULL.
+#   #' @param fileext Logical. Whether to include the file extension.
+#   #' Default is TRUE.
+#   #'
+#   #' @return Character. The generated file path.
+#   filename <- if (is.null(part)) {
+#     paste0("DRG_Grouped", "_", year_to_load, suffix)
+#   } else {
+#     paste0(
+#       "DRG_Grouped", "_", year_to_load, suffix,
+#       "part_", sprintf("%02d", part), "_of_", split_parts
+#     )
+#   }
+#   if (fileext) {
+#     filename <- paste0(filename, ".txt")
+#   }
+#   return(here(grouper_output_path, filename))
+# }
+
+# grouper_result_file <- function(part = NULL, fileext = TRUE) {
+#   #' @title Generate the file path for the grouper result file
+#   #'
+#   #' @description This function generates the file path for the
+#   #' grouper result file, based on the year, suffix, and part.
+#   #'
+#   #' @param part Integer. The part number of the file.
+#   #' Default is NULL.
+#   #' @param fileext Logical. Whether to include the file extension.
+#   #' Default is TRUE.
+#   #'
+#   #' @return Character. The generated file path.
+#   filename <- if (is.null(part)) {
+#     toupper(paste0(
+#       "DRG_Grouped", "_", year_to_load, suffix,
+#       "Res"
+#     ))
+#   } else {
+#     toupper(paste0(
+#       "DRG_Grouped", "_", year_to_load, suffix,
+#       "Res_", sprintf("%02d", part), "_of_", split_parts
+#     ))
+#   }
+#   if (fileext) {
+#     filename <- paste0(filename, ".TXT")
+#   }
+#   return(here(grouper_output_path, filename))
+# }
+# intermediate_file <- function(part = NULL, fileext = TRUE) {
+#   #' @title Generate the file path for the intermediate claims file
+#   #'
+#   #' @description This function generates the file path for the
+#   #' intermediate claims file, based on the year, suffix, and part.
+#   #'
+#   #' @param part Integer. The part number of the file.
+#   #' Default is NULL.
+#   #' @param fileext Logical. Whether to include the file extension.
+#   #' Default is TRUE.
+#   #'
+#   #' @return Character. The generated file path.
+#   filename <- if (is.null(part)) {
+#     paste0("intermediate_claims_", year_to_load, suffix)
+#   } else {
+#     paste0(
+#       "intermediate_claims_", year_to_load, suffix,
+#       "part_", sprintf("%02d", part), "_of_", split_parts
+#     )
+#   }
+#   if (fileext) {
+#     filename <- paste0(filename, ".csv")
+#   }
+#   return(here(intermediate_path, filename))
+# }
+# sampled_claims_file <- function(part = NULL, fileext = TRUE) {
+#   #' @title Generate the file path for the sampled claims file
+#   #'
+#   #' @description This function generates the file path for the sampled
+#   #' claims file, based on the year, sample size, and part.
+#   #'
+#   #' @param part Integer. The part number of the file.
+#   #' Default is NULL.
+#   #' @param fileext Logical. Whether to include the file extension.
+#   #' Default is TRUE.
+#   #'
+#   #' @return Character. The generated file path.
+#   filename <- if (is.null(part)) {
+#     paste0("sampled_claims_", year_to_load, "_", sample_size)
+#   } else {
+#     paste0(
+#       "sampled_claims_", year_to_load, "_", sample_size,
+#       "_part_", sprintf("%02d", part), "_of_", split_parts
+#     )
+#   }
+#   if (fileext) filename <- paste0(filename, ".csv")
+#   return(here(raw_claims_samples_path, filename))
+# }
+# full_claims_file <- function(part = NULL, fileext = TRUE) {
+#   #' @title Generate the file path for the full claims file
+#   #'
+#   #' @description This function generates the file path for the
+#   #' full claims file, based on the year and part.
+#   #'
+#   #' @param part Integer. The part number of the file.
+#   #' Default is NULL.
+#   #' @param fileext Logical. Whether to include the file extension.
+#   #' Default is TRUE.
+#   #'
+#   #' @return Character. The generated file path.
+#   filename <- if (is.null(part)) {
+#     paste0(full_claims_prefix, year_to_load)
+#   } else {
+#     paste0(
+#       full_claims_prefix, year_to_load,
+#       "_part_", sprintf("%02d", part), "_of_", split_parts
+#     )
+#   }
+#   if (fileext) filename <- paste0(filename, ".csv")
+#   if (is.null(part)) {
+#     return(here(raw_claims_path, filename))
+#   } else {
+#     return(here(raw_claims_parts_path, filename))
+#   }
+# }
+# write_intermediate_file <- function(to_write, part, dt) {
+#   #' @title Write Intermediate File
+#   #' @description This function writes the intermediate data table to a file.
+#   #' @param part integer. The part number of the data being processed.
+#   #' @param dt data.table. The data table to be written.
+#   #' @return NULL. The function is used for its side effect of writing the
+#   #' data table to a file.
+#   if (to_write) {
+#     fwrite(dt, intermediate_file(part, fileext = TRUE), quote = TRUE)
+#   }
+# }
+
+# write_intermediate_file <- function(to_write, part, dt) {
+#   #' @title Write Intermediate File
+#   #' @description This function writes the intermediate data table to a file.
+#   #' @param part integer. The part number of the data being processed.
+#   #' @param dt data.table. The data table to be written.
+#   #' @return NULL. The function is used for its side effect of writing the
+#   #' data table to a file.
+#   if (to_write) {
+#     fwrite(dt, here(intermediate_path, paste0(
+#       "intermediate_claims_", year_to_load, suffix,
+#       "part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+#     )), quote = TRUE)
+#   }
+# }
