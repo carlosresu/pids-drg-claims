@@ -15,9 +15,7 @@ required_packages <- c(
   "parallelly",
   "stringdist",
   "progress",
-  "parallel",
-  "digest",
-  "base64enc"
+  "parallel"
 )
 
 # Function to install and load packages
@@ -115,50 +113,6 @@ new_colnames <- c(
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
 
-# cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
-#   #' @title Generate the file path for the cleaned claims file
-#   #'
-#   #' @description This function generates the file path for the cleaned
-#   #' claims file, based on the year, suffix, and part.
-#   #'
-#   #' @param part Integer. The part number of the file.
-#   #' Default is NULL.
-#   #' @param fileext Logical. Whether to include the file extension.
-#   #' Default is TRUE.
-#   #'
-#   #' @return Character. The generated file path.
-#   filename <- if (is.null(part)) {
-#     paste0("cleaned_claims_", year_to_load, suffix)
-#   } else {
-#     paste0(
-#       "cleaned_claims_", year_to_load, suffix,
-#       "part_", sprintf("%02d", part), "_of_", split_parts
-#     )
-#   }
-#   if (fileext) {
-#     filename <- paste0(filename, ".csv")
-#   }
-#   return(here(cleaned_claims_path, filename))
-# }
-
-create_dirs <- function(paths) {
-  created_dirs <- c()
-
-  for (path in paths) {
-    full_path <- here(path)
-    if (!dir.exists(full_path)) {
-      dir.create(full_path, recursive = TRUE)
-      created_dirs <- c(created_dirs, full_path)
-    }
-  }
-
-  if (length(created_dirs) == 0) {
-    cat("All directories exist.\n")
-  } else {
-    cat("The following directories were created:\n")
-    cat(paste(created_dirs, collapse = ",\n"), "\n")
-  }
-}
 clean_column <- function(column_to_clean, na_like_strings) {
   #' @title Clean a column
   #'
@@ -173,10 +127,6 @@ clean_column <- function(column_to_clean, na_like_strings) {
   column_to_clean <- as.character(column_to_clean)
   cleaned_col <- iconv(column_to_clean, to = "UTF-8", sub = "byte")
   cleaned_col <- toupper(cleaned_col)
-  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[\\s]", "")
-  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[\n]", "")
-  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[\\]", "")
-  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[/]", "")
   cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d]+", "")
   cleaned_col <- stri_trim_both(cleaned_col)
   cleaned_col <- ifelse(cleaned_col %in% na_like_strings,
@@ -305,6 +255,102 @@ split_to_vector <- function(column) {
   return(result)
 }
 
+collapse_and_clean_icd_rvs <- function(dt) {
+  #' @title Collapse and clean ICD and RVS columns
+  #' @description This function collapses and cleans the ICD
+  #' and RVS columns in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+  dt[, clin_icd := collapse_columns(
+    mget(paste0("clin_icd", 1:12)), na_like_strings
+  )]
+  dt[, paste0("clin_icd", 1:12) := NULL]
+  dt[, clin_rvs := collapse_columns(
+    mget(paste0("clin_rvs", 1:20)), na_like_strings
+  )]
+  dt[, paste0("clin_rvs", 1:20) := NULL]
+  dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+  dt[, clin_icd := split_to_vector(clin_icd)]
+  dt[, clin_rvs := split_to_vector(clin_rvs)]
+  return(dt)
+}
+
+clean_clinical_columns <- function(dt) {
+  #' @title Clean clinical columns
+  #' @description This function cleans the clinical columns
+  #' in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+
+  dt <- transfer_icd_codes(dt)
+  dt <- deduplicate_icd_codes(dt)
+
+  clin_c1_rvs_results <- append_and_remove_rvs(
+    dt$clin_rvs, dt$clin_c1, rvs_icd9
+  )
+  dt[, clin_rvs := clin_c1_rvs_results$clin_rvs]
+  dt[, clin_c1 := clin_c1_rvs_results$col]
+  clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
+
+  # cat(clin_c1_discarded_rvs)
+
+  clin_c2_rvs_results <- append_and_remove_rvs(
+    dt$clin_rvs, dt$clin_c2, rvs_icd9
+  )
+  dt[, clin_rvs := clin_c2_rvs_results$clin_rvs]
+  dt[, clin_c2 := clin_c2_rvs_results$col]
+  clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
+
+  # cat(clin_c2_discarded_rvs)
+
+  dt[, clin_rvs := lapply(clin_rvs, unique)]
+
+  return_list <- list(
+    dt = dt,
+    discard_rvs_one = clin_c1_discarded_rvs,
+    discard_rvs_two = clin_c2_discarded_rvs
+  )
+
+  # str(return_list)
+
+  return(return_list)
+}
+
+transfer_icd_codes <- function(dt) {
+  #' @title Transfer ICD codes
+  #' @description This function transfers extra ICD-10 codes
+  #' to clinical ICD in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+  dt[, clin_c1 := split_to_vector(clin_c1)]
+  clin_c1_result <- transfer_extra_icd10s_to_clin_icd(
+    dt$clin_icd, dt$clin_c1
+  )
+  dt[, clin_icd := clin_c1_result$clin_icd]
+  dt[, clin_c1 := clin_c1_result$col_first]
+
+  dt[, clin_c2 := split_to_vector(clin_c2)]
+  clin_c2_result <- transfer_extra_icd10s_to_clin_icd(
+    dt$clin_icd, dt$clin_c2
+  )
+  dt[, clin_icd := clin_c2_result$clin_icd]
+  dt[, clin_c2 := clin_c2_result$col_first]
+
+  return(dt)
+}
+
+deduplicate_icd_codes <- function(dt) {
+  #' @title Deduplicate ICD codes
+  #' @description This function ensures unique ICD codes
+  #' within and across clinical columns in the data.table.
+  #' @param dt data.table. The data table to be processed.
+  #' @return data.table. The processed data table.
+  dedup_result <- ensure_unique_icd_codes(dt$clin_c1, dt$clin_c2, dt$clin_icd)
+  dt[, clin_c1 := dedup_result$clin_c1]
+  dt[, clin_c2 := dedup_result$clin_c2]
+  dt[, clin_icd := dedup_result$clin_icd]
+  return(dt)
+}
 remap_patient_type <- function(pat_type) {
   #' @title Remap patient type
   #'
@@ -527,128 +573,6 @@ remap_disposition <- function(clin_discharge) {
   )
 }
 
-is_partial_file <- function(filename) {
-  #' @title Check if a file is a partial file
-  #'
-  #' @description This function checks if a given filename indicates
-  #' a partial file.
-  #'
-  #' @param filename character. The name of the file.
-  #'
-  #' @return logical. TRUE if the file is a partial file, otherwise FALSE.
-  return(grepl("part", filename, ignore.case = TRUE))
-}
-
-suppress_interim_output <- function(expr) {
-  #' @title Suppress interim output
-  #'
-  #' @description This function suppresses interim messages and warnings
-  #' generated during the evaluation of an expression.
-  #'
-  #' @param expr expression. The expression whose output is to be suppressed.
-  #'
-  #' @return NULL. The function is used for its side effect of
-  #' suppressing output.
-  suppressMessages(suppressWarnings(capture.output(expr, file = NULL)))
-}
-
-collapse_and_clean_icd_rvs <- function(dt) {
-  #' @title Collapse and clean ICD and RVS columns
-  #' @description This function collapses and cleans the ICD
-  #' and RVS columns in the data.table.
-  #' @param dt data.table. The data table to be processed.
-  #' @return data.table. The processed data table.
-  dt[, clin_icd := collapse_columns(
-    mget(paste0("clin_icd", 1:12)), na_like_strings
-  )]
-  dt[, paste0("clin_icd", 1:12) := NULL]
-  dt[, clin_rvs := collapse_columns(
-    mget(paste0("clin_rvs", 1:20)), na_like_strings
-  )]
-  dt[, paste0("clin_rvs", 1:20) := NULL]
-  dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
-  dt[, clin_icd := split_to_vector(clin_icd)]
-  dt[, clin_rvs := split_to_vector(clin_rvs)]
-  return(dt)
-}
-
-clean_clinical_columns <- function(dt) {
-  #' @title Clean clinical columns
-  #' @description This function cleans the clinical columns
-  #' in the data.table.
-  #' @param dt data.table. The data table to be processed.
-  #' @return data.table. The processed data table.
-
-  dt <- transfer_icd_codes(dt)
-  dt <- deduplicate_icd_codes(dt)
-
-  clin_c1_rvs_results <- append_and_remove_rvs(
-    dt$clin_rvs, dt$clin_c1, rvs_icd9
-  )
-  dt[, clin_rvs := clin_c1_rvs_results$clin_rvs]
-  dt[, clin_c1 := clin_c1_rvs_results$col]
-  clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
-
-  # cat(clin_c1_discarded_rvs)
-
-  clin_c2_rvs_results <- append_and_remove_rvs(
-    dt$clin_rvs, dt$clin_c2, rvs_icd9
-  )
-  dt[, clin_rvs := clin_c2_rvs_results$clin_rvs]
-  dt[, clin_c2 := clin_c2_rvs_results$col]
-  clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
-
-  # cat(clin_c2_discarded_rvs)
-
-  dt[, clin_rvs := lapply(clin_rvs, unique)]
-
-  return_list <- list(
-    dt = dt,
-    discard_rvs_one = clin_c1_discarded_rvs,
-    discard_rvs_two = clin_c2_discarded_rvs
-  )
-
-  # str(return_list)
-
-  return(return_list)
-}
-
-transfer_icd_codes <- function(dt) {
-  #' @title Transfer ICD codes
-  #' @description This function transfers extra ICD-10 codes
-  #' to clinical ICD in the data.table.
-  #' @param dt data.table. The data table to be processed.
-  #' @return data.table. The processed data table.
-  dt[, clin_c1 := split_to_vector(clin_c1)]
-  clin_c1_result <- transfer_extra_icd10s_to_clin_icd(
-    dt$clin_icd, dt$clin_c1
-  )
-  dt[, clin_icd := clin_c1_result$clin_icd]
-  dt[, clin_c1 := clin_c1_result$col_first]
-
-  dt[, clin_c2 := split_to_vector(clin_c2)]
-  clin_c2_result <- transfer_extra_icd10s_to_clin_icd(
-    dt$clin_icd, dt$clin_c2
-  )
-  dt[, clin_icd := clin_c2_result$clin_icd]
-  dt[, clin_c2 := clin_c2_result$col_first]
-
-  return(dt)
-}
-
-deduplicate_icd_codes <- function(dt) {
-  #' @title Deduplicate ICD codes
-  #' @description This function ensures unique ICD codes
-  #' within and across clinical columns in the data.table.
-  #' @param dt data.table. The data table to be processed.
-  #' @return data.table. The processed data table.
-  dedup_result <- ensure_unique_icd_codes(dt$clin_c1, dt$clin_c2, dt$clin_icd)
-  dt[, clin_c1 := dedup_result$clin_c1]
-  dt[, clin_c2 := dedup_result$clin_c2]
-  dt[, clin_icd := dedup_result$clin_icd]
-  return(dt)
-}
-
 remap_patient_data <- function(dt, to_view_checks) {
   #' @title Remap patient data
   #'
@@ -773,219 +697,6 @@ remap_patient_data <- function(dt, to_view_checks) {
   ))
 }
 
-ensure_partial_files_exist <- function(part) {
-  #' @title Ensure Partial Files Exist
-  #' @description This function checks if partial files exist for a
-  #' given part and creates them if they don't.
-  #' @param part integer. The part number to process.
-  #' @return NULL. Creates partial files as a side effect if they do not exist.
-  chunk_file <- partial_claims_file
-  if (!file.exists(chunk_file)) {
-    rows_per_part <- ceiling(total_rows / split_parts)
-    start_row <- (part - 1) * rows_per_part + 1
-    end_row <- min(part * rows_per_part, total_rows)
-    dt <- fread(
-      file = full_claims_file,
-      skip = start_row,
-      nrows = end_row - start_row + 1,
-      na.strings = na_values,
-      colClasses = "character",
-      header = FALSE,
-      encoding = encode,
-      sep = sep
-    )
-    setnames(dt, colnames(full_header))
-    fwrite(dt, chunk_file, quote = TRUE)
-  }
-}
-
-ensure_sample_files_exist <- function(part) {
-  #' @title Ensure Sample Files Exist
-  #' @description This function checks if sample files exist for a given part and creates them if they don't.
-  #' @param part integer. The part number to process.
-  #' @return NULL. Creates sample files as a side effect if they do not exist.
-  if (!file.exists(sampled_claims_file)) {
-    dt <- fread(
-      here(raw_claims_parts_path, paste0(
-        full_claims_prefix, year_to_load,
-        "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
-      )),
-      skip = 1, na.strings = na_values,
-      colClasses = "character", header = FALSE, encoding = encode, sep = sep
-    )
-    dt <- dt[sample(.N, min(sample_size, .N))]
-    setnames(dt, colnames(full_header))
-    fwrite(dt, sampled_claims_file, quote = TRUE)
-  }
-}
-
-read_appropriate_file <- function(part, to_sample) {
-  #' @title Read Appropriate File
-  #' @description This function reads the appropriate file (partial or sample)
-  #' for a given part, drops specified columns, and casts column types.
-  #' @param part integer. The part number to process.
-  #' @param to_sample logical. Whether to read the sample file or the
-  #' full partial file.
-  #' @return data.table. The processed data table.
-
-  chunk_file <- if (to_sample) {
-    sampled_claims_file
-  } else {
-    here(raw_claims_parts_path, paste0(
-      full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
-    ))
-  }
-
-  dt <- fread(chunk_file,
-    na.strings = na_values, colClasses = "character",
-    header = TRUE, encoding = encode, sep = sep
-  )
-
-  if (to_debug) print(head(dt), 2) # debug
-
-  # Drop columns
-  if (any(drop_cols %in% colnames(dt))) {
-    dt <- dt[, (drop_cols) := NULL]
-  }
-
-  replace_result <- replace_empty_with_na(dt = dt, to_view_checks)
-  dt <- replace_result$return_data
-  replacement_summary <- replace_result$return_replacement_summary
-
-  if (to_debug) print(head(dt), 2) # debug
-
-  # Cast column types with checks
-  for (col in names(col_classes)) {
-    original_values <- dt[[col]]
-
-    dt[[col]] <- switch(col_classes[[col]],
-      "character" = as.character(dt[[col]]),
-      "factor" = {
-        levels <- unique(dt[[col]])
-        as.factor(dt[[col]])
-      },
-      "integer" = {
-        suppressWarnings(as.integer(dt[[col]]))
-      },
-      "numeric" = {
-        suppressWarnings(as.numeric(dt[[col]]))
-      },
-      dt[[col]]
-    )
-
-    # Check for NA coercion
-    coerced_to_na <- which(is.na(dt[[col]]) & !is.na(original_values))
-    if (length(coerced_to_na) > 0) {
-      cat(sprintf(
-        "Column '%s' coerced %d values to NA. First few original values: %s\n",
-        col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5],
-          collapse = ", "
-        )
-      ))
-    }
-  }
-
-  nrow_start[[part]] <<- nrow(dt)
-
-  return(
-    list(
-      read_result_dt = dt,
-      read_result_replacement_summary = replacement_summary
-    )
-  )
-}
-
-# Function to suppress warnings for integer and numeric conversions
-suppressedWarnings <- function(expr) {
-  suppressWarnings({
-    res <- eval(expr)
-  })
-  return(res)
-}
-
-read_and_save_partial <- function(start_row, end_row, part) {
-  #' @title Read and Save Partial Files
-  #' @description This function reads and saves partial files from the
-  #' full claims file.
-  #' @param start_row integer. The starting row number.
-  #' @param end_row integer. The ending row number.
-  #' @param part integer. The part number of the file.
-  #' @return NULL. The function is used for its side effect of reading and
-  #' saving partial files.
-
-  # cat(paste("Reading header from:", file = full_claims_file()))
-  # cat(paste("Partial file path:", partial_claims_file))
-  # cat(paste("Start row:", start_row, "End row:", end_row))
-
-  dt <- NULL
-  if (!file.exists(partial_claims_file)) {
-    cat("Partial file does not exist. Creating partial file...")
-    dt <- fread(
-      file = full_claims_file,
-      na.strings = na_values,
-      colClasses = "character",
-      nrows = end_row - start_row + 1,
-      skip = start_row,
-      header = FALSE,
-      encoding = encode,
-      sep = sep
-    )
-    setnames(dt, colnames(full_header))
-    cat(paste("Number of rows read:", nrow(dt)))
-    if (nrow(dt) > 0) {
-      cat(paste("Writing partial file to:", partial_claims_file))
-      fwrite(dt, partial_claims_file, quote = TRUE)
-    } else {
-      cat("No rows to save")
-    }
-  } else {
-    cat(paste(
-      "Partial file already exists. Skipping creation:",
-      partial_claims_file
-    ))
-    dt <- fread(partial_claims_file,
-      na.strings = na_values, colClasses = "character",
-      encoding = encode, sep = sep
-    )
-  }
-
-  if (to_sample) {
-    sampled_claims_file_path <- sampled_claims_file
-    cat(paste("Sampled file path:", sampled_file_path))
-    if (!file.exists(sampled_file_path)) {
-      cat("Sampled file does not exist. Creating new sample...")
-      if (!is.null(dt) && nrow(dt) > 0) {
-        sampled_dt <- sample_data(dt)
-        setnames(sampled_dt, colnames(full_header))
-        cat(paste("Writing sampled file to:", sampled_file_path))
-        fwrite(sampled_dt, sampled_file_path, quote = TRUE)
-      } else {
-        stop("Failed to read partial file or no rows available for sampling")
-      }
-    } else {
-      cat(paste(
-        "Sampled file already exists. Skipping creation:",
-        sampled_file_path
-      ))
-    }
-  }
-}
-
-# Function to calculate MD5 for local file
-calculate_md5 <- function(file_path) {
-  md5_hash <- digest(file = file_path, algo = "md5", serialize = FALSE)
-  return(md5_hash)
-}
-
-# Function to verify MD5 hashes
-verify_md5 <- function(gcs_md5, local_md5) {
-  if (gcs_md5 == local_md5) {
-    cat("MD5 checksum matches.\n")
-  } else {
-    cat("MD5 checksum does not match!\n")
-  }
-}
 # Function to remove lumped ICD codes
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
@@ -1525,81 +1236,6 @@ generate_dob <- function(bdays, ages, date_adms) {
 
   return(dob)
 }
-
-# Function to prepare and write output
-prepare_and_write_output <- function(output_dt, output_txt_file) {
-  #' @title Prepare and Write Output
-  #'
-  #' @description This function prepares and writes a data table to a file,
-  #' converting list columns to comma-separated strings.
-  #'
-  #' @param output_dt data.table. The output data table.
-  #' @param output_txt_file character. The path to the output text file.
-  #'
-  #' @return NULL.
-
-  # Replace NA values with '--'
-  output_dt[is.na(output_dt)] <- "--"
-  # Convert list columns to comma-separated strings
-  for (col in names(output_dt)) {
-    if (is.list(output_dt[[col]])) {
-      output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
-    }
-  }
-  # Write the data.table to a file
-  fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
-}
-
-# Function to export data for batch grouper
-export_for_grouper <- function(dt, year_to_load, output_txt_file) {
-  #' @title Export Data for Batch Grouper
-  #'
-  #' @description This function exports data for batch grouper,
-  #' generating necessary columns and formatting them accordingly.
-  #'
-  #' @param dt data.table. The input data table.
-  #' @param year_to_load integer. The year to load.
-  #' @param output_txt_file character. The path to the output text file.
-  #'
-  #' @return NULL.
-
-  output_dt <- data.table(CASEID = 1:nrow(dt))
-  output_dt[, DOB := generate_dob(dt$pat_bdate, dt$pat_age, dt$date_adm)]
-  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
-  output_dt[, DateAdm := format(mdy(dt$date_adm), "%d/%m/%Y")]
-  output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]
-  output_dt[, DateDsc := format(mdy(dt$date_dis), "%d/%m/%Y")]
-  output_dt[, TimeDsc := gsub(":", "", dt$time_dis)]
-  output_dt[, DischT := dt$clin_discharge]
-  output_dt[, AdmWt := dt$pat_bwt]
-  output_dt[, PDx := dt$pdx]
-
-  icd_codes_list <- lapply(dt$clin_icd, function(icd_str) {
-    codes <- unlist(icd_str)
-    length(codes) <- 12
-    codes
-  })
-  icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
-  icd_cols <- paste0("SDx", 1:12)
-  output_dt[, (icd_cols) := icd_codes]
-
-  rvs_codes_list <- lapply(dt$icd9_list, function(rvs_str) {
-    codes <- unlist(rvs_str)
-    length(codes) <- 20
-    codes
-  })
-  rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
-  proc_cols <- paste0("Proc", 1:20)
-  output_dt[, (proc_cols) := rvs_codes]
-
-  prepare_and_write_output(output_dt, output_txt_file)
-
-  if (to_dec_mem_usage) rm(output_dt) # debug
-  if (to_dec_mem_usage) gc() # debug
-  if (to_debug) {
-    return(NULL)
-  } # debug
-}
 format_large_numbers <- function(x) {
   #' @title Format Large Numbers
   #'
@@ -2004,9 +1640,12 @@ combine_comparison_tables <- function(
   #'
   #' @return data.table. The combined comparison table.
 
+  # Precompile regex for cleaning strings for better performance
+  clean_string_pattern <- "[+*,.\\s]"
+
   # Helper function to clean strings by removing specified characters
   clean_string <- function(str) {
-    gsub("[+*,.\\s]", "", str) # Remove '+', '*', ',', '.', and spaces
+    gsub(clean_string_pattern, "", str) # Remove '+', '*', ',', '.', and spaces
   }
 
   # Process each summary to extract comparison data
@@ -2030,19 +1669,23 @@ combine_comparison_tables <- function(
     ))
   }
 
+  # Vectorize the cleaning process for all codes
+  combined_comparison[, `:=`(
+    clean_old = vapply(old_code, clean_string, FUN.VALUE = character(1), USE.NAMES = FALSE),
+    clean_new = vapply(new_code, clean_string, FUN.VALUE = character(1), USE.NAMES = FALSE)
+  )]
+
   # Calculate Levenshtein distance (exact character differences)
   # and add differing_chars column
   combined_comparison[, differing_chars := mapply(
-    function(old, new) {
-      clean_old <- clean_string(old)
-      clean_new <- clean_string(new)
+    function(clean_old, clean_new) {
       # Calculate distance only if both cleaned strings are not empty
       if (nchar(clean_old) > 0 && nchar(clean_new) > 0) {
         stringdist(clean_old, clean_new, method = "lv") / max(nchar(clean_old), nchar(clean_new))
       } else {
         0 # Return 0 if either string is empty, meaning no difference
       }
-    }, old_code, new_code
+    }, clean_old, clean_new
   )]
 
   # Filter rows based on diff_chars
@@ -2473,4 +2116,255 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
   )
 
   return(final_combined_summaries)
+}
+ensure_partial_files_exist <- function(part) {
+  #' @title Ensure Partial Files Exist
+  #' @description This function checks if partial files exist for a
+  #' given part and creates them if they don't.
+  #' @param part integer. The part number to process.
+  #' @return NULL. Creates partial files as a side effect if they do not exist.
+  chunk_file <- partial_claims_file
+  if (!file.exists(chunk_file)) {
+    rows_per_part <- ceiling(total_rows / split_parts)
+    start_row <- (part - 1) * rows_per_part + 1
+    end_row <- min(part * rows_per_part, total_rows)
+    dt <- fread(
+      file = full_claims_file,
+      skip = start_row,
+      nrows = end_row - start_row + 1,
+      na.strings = na_values,
+      colClasses = "character",
+      header = FALSE,
+      encoding = encode,
+      sep = sep
+    )
+    setnames(dt, colnames(full_header))
+    fwrite(dt, chunk_file, quote = TRUE)
+  }
+}
+
+ensure_sample_files_exist <- function(part) {
+  #' @title Ensure Sample Files Exist
+  #' @description This function checks if sample files exist for a given part and creates them if they don't.
+  #' @param part integer. The part number to process.
+  #' @return NULL. Creates sample files as a side effect if they do not exist.
+  if (!file.exists(sampled_claims_file)) {
+    dt <- fread(
+      here(raw_claims_parts_path, paste0(
+        full_claims_prefix, year_to_load,
+        "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+      )),
+      skip = 1, na.strings = na_values,
+      colClasses = "character", header = FALSE, encoding = encode, sep = sep
+    )
+    dt <- dt[sample(.N, min(sample_size, .N))]
+    setnames(dt, colnames(full_header))
+    fwrite(dt, sampled_claims_file, quote = TRUE)
+  }
+}
+
+read_appropriate_file <- function(part, to_sample) {
+  #' @title Read Appropriate File
+  #' @description This function reads the appropriate file (partial or sample)
+  #' for a given part, drops specified columns, and casts column types.
+  #' @param part integer. The part number to process.
+  #' @param to_sample logical. Whether to read the sample file or the
+  #' full partial file.
+  #' @return data.table. The processed data table.
+
+  chunk_file <- if (to_sample) {
+    sampled_claims_file
+  } else {
+    here(raw_claims_parts_path, paste0(
+      full_claims_prefix, year_to_load,
+      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+    ))
+  }
+
+  dt <- fread(chunk_file,
+    na.strings = na_values, colClasses = "character",
+    header = TRUE, encoding = encode, sep = sep
+  )
+
+  if (to_debug) print(head(dt), 2) # debug
+
+  # Drop columns
+  if (any(drop_cols %in% colnames(dt))) {
+    dt <- dt[, (drop_cols) := NULL]
+  }
+
+  replace_result <- replace_empty_with_na(dt = dt, to_view_checks)
+  dt <- replace_result$return_data
+  replacement_summary <- replace_result$return_replacement_summary
+
+  if (to_debug) print(head(dt), 2) # debug
+
+  # Cast column types with checks
+  for (col in names(col_classes)) {
+    original_values <- dt[[col]]
+
+    dt[[col]] <- switch(col_classes[[col]],
+      "character" = as.character(dt[[col]]),
+      "factor" = {
+        levels <- unique(dt[[col]])
+        as.factor(dt[[col]])
+      },
+      "integer" = {
+        suppressWarnings(as.integer(dt[[col]]))
+      },
+      "numeric" = {
+        suppressWarnings(as.numeric(dt[[col]]))
+      },
+      dt[[col]]
+    )
+
+    # Check for NA coercion
+    coerced_to_na <- which(is.na(dt[[col]]) & !is.na(original_values))
+    if (length(coerced_to_na) > 0) {
+      cat(sprintf(
+        "Column '%s' coerced %d values to NA. First few original values: %s\n",
+        col, length(coerced_to_na), paste(original_values[coerced_to_na][1:5],
+          collapse = ", "
+        )
+      ))
+    }
+  }
+
+  nrow_start[[part]] <<- nrow(dt)
+
+  return(
+    list(
+      read_result_dt = dt,
+      read_result_replacement_summary = replacement_summary
+    )
+  )
+}
+
+read_and_save_partial <- function(start_row, end_row, part) {
+  #' @title Read and Save Partial Files
+  #' @description This function reads and saves partial files from the
+  #' full claims file.
+  #' @param start_row integer. The starting row number.
+  #' @param end_row integer. The ending row number.
+  #' @param part integer. The part number of the file.
+  #' @return NULL. The function is used for its side effect of reading and
+  #' saving partial files.
+
+  # cat(paste("Reading header from:", file = full_claims_file()))
+  # cat(paste("Partial file path:", partial_claims_file))
+  # cat(paste("Start row:", start_row, "End row:", end_row))
+
+  dt <- NULL
+  if (!file.exists(partial_claims_file)) {
+    cat("Partial file does not exist. Creating partial file...")
+    dt <- fread(
+      file = full_claims_file,
+      na.strings = na_values,
+      colClasses = "character",
+      nrows = end_row - start_row + 1,
+      skip = start_row,
+      header = FALSE,
+      encoding = encode,
+      sep = sep
+    )
+    setnames(dt, colnames(full_header))
+    cat(paste("Number of rows read:", nrow(dt)))
+    if (nrow(dt) > 0) {
+      cat(paste("Writing partial file to:", partial_claims_file))
+      fwrite(dt, partial_claims_file, quote = TRUE)
+    } else {
+      cat("No rows to save")
+    }
+  } else {
+    cat(paste(
+      "Partial file already exists. Skipping creation:",
+      partial_claims_file
+    ))
+    dt <- fread(partial_claims_file,
+      na.strings = na_values, colClasses = "character",
+      encoding = encode, sep = sep
+    )
+  }
+
+  if (to_sample) {
+    sampled_claims_file_path <- sampled_claims_file
+    cat(paste("Sampled file path:", sampled_file_path))
+    if (!file.exists(sampled_file_path)) {
+      cat("Sampled file does not exist. Creating new sample...")
+      if (!is.null(dt) && nrow(dt) > 0) {
+        sampled_dt <- sample_data(dt)
+        setnames(sampled_dt, colnames(full_header))
+        cat(paste("Writing sampled file to:", sampled_file_path))
+        fwrite(sampled_dt, sampled_file_path, quote = TRUE)
+      } else {
+        stop("Failed to read partial file or no rows available for sampling")
+      }
+    } else {
+      cat(paste(
+        "Sampled file already exists. Skipping creation:",
+        sampled_file_path
+      ))
+    }
+  }
+}
+
+# Function to export data for batch grouper
+export_for_grouper <- function(dt, year_to_load, output_txt_file) {
+  #' @title Export Data for Batch Grouper
+  #'
+  #' @description This function exports data for batch grouper,
+  #' generating necessary columns and formatting them accordingly.
+  #'
+  #' @param dt data.table. The input data table.
+  #' @param year_to_load integer. The year to load.
+  #' @param output_txt_file character. The path to the output text file.
+  #'
+  #' @return NULL.
+
+  output_dt <- data.table(CASEID = 1:nrow(dt))
+  output_dt[, DOB := generate_dob(dt$pat_bdate, dt$pat_age, dt$date_adm)]
+  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
+  output_dt[, DateAdm := format(mdy(dt$date_adm), "%d/%m/%Y")]
+  output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]
+  output_dt[, DateDsc := format(mdy(dt$date_dis), "%d/%m/%Y")]
+  output_dt[, TimeDsc := gsub(":", "", dt$time_dis)]
+  output_dt[, DischT := dt$clin_discharge]
+  output_dt[, AdmWt := dt$pat_bwt]
+  output_dt[, PDx := dt$pdx]
+
+  icd_codes_list <- lapply(dt$clin_icd, function(icd_str) {
+    codes <- unlist(icd_str)
+    length(codes) <- 12
+    codes
+  })
+  icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
+  icd_cols <- paste0("SDx", 1:12)
+  output_dt[, (icd_cols) := icd_codes]
+
+  rvs_codes_list <- lapply(dt$icd9_list, function(rvs_str) {
+    codes <- unlist(rvs_str)
+    length(codes) <- 20
+    codes
+  })
+  rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
+  proc_cols <- paste0("Proc", 1:20)
+  output_dt[, (proc_cols) := rvs_codes]
+
+  # Replace NA values with '--'
+  output_dt[is.na(output_dt)] <- "--"
+  # Convert list columns to comma-separated strings
+  for (col in names(output_dt)) {
+    if (is.list(output_dt[[col]])) {
+      output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
+    }
+  }
+
+  # Write the data.table to a file
+  fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
+
+  if (to_dec_mem_usage) rm(output_dt) # debug
+  if (to_dec_mem_usage) gc() # debug
+  if (to_debug) {
+    return(NULL)
+  } # debug
 }

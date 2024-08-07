@@ -245,9 +245,12 @@ combine_comparison_tables <- function(
   #'
   #' @return data.table. The combined comparison table.
 
+  # Precompile regex for cleaning strings for better performance
+  clean_string_pattern <- "[+*,.\\s]"
+
   # Helper function to clean strings by removing specified characters
   clean_string <- function(str) {
-    gsub("[+*,.\\s]", "", str) # Remove '+', '*', ',', '.', and spaces
+    gsub(clean_string_pattern, "", str) # Remove '+', '*', ',', '.', and spaces
   }
 
   # Process each summary to extract comparison data
@@ -271,19 +274,23 @@ combine_comparison_tables <- function(
     ))
   }
 
+  # Vectorize the cleaning process for all codes
+  combined_comparison[, `:=`(
+    clean_old = vapply(old_code, clean_string, FUN.VALUE = character(1), USE.NAMES = FALSE),
+    clean_new = vapply(new_code, clean_string, FUN.VALUE = character(1), USE.NAMES = FALSE)
+  )]
+
   # Calculate Levenshtein distance (exact character differences)
   # and add differing_chars column
   combined_comparison[, differing_chars := mapply(
-    function(old, new) {
-      clean_old <- clean_string(old)
-      clean_new <- clean_string(new)
+    function(clean_old, clean_new) {
       # Calculate distance only if both cleaned strings are not empty
       if (nchar(clean_old) > 0 && nchar(clean_new) > 0) {
         stringdist(clean_old, clean_new, method = "lv") / max(nchar(clean_old), nchar(clean_new))
       } else {
         0 # Return 0 if either string is empty, meaning no difference
       }
-    }, old_code, new_code
+    }, clean_old, clean_new
   )]
 
   # Filter rows based on diff_chars

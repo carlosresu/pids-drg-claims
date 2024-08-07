@@ -1898,3 +1898,28 @@
 #     )), quote = TRUE)
 #   }
 # }
+# cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
+#   #' @title Generate the file path for the cleaned claims file
+#   #'
+#   #' @description This function generates the file path for the cleaned
+#   #' claims file, based on the year, suffix, and part.
+#   #'
+#   #' @param part Integer. The part number of the file.
+#   #' Default is NULL.
+#   #' @param fileext Logical. Whether to include the file extension.
+#   #' Default is TRUE.
+#   #'
+#   #' @return Character. The generated file path.
+#   filename <- if (is.null(part)) {
+#     paste0("cleaned_claims_", year_to_load, suffix)
+#   } else {
+#     paste0(
+#       "cleaned_claims_", year_to_load, suffix,
+#       "part_", sprintf("%02d", part), "_of_", split_parts
+#     )
+#   }
+#   if (fileext) {
+#     filename <- paste0(filename, ".csv")
+#   }
+#   return(here(cleaned_claims_path, filename))
+# }

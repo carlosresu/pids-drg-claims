@@ -1,4 +1,23 @@
-source(here::here("data-cleaning", "r_scripts", "00_libraries-params.R"))
+create_dirs <- function(paths) {
+  created_dirs <- c()
+
+  for (path in paths) {
+    full_path <- here(path)
+    if (!dir.exists(full_path)) {
+      dir.create(full_path, recursive = TRUE)
+      created_dirs <- c(created_dirs, full_path)
+    }
+  }
+
+  if (length(created_dirs) == 0) {
+    cat("All directories exist.\n")
+  } else {
+    cat("The following directories were created:\n")
+    cat(paste(created_dirs, collapse = ",\n"), "\n")
+  }
+}
+
+source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
 
 
 # IMPORTANT PARAMETERS:
@@ -29,16 +48,16 @@ checkpoints_path <- file.path(data_prefix, "data-checkpoints")
 checkpoint_1_path <- file.path(checkpoints_path, "checkpoint_1_cleaned_partial_claims")
 checkpoint_2_path <- file.path(checkpoints_path, "checkpoint_2_thai_grouper_input")
 checkpoint_3_path <- file.path(checkpoints_path, "checkpoint_3_thai_grouper_output")
+checkpoint_4_path <- file.path(checkpoints_path, "checkpoint_4_py_grouper_input")
+checkpoint_5_path <- file.path(checkpoints_path, "checkpoint_5_py_grouper_output")
 cache_path <- file.path(clean_prefix, "cache")
 aux_path <- file.path(data_prefix, "data-aux-files")
-excel_path <- file.path(data_prefix, "data-excel")
 cleaned_claims_path <- file.path(claims_prefix, "cleaned")
-grouper_output_path <- file.path(data_prefix, "data-grouper-output")
-chunks_path <- file.path(claims_prefix, "chunked")
 raw_claims_path <- file.path(claims_prefix, "raw")
 raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
 raw_claims_samples_path <- file.path(claims_prefix, "raw", "samples")
-profvis_path <- file.path(data_prefix, "profvis", "profvis.html")
+profvis_path <- file.path(data_prefix, "profvis")
+profvis_fpath <- here("data-cleaning", "data", "profvis", "profvis.html")
 
 # Create directories:
 create_dirs(mget(ls(pattern = "_path$"), envir = .GlobalEnv))
@@ -68,7 +87,7 @@ to_group <- TRUE # Whether to export for the batch grouper or not
 
 # Debug:
 to_debug <- FALSE # whether to print debug statements
-to_profvis <- FALSE # Conduct runtime duration analysis via profvis or not
+to_profvis <- TRUE # Conduct runtime duration analysis via profvis or not
 to_view_checks <- TRUE # Whether to view checks and print statements
 to_view_checks_parallel <- FALSE # Whether to view intermediate per part/chunk checks and print statements (not consolidated) when parallelized
 to_parallel <- TRUE # Whether to parallelize each split_parts part into availableCores() chunks. Cuts down processing time from 120min to 15min.
@@ -77,7 +96,7 @@ to_dec_mem_usage <- FALSE # Whether to run rm() and gc() at every possible step
 tmp_nrow <- Inf # Per part/chunk end_nrow (leave at Inf)
 diff_chars <- 0
 
-seed <- 123 # Seed for reproducibility (Important for stuff like randomly choosing a pdx among multiple possible options)
+global_seed <- seed <- 123 # Seed for reproducibility (Important for stuff like randomly choosing a pdx among multiple possible options)
 set.seed(seed) # Setting the seed
 global_seed <- seed # global_seed for future_lapply parts for parallelized operations
 
@@ -108,10 +127,11 @@ options(warn = -1) # Hide warnings for script sourcing and library loading
 
 scripts <- list( # List of scripts to source
   lib_params = "00_libraries-params.R",
-  general = "01_general-functions.R",
+  cleaning = "01_cleaning-functions.R",
   clinical = "02_clinical-functions.R",
   timing_debug = "03_timing-debug-functions.R",
-  summary = "04_summary-functions.R"
+  summary = "04_summary-functions.R",
+  io = "05_io-functions.R"
 )
 
 # Loop to source above scripts
@@ -157,7 +177,7 @@ if (!file.exists(here(aux_path, "proc.csv"))) {
     intern = FALSE, ignore.stderr = FALSE
   )
 } else {
-  warning("proc.csv already exists, skipping bq query")
+  message("proc.csv already exists, skipping bq query")
 }
 
 # Read the CSV file into an R data frame
@@ -174,7 +194,7 @@ if (!file.exists(here(aux_path, "rvs_icd9cm.csv"))) {
     intern = FALSE, ignore.stderr = FALSE
   )
 } else {
-  warning("rvs_icd9cm.csv already exists, skipping bq query")
+  message("rvs_icd9cm.csv already exists, skipping bq query")
 }
 
 rvs_icd9 <- fread(here(aux_path, "rvs_icd9cm.csv"), select = c("rvs", "icd9cm"))[, rvs := as.character(rvs)][, icd9cm := as.character(icd9cm * 100)]
@@ -194,7 +214,7 @@ if (!file.exists(here(aux_path, "acr_rvs.csv"))) {
     intern = FALSE, ignore.stderr = FALSE
   )
 } else {
-  warning("acr_rvs.csv already exists, skipping bq query")
+  message("acr_rvs.csv already exists, skipping bq query")
 }
 
 # Read in PHIC all case rates
@@ -209,7 +229,7 @@ if (!file.exists(here(aux_path, "i10.csv"))) {
     intern = FALSE, ignore.stderr = FALSE
   )
 } else {
-  warning("i10.csv already exists, skipping bq query")
+  message("i10.csv already exists, skipping bq query")
 }
 
 # Read in the thai icd10 library
@@ -645,7 +665,7 @@ unified_block <- function() {
 
     if (to_write) {
       fwrite(
-        summarized_dt, here(checkpoints_path, paste0(
+        summarized_dt, here(checkpoint_1_path, paste0(
           "checkpoint_1_claims_", year_to_load, suffix,
           "part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
         )),
@@ -655,7 +675,7 @@ unified_block <- function() {
     if (to_group) {
       export_for_grouper(
         summarized_dt, year_to_load,
-        here(grouper_output_path, paste0(
+        here(checkpoint_2_path, paste0(
           "DRG_Grouped", "_", year_to_load, suffix, "part_",
           sprintf("%02d", part), "_of_", split_parts, ".txt"
         ))
@@ -716,7 +736,7 @@ cat(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
 if (to_profvis) {
   saveWidget(profvis({
     unified_block()
-  }), here(profvis_path))
+  }), profvis_fpath)
 } else {
   unified_block()
 }
