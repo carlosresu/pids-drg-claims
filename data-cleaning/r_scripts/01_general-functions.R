@@ -624,7 +624,7 @@ ensure_partial_files_exist <- function(part) {
     start_row <- (part - 1) * rows_per_part + 1
     end_row <- min(part * rows_per_part, total_rows)
     dt <- fread(
-      full_claims_file,
+      file = full_claims_file,
       skip = start_row,
       nrows = end_row - start_row + 1,
       na.strings = na_values,
@@ -753,14 +753,15 @@ read_and_save_partial <- function(start_row, end_row, part) {
   #' @return NULL. The function is used for its side effect of reading and
   #' saving partial files.
 
-  # cat(paste("Reading header from:", full_claims_file()))
+  # cat(paste("Reading header from:", file = full_claims_file()))
   # cat(paste("Partial file path:", partial_claims_file))
   # cat(paste("Start row:", start_row, "End row:", end_row))
 
   dt <- NULL
   if (!file.exists(partial_claims_file)) {
     cat("Partial file does not exist. Creating partial file...")
-    dt <- fread(full_claims_file,
+    dt <- fread(
+      file = full_claims_file,
       na.strings = na_values,
       colClasses = "character",
       nrows = end_row - start_row + 1,
@@ -810,3 +811,17 @@ read_and_save_partial <- function(start_row, end_row, part) {
   }
 }
 
+# Function to calculate MD5 for local file
+calculate_md5 <- function(file_path) {
+  md5_hash <- digest(file = file_path, algo = "md5", serialize = FALSE)
+  return(md5_hash)
+}
+
+# Function to verify MD5 hashes
+verify_md5 <- function(gcs_md5, local_md5) {
+  if (gcs_md5 == local_md5) {
+    cat("MD5 checksum matches.\n")
+  } else {
+    cat("MD5 checksum does not match!\n")
+  }
+}
