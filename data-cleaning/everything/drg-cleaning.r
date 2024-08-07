@@ -84,7 +84,7 @@ to_group <- TRUE # Whether to export for the batch grouper or not
 
 # Debug:
 to_debug <- FALSE # whether to print debug statements
-to_profvis <- TRUE # Conduct runtime duration analysis via profvis or not
+to_profvis <- FALSE # Conduct runtime duration analysis via profvis or not
 to_view_checks <- TRUE # Whether to view checks and print statements
 to_view_checks_parallel <- FALSE # Whether to view intermediate per part/chunk checks and print statements (not consolidated) when parallelized
 to_parallel <- TRUE # Whether to parallelize each split_parts part into availableCores() chunks. Cuts down processing time from 120min to 15min.
@@ -229,7 +229,7 @@ if (!file.exists(here(aux_path, "i10.csv"))) {
   message("i10.csv already exists, skipping bq query")
 }
 
-# Read in the thai icd10 library
+# Read in the Thai ICD-10 library
 tdrg_icd10 <- fread(here(aux_path, "i10.csv"))
 
 # Set the key if not already set
@@ -237,6 +237,23 @@ setkey(tdrg_icd10, "CODE")
 
 # Subset and assign the result to acc_pdx
 acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
+
+if (!file.exists(here(aux_path, "phl_icd10.csv"))) {
+  system(
+    paste0(
+      "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
+      " 'SELECT * FROM `", gcp_proj, ".icd.phl_icd10`' > ", here(aux_path, "phl_icd10.csv")
+    ),
+    intern = FALSE, ignore.stderr = FALSE
+  )
+} else {
+  message("i10.csv already exists, skipping bq query")
+}
+
+phl_icd10 <- fread(here(aux_path, "phl_icd10.csv"))
+
+# Filter and print rows where CODE contains a slash
+neoplasms_dt <- as.data.table(phl_icd10[grepl("/", icd10), .(icd10)][, icd10 := sapply(strsplit(icd10, ","), function(x) trimws(x[2]))])
 
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
@@ -277,7 +294,7 @@ clean_data <- function(dt) {
   # Helper function to clean and compare clinical columns
   clean_clinical_column <- function(col_name) {
     dt[, (paste0(col_name, "_orig")) := dt[[col_name]]]
-    dt[, (col_name) := clean_column(dt[[col_name]], na_like_strings)]
+    dt[, (col_name) := clean_column(dt[[col_name]], na_like_strings, neoplasms_dt)]
     dt[, (paste0(col_name, "_orig")) := sapply(get(paste0(col_name, "_orig")), toString)]
     dt[, (col_name) := sapply(get(col_name), toString)]
 
@@ -292,15 +309,6 @@ clean_data <- function(dt) {
   # Clean and compare clin_c1 and clin_c2 columns
   clin_c1_cleaning_comparison <- clean_clinical_column("clin_c1")
   clin_c2_cleaning_comparison <- clean_clinical_column("clin_c2")
-
-  # Function for manual multi-replacement
-  # manual_multi_replace <- function(code, replacements) {
-  #   for (pattern in names(replacements)) {
-  #     replacement <- replacements[[pattern]]
-  #     code <- gsub(paste0("\\b", pattern, "\\b"), replacement, code)
-  #   }
-  #   return(code)
-  # }
 
   # Function to replace multiple patterns with corresponding replacements
   replace_multiple_patterns <- function(text, patterns, replacements) {

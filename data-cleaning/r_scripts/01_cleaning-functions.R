@@ -1,22 +1,37 @@
-clean_column <- function(column_to_clean, na_like_strings) {
+clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
   #' @title Clean a column
   #'
   #' @description This function cleans a column by converting it to UTF-8,
   #' making it uppercase, removing specific characters, and replacing
-  #' NA-like strings with NA.
+  #' NA-like strings with NA. It also restores slashes for codes
+  #' matching patterns in a reference data table.
   #'
   #' @param column_to_clean character. The column to be cleaned.
   #' @param na_like_strings character. A vector of strings considered as NA.
+  #' @param neoplasms_dt data.table. A table containing substrings where slashes should be preserved.
   #'
-  #' @return character. The cleaned column.
+  #' @return character. The cleaned column with slashes restored as needed.
+
+  # Step 1: Clean the column
   column_to_clean <- as.character(column_to_clean)
-  cleaned_col <- iconv(column_to_clean, to = "UTF-8", sub = "byte")
+
+  # Use `stri_trans_general` for faster UTF-8 conversion
+  cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
   cleaned_col <- toupper(cleaned_col)
+
+  # Combine regex operations for efficiency
   cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d]+", "")
-  cleaned_col <- stri_trim_both(cleaned_col)
-  cleaned_col <- ifelse(cleaned_col %in% na_like_strings,
-    NA_character_, cleaned_col
-  )
+
+  # Use fast vectorized NA replacement
+  cleaned_col[cleaned_col %in% na_like_strings] <- NA_character_
+
+  # Step 2: Prepare the neoplasms_dt lookup table
+  # Create a named vector directly for lookup
+  lookup <- setNames(neoplasms_dt$icd10, gsub("/", "", neoplasms_dt$icd10))
+
+  # Step 3: Restore slashes in the cleaned column using vectorization
+  matched_indices <- match(cleaned_col, names(lookup))
+  cleaned_col[!is.na(matched_indices)] <- lookup[matched_indices[!is.na(matched_indices)]]
 
   return(cleaned_col)
 }
@@ -33,7 +48,7 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   #'
   #' @return character. The collapsed and cleaned column.
   cleaned_columns <- lapply(cols_to_process, function(col) {
-    clean_column(col, na_like_strings)
+    clean_column(col, na_like_strings, neoplasms_dt)
   })
   collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
