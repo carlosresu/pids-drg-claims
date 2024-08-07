@@ -112,7 +112,6 @@ new_colnames <- c(
   "clin_discharge", "clin_c1", "clin_c2", paste0("clin_icd", 1:12),
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
-
 clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
   #' @title Clean a column
   #'

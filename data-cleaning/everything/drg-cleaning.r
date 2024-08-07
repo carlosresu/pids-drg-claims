@@ -57,6 +57,7 @@ raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
 raw_claims_samples_path <- file.path(claims_prefix, "raw", "samples")
 profvis_path <- file.path(data_prefix, "profvis")
 profvis_fpath <- here("data-cleaning", "data", "profvis", "profvis.html")
+everything_path <- file.path("data-cleaning", "everything")
 
 # Create directories:
 create_dirs(mget(ls(pattern = "_path$"), envir = .GlobalEnv))
@@ -93,7 +94,19 @@ to_dec_mem_usage <- FALSE # Whether to run rm() and gc() at every possible step
 tmp_nrow <- Inf # Per part/chunk end_nrow (leave at Inf)
 diff_chars <- 0
 
-global_seed <- seed <- 123 # Seed for reproducibility (Important for stuff like randomly choosing a pdx among multiple possible options)
+# Flush files
+master_flush_all <- FALSE # Whether to flush all files
+
+to_flush_cache_and_profvis <- FALSE # Whether to cache
+to_flush_aux_files <- FALSE # Whether to delete aux files to pull from BQ again
+to_flush_checkpoints <- FALSE # Whether to delete checkpoints to free up space
+to_flush_cleaned_parts_and_samples <- FALSE # Whether to delete parts and samples to free up space (WARNING: TAKES A WHILE TO REGENERATE)
+to_flush_raw <- FALSE # Whether to delete raw claims files (WARNING: PULLING FROM GCS TAKES A WHILE AND COSTS MONEY)
+to_flush_debug <- FALSE # Whether to delete everything folder (debug)
+
+
+global_seed <- seed <- 123
+# Seed for reproducibility (Important for stuff like randomly choosing a pdx among multiple possible options)
 set.seed(seed) # Setting the seed
 global_seed <- seed # global_seed for future_lapply parts for parallelized operations
 
@@ -112,6 +125,12 @@ ram_limit_gb <- round((1 - ram_buffer) * ram_size, 0)
 # cat("Setting R_FUTURE_MAX_RAM to:", ram_limit_gb, "GB\n")
 cat(sprintf("Setting future.globals.maxSize to: %.1f GB", ram_limit / (1024^3)))
 
+
+# Automatically set all "to_flush" variables to FALSE if to_flush_all is FALSE
+if (!is.null(master_flush_all) && master_flush_all) for (var in ls(pattern = "^to_flush")) assign(var, TRUE)
+if (!is.null(master_flush_all) && !master_flush_all) for (var in ls(pattern = "^to_flush")) assign(var, FALSE)
+
+# Stop if forecasted memory usage is expected to crash the system
 if (!split_parts == as.integer(split_parts) || split_parts <= 1) stop("ERROR: split_parts must be an integer greater than or equal to 2!")
 if (ram_size <= 64 && split_parts <= 2) stop("Please set split_parts to at least 3 for 64 GB machines or it will likely crash")
 if (ram_size <= 32 && split_parts <= 4) stop("Please set split_parts to at least 5 for 32 GB machines or it will likely crash")
@@ -779,6 +798,51 @@ concatenate_r_files(
 
 if (.Platform$OS.type == "unix") system("cd ~/drg-pipeline && jupyter nbconvert --no-prompt --to script data-cleaning/drg-cleaning.ipynb --output everything/drg-cleaning")
 
+
+if (to_flush_cleaned_parts_and_samples) {
+  system(paste(
+    "rm -r",
+    here("data-cleaning/data/data-claims/raw/cleaned"),
+    here("data-cleaning/data/data-claims/raw/parts"),
+    here("data-cleaning/data/data-claims/raw/samples")
+  ))
+}
+
+if (to_flush_cache_and_profvis) {
+  system(paste(
+    "rm -r",
+    here("data-cleaning/cache"),
+    here("data-cleaning/profvis")
+  ))
+}
+
+if (to_flush_aux_files) {
+  system(paste(
+    "rm -r",
+    here("data-cleaning/data/data-aux-files")
+  ))
+}
+
+if (to_flush_checkpoints) {
+  system(paste(
+    "rm -r",
+    here("data-cleaning/data/data-checkpoints")
+  ))
+}
+
+if (to_flush_raw) {
+  system(paste(
+    "rm -r",
+    here("data-cleaning/data/data-claims/raw")
+  ))
+}
+
+if (to_flush_debug) {
+  system(paste(
+    "rm -r",
+    here("data-cleaning/everything")
+  ))
+}
 
 rm(list = ls())
 gc()
