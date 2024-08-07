@@ -344,7 +344,6 @@ remap_patient_data <- function(dt, to_view_checks) {
   ))
 }
 
-# Function to remove lumped ICD codes
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
   #'
@@ -354,8 +353,13 @@ remove_lumped_icd_codes <- function(column) {
   #' @param column character. The column to be processed.
   #'
   #' @return character. The modified column with lumped ICD codes separated.
-
-  modified_column <- gsub("(?<=\\d)(?=[A-Za-z])", "||", column, perl = TRUE)
+  # Use stri_replace_all_regex with a regex pattern for the desired replacement
+  modified_column <- stri_replace_all_regex(
+    column,
+    "(?<=\\d)(?=[A-Za-z])",
+    "||",
+    opts_regex = stri_opts_regex()
+  )
   return(modified_column)
 }
 
@@ -617,8 +621,21 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
 
 # Function to remove 5-digit codes
 remove_5_digit_codes <- function(col) {
+  # Ensure input is a character vector
+  col <- as.character(col) # Convert to character if not already
+
+  # Define regex pattern for 5-digit codes
   regex_5_digit <- "\\b\\d{5}\\b"
-  gsub(regex_5_digit, "", col)
+
+  # Use stri_replace_all_regex to remove 5-digit codes
+  modified_col <- stri_replace_all_regex(
+    col,
+    regex_5_digit,
+    "",
+    vectorize_all = FALSE # Apply replacement across all elements
+  )
+
+  return(modified_col)
 }
 
 # Function to warn about invalid RVS codes

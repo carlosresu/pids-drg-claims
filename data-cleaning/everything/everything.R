@@ -697,7 +697,6 @@ remap_patient_data <- function(dt, to_view_checks) {
   ))
 }
 
-# Function to remove lumped ICD codes
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
   #'
@@ -707,8 +706,13 @@ remove_lumped_icd_codes <- function(column) {
   #' @param column character. The column to be processed.
   #'
   #' @return character. The modified column with lumped ICD codes separated.
-
-  modified_column <- gsub("(?<=\\d)(?=[A-Za-z])", "||", column, perl = TRUE)
+  # Use stri_replace_all_regex with a regex pattern for the desired replacement
+  modified_column <- stri_replace_all_regex(
+    column,
+    "(?<=\\d)(?=[A-Za-z])",
+    "||",
+    opts_regex = stri_opts_regex()
+  )
   return(modified_column)
 }
 
@@ -970,8 +974,21 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
 
 # Function to remove 5-digit codes
 remove_5_digit_codes <- function(col) {
+  # Ensure input is a character vector
+  col <- as.character(col) # Convert to character if not already
+
+  # Define regex pattern for 5-digit codes
   regex_5_digit <- "\\b\\d{5}\\b"
-  gsub(regex_5_digit, "", col)
+
+  # Use stri_replace_all_regex to remove 5-digit codes
+  modified_col <- stri_replace_all_regex(
+    col,
+    regex_5_digit,
+    "",
+    vectorize_all = FALSE # Apply replacement across all elements
+  )
+
+  return(modified_col)
 }
 
 # Function to warn about invalid RVS codes
@@ -1587,6 +1604,16 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
 
   unique_icd10_map <- process_final_icd10_map(summary$final_icd10_map_dt, tmp_nrow)
 
+  # Count the number of rows with phl_icd10 length > 5
+  num_long_phl_icd10 <- sum(nchar(unique_icd10_map$phl_icd10) > 5)
+
+  # Print the count
+  cat(
+    "\nNumber of rows with phl_icd10 length greater than 5:",
+    num_long_phl_icd10, "of", nrow(unique_icd10_map), "rows"
+  )
+
+  # Check if there are any rows and print the table
   if (nrow(unique_icd10_map) > 0) {
     print(
       kable(
@@ -1595,7 +1622,7 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
           end_nrow
         ),
         format = "markdown",
-        caption = "Modified ICD-10 codes ordered by descending Jaro-Winkler distance"
+        caption = "Modified ICD-10 codes ordered by descending NChar distance"
       )
     )
   } else {
@@ -1623,94 +1650,134 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   )
 }
 
+# combine_comparison_tables <- function(
+#     summaries, comparison_field, tmp_nrow, diff_chars) {
+#   #' @title Combine Comparison Tables
+#   #'
+#   #' @description This function combines comparison tables from
+#   #' multiple summaries into one, and ranks rows by a custom fuzzy match score
+#   #' that prioritizes letter differences in ICD codes,
+#   #' ignoring '+', '*', ',', '.', and spaces.
+#   #'
+#   #' @param summaries list. A list of summary tables.
+#   #' @param comparison_field character. The field in the summaries to compare.
+#   #' @param tmp_nrow integer. The number of
+#   #' rows to show in the intermediate summary.
+#   #' @param diff_chars numeric. The minimum fuzzy match score to filter.
+#   #'
+#   #' @return data.table. The combined comparison table.
+
+#   # Helper function to clean strings by removing specified characters
+#   clean_string <- function(strings) {
+#     # Remove '+', '*', ',', '.', and spaces
+#     cleaned_strings <- gsub("[+*,.\\s]", "", strings)
+#     return(cleaned_strings)
+#   }
+
+#   # Process each summary to extract comparison data
+#   comparison_list <- lapply(summaries, function(summary) {
+#     summary_data <- summary[[comparison_field]]
+#     if (!is.null(summary_data) && nrow(summary_data) > 0) {
+#       summary_data <- summary_data[, .(old_code, new_code, count)]
+#     }
+#     return(summary_data)
+#   })
+
+#   # Combine all comparison data into a single data.table
+#   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
+
+#   if (nrow(combined_comparison) == 0) {
+#     return(data.table(
+#       old_code = character(),
+#       new_code = character(),
+#       count = integer(),
+#       differing_chars = numeric()
+#     ))
+#   }
+
+#   # Clean both old_code and new_code columns
+#   combined_comparison[, `:=`(
+#     clean_old = clean_string(old_code),
+#     clean_new = clean_string(new_code)
+#   )]
+
+#   # Calculate the difference in number of characters between clean_old and clean_new
+#   combined_comparison[, differing_chars := abs(nchar(clean_old) - nchar(clean_new))]
+
+#   # Filter rows based on diff_chars
+#   combined_comparison <- combined_comparison[differing_chars > diff_chars]
+
+#   if (nrow(combined_comparison) == 0) {
+#     return(data.table(
+#       old_code = character(),
+#       new_code = character(),
+#       count = integer(),
+#       differing_chars = numeric()
+#     ))
+#   }
+
+#   # Sum counts, sort by differing_chars, and order by descending count
+#   combined_comparison <- combined_comparison[,
+#     .(count = sum(count, na.rm = TRUE), differing_chars = max(differing_chars, na.rm = TRUE)),
+#     by = .(old_code, new_code)
+#   ][order(-differing_chars, -count)]
+
+#   # Select the top rows based on tmp_nrow
+#   combined_comparison <- head(combined_comparison, tmp_nrow)
+
+#   return(combined_comparison)
+# }
+
 combine_comparison_tables <- function(
-    summaries, comparison_field, tmp_nrow, diff_chars) {
+    summaries, comparison_field, tmp_nrow = 10) {
   #' @title Combine Comparison Tables
   #'
   #' @description This function combines comparison tables from
-  #' multiple summaries into one, and ranks rows by a custom fuzzy match score
-  #' that prioritizes letter differences in ICD codes,
-  #' ignoring '+', '*', ',', '.', and spaces.
+  #' multiple summaries into one.
   #'
   #' @param summaries list. A list of summary tables.
   #' @param comparison_field character. The field in the summaries to compare.
   #' @param tmp_nrow integer. The number of
   #' rows to show in the intermediate summary.
-  #' @param diff_chars numeric. The minimum fuzzy match score to filter.
   #'
-  #' @return data.table. The combined comparison table.
+  #' @return data.table. The combined comparison table with absolute differences in character lengths.
 
-  # Precompile regex for cleaning strings for better performance
-  clean_string_pattern <- "[+*,.\\s]"
-
-  # Helper function to clean strings by removing specified characters
-  clean_string <- function(str) {
-    gsub(clean_string_pattern, "", str) # Remove '+', '*', ',', '.', and spaces
-  }
-
-  # Process each summary to extract comparison data
   comparison_list <- lapply(summaries, function(summary) {
     summary_data <- summary[[comparison_field]]
     if (!is.null(summary_data) && nrow(summary_data) > 0) {
-      summary_data <- summary_data[, .(old_code, new_code, count)]
+      summary_data <- summary_data[, .(old_code, new_code)]
     }
     return(summary_data)
   })
 
-  # Combine all comparison data into a single data.table
+  # Combine all the data
   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
 
   if (nrow(combined_comparison) == 0) {
     return(data.table(
       old_code = character(),
       new_code = character(),
-      count = integer(),
-      differing_chars = numeric()
+      diff_chars = integer()
     ))
   }
 
-  # Vectorize the cleaning process for all codes
+  # Trim whitespaces and calculate the absolute difference in character lengths for unique pairs
   combined_comparison[, `:=`(
-    clean_old = vapply(old_code, clean_string, FUN.VALUE = character(1), USE.NAMES = FALSE),
-    clean_new = vapply(new_code, clean_string, FUN.VALUE = character(1), USE.NAMES = FALSE)
+    old_code = gsub("\\s", "", old_code),
+    new_code = gsub("\\s", "", new_code)
   )]
+  combined_comparison[, diff_chars := abs(nchar(old_code) - nchar(new_code))]
 
-  # Calculate Levenshtein distance (exact character differences)
-  # and add differing_chars column
-  combined_comparison[, differing_chars := mapply(
-    function(clean_old, clean_new) {
-      # Calculate distance only if both cleaned strings are not empty
-      if (nchar(clean_old) > 0 && nchar(clean_new) > 0) {
-        stringdist(clean_old, clean_new, method = "lv") / max(nchar(clean_old), nchar(clean_new))
-      } else {
-        0 # Return 0 if either string is empty, meaning no difference
-      }
-    }, clean_old, clean_new
-  )]
+  # Keep only unique old_code to new_code combinations
+  unique_combinations <- unique(combined_comparison)
 
-  # Filter rows based on diff_chars
-  combined_comparison <- combined_comparison[differing_chars > diff_chars]
+  # Order by the absolute character difference and limit the number of rows
+  unique_combinations <- unique_combinations[order(-diff_chars)]
+  unique_combinations <- head(unique_combinations, tmp_nrow)
 
-  if (nrow(combined_comparison) == 0) {
-    return(data.table(
-      old_code = character(),
-      new_code = character(),
-      count = integer(),
-      differing_chars = numeric()
-    ))
-  }
-
-  # Sum counts, sort by differing_chars, and order by descending count
-  combined_comparison <- combined_comparison[,
-    .(count = sum(count, na.rm = TRUE), differing_chars = max(differing_chars, na.rm = TRUE)),
-    by = .(old_code, new_code)
-  ][order(-differing_chars, -count)]
-
-  # Select the top rows based on tmp_nrow
-  combined_comparison <- head(combined_comparison, tmp_nrow)
-
-  return(combined_comparison)
+  return(unique_combinations)
 }
+
 
 # Function to filter and sort the final ICD-10 map
 process_final_icd10_map <- function(icd10_map_dt, tmp_nrow = 10) {
@@ -1718,17 +1785,13 @@ process_final_icd10_map <- function(icd10_map_dt, tmp_nrow = 10) {
   #'
   #' @description This function processes the final ICD-10 map data table
   #' by filtering out rows where the original and mapped codes are the same
-  #' and sorts the result by descending Jaro-Winkler distance.
+  #' and sorts the result by descending absolute difference in the number
+  #' of characters between the codes.
   #'
   #' @param icd10_map_dt data.table. The ICD-10 map data table.
   #' @param tmp_nrow integer. The number of rows to show in the final summary.
   #'
   #' @return data.table. The processed and sorted ICD-10 map.
-
-  # Ensure the required package is available
-  if (!requireNamespace("stringdist", quietly = TRUE)) {
-    stop("The 'stringdist' package is required for Jaro-Winkler distance calculation.")
-  }
 
   # Filter rows where phl_icd10 and tdrg_icd10 are different
   icd10_map_dt <- icd10_map_dt[phl_icd10 != tdrg_icd10]
@@ -1737,18 +1800,15 @@ process_final_icd10_map <- function(icd10_map_dt, tmp_nrow = 10) {
     return(data.table(
       phl_icd10 = character(),
       tdrg_icd10 = character(),
-      jw_distance = numeric()
+      char_diff = numeric()
     ))
   }
 
-  # Calculate Jaro-Winkler distance and add jw_distance column
-  icd10_map_dt[, jw_distance := stringdist::stringdist(
-    phl_icd10, tdrg_icd10,
-    method = "jw"
-  )]
+  # Calculate the absolute difference in character length and add char_diff column
+  icd10_map_dt[, char_diff := abs(nchar(phl_icd10) - nchar(tdrg_icd10))]
 
-  # Sort by descending Jaro-Winkler distance
-  icd10_map_dt <- icd10_map_dt[order(-jw_distance)]
+  # Sort by descending absolute difference in character length
+  icd10_map_dt <- icd10_map_dt[order(-char_diff)]
 
   # Select the top rows based on tmp_nrow
   final_icd10_map <- head(icd10_map_dt, tmp_nrow)
@@ -1853,7 +1913,7 @@ combine_replace_empty_tables <- function(
 }
 
 combine_chunk_summaries <- function(
-    summaries, tmp_nrow, diff_chars) {
+    summaries, tmp_nrow) {
   #' @title Combine Chunk Summaries
   #'
   #' @description This function combines summaries from
@@ -1866,11 +1926,11 @@ combine_chunk_summaries <- function(
   #'
   #' @return list. The combined summary.
 
-  combined_summary <- combine_summaries(summaries, tmp_nrow, diff_chars)
+  combined_summary <- combine_summaries(summaries, tmp_nrow)
   return(combined_summary)
 }
 
-combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
+combine_summaries <- function(summaries, tmp_nrow) {
   #' @title Combine Summaries
   #'
   #' @description This function combines multiple summaries into one summary.
@@ -1887,10 +1947,10 @@ combine_summaries <- function(summaries, tmp_nrow, diff_chars) {
       function(summary) summary$rename_success
     )), na.rm = TRUE),
     ICD_replacements_1 = combine_comparison_tables(
-      summaries, "ICD_replacements_1", tmp_nrow, diff_chars
+      summaries, "ICD_replacements_1", tmp_nrow
     ),
     ICD_replacements_2 = combine_comparison_tables(
-      summaries, "ICD_replacements_2", tmp_nrow, diff_chars
+      summaries, "ICD_replacements_2", tmp_nrow
     ),
     pat_type_unmapped = unique(unlist(lapply(
       summaries,
@@ -2010,10 +2070,10 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
       function(summary) summary$rename_success
     )), na.rm = TRUE),
     final_ICD_replacements_1 = combine_comparison_tables(
-      combined_summary, "ICD_replacements_1", end_nrow, diff_chars
+      combined_summary, "ICD_replacements_1", end_nrow
     ),
     final_ICD_replacements_2 = combine_comparison_tables(
-      combined_summary, "ICD_replacements_2", end_nrow, diff_chars
+      combined_summary, "ICD_replacements_2", end_nrow
     ),
     final_pat_type_unmapped = unique(unlist(lapply(
       combined_summary,
@@ -2238,74 +2298,6 @@ read_appropriate_file <- function(part, to_sample) {
       read_result_replacement_summary = replacement_summary
     )
   )
-}
-
-read_and_save_partial <- function(start_row, end_row, part) {
-  #' @title Read and Save Partial Files
-  #' @description This function reads and saves partial files from the
-  #' full claims file.
-  #' @param start_row integer. The starting row number.
-  #' @param end_row integer. The ending row number.
-  #' @param part integer. The part number of the file.
-  #' @return NULL. The function is used for its side effect of reading and
-  #' saving partial files.
-
-  # cat(paste("Reading header from:", file = full_claims_file()))
-  # cat(paste("Partial file path:", partial_claims_file))
-  # cat(paste("Start row:", start_row, "End row:", end_row))
-
-  dt <- NULL
-  if (!file.exists(partial_claims_file)) {
-    cat("Partial file does not exist. Creating partial file...")
-    dt <- fread(
-      file = full_claims_file,
-      na.strings = na_values,
-      colClasses = "character",
-      nrows = end_row - start_row + 1,
-      skip = start_row,
-      header = FALSE,
-      encoding = encode,
-      sep = sep
-    )
-    setnames(dt, colnames(full_header))
-    cat(paste("Number of rows read:", nrow(dt)))
-    if (nrow(dt) > 0) {
-      cat(paste("Writing partial file to:", partial_claims_file))
-      fwrite(dt, partial_claims_file, quote = TRUE)
-    } else {
-      cat("No rows to save")
-    }
-  } else {
-    cat(paste(
-      "Partial file already exists. Skipping creation:",
-      partial_claims_file
-    ))
-    dt <- fread(partial_claims_file,
-      na.strings = na_values, colClasses = "character",
-      encoding = encode, sep = sep
-    )
-  }
-
-  if (to_sample) {
-    sampled_claims_file_path <- sampled_claims_file
-    cat(paste("Sampled file path:", sampled_file_path))
-    if (!file.exists(sampled_file_path)) {
-      cat("Sampled file does not exist. Creating new sample...")
-      if (!is.null(dt) && nrow(dt) > 0) {
-        sampled_dt <- sample_data(dt)
-        setnames(sampled_dt, colnames(full_header))
-        cat(paste("Writing sampled file to:", sampled_file_path))
-        fwrite(sampled_dt, sampled_file_path, quote = TRUE)
-      } else {
-        stop("Failed to read partial file or no rows available for sampling")
-      }
-    } else {
-      cat(paste(
-        "Sampled file already exists. Skipping creation:",
-        sampled_file_path
-      ))
-    }
-  }
 }
 
 # Function to export data for batch grouper

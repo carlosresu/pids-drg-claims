@@ -30,7 +30,6 @@ is_unix <- if (.Platform$OS.type == "unix") TRUE else FALSE # Detect operating s
 gcp_proj <- if (is_unix) system("gcloud config get-value project", intern = TRUE) else NULL
 max_bq_rows <- 15000 # Max rows to return for bq query
 cat(paste("GCP Project:", gcp_proj, "\n"))
-# ver_to_use <- "latest" # Deprecated, must be set to latest, local and bak have been deleted
 encode <- "unknown" # Choices: unknown, UTF-8, Latin-1
 sep <- "," # Choices: "," or "\t"
 
@@ -69,11 +68,9 @@ full_claims_file <- here(
 )
 
 # Manual Tweaks:
-manual_code_replacements <- list(
-  "0800" = "O800",
-  "080" = "O80",
-  "0809" = "O809"
-)
+patterns <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b")
+manual_code_replacements <- c("O800", "O80", "O809")
+
 drop_cols <- c( # Which columns to drop
   paste0("ICDCODE", 13:14), # Start
   "ICCODED15", # note that ICDCODE15 is misspelled as ICCODED15 in all claims
@@ -297,18 +294,36 @@ clean_data <- function(dt) {
   clin_c2_cleaning_comparison <- clean_clinical_column("clin_c2")
 
   # Function for manual multi-replacement
-  manual_multi_replace <- function(code, replacements) {
-    for (pattern in names(replacements)) {
-      replacement <- replacements[[pattern]]
-      code <- gsub(paste0("\\b", pattern, "\\b"), replacement, code)
+  # manual_multi_replace <- function(code, replacements) {
+  #   for (pattern in names(replacements)) {
+  #     replacement <- replacements[[pattern]]
+  #     code <- gsub(paste0("\\b", pattern, "\\b"), replacement, code)
+  #   }
+  #   return(code)
+  # }
+
+  # Function to replace multiple patterns with corresponding replacements
+  replace_multiple_patterns <- function(text, patterns, replacements) {
+    # Ensure patterns and replacements are the same length
+    if (length(patterns) != length(replacements)) {
+      stop("Patterns and replacements must have the same length.")
     }
-    return(code)
+
+    # Perform replacements
+    modified_text <- stri_replace_all_regex(
+      text,
+      pattern = patterns,
+      replacement = replacements,
+      vectorize_all = FALSE # Apply all replacements simultaneously
+    )
+
+    return(modified_text)
   }
 
   # Apply multi-replacement function
-  dt[, clin_icd := lapply(clin_icd, manual_multi_replace, replacements = manual_code_replacements)]
-  dt[, clin_c1 := lapply(clin_c1, manual_multi_replace, replacements = manual_code_replacements)]
-  dt[, clin_c2 := lapply(clin_c2, manual_multi_replace, replacements = manual_code_replacements)]
+  dt[, clin_icd := lapply(clin_icd, replace_multiple_patterns, patterns = patterns, replacements = manual_code_replacements)]
+  dt[, clin_c1 := lapply(clin_c1, replace_multiple_patterns, patterns = patterns, replacements = manual_code_replacements)]
+  dt[, clin_c2 := lapply(clin_c2, replace_multiple_patterns, patterns = patterns, replacements = manual_code_replacements)]
 
   # Remove lumped ICD codes
   dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
@@ -632,7 +647,7 @@ unified_block <- function() {
 
     if (to_dec_mem_usage) rm(processed_chunks) # debug
 
-    combined_chunk_summary <- combine_chunk_summaries(parallel_summaries, tmp_nrow, diff_chars)
+    combined_chunk_summary <- combine_chunk_summaries(parallel_summaries, tmp_nrow)
 
     if (to_dec_mem_usage) rm(parallel_results) # debug
     if (to_dec_mem_usage) gc() # debug
