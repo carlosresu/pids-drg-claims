@@ -15,7 +15,9 @@ required_packages <- c(
   "parallelly",
   "stringdist",
   "progress",
-  "parallel"
+  "parallel",
+  "digest",
+  "base64enc"
 )
 
 # Function to install and load packages
@@ -113,31 +115,31 @@ new_colnames <- c(
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
 
-cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the cleaned claims file
-  #'
-  #' @description This function generates the file path for the cleaned
-  #' claims file, based on the year, suffix, and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("cleaned_claims_", year_to_load, suffix)
-  } else {
-    paste0(
-      "cleaned_claims_", year_to_load, suffix,
-      "part_", sprintf("%02d", part), "_of_", split_parts
-    )
-  }
-  if (fileext) {
-    filename <- paste0(filename, ".csv")
-  }
-  return(here(cleaned_claims_path, filename))
-}
+# cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
+#   #' @title Generate the file path for the cleaned claims file
+#   #'
+#   #' @description This function generates the file path for the cleaned
+#   #' claims file, based on the year, suffix, and part.
+#   #'
+#   #' @param part Integer. The part number of the file.
+#   #' Default is NULL.
+#   #' @param fileext Logical. Whether to include the file extension.
+#   #' Default is TRUE.
+#   #'
+#   #' @return Character. The generated file path.
+#   filename <- if (is.null(part)) {
+#     paste0("cleaned_claims_", year_to_load, suffix)
+#   } else {
+#     paste0(
+#       "cleaned_claims_", year_to_load, suffix,
+#       "part_", sprintf("%02d", part), "_of_", split_parts
+#     )
+#   }
+#   if (fileext) {
+#     filename <- paste0(filename, ".csv")
+#   }
+#   return(here(cleaned_claims_path, filename))
+# }
 
 create_dirs <- function(paths) {
   created_dirs <- c()
@@ -783,7 +785,7 @@ ensure_partial_files_exist <- function(part) {
     start_row <- (part - 1) * rows_per_part + 1
     end_row <- min(part * rows_per_part, total_rows)
     dt <- fread(
-      full_claims_file,
+      file = full_claims_file,
       skip = start_row,
       nrows = end_row - start_row + 1,
       na.strings = na_values,
@@ -912,14 +914,15 @@ read_and_save_partial <- function(start_row, end_row, part) {
   #' @return NULL. The function is used for its side effect of reading and
   #' saving partial files.
 
-  # cat(paste("Reading header from:", full_claims_file()))
+  # cat(paste("Reading header from:", file = full_claims_file()))
   # cat(paste("Partial file path:", partial_claims_file))
   # cat(paste("Start row:", start_row, "End row:", end_row))
 
   dt <- NULL
   if (!file.exists(partial_claims_file)) {
     cat("Partial file does not exist. Creating partial file...")
-    dt <- fread(full_claims_file,
+    dt <- fread(
+      file = full_claims_file,
       na.strings = na_values,
       colClasses = "character",
       nrows = end_row - start_row + 1,
@@ -969,6 +972,20 @@ read_and_save_partial <- function(start_row, end_row, part) {
   }
 }
 
+# Function to calculate MD5 for local file
+calculate_md5 <- function(file_path) {
+  md5_hash <- digest(file = file_path, algo = "md5", serialize = FALSE)
+  return(md5_hash)
+}
+
+# Function to verify MD5 hashes
+verify_md5 <- function(gcs_md5, local_md5) {
+  if (gcs_md5 == local_md5) {
+    cat("MD5 checksum matches.\n")
+  } else {
+    cat("MD5 checksum does not match!\n")
+  }
+}
 # Function to remove lumped ICD codes
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes

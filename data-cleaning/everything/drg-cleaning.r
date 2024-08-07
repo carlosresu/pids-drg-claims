@@ -48,10 +48,6 @@ full_claims_file <- here(
   raw_claims_path,
   paste0(full_claims_prefix, year_to_load, ".csv")
 )
-full_header <- fread(full_claims_file,
-  nrows = 1, colClasses = "character",
-  header = TRUE, encoding = encode, sep = sep
-)
 
 # Manual Tweaks:
 manual_code_replacements <- list(
@@ -121,36 +117,12 @@ scripts <- list( # List of scripts to source
 # Loop to source above scripts
 for (script in scripts) source(here("data-cleaning/r_scripts", script))
 
-# Load cached total rows file if available, saves ~10 seconds of runtime
-total_rows_file <- here(cache_path, paste0("total_rows_", year_to_load, ".rds"))
-if (file.exists(total_rows_file)) {
-  total_rows <- readRDS(total_rows_file)
-  cat(paste("Total Rows via cached object:", total_rows))
-} else {
-  total_rows <- fread(full_claims_file, select = 1L, header = TRUE)[, .N]
-  saveRDS(total_rows, file = total_rows_file)
-  cat(paste("Total Rows via fread:", total_rows))
-}
-
-# Compute sample size when splitting and when not,
-# only relevant when sampling
-if (to_split) {
-  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
-} else {
-  sample_size <- ceiling(total_rows / sample_size_divisor)
-}
-
-suffix <- paste0(
-  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
-)
-
 
 # TODO: figure out a way to return to default outputs
 # since verbose = TRUE is way too verbose compared to default
 options(warn = 1) # Reenable warnings; see above comments
 
 
-# Loop through the years 2018 to 2021
 for (year in 2018:2021) {
   file_name <- paste0(full_claims_prefix, year, ".csv")
   bq_name <- paste0(full_claims_bq_prefix, year, ".csv")
@@ -248,6 +220,30 @@ setkey(tdrg_icd10, "CODE")
 
 # Subset and assign the result to acc_pdx
 acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
+
+
+# Load cached total rows file if available, saves ~10 seconds of runtime
+total_rows_file <- here(cache_path, paste0("total_rows_", year_to_load, ".rds"))
+if (file.exists(total_rows_file)) {
+  total_rows <- readRDS(total_rows_file)
+  cat(paste("Total Rows via cached object:", total_rows))
+} else {
+  total_rows <- fread(file = full_claims_file, select = 1L, header = TRUE)[, .N]
+  saveRDS(total_rows, file = total_rows_file)
+  cat(paste("Total Rows via fread:", total_rows))
+}
+
+# Compute sample size when splitting and when not,
+# only relevant when sampling
+if (to_split) {
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+} else {
+  sample_size <- ceiling(total_rows / sample_size_divisor)
+}
+
+suffix <- paste0(
+  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
+)
 
 
 clean_data <- function(dt) {
@@ -429,6 +425,12 @@ unified_block <- function() {
   ################################################## START OF SPLIT AND SAVE PART ####################################################
   ####################################################################################################################################
 
+  full_header <<- fread(
+    file = full_claims_file,
+    nrows = 1, colClasses = "character",
+    header = TRUE, encoding = encode, sep = sep
+  )
+
   split_and_save <- function(part) {
     rows_per_part <- ceiling(total_rows / split_parts)
     chunk_file <- here(raw_claims_parts_path, paste0(
@@ -439,7 +441,7 @@ unified_block <- function() {
       start_row <- (part - 1) * rows_per_part + 1
       end_row <- min(part * rows_per_part, total_rows)
       chunk_dt <- fread(
-        full_claims_file,
+        file = full_claims_file,
         skip = start_row,
         nrows = end_row - start_row + 1,
         na.strings = na_values,
