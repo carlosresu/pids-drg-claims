@@ -113,222 +113,6 @@ new_colnames <- c(
   paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )
 
-# Paths to various directories for intermediate files,
-# cache, auxiliary files, etc.
-# Create the directory if it does not exist
-if (!dir.exists(here(intermediate_path))) {
-  dir.create(here(intermediate_path), recursive = TRUE)
-  cat("Directory created:", intermediate_path, "\n")
-} else {
-  cat("Directory already exists:", intermediate_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(cache_path))) {
-  dir.create(here(cache_path), recursive = TRUE)
-  cat("Directory created:", cache_path, "\n")
-} else {
-  cat("Directory already exists:", cache_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(aux_path))) {
-  dir.create(here(aux_path), recursive = TRUE)
-  cat("Directory created:", aux_path, "\n")
-} else {
-  cat("Directory already exists:", aux_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(excel_path))) {
-  dir.create(here(excel_path), recursive = TRUE)
-  cat("Directory created:", excel_path, "\n")
-} else {
-  cat("Directory already exists:", excel_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(cleaned_claims_path))) {
-  dir.create(here(cleaned_claims_path), recursive = TRUE)
-  cat("Directory created:", cleaned_claims_path, "\n")
-} else {
-  cat("Directory already exists:", cleaned_claims_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(grouper_output_path))) {
-  dir.create(here(grouper_output_path), recursive = TRUE)
-  cat("Directory created:", grouper_output_path, "\n")
-} else {
-  cat("Directory already exists:", grouper_output_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(chunks_path))) {
-  dir.create(here(chunks_path), recursive = TRUE)
-  cat("Directory created:", chunks_path, "\n")
-} else {
-  cat("Directory already exists:", chunks_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(raw_claims_parts_path))) {
-  dir.create(here(raw_claims_parts_path), recursive = TRUE)
-  cat("Directory created:", raw_claims_parts_path, "\n")
-} else {
-  cat("Directory already exists:", raw_claims_parts_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(raw_claims_samples_path))) {
-  dir.create(here(raw_claims_samples_path), recursive = TRUE)
-  cat("Directory created:", raw_claims_samples_path, "\n")
-} else {
-  cat("Directory already exists:", raw_claims_samples_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here(raw_claims_path))) {
-  dir.create(here(raw_claims_path), recursive = TRUE)
-  cat("Directory created:", raw_claims_path, "\n")
-} else {
-  cat("Directory already exists:", raw_claims_path, "\n")
-}
-
-# Create the directory if it does not exist
-if (!dir.exists(here("data-cleaning/data/profvis"))) {
-  dir.create(here("data-cleaning/data/profvis"), recursive = TRUE)
-  cat("Directory created:", "data-cleaning/data/profvis", "\n")
-} else {
-  cat("Directory already exists:", "data-cleaning/data/profvis", "\n")
-}
-
-full_claims_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the full claims file
-  #'
-  #' @description This function generates the file path for the
-  #' full claims file, based on the year and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("claims_extract_CLAIMS ", year_to_load)
-  } else {
-    paste0(
-      "claims_extract_CLAIMS ", year_to_load,
-      "_part_", sprintf("%02d", part), "_of_", split_parts
-    )
-  }
-  if (fileext) filename <- paste0(filename, ".csv")
-  if (is.null(part)) {
-    return(here(raw_claims_path, filename))
-  } else {
-    return(here(raw_claims_parts_path, filename))
-  }
-}
-
-total_rows_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for total rows file
-  #'
-  #' @description This function generates the file path for storing/retrieving
-  #' the total number of rows in a claims file, based on the year and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("total_rows_", year_to_load)
-  } else {
-    paste0(
-      "total_rows_", year_to_load, "_part_",
-      sprintf("%02d", part), "_of_", split_parts
-    )
-  }
-  if (fileext) {
-    filename <- paste0(filename, ".rds")
-  }
-  return(here(cache_path, filename))
-}
-
-# Load cached total rows file if available, saves ~10 seconds of runtime
-if (file.exists(total_rows_file())) {
-  total_rows <- readRDS(total_rows_file())
-  cat(paste("Total Rows via cached object:", total_rows))
-} else {
-  total_rows <- fread(full_claims_file(), select = 1L, header = TRUE)[, .N]
-  saveRDS(total_rows, file = total_rows_file())
-  cat(paste("Total Rows via fread:", total_rows))
-}
-
-# Compute sample size when splitting and when not,
-# only relevant when sampling
-if (to_split) {
-  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
-} else {
-  sample_size <- ceiling(total_rows / sample_size_divisor)
-}
-
-suffix <- paste0(
-  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
-)
-
-sampled_claims_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the sampled claims file
-  #'
-  #' @description This function generates the file path for the sampled
-  #' claims file, based on the year, sample size, and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("sampled_claims_", year_to_load, "_", sample_size)
-  } else {
-    paste0(
-      "sampled_claims_", year_to_load, "_", sample_size,
-      "_part_", sprintf("%02d", part), "_of_", split_parts
-    )
-  }
-  if (fileext) filename <- paste0(filename, ".csv")
-  return(here(raw_claims_samples_path, filename))
-}
-
-intermediate_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the intermediate claims file
-  #'
-  #' @description This function generates the file path for the
-  #' intermediate claims file, based on the year, suffix, and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("intermediate_claims_", year_to_load, suffix)
-  } else {
-    paste0(
-      "intermediate_claims_", year_to_load, suffix,
-      "part_", sprintf("%02d", part), "_of_", split_parts
-    )
-  }
-  if (fileext) {
-    filename <- paste0(filename, ".csv")
-  }
-  return(here(intermediate_path, filename))
-}
-
 cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   #' @title Generate the file path for the cleaned claims file
   #'
@@ -355,59 +139,23 @@ cleaned_claims_file <- function(part = NULL, fileext = TRUE) {
   return(here(cleaned_claims_path, filename))
 }
 
-output_txt_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the output text file for DRG grouping
-  #'
-  #' @description This function generates the file path for the output text file
-  #' for DRG grouping, based on the year, suffix, and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    paste0("DRG_Grouped", "_", year_to_load, suffix)
-  } else {
-    paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
-      "part_", sprintf("%02d", part), "_of_", split_parts
-    )
-  }
-  if (fileext) {
-    filename <- paste0(filename, ".txt")
-  }
-  return(here(grouper_output_path, filename))
-}
+create_dirs <- function(paths) {
+  created_dirs <- c()
 
-grouper_result_file <- function(part = NULL, fileext = TRUE) {
-  #' @title Generate the file path for the grouper result file
-  #'
-  #' @description This function generates the file path for the
-  #' grouper result file, based on the year, suffix, and part.
-  #'
-  #' @param part Integer. The part number of the file.
-  #' Default is NULL.
-  #' @param fileext Logical. Whether to include the file extension.
-  #' Default is TRUE.
-  #'
-  #' @return Character. The generated file path.
-  filename <- if (is.null(part)) {
-    toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
-      "Res"
-    ))
+  for (path in paths) {
+    full_path <- here(path)
+    if (!dir.exists(full_path)) {
+      dir.create(full_path, recursive = TRUE)
+      created_dirs <- c(created_dirs, full_path)
+    }
+  }
+
+  if (length(created_dirs) == 0) {
+    cat("All directories exist.\n")
   } else {
-    toupper(paste0(
-      "DRG_Grouped", "_", year_to_load, suffix,
-      "Res_", sprintf("%02d", part), "_of_", split_parts
-    ))
+    cat("The following directories were created:\n")
+    cat(paste(created_dirs, collapse = ",\n"), "\n")
   }
-  if (fileext) {
-    filename <- paste0(filename, ".TXT")
-  }
-  return(here(grouper_output_path, filename))
 }
 clean_column <- function(column_to_clean, na_like_strings) {
   #' @title Clean a column
@@ -1029,17 +777,13 @@ ensure_partial_files_exist <- function(part) {
   #' given part and creates them if they don't.
   #' @param part integer. The part number to process.
   #' @return NULL. Creates partial files as a side effect if they do not exist.
-  chunk_file <- full_claims_file(part)
+  chunk_file <- partial_claims_file
   if (!file.exists(chunk_file)) {
     rows_per_part <- ceiling(total_rows / split_parts)
     start_row <- (part - 1) * rows_per_part + 1
     end_row <- min(part * rows_per_part, total_rows)
-    header <- fread(full_claims_file(),
-      nrows = 1, colClasses = "character",
-      header = TRUE, encoding = encode, sep = sep
-    )
     dt <- fread(
-      full_claims_file(),
+      full_claims_file,
       skip = start_row,
       nrows = end_row - start_row + 1,
       na.strings = na_values,
@@ -1048,7 +792,7 @@ ensure_partial_files_exist <- function(part) {
       encoding = encode,
       sep = sep
     )
-    setnames(dt, colnames(header))
+    setnames(dt, colnames(full_header))
     fwrite(dt, chunk_file, quote = TRUE)
   }
 }
@@ -1058,19 +802,18 @@ ensure_sample_files_exist <- function(part) {
   #' @description This function checks if sample files exist for a given part and creates them if they don't.
   #' @param part integer. The part number to process.
   #' @return NULL. Creates sample files as a side effect if they do not exist.
-  sampled_file <- sampled_claims_file(part)
-  if (!file.exists(sampled_file)) {
-    header <- fread(full_claims_file(),
-      nrows = 1, colClasses = "character",
-      header = TRUE, encoding = encode, sep = sep
-    )
-    dt <- fread(full_claims_file(part),
+  if (!file.exists(sampled_claims_file)) {
+    dt <- fread(
+      here(raw_claims_parts_path, paste0(
+        full_claims_prefix, year_to_load,
+        "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+      )),
       skip = 1, na.strings = na_values,
       colClasses = "character", header = FALSE, encoding = encode, sep = sep
     )
     dt <- dt[sample(.N, min(sample_size, .N))]
-    setnames(dt, colnames(header))
-    fwrite(dt, sampled_file, quote = TRUE)
+    setnames(dt, colnames(full_header))
+    fwrite(dt, sampled_claims_file, quote = TRUE)
   }
 }
 
@@ -1084,9 +827,12 @@ read_appropriate_file <- function(part, to_sample) {
   #' @return data.table. The processed data table.
 
   chunk_file <- if (to_sample) {
-    sampled_claims_file(part)
+    sampled_claims_file
   } else {
-    full_claims_file(part)
+    here(raw_claims_parts_path, paste0(
+      full_claims_prefix, year_to_load,
+      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+    ))
   }
 
   dt <- fread(chunk_file,
@@ -1165,20 +911,15 @@ read_and_save_partial <- function(start_row, end_row, part) {
   #' @param part integer. The part number of the file.
   #' @return NULL. The function is used for its side effect of reading and
   #' saving partial files.
-  partial_file_path <- full_claims_file(part, fileext = TRUE)
-  header <- fread(full_claims_file(),
-    nrows = 1, colClasses = "character",
-    header = TRUE, encoding = encode, sep = sep
-  )
 
-  cat(paste("Reading header from:", full_claims_file()))
-  cat(paste("Partial file path:", partial_file_path))
-  cat(paste("Start row:", start_row, "End row:", end_row))
+  # cat(paste("Reading header from:", full_claims_file()))
+  # cat(paste("Partial file path:", partial_claims_file))
+  # cat(paste("Start row:", start_row, "End row:", end_row))
 
   dt <- NULL
-  if (!file.exists(partial_file_path)) {
+  if (!file.exists(partial_claims_file)) {
     cat("Partial file does not exist. Creating partial file...")
-    dt <- fread(full_claims_file(),
+    dt <- fread(full_claims_file,
       na.strings = na_values,
       colClasses = "character",
       nrows = end_row - start_row + 1,
@@ -1187,33 +928,33 @@ read_and_save_partial <- function(start_row, end_row, part) {
       encoding = encode,
       sep = sep
     )
-    setnames(dt, colnames(header))
+    setnames(dt, colnames(full_header))
     cat(paste("Number of rows read:", nrow(dt)))
     if (nrow(dt) > 0) {
-      cat(paste("Writing partial file to:", partial_file_path))
-      fwrite(dt, partial_file_path, quote = TRUE)
+      cat(paste("Writing partial file to:", partial_claims_file))
+      fwrite(dt, partial_claims_file, quote = TRUE)
     } else {
       cat("No rows to save")
     }
   } else {
     cat(paste(
       "Partial file already exists. Skipping creation:",
-      partial_file_path
+      partial_claims_file
     ))
-    dt <- fread(partial_file_path,
+    dt <- fread(partial_claims_file,
       na.strings = na_values, colClasses = "character",
       encoding = encode, sep = sep
     )
   }
 
   if (to_sample) {
-    sampled_file_path <- sampled_claims_file(part)
+    sampled_claims_file_path <- sampled_claims_file
     cat(paste("Sampled file path:", sampled_file_path))
     if (!file.exists(sampled_file_path)) {
       cat("Sampled file does not exist. Creating new sample...")
       if (!is.null(dt) && nrow(dt) > 0) {
         sampled_dt <- sample_data(dt)
-        setnames(sampled_dt, colnames(header))
+        setnames(sampled_dt, colnames(full_header))
         cat(paste("Writing sampled file to:", sampled_file_path))
         fwrite(sampled_dt, sampled_file_path, quote = TRUE)
       } else {
@@ -1228,17 +969,6 @@ read_and_save_partial <- function(start_row, end_row, part) {
   }
 }
 
-write_intermediate_file <- function(to_write, part, dt) {
-  #' @title Write Intermediate File
-  #' @description This function writes the intermediate data table to a file.
-  #' @param part integer. The part number of the data being processed.
-  #' @param dt data.table. The data table to be written.
-  #' @return NULL. The function is used for its side effect of writing the
-  #' data table to a file.
-  if (to_write) {
-    fwrite(dt, intermediate_file(part, fileext = TRUE), quote = TRUE)
-  }
-}
 # Function to remove lumped ICD codes
 remove_lumped_icd_codes <- function(column) {
   #' @title Remove Lumped ICD Codes
@@ -1852,38 +1582,6 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file) {
   if (to_debug) {
     return(NULL)
   } # debug
-}
-
-group_data <- function(to_group, part, dt) {
-  #' @title Group data for batch processing
-  #'
-  #' @description This function groups the data for batch processing
-  #' and exports it for the batch grouper.
-  #'
-  #' @param part integer. The part number of the data being processed.
-  #' @param dt data.table. The data table to be grouped.
-  #'
-  #' @return NULL. The function is used for its side effect of
-  #' grouping and exporting the data.
-
-  if (to_group) {
-    export_for_grouper(
-      dt, year_to_load,
-      output_txt_file(part)
-    )
-    if (to_dec_mem_usage) rm(dt) # debug
-    if (to_dec_mem_usage) gc() # debug
-    for_batch_grouping <- fread(
-      output_txt_file(part),
-      sep = "|", na.strings = "--"
-    )
-    if (file.exists(grouper_result_file(part))) {
-      batch_grouping_result <- fread(
-        grouper_result_file(part),
-        sep = "|", na.strings = "--"
-      )
-    }
-  }
 }
 format_large_numbers <- function(x) {
   #' @title Format Large Numbers
