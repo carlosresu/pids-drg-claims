@@ -68,7 +68,7 @@ full_claims_file <- here(
 )
 
 # Manual Tweaks:
-patterns <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b")
+manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b")
 manual_code_replacements <- c("O800", "O80", "O809")
 
 drop_cols <- c( # Which columns to drop
@@ -329,9 +329,9 @@ clean_data <- function(dt) {
   }
 
   # Apply multi-replacement function
-  dt[, clin_icd := lapply(clin_icd, replace_multiple_patterns, patterns = patterns, replacements = manual_code_replacements)]
-  dt[, clin_c1 := lapply(clin_c1, replace_multiple_patterns, patterns = patterns, replacements = manual_code_replacements)]
-  dt[, clin_c2 := lapply(clin_c2, replace_multiple_patterns, patterns = patterns, replacements = manual_code_replacements)]
+  dt[, clin_icd := lapply(clin_icd, replace_multiple_patterns, patterns = manual_patterns_to_replace, replacements = manual_code_replacements)]
+  dt[, clin_c1 := lapply(clin_c1, replace_multiple_patterns, patterns = manual_patterns_to_replace, replacements = manual_code_replacements)]
+  dt[, clin_c2 := lapply(clin_c2, replace_multiple_patterns, patterns = manual_patterns_to_replace, replacements = manual_code_replacements)]
 
   # Remove lumped ICD codes
   dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
