@@ -1498,22 +1498,36 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   display_unique_mappings(summary$final_clin_discharge_mapped, "Discharge", tmp_nrow)
   display_unique_mappings(summary$final_claim_status_mapped, "Claim Status", tmp_nrow)
 
-  if (nrow(summary$final_discard_rvs_one) > 0) {
-    print(kable(head(summary$final_discard_rvs_one, end_nrow),
-      format = "markdown",
-      caption = "Discarded RVS Codes One"
-    ))
-  } else {
-    cat("\nNo RVS codes discarded in the first set.\n\n")
-  }
+  # if (nrow(summary$final_discard_rvs_one) > 0) {
+  #   print(kable(head(summary$final_discard_rvs_one, tmp_nrow),
+  #     format = "markdown",
+  #     caption = "Discarded RVS Codes One"
+  #   ))
+  # } else {
+  #   cat("\nNo RVS codes discarded in the first set.\n\n")
+  # }
 
-  if (nrow(summary$final_discard_rvs_two) > 0) {
-    print(kable(head(summary$final_discard_rvs_two, end_nrow),
+  # if (nrow(summary$final_discard_rvs_two) > 0) {
+  #   print(kable(head(summary$final_discard_rvs_two, tmp_nrow),
+  #     format = "markdown",
+  #     caption = "Discarded RVS Codes Two"
+  #   ))
+  # } else {
+  #   cat("\nNo RVS codes discarded in the second set.\n\n")
+  # }
+
+  final_discard_rvs <- rbind(
+    summary$final_discard_rvs_one,
+    summary$final_discard_rvs_two
+  )[, .(count = sum(count)), by = CODE][order(-count)]
+
+  if (nrow(final_discard_rvs) > 0) {
+    print(kable(head(final_discard_rvs, end_nrow),
       format = "markdown",
-      caption = "Discarded RVS Codes Two"
+      caption = "Discarded RVS Codes"
     ))
   } else {
-    cat("\nNo RVS codes discarded in the second set.\n\n")
+    cat("\nNo RVS codes discarded.\n\n")
   }
 
   if (nrow(summary$final_empty_strings_replaced_0) > 0) {
@@ -2180,10 +2194,10 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
       function(summary) summary$claim_status_unmapped
     ))),
     final_discard_rvs_one = combine_discarded_rvs_tables(
-      combined_summary, "discard_rvs_one", end_nrow
+      combined_summary, "discard_rvs_one", tmp_nrow
     ),
     final_discard_rvs_two = combine_discarded_rvs_tables(
-      combined_summary, "discard_rvs_two", end_nrow
+      combined_summary, "discard_rvs_two", tmp_nrow
     ),
     final_empty_strings_replaced_0 = final_combine_replace_empty_tables(
       combined_summary, "replacement_summary", end_nrow
