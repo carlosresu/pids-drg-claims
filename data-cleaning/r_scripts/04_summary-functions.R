@@ -12,30 +12,56 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
 
   summary <- final_combined_summaries
 
-  cat("\n\nRename Success:\n", summary$final_rename_success, "\n\n")
+  cat("\nRename Success:\n", summary$final_rename_success, "")
 
-  if (nrow(summary$final_ICD_replacements_1) > 0) {
-    print(kable(head(summary$final_ICD_replacements_1, end_nrow),
+  # if (nrow(summary$final_ICD_replacements_1) > 0) {
+  #   print(kable(head(summary$final_ICD_replacements_1, end_nrow),
+  #     format = "markdown",
+  #     caption = "ICD Text Normalization for clin_c1 Before Splitting"
+  #   ))
+  # } else {
+  #   cat(
+  #     sprintf(
+  #       "\nNo ICD replacements found in clin_c1 with more than %d diff. chars.",
+  #       diff_chars
+  #     ),
+  #     "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
+  #   )
+  # }
+
+
+  # if (nrow(summary$final_ICD_replacements_2) > 0) {
+  #   print(kable(head(summary$final_ICD_replacements_2, end_nrow),
+  #     format = "markdown",
+  #     caption = "ICD Text Normalization for clin_c2 Before Splitting"
+  #   ))
+  # } else {
+  #   cat(
+  #     sprintf(
+  #       "\nNo ICD replacements found in clin_c2 with more than %d diff. chars.",
+  #       diff_chars
+  #     ),
+  #     "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
+  #   )
+  # }
+
+  final_icd_replacements <- unique(rbind(
+    summary$final_ICD_replacements_1,
+    summary$final_ICD_replacements_2
+  ))
+
+  if (nrow(final_icd_replacements) > 0) {
+    print(kable(head(final_icd_replacements, end_nrow),
       format = "markdown",
-      caption = "ICD Text Normalization for clin_c1 Before Splitting"
+      caption = "ICD Normalized Text for clin c1 & c2 Before Splitting"
     ))
   } else {
     cat(
-      sprintf("\nNo ICD replacements found in clin_c1 with more than %d different characters.", diff_chars),
-      "\nNote that commas, asterisks, plus signs, and whitespaces are ignored.\n"
-    )
-  }
-
-
-  if (nrow(summary$final_ICD_replacements_2) > 0) {
-    print(kable(head(summary$final_ICD_replacements_2, end_nrow),
-      format = "markdown",
-      caption = "ICD Text Normalization for clin_c2 Before Splitting"
-    ))
-  } else {
-    cat(
-      sprintf("\nNo ICD replacements found in clin_c2 with more than %d different characters.", diff_chars),
-      "\nNote that commas, asterisks, plus signs, and whitespaces are ignored.\n"
+      sprintf(
+        "\nNo ICD replacements found in clin c1 & c2 with diff chars > %d",
+        diff_chars
+      ),
+      "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
     )
   }
 
@@ -43,16 +69,20 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   display_unique_mappings <- function(mapped_data, mapping_name, tmp_nrow) {
     #' @title Display Unique Mappings
     #'
-    #' @description Displays the unique before-and-after mappings for a given dataset.
+    #' @description Displays the unique before-and-after mappings
+    #' for a given dataset.
     #'
-    #' @param mapped_data data.table. The data table with Original and Mapped columns.
+    #' @param mapped_data data.table. The data table with Original
+    #' and Mapped columns.
     #' @param mapping_name character. The name of the mapping being displayed.
     #' @param tmp_nrow integer. Number of rows to display in the output.
     #'
     #' @return NULL. Prints the unique mappings.
 
     # Ensure the data has the correct columns
-    if (!("Original" %in% names(mapped_data)) || !("Mapped" %in% names(mapped_data))) {
+    if (
+      !("Original" %in% names(mapped_data)) ||
+        !("Mapped" %in% names(mapped_data))) {
       stop("The data table must contain 'Original' and 'Mapped' columns.")
     }
 
@@ -66,11 +96,21 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     ))
   }
 
-  display_unique_mappings(summary$final_pat_type_mapped, "Patient Type", tmp_nrow)
-  display_unique_mappings(summary$final_memcat_parent_mapped, "Memcat Parent", tmp_nrow)
-  display_unique_mappings(summary$final_memcat_child_mapped, "Memcat Child", tmp_nrow)
-  display_unique_mappings(summary$final_clin_discharge_mapped, "Discharge", tmp_nrow)
-  display_unique_mappings(summary$final_claim_status_mapped, "Claim Status", tmp_nrow)
+  display_unique_mappings(
+    summary$final_pat_type_mapped, "Patient Type", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_memcat_parent_mapped, "Memcat Parent", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_memcat_child_mapped, "Memcat Child", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_clin_discharge_mapped, "Discharge", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_claim_status_mapped, "Claim Status", tmp_nrow
+  )
 
   # if (nrow(summary$final_discard_rvs_one) > 0) {
   #   print(kable(head(summary$final_discard_rvs_one, tmp_nrow),
@@ -247,8 +287,8 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   }
 
   cat(
-    "\n\nAll PDx's are in list of acceptable PDx's:\n",
-    summary$final_rename_success, "\n\n"
+    "\nAll PDx's are in list of acceptable PDx's:\n",
+    summary$final_rename_success, ""
   )
 }
 
