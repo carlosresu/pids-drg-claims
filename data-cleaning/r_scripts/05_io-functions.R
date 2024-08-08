@@ -1,14 +1,14 @@
-ensure_partial_files_exist <- function(part) {
+ensure_partial_files_exist <- function(partial_part) {
   #' @title Ensure Partial Files Exist
   #' @description This function checks if partial files exist for a
-  #' given part and creates them if they don't.
-  #' @param part integer. The part number to process.
+  #' given partial_part and creates them if they don't.
+  #' @param partial_part integer. The partial_part number to process.
   #' @return NULL. Creates partial files as a side effect if they do not exist.
   chunk_file <- partial_claims_file
   if (!file.exists(chunk_file)) {
     rows_per_part <- ceiling(total_rows / split_parts)
-    start_row <- (part - 1) * rows_per_part + 1
-    end_row <- min(part * rows_per_part, total_rows)
+    start_row <- (partial_part - 1) * rows_per_part + 1
+    end_row <- min(partial_part * rows_per_part, total_rows)
     dt <- fread(
       file = full_claims_file,
       skip = start_row,
@@ -24,16 +24,16 @@ ensure_partial_files_exist <- function(part) {
   }
 }
 
-ensure_sample_files_exist <- function(part) {
+ensure_sample_files_exist <- function(sample_part) {
   #' @title Ensure Sample Files Exist
-  #' @description This function checks if sample files exist for a given part and creates them if they don't.
-  #' @param part integer. The part number to process.
+  #' @description This function checks if sample files exist for a given sample_part and creates them if they don't.
+  #' @param sample_part integer. The sample_part number to process.
   #' @return NULL. Creates sample files as a side effect if they do not exist.
   if (!file.exists(sampled_claims_file)) {
     dt <- fread(
       here(raw_claims_parts_path, paste0(
         full_claims_prefix, year_to_load,
-        "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+        "_part_", sprintf("%02d", sample_part), "_of_", split_parts, ".csv"
       )),
       skip = 1, na.strings = na_values,
       colClasses = "character", header = FALSE, encoding = encode, sep = sep
@@ -44,11 +44,11 @@ ensure_sample_files_exist <- function(part) {
   }
 }
 
-read_appropriate_file <- function(part, to_sample) {
+read_appropriate_file <- function(read_part, to_sample) {
   #' @title Read Appropriate File
   #' @description This function reads the appropriate file (partial or sample)
-  #' for a given part, drops specified columns, and casts column types.
-  #' @param part integer. The part number to process.
+  #' for a given read_part, drops specified columns, and casts column types.
+  #' @param read_part integer. The read_part number to process.
   #' @param to_sample logical. Whether to read the sample file or the
   #' full partial file.
   #' @return data.table. The processed data table.
@@ -58,7 +58,7 @@ read_appropriate_file <- function(part, to_sample) {
   } else {
     here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+      "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".csv"
     ))
   }
 
@@ -111,7 +111,7 @@ read_appropriate_file <- function(part, to_sample) {
     }
   }
 
-  nrow_start[[part]] <<- nrow(dt)
+  nrow_start[[read_part]] <<- nrow(dt)
 
   return(
     list(
