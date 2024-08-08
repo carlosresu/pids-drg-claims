@@ -34,23 +34,23 @@ encode <- "unknown" # Choices: unknown, UTF-8, Latin-1
 sep <- "," # Choices: "," or "\t"
 
 # Input:
-to_sample <- TRUE # Whether to sample each split_parts part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
+sample_size_divisor <- 5 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # File Path Prefixes:
 clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
-claims_prefix <- file.path(data_prefix, "data-claims")
+claims_prefix <- file.path(data_prefix, "claims")
 
 # File Paths:
-checkpoints_path <- file.path(data_prefix, "data-checkpoints")
+checkpoints_path <- file.path(data_prefix, "checkpoints")
 checkpoint_1_path <- file.path(checkpoints_path, "checkpoint_1_cleaned_partial_claims")
 checkpoint_2_path <- file.path(checkpoints_path, "checkpoint_2_thai_grouper_input")
 checkpoint_3_path <- file.path(checkpoints_path, "checkpoint_3_thai_grouper_output")
 checkpoint_4_path <- file.path(checkpoints_path, "checkpoint_4_py_grouper_input")
 checkpoint_5_path <- file.path(checkpoints_path, "checkpoint_5_py_grouper_output")
 cache_path <- file.path(clean_prefix, "cache")
-aux_path <- file.path(data_prefix, "data-aux-files")
+aux_path <- file.path(data_prefix, "aux-files")
 cleaned_claims_path <- file.path(claims_prefix, "cleaned")
 raw_claims_path <- file.path(claims_prefix, "raw")
 raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
@@ -87,11 +87,11 @@ to_group <- TRUE # Whether to export for the batch grouper or not
 to_debug <- FALSE # whether to print debug statements
 to_profvis <- FALSE # Conduct runtime duration analysis via profvis or not
 to_view_checks <- TRUE # Whether to view checks and print statements
-to_view_checks_parallel <- FALSE # Whether to view intermediate per part/chunk checks and print statements (not consolidated) when parallelized
-to_parallel <- TRUE # Whether to parallelize each split_parts part into availableCores() chunks. Cuts down processing time from 120min to 15min.
+to_view_checks_parallel <- FALSE # Whether to view intermediate per split_part/chunk checks and print statements (not consolidated) when parallelized
+to_parallel <- TRUE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
 to_split_read <- FALSE # WARNING: TRUE uses a lot of memory!!
 to_dec_mem_usage <- FALSE # Whether to run rm() and gc() at every possible step
-tmp_nrow <- Inf # Per part/chunk end_nrow (leave at Inf)
+tmp_nrow <- Inf # Per split_part/chunk end_nrow (leave at Inf)
 diff_chars <- 0
 
 # Flush files
@@ -493,15 +493,15 @@ unified_block <- function() {
     header = TRUE, encoding = encode, sep = sep
   )
 
-  split_and_save <- function(part) {
+  split_and_save <- function(split_and_save_part) {
     rows_per_part <- ceiling(total_rows / split_parts)
     chunk_file <- here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+      "_part_", sprintf("%02d", split_and_save_part), "_of_", split_parts, ".csv"
     ))
     if (!file.exists(chunk_file)) {
-      start_row <- (part - 1) * rows_per_part + 1
-      end_row <- min(part * rows_per_part, total_rows)
+      start_row <- (split_and_save_part - 1) * rows_per_part + 1
+      end_row <- min(split_and_save_part * rows_per_part, total_rows)
       chunk_dt <- fread(
         file = full_claims_file,
         skip = start_row,
@@ -527,7 +527,7 @@ unified_block <- function() {
 
   if (to_parallel && !is_unix) plan(multisession, workers = nthreads) # Start the parallelization session or remain sequential
 
-  for (part in 1:split_parts) { # For each partial file (part) of 1:N (split_parts) files
+  for (loop_part in 1:split_parts) { # For each partial file (loop_part) of 1:N (split_parts) files
     # Process the partial file with or without parallelization
 
     ##################################################################################################################################
@@ -538,18 +538,18 @@ unified_block <- function() {
 
     partial_claims_file <<- here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+      "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
     ))
-    ensure_partial_files_exist(part) # Ensure partial exist
+    ensure_partial_files_exist(loop_part) # Ensure partial exist
 
     if (to_sample) {
       sampled_claims_file <<- here(raw_claims_samples_path, paste0(
         "sampled_claims_", year_to_load, "_", sample_size,
-        "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+        "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
       ))
-      ensure_sample_files_exist(part) # Ensure sample files exist
+      ensure_sample_files_exist(loop_part) # Ensure sample files exist
     }
-    read_result <- read_appropriate_file(part, to_sample) # Read the appropriate file
+    read_result <- read_appropriate_file(loop_part, to_sample) # Read the appropriate file
     read_in_dt <- read_result$read_result_dt
     read_in_replacement_summary <- read_result$read_result_replacement_summary
 
@@ -709,7 +709,7 @@ unified_block <- function() {
       fwrite(
         summarized_dt, here(checkpoint_1_path, paste0(
           "checkpoint_1_claims_", year_to_load, suffix,
-          "part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+          "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
         )),
         quote = TRUE
       )
@@ -719,7 +719,7 @@ unified_block <- function() {
         summarized_dt, year_to_load,
         here(checkpoint_2_path, paste0(
           "DRG_Grouped", "_", year_to_load, suffix, "part_",
-          sprintf("%02d", part), "_of_", split_parts, ".txt"
+          sprintf("%02d", loop_part), "_of_", split_parts, ".txt"
         ))
       )
     }
@@ -728,12 +728,12 @@ unified_block <- function() {
     ####################################################### END OF PROCESS PART ######################################################
     ##################################################################################################################################
 
-    all_parts_summaries[[part]] <- combined_parallel_summary # Save partial summaries to a list
-    processing_times[[part]] <- as.numeric(difftime(Sys.time(), start_time, units = "secs")) # Save partial processing time to a list
+    all_parts_summaries[[loop_part]] <- combined_parallel_summary # Save partial summaries to a list
+    processing_times[[loop_part]] <- as.numeric(difftime(Sys.time(), start_time, units = "secs")) # Save partial processing time to a list
     # Print status update and ETA
-    print_status_update(part, split_parts, processing_times)
-    if (part == 1) dim_dt <<- dim(summarized_dt)
-    nrow_end[[part]] <<- nrow(summarized_dt)
+    print_status_update(loop_part, split_parts, processing_times)
+    if (loop_part == 1) dim_dt <<- dim(summarized_dt)
+    nrow_end[[loop_part]] <<- nrow(summarized_dt)
 
     if (to_dec_mem_usage) {
       rm(read_in_dt, rbound_dt, summarized_dt)
@@ -741,11 +741,11 @@ unified_block <- function() {
     }
   }
 
-  for (part in 1:split_parts) {
-    if (nrow_start[[part]] != nrow_end[[part]]) {
+  for (nrow_part in 1:split_parts) {
+    if (nrow_start[[nrow_part]] != nrow_end[[nrow_part]]) {
       warning(
-        "WARNING: Row Count Mismatch! Part ", part, " has ", nrow_start[[part]],
-        " starting rows and ", nrow_end[[part]], " ending rows\n"
+        "WARNING: Row Count Mismatch! Part ", nrow_part, " has ", nrow_start[[nrow_part]],
+        " starting rows and ", nrow_end[[nrow_part]], " ending rows\n"
       )
       stop("ERROR: Row Count Mismatch")
     }
@@ -799,49 +799,31 @@ concatenate_r_files(
 if (.Platform$OS.type == "unix") system("cd ~/drg-pipeline && jupyter nbconvert --no-prompt --to script data-cleaning/drg-cleaning.ipynb --output everything/drg-cleaning")
 
 
-if (to_flush_cleaned_parts_and_samples) {
-  system(paste(
-    "rm -r",
-    here("data-cleaning/data/data-claims/raw/cleaned"),
-    here("data-cleaning/data/data-claims/raw/parts"),
-    here("data-cleaning/data/data-claims/raw/samples")
-  ))
-}
+# Define the paths and corresponding conditions
+paths <- list(
+  to_flush_cleaned_parts_and_samples = c(
+    "data-cleaning/data/claims/raw/cleaned",
+    "data-cleaning/data/claims/raw/parts",
+    "data-cleaning/data/claims/raw/samples"
+  ),
+  to_flush_cache_and_profvis = c(
+    "data-cleaning/cache",
+    "data-cleaning/data/profvis"
+  ),
+  to_flush_aux_files = "data-cleaning/data/aux-files",
+  to_flush_checkpoints = "data-cleaning/data/checkpoints",
+  to_flush_raw = "data-cleaning/data/claims/raw",
+  to_flush_debug = "data-cleaning/everything"
+)
 
-if (to_flush_cache_and_profvis) {
-  system(paste(
-    "rm -r",
-    here("data-cleaning/cache"),
-    here("data-cleaning/profvis")
-  ))
-}
-
-if (to_flush_aux_files) {
-  system(paste(
-    "rm -r",
-    here("data-cleaning/data/data-aux-files")
-  ))
-}
-
-if (to_flush_checkpoints) {
-  system(paste(
-    "rm -r",
-    here("data-cleaning/data/data-checkpoints")
-  ))
-}
-
-if (to_flush_raw) {
-  system(paste(
-    "rm -r",
-    here("data-cleaning/data/data-claims/raw")
-  ))
-}
-
-if (to_flush_debug) {
-  system(paste(
-    "rm -r",
-    here("data-cleaning/everything")
-  ))
+# Iterate over the paths and conditions
+for (condition in names(paths)) {
+  if (get(condition)) {
+    system(paste(
+      "rm -r",
+      paste(here(unlist(paths[[condition]])), collapse = " ")
+    ))
+  }
 }
 
 rm(list = ls())

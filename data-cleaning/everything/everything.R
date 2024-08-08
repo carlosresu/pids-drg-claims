@@ -18,16 +18,13 @@ required_packages <- c(
   "parallel"
 )
 
-# Function to install and load packages
-install_and_load <- function(package) {
+# Install and load required packages
+lapply(required_packages, function(package) {
   if (!require(package, character.only = TRUE)) {
     install.packages(package, dependencies = TRUE)
     library(package, character.only = TRUE)
   }
-}
-
-# Install and load required packages
-lapply(required_packages, install_and_load)
+})
 
 suppressPackageStartupMessages({
   lapply(required_packages, library, character.only = TRUE)
@@ -46,8 +43,6 @@ na_like_strings <- c(
   "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028",
   "\u2029", "\u202F", "\u205F", "\u3000"
 )
-
-all_na_values <- unique(c(na_values, na_like_strings))
 
 integer_cols <- c("OUT_PATIENT", "EMERGENCY")
 
@@ -1330,16 +1325,17 @@ print_time_estimates <- function() {
 }
 
 # Function to print status updates using lubridate
-print_status_update <- function(part, split_parts, processing_times) {
+print_status_update <- function(status_part, split_parts, processing_times) {
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
-  #' @param part integer. The current part number.
+  #' @param status_part integer. The current status_part number.
   #' @param split_parts integer. Total number of parts.
-  #' @param processing_times numeric. Array of processing times for each part.
+  #' @param processing_times numeric. Array of processing times for each
+  #' status_part.
 
   # Calculate elapsed time and averages
-  elapsed_time <- sum(processing_times[1:part])
-  avg_time_per_part <- elapsed_time / part
+  elapsed_time <- sum(processing_times[1:status_part])
+  avg_time_per_part <- elapsed_time / status_part
   estimated_total_time <- avg_time_per_part * split_parts
   estimated_remaining_time <- estimated_total_time - elapsed_time
 
@@ -1377,17 +1373,17 @@ print_status_update <- function(part, split_parts, processing_times) {
 
   # Determine when to print the status update
   if (avg_time_per_part >= 4) {
-    # Print status updates for every part
+    # Print status updates for every status_part
     cat(sprintf(
       "\rFinished %d of %d parts in %s (ETA %s)       ",
-      part, split_parts, elapsed_str, remaining_str
+      status_part, split_parts, elapsed_str, remaining_str
     ))
     flush.console()
-  } else if (avg_time_per_part < 4 && part %% 5 == 0) {
-    # Print status updates for every 5th, 10th, 15th part
+  } else if (avg_time_per_part < 4 && status_part %% 5 == 0) {
+    # Print status updates for every 5th, 10th, 15th status_part
     cat(sprintf(
       "\rFinished %d of %d parts in %s (ETA %s)       ",
-      part, split_parts, elapsed_str, remaining_str
+      status_part, split_parts, elapsed_str, remaining_str
     ))
     flush.console()
   }
@@ -1438,30 +1434,56 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
 
   summary <- final_combined_summaries
 
-  cat("\n\nRename Success:\n", summary$final_rename_success, "\n\n")
+  cat("\nRename Success:\n", summary$final_rename_success, "")
 
-  if (nrow(summary$final_ICD_replacements_1) > 0) {
-    print(kable(head(summary$final_ICD_replacements_1, end_nrow),
+  # if (nrow(summary$final_ICD_replacements_1) > 0) {
+  #   print(kable(head(summary$final_ICD_replacements_1, end_nrow),
+  #     format = "markdown",
+  #     caption = "ICD Text Normalization for clin_c1 Before Splitting"
+  #   ))
+  # } else {
+  #   cat(
+  #     sprintf(
+  #       "\nNo ICD replacements found in clin_c1 with more than %d diff. chars.",
+  #       diff_chars
+  #     ),
+  #     "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
+  #   )
+  # }
+
+
+  # if (nrow(summary$final_ICD_replacements_2) > 0) {
+  #   print(kable(head(summary$final_ICD_replacements_2, end_nrow),
+  #     format = "markdown",
+  #     caption = "ICD Text Normalization for clin_c2 Before Splitting"
+  #   ))
+  # } else {
+  #   cat(
+  #     sprintf(
+  #       "\nNo ICD replacements found in clin_c2 with more than %d diff. chars.",
+  #       diff_chars
+  #     ),
+  #     "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
+  #   )
+  # }
+
+  final_icd_replacements <- unique(rbind(
+    summary$final_ICD_replacements_1,
+    summary$final_ICD_replacements_2
+  ))
+
+  if (nrow(final_icd_replacements) > 0) {
+    print(kable(head(final_icd_replacements, end_nrow),
       format = "markdown",
-      caption = "ICD Text Normalization for clin_c1 Before Splitting"
+      caption = "ICD Normalized Text for clin c1 & c2 Before Splitting"
     ))
   } else {
     cat(
-      sprintf("\nNo ICD replacements found in clin_c1 with more than %d different characters.", diff_chars),
-      "\nNote that commas, asterisks, plus signs, and whitespaces are ignored.\n"
-    )
-  }
-
-
-  if (nrow(summary$final_ICD_replacements_2) > 0) {
-    print(kable(head(summary$final_ICD_replacements_2, end_nrow),
-      format = "markdown",
-      caption = "ICD Text Normalization for clin_c2 Before Splitting"
-    ))
-  } else {
-    cat(
-      sprintf("\nNo ICD replacements found in clin_c2 with more than %d different characters.", diff_chars),
-      "\nNote that commas, asterisks, plus signs, and whitespaces are ignored.\n"
+      sprintf(
+        "\nNo ICD replacements found in clin c1 & c2 with diff chars > %d",
+        diff_chars
+      ),
+      "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
     )
   }
 
@@ -1469,16 +1491,20 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   display_unique_mappings <- function(mapped_data, mapping_name, tmp_nrow) {
     #' @title Display Unique Mappings
     #'
-    #' @description Displays the unique before-and-after mappings for a given dataset.
+    #' @description Displays the unique before-and-after mappings
+    #' for a given dataset.
     #'
-    #' @param mapped_data data.table. The data table with Original and Mapped columns.
+    #' @param mapped_data data.table. The data table with Original
+    #' and Mapped columns.
     #' @param mapping_name character. The name of the mapping being displayed.
     #' @param tmp_nrow integer. Number of rows to display in the output.
     #'
     #' @return NULL. Prints the unique mappings.
 
     # Ensure the data has the correct columns
-    if (!("Original" %in% names(mapped_data)) || !("Mapped" %in% names(mapped_data))) {
+    if (
+      !("Original" %in% names(mapped_data)) ||
+        !("Mapped" %in% names(mapped_data))) {
       stop("The data table must contain 'Original' and 'Mapped' columns.")
     }
 
@@ -1492,11 +1518,21 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     ))
   }
 
-  display_unique_mappings(summary$final_pat_type_mapped, "Patient Type", tmp_nrow)
-  display_unique_mappings(summary$final_memcat_parent_mapped, "Memcat Parent", tmp_nrow)
-  display_unique_mappings(summary$final_memcat_child_mapped, "Memcat Child", tmp_nrow)
-  display_unique_mappings(summary$final_clin_discharge_mapped, "Discharge", tmp_nrow)
-  display_unique_mappings(summary$final_claim_status_mapped, "Claim Status", tmp_nrow)
+  display_unique_mappings(
+    summary$final_pat_type_mapped, "Patient Type", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_memcat_parent_mapped, "Memcat Parent", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_memcat_child_mapped, "Memcat Child", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_clin_discharge_mapped, "Discharge", tmp_nrow
+  )
+  display_unique_mappings(
+    summary$final_claim_status_mapped, "Claim Status", tmp_nrow
+  )
 
   # if (nrow(summary$final_discard_rvs_one) > 0) {
   #   print(kable(head(summary$final_discard_rvs_one, tmp_nrow),
@@ -1673,8 +1709,8 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   }
 
   cat(
-    "\n\nAll PDx's are in list of acceptable PDx's:\n",
-    summary$final_rename_success, "\n\n"
+    "\nAll PDx's are in list of acceptable PDx's:\n",
+    summary$final_rename_success, ""
   )
 }
 
@@ -2275,17 +2311,17 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
 
   return(final_combined_summaries)
 }
-ensure_partial_files_exist <- function(part) {
+ensure_partial_files_exist <- function(partial_part) {
   #' @title Ensure Partial Files Exist
   #' @description This function checks if partial files exist for a
-  #' given part and creates them if they don't.
-  #' @param part integer. The part number to process.
+  #' given partial_part and creates them if they don't.
+  #' @param partial_part integer. The partial_part number to process.
   #' @return NULL. Creates partial files as a side effect if they do not exist.
   chunk_file <- partial_claims_file
   if (!file.exists(chunk_file)) {
     rows_per_part <- ceiling(total_rows / split_parts)
-    start_row <- (part - 1) * rows_per_part + 1
-    end_row <- min(part * rows_per_part, total_rows)
+    start_row <- (partial_part - 1) * rows_per_part + 1
+    end_row <- min(partial_part * rows_per_part, total_rows)
     dt <- fread(
       file = full_claims_file,
       skip = start_row,
@@ -2301,16 +2337,16 @@ ensure_partial_files_exist <- function(part) {
   }
 }
 
-ensure_sample_files_exist <- function(part) {
+ensure_sample_files_exist <- function(sample_part) {
   #' @title Ensure Sample Files Exist
-  #' @description This function checks if sample files exist for a given part and creates them if they don't.
-  #' @param part integer. The part number to process.
+  #' @description This function checks if sample files exist for a given sample_part and creates them if they don't.
+  #' @param sample_part integer. The sample_part number to process.
   #' @return NULL. Creates sample files as a side effect if they do not exist.
   if (!file.exists(sampled_claims_file)) {
     dt <- fread(
       here(raw_claims_parts_path, paste0(
         full_claims_prefix, year_to_load,
-        "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+        "_part_", sprintf("%02d", sample_part), "_of_", split_parts, ".csv"
       )),
       skip = 1, na.strings = na_values,
       colClasses = "character", header = FALSE, encoding = encode, sep = sep
@@ -2321,11 +2357,11 @@ ensure_sample_files_exist <- function(part) {
   }
 }
 
-read_appropriate_file <- function(part, to_sample) {
+read_appropriate_file <- function(read_part, to_sample) {
   #' @title Read Appropriate File
   #' @description This function reads the appropriate file (partial or sample)
-  #' for a given part, drops specified columns, and casts column types.
-  #' @param part integer. The part number to process.
+  #' for a given read_part, drops specified columns, and casts column types.
+  #' @param read_part integer. The read_part number to process.
   #' @param to_sample logical. Whether to read the sample file or the
   #' full partial file.
   #' @return data.table. The processed data table.
@@ -2335,7 +2371,7 @@ read_appropriate_file <- function(part, to_sample) {
   } else {
     here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", part), "_of_", split_parts, ".csv"
+      "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".csv"
     ))
   }
 
@@ -2388,7 +2424,7 @@ read_appropriate_file <- function(part, to_sample) {
     }
   }
 
-  nrow_start[[part]] <<- nrow(dt)
+  nrow_start[[read_part]] <<- nrow(dt)
 
   return(
     list(
