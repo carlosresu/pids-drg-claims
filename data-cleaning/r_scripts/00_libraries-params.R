@@ -18,16 +18,13 @@ required_packages <- c(
   "parallel"
 )
 
-# Function to install and load packages
-install_and_load <- function(package) {
+# Install and load required packages
+lapply(required_packages, function(package) {
   if (!require(package, character.only = TRUE)) {
     install.packages(package, dependencies = TRUE)
     library(package, character.only = TRUE)
   }
-}
-
-# Install and load required packages
-lapply(required_packages, install_and_load)
+})
 
 suppressPackageStartupMessages({
   lapply(required_packages, library, character.only = TRUE)
@@ -46,8 +43,6 @@ na_like_strings <- c(
   "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028",
   "\u2029", "\u202F", "\u205F", "\u3000"
 )
-
-all_na_values <- unique(c(na_values, na_like_strings))
 
 integer_cols <- c("OUT_PATIENT", "EMERGENCY")
 
