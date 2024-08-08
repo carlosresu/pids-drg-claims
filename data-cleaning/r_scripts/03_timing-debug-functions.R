@@ -61,16 +61,17 @@ print_time_estimates <- function() {
 }
 
 # Function to print status updates using lubridate
-print_status_update <- function(part, split_parts, processing_times) {
+print_status_update <- function(status_part, split_parts, processing_times) {
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
-  #' @param part integer. The current part number.
+  #' @param status_part integer. The current status_part number.
   #' @param split_parts integer. Total number of parts.
-  #' @param processing_times numeric. Array of processing times for each part.
+  #' @param processing_times numeric. Array of processing times for each
+  #' status_part.
 
   # Calculate elapsed time and averages
-  elapsed_time <- sum(processing_times[1:part])
-  avg_time_per_part <- elapsed_time / part
+  elapsed_time <- sum(processing_times[1:status_part])
+  avg_time_per_part <- elapsed_time / status_part
   estimated_total_time <- avg_time_per_part * split_parts
   estimated_remaining_time <- estimated_total_time - elapsed_time
 
@@ -108,17 +109,17 @@ print_status_update <- function(part, split_parts, processing_times) {
 
   # Determine when to print the status update
   if (avg_time_per_part >= 4) {
-    # Print status updates for every part
+    # Print status updates for every status_part
     cat(sprintf(
       "\rFinished %d of %d parts in %s (ETA %s)       ",
-      part, split_parts, elapsed_str, remaining_str
+      status_part, split_parts, elapsed_str, remaining_str
     ))
     flush.console()
-  } else if (avg_time_per_part < 4 && part %% 5 == 0) {
-    # Print status updates for every 5th, 10th, 15th part
+  } else if (avg_time_per_part < 4 && status_part %% 5 == 0) {
+    # Print status updates for every 5th, 10th, 15th status_part
     cat(sprintf(
       "\rFinished %d of %d parts in %s (ETA %s)       ",
-      part, split_parts, elapsed_str, remaining_str
+      status_part, split_parts, elapsed_str, remaining_str
     ))
     flush.console()
   }
