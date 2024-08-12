@@ -1,15 +1,7 @@
 ---
-title: An R Markdown document converted from "/home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/drg-cleaning.ipynb"
-output: html_document
----
-
----
 title: "DRG Cleaning"
-
 author: "Carlos Resurreccion"
-
 date: "2024-07-01"
-
 ---
 
 ```{r}
@@ -20,9 +12,11 @@ source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
 use_python("/usr/bin/python3")
 ```
 
-```{r}
-main <- py_run_string("import sys; x=sys.version")
-main$x
+```{python}
+import sys
+
+x = sys.version
+x
 ```
 
 ## Parameters
