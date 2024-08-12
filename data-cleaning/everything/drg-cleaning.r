@@ -19,7 +19,7 @@ sep <- "," # Choices: "," or "\t"
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 5 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # File Path Prefixes:
 clean_prefix <- "data-cleaning"
@@ -86,7 +86,7 @@ to_group <- TRUE # Whether to export for the batch grouper or not
 
 # Debug:
 to_debug <- FALSE # whether to print debug statements
-to_profvis <- FALSE # Conduct runtime duration analysis via profvis or not
+to_profvis <- TRUE # Conduct runtime duration analysis via profvis or not
 to_view_checks <- TRUE # Whether to view checks and print statements
 to_view_checks_parallel <- FALSE # Whether to view intermediate per split_part/chunk checks and print statements (not consolidated) when parallelized
 to_parallel <- TRUE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
@@ -202,181 +202,13 @@ query_bq_to_dt <- function(query, file_path, cache, max_bq_rows) {
 }
 
 
-# # 1. Query and load `grouper_v5.proc`
-# proc_query <- paste0(
-#   "SELECT * FROM `", gcp_proj,
-#   ".grouper_v5.proc` LIMIT ", max_bq_rows
-# )
-# proc <- query_bq_to_dt(proc_query, here(aux_path, "proc.csv"))
-# proc[, CODE := as.character(CODE)]
-
-# # 2. Query and load `phic.acr_rvs_map`
-# rvs_icd9_query <- paste0(
-#   "SELECT * FROM `", gcp_proj,
-#   ".phic.acr_rvs_map` LIMIT ", max_bq_rows
-# )
-# rvs_icd9 <- query_bq_to_dt(rvs_icd9_query, here(aux_path, "rvs_icd9cm.csv"),
-#   cache = TRUE, max_bq_rows = max_bq_rows
-# )
-# rvs_icd9 <- rvs_icd9[, .(
-#   rvs = as.character(rvs),
-#   icd9cm = as.character(as.numeric(icd9cm) * 100)
-# )]
-
-# # Merge with proc to classify by DRGUSE
-# rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)],
-#   by.x = "icd9cm", by.y = "CODE", all.x = TRUE
-# )
-
-# # Remove DRGUSE and filter out NAs
-# rvs_icd9 <- rvs_icd9[, is_drg := !is.na(DRGUSE) &
-#   DRGUSE][!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
-
-# # 3. Query and load `phic.acr_procedure`
-# acr_rvs_query <- paste0(
-#   "SELECT * FROM `", gcp_proj,
-#   ".phic.acr_procedure` LIMIT ", max_bq_rows
-# )
-# acr_rvs <- query_bq_to_dt(acr_rvs_query, here(aux_path, "acr_rvs.csv"))
-
-# # 4. Query and load `grouper_v5.i10`
-# i10_query <- paste0(
-#   "SELECT * FROM `", gcp_proj,
-#   ".grouper_v5.i10` LIMIT ", max_bq_rows
-# )
-# tdrg_icd10 <- query_bq_to_dt(i10_query, here(aux_path, "i10.csv"))
-# setkey(tdrg_icd10, "CODE")
-
-# # Subset and assign to acc_pdx
-# acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
-
-# # 5. Query and load `icd.phl_icd10`
-# phl_icd10_query <- paste0(
-#   "SELECT * FROM `", gcp_proj,
-#   ".icd.phl_icd10` LIMIT ", max_bq_rows
-# )
-# phl_icd10 <- query_bq_to_dt(phl_icd10_query, here(aux_path, "phl_icd10.csv"))
-
-# # Filter and process neoplasms
-# neoplasms_dt <- as.data.table(phl_icd10[
-#   grepl("/", icd10),
-#   .(icd10)
-# ][, icd10 := sapply(strsplit(icd10, ","), function(x) trimws(x[2]))])
-
-# # Read in all rvs codes and turn to character for further processing
-# # Run the gcloud bq query command to save the result as a CSV file
-# if (!file.exists(here(aux_path, "proc.csv"))) {
-#   system(
-#     paste0(
-#       "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
-#       " 'SELECT * FROM `", gcp_proj, ".grouper_v5.proc`' > ", here(aux_path, "proc.csv")
-#     ),
-#     intern = FALSE, ignore.stderr = FALSE
-#   )
-# } else {
-#   message("proc.csv already exists, skipping bq query")
-# }
-
-# # Read the CSV file into an R data frame
-# proc <- fread(here(aux_path, "proc.csv"))[, CODE := as.character(CODE)]
-
-# # Read in icd9cm equivalents of rvs codes,
-# # then convert to character and also remove decimals,
-# # whilst keeping trailing zeroes
-# if (!file.exists(here(aux_path, "rvs_icd9cm.csv"))) {
-#   system(
-#     paste0(
-#       "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
-#       " 'SELECT * FROM ", gcp_proj, ".phic.acr_rvs_map' > ",
-#       here(aux_path, "rvs_icd9cm.csv")
-#     ),
-#     intern = FALSE, ignore.stderr = FALSE
-#   )
-# } else {
-#   message("rvs_icd9cm.csv already exists, skipping bq query")
-# }
-
-# rvs_icd9 <- fread(here(aux_path, "rvs_icd9cm.csv"),
-#   select = c("rvs", "icd9cm")
-# )[, rvs := as.character(rvs)][, icd9cm := as.character(icd9cm * 100)]
-
-# # Merge with proc from above, to be able to classify by DRGUSE
-# rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)],
-#   by.x = "icd9cm", by.y = "CODE", all.x = TRUE
-# )
-
-# # Remove DRGUSE and filter out NAs
-# rvs_icd9 <- rvs_icd9[
-#   ,
-#   is_drg := !is.na(DRGUSE) & DRGUSE
-# ][!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
-
-# if (!file.exists(here(aux_path, "acr_rvs.csv"))) {
-#   system(
-#     paste0(
-#       "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
-#       " 'SELECT * FROM ", gcp_proj, ".phic.acr_procedure' > ",
-#       here(aux_path, "acr_rvs.csv")
-#     ),
-#     intern = FALSE, ignore.stderr = FALSE
-#   )
-# } else {
-#   message("acr_rvs.csv already exists, skipping bq query")
-# }
-
-# # Read in PHIC all case rates
-# acr_rvs <- fread(here(aux_path, "acr_rvs.csv"))
-
-# if (!file.exists(here(aux_path, "i10.csv"))) {
-#   system(
-#     paste0(
-#       "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
-#       " 'SELECT * FROM ", gcp_proj, ".grouper_v5.i10' > ",
-#       here(aux_path, "i10.csv")
-#     ),
-#     intern = FALSE, ignore.stderr = FALSE
-#   )
-# } else {
-#   message("i10.csv already exists, skipping bq query")
-# }
-
-# # Read in the Thai ICD-10 library
-# tdrg_icd10 <- fread(here(aux_path, "i10.csv"))
-
-# # Set the key if not already set
-# setkey(tdrg_icd10, "CODE")
-
-# # Subset and assign the result to acc_pdx
-# acc_pdx <- unique(tdrg_icd10[ACCPDX == "Y", CODE])
-
-# if (!file.exists(here(aux_path, "phl_icd10.csv"))) {
-#   system(
-#     paste0(
-#       "bq query --use_legacy_sql=false --format=csv --max_rows=", max_bq_rows,
-#       " 'SELECT * FROM ", gcp_proj, ".icd.phl_icd10' > ",
-#       here(aux_path, "phl_icd10.csv")
-#     ),
-#     intern = FALSE, ignore.stderr = FALSE
-#   )
-# } else {
-#   message("i10.csv already exists, skipping bq query")
-# }
-
-# phl_icd10 <- fread(here(aux_path, "phl_icd10.csv"))
-
-# # Filter and print rows where CODE contains a slash
-# neoplasms_dt <- as.data.table(phl_icd10[
-#   grepl("/", icd10),
-#   .(icd10)
-# ][, icd10 := sapply(strsplit(icd10, ","), function(x) trimws(x[2]))])
-
 # 1. Query and load `grouper_v5.proc`
 proc_query <- paste0(
   "SELECT * FROM `", gcp_proj,
   ".grouper_v5.proc` LIMIT ", max_bq_rows
 )
 proc <- query_bq_to_dt(proc_query, here(aux_path, "proc.csv"),
-  cache = FALSE, max_bq_rows = max_bq_rows
+  cache = TRUE, max_bq_rows = max_bq_rows
 )
 proc[, CODE := as.character(CODE)]
 
@@ -386,7 +218,7 @@ rvs_icd9_query <- paste0(
   ".phic.acr_rvs_map` LIMIT ", max_bq_rows
 )
 rvs_icd9 <- query_bq_to_dt(rvs_icd9_query, here(aux_path, "rvs_icd9cm.csv"),
-  cache = FALSE, max_bq_rows = max_bq_rows
+  cache = TRUE, max_bq_rows = max_bq_rows
 )
 
 # Convert rvs to character and handle icd9cm conversion carefully
@@ -410,7 +242,7 @@ acr_rvs_query <- paste0(
   ".phic.acr_procedure` LIMIT ", max_bq_rows
 )
 acr_rvs <- query_bq_to_dt(acr_rvs_query, here(aux_path, "acr_rvs.csv"),
-  cache = FALSE, max_bq_rows = max_bq_rows
+  cache = TRUE, max_bq_rows = max_bq_rows
 )
 
 # 4. Query and load `grouper_v5.i10`
@@ -419,7 +251,7 @@ i10_query <- paste0(
   ".grouper_v5.i10` LIMIT ", max_bq_rows
 )
 tdrg_icd10 <- query_bq_to_dt(i10_query, here(aux_path, "i10.csv"),
-  cache = FALSE, max_bq_rows = max_bq_rows
+  cache = TRUE, max_bq_rows = max_bq_rows
 )
 setkey(tdrg_icd10, "CODE")
 
@@ -432,7 +264,7 @@ phl_icd10_query <- paste0(
   ".icd.phl_icd10` LIMIT ", max_bq_rows
 )
 phl_icd10 <- query_bq_to_dt(phl_icd10_query, here(aux_path, "phl_icd10.csv"),
-  cache = FALSE, max_bq_rows = max_bq_rows
+  cache = TRUE, max_bq_rows = max_bq_rows
 )
 
 # Filter and process neoplasms
@@ -588,7 +420,10 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
     rvss = unique(unlist(clin_rvs)),
     mappable_rvs = intersect(unique(unlist(clin_rvs)), rvs_icd9$rvs),
     unmappable_rvs = setdiff(unique(unlist(clin_rvs)), rvs_icd9$rvs),
-    multi_mapped_rvs = intersect(unique(unlist(clin_rvs)), names(rvs_maps$rvs_map_list)),
+    multi_mapped_rvs = intersect(
+      unique(unlist(clin_rvs)),
+      names(rvs_maps$rvs_map_list)
+    ),
     without_drg = unique(rvs_icd9[!rvs %in% names(rvs_maps$rvs_map_list)]$rvs)
   ))
 }
@@ -988,8 +823,6 @@ unified_block <- function() {
       )
     }
   }
-
-  str(master_dt)
 
   # Summaries are consolidated from 15 split_parts * 8 chunks = 120 sub outputs
   print_summary_tables( # Print final summaries
