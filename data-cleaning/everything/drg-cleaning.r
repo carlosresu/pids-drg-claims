@@ -30,8 +30,9 @@ checkpoint_2_path <- file.path(chkpt_path, "checkpoint_2_master_clean_claims")
 checkpoint_3_path <- file.path(chkpt_path, "checkpoint_3_thai_partial_input")
 checkpoint_4_path <- file.path(chkpt_path, "checkpoint_4_thai_master_input")
 checkpoint_5_path <- file.path(chkpt_path, "checkpoint_5_thai_output")
-checkpoint_6_path <- file.path(chkpt_path, "checkpoint_6_py_input")
-checkpoint_7_path <- file.path(chkpt_path, "checkpoint_7_py_output")
+checkpoint_6_path <- file.path(chkpt_path, "checkpoint_6_thai_merged")
+checkpoint_7_path <- file.path(chkpt_path, "checkpoint_7_py_input")
+checkpoint_8_path <- file.path(chkpt_path, "checkpoint_8_py_output")
 cache_path <- file.path(clean_prefix, "cache")
 aux_path <- file.path(data_prefix, "aux-files")
 cleaned_claims_path <- file.path(claims_prefix, "cleaned")
@@ -706,8 +707,7 @@ unified_block <- function() {
         summarized_dt, here(checkpoint_1_path, paste0(
           "checkpoint_1_claims_", year_to_load, suffix,
           "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
-        )),
-        quote = TRUE
+        ))
       )
     }
     if (to_combine) master_dt_list[[loop_part]] <- summarized_dt
@@ -753,6 +753,19 @@ unified_block <- function() {
   if (to_combine) {
     master_dt <- rbindlist(master_dt_list)
     master_grouper_input_dt <- rbindlist(master_grouper_input_list)
+    master_grouper_input_dt[, CASEID := 1:nrow(master_grouper_input_dt)]
+    # master_dt[is.na(master_dt)] <- ""
+    list_cols <- names(master_dt)[sapply(master_dt, is.list)]
+    for (col in list_cols) {
+      master_dt[, (col) := sapply(.SD[[col]], function(x) {
+        # Remove "NA" from the list and collapse to a string
+        cleaned <- paste(na.omit(x), collapse = "||")
+        # If the cleaned string is empty, return NA_character_,
+        # otherwise return the cleaned string
+        if (cleaned == "") NA_character_ else cleaned
+      }), .SDcols = col]
+    }
+    # print(head(master_dt))
     if (to_dec_mem_usage) {
       rm(master_dt_list, master_grouper_input_list)
       gc()
@@ -760,9 +773,7 @@ unified_block <- function() {
     if (to_write) {
       fwrite(master_dt, here(checkpoint_2_path, paste0(
         "checkpoint_2_claims_", year_to_load, suffix, ".csv"
-      )),
-      quote = TRUE
-      )
+      )))
       fwrite(master_grouper_input_dt,
         here(checkpoint_4_path, paste0(
           "checkpoint_4_thai_grouper_input_",
@@ -850,6 +861,8 @@ for (condition in names(paths)) {
   }
 }
 
-rm(list = ls())
-gc()
+if (to_debug) {
+  rm(list = ls())
+  gc()
+}
 
