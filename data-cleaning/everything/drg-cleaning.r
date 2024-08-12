@@ -1,22 +1,3 @@
-create_dirs <- function(paths) {
-  created_dirs <- c()
-
-  for (path in paths) {
-    full_path <- here(path)
-    if (!dir.exists(full_path)) {
-      dir.create(full_path, recursive = TRUE)
-      created_dirs <- c(created_dirs, full_path)
-    }
-  }
-
-  if (length(created_dirs) == 0) {
-    cat("All directories exist.\n")
-  } else {
-    cat("The following directories were created:\n")
-    cat(paste(created_dirs, collapse = ",\n"), "\n")
-  }
-}
-
 source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
 
 
@@ -35,7 +16,7 @@ sep <- "," # Choices: "," or "\t"
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 5 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # File Path Prefixes:
 clean_prefix <- "data-cleaning"
@@ -43,12 +24,14 @@ data_prefix <- file.path(clean_prefix, "data")
 claims_prefix <- file.path(data_prefix, "claims")
 
 # File Paths:
-checkpoints_path <- file.path(data_prefix, "checkpoints")
-checkpoint_1_path <- file.path(checkpoints_path, "checkpoint_1_cleaned_partial_claims")
-checkpoint_2_path <- file.path(checkpoints_path, "checkpoint_2_thai_grouper_input")
-checkpoint_3_path <- file.path(checkpoints_path, "checkpoint_3_thai_grouper_output")
-checkpoint_4_path <- file.path(checkpoints_path, "checkpoint_4_py_grouper_input")
-checkpoint_5_path <- file.path(checkpoints_path, "checkpoint_5_py_grouper_output")
+chkpt_path <- file.path(data_prefix, "checkpoints")
+checkpoint_1_path <- file.path(chkpt_path, "checkpoint_1_partial_clean_claims")
+checkpoint_2_path <- file.path(chkpt_path, "checkpoint_2_master_clean_claims")
+checkpoint_3_path <- file.path(chkpt_path, "checkpoint_3_thai_partial_input")
+checkpoint_4_path <- file.path(chkpt_path, "checkpoint_4_thai_master_input")
+checkpoint_5_path <- file.path(chkpt_path, "checkpoint_5_thai_output")
+checkpoint_6_path <- file.path(chkpt_path, "checkpoint_6_py_input")
+checkpoint_7_path <- file.path(chkpt_path, "checkpoint_7_py_output")
 cache_path <- file.path(clean_prefix, "cache")
 aux_path <- file.path(data_prefix, "aux-files")
 cleaned_claims_path <- file.path(claims_prefix, "cleaned")
@@ -60,7 +43,20 @@ profvis_fpath <- here("data-cleaning", "data", "profvis", "profvis.html")
 everything_path <- file.path("data-cleaning", "everything")
 
 # Create directories:
-create_dirs(mget(ls(pattern = "_path$"), envir = .GlobalEnv))
+created_dirs <- c()
+for (path in mget(ls(pattern = "_path$"), envir = .GlobalEnv)) {
+  full_path <- here(path)
+  if (!dir.exists(full_path)) {
+    dir.create(full_path, recursive = TRUE)
+    created_dirs <- c(created_dirs, full_path)
+  }
+}
+if (length(created_dirs) == 0) {
+  cat("All directories exist.\n")
+} else {
+  cat("The following directories were created:\n")
+  cat(paste(created_dirs, collapse = ",\n"), "\n")
+}
 
 # Commonly Used File Paths:
 full_claims_file <- here(
@@ -81,6 +77,7 @@ drop_cols <- c( # Which columns to drop
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
+to_combine <- TRUE # Whether to combine checkpoint 1 files into one data.table
 to_group <- TRUE # Whether to export for the batch grouper or not
 
 # Debug:
@@ -677,7 +674,6 @@ unified_block <- function() {
     combined_chunk_summary <- combine_chunk_summaries(parallel_summaries, tmp_nrow)
 
     if (to_dec_mem_usage) rm(parallel_results) # debug
-    if (to_dec_mem_usage) gc() # debug
 
     acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
     for (code in acc_pdx) {
@@ -714,13 +710,14 @@ unified_block <- function() {
         quote = TRUE
       )
     }
+    if (to_combine) master_dt_list[[loop_part]] <- summarized_dt
     if (to_group) {
       export_for_grouper(
         summarized_dt, year_to_load,
-        here(checkpoint_2_path, paste0(
+        here(checkpoint_3_path, paste0(
           "DRG_Grouped", "_", year_to_load, suffix, "part_",
           sprintf("%02d", loop_part), "_of_", split_parts, ".txt"
-        ))
+        )), loop_part
       )
     }
 
@@ -753,6 +750,29 @@ unified_block <- function() {
 
   cat("\nRow Counts Match for All Parts\n") # only prints if above succeeds
 
+  if (to_combine) {
+    master_dt <- rbindlist(master_dt_list)
+    master_grouper_input_dt <- rbindlist(master_grouper_input_list)
+    if (to_dec_mem_usage) {
+      rm(master_dt_list, master_grouper_input_list)
+      gc()
+    }
+    if (to_write) {
+      fwrite(master_dt, here(checkpoint_2_path, paste0(
+        "checkpoint_2_claims_", year_to_load, suffix, ".csv"
+      )),
+      quote = TRUE
+      )
+      fwrite(master_grouper_input_dt,
+        here(checkpoint_4_path, paste0(
+          "checkpoint_4_thai_grouper_input_",
+          year_to_load, suffix, ".txt"
+        )),
+        sep = "|", col.names = TRUE
+      )
+    }
+  }
+
   # Summaries are consolidated from 15 split_parts * 8 chunks = 120 sub outputs
   print_summary_tables( # Print final summaries
     combine_parts_summaries(all_parts_summaries, tmp_nrow),
@@ -773,6 +793,10 @@ dim_dt <- vector() # initialize vector for dt dimensions
 processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
 nthreads <- parallelly::availableCores() # detect available threads
 cat(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
+master_dt <- data.table()
+master_dt_list <- list()
+master_grouper_input_dt <- data.table()
+master_grouper_input_list <- list()
 
 # Call the main function with or without profvis
 if (to_profvis) {

@@ -2435,7 +2435,7 @@ read_appropriate_file <- function(read_part, to_sample) {
 }
 
 # Function to export data for batch grouper
-export_for_grouper <- function(dt, year_to_load, output_txt_file) {
+export_for_grouper <- function(dt, year_to_load, output_txt_file, loop_part) {
   #' @title Export Data for Batch Grouper
   #'
   #' @description This function exports data for batch grouper,
@@ -2486,6 +2486,7 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file) {
   }
 
   # Write the data.table to a file
+  if (to_combine) master_grouper_input_list[[loop_part]] <<- output_dt
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
 
   if (to_dec_mem_usage) rm(output_dt) # debug
