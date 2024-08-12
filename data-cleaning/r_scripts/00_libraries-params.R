@@ -15,7 +15,8 @@ required_packages <- c(
   "parallelly",
   "stringdist",
   "progress",
-  "parallel"
+  "parallel",
+  "reticulate"
 )
 
 # Install and load required packages
