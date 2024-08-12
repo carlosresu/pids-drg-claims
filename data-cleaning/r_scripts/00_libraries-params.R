@@ -16,7 +16,8 @@ required_packages <- c(
   "stringdist",
   "progress",
   "parallel",
-  "reticulate"
+  "reticulate",
+  "bigrquery"
 )
 
 # Install and load required packages
