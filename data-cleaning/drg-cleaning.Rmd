@@ -23,14 +23,14 @@ source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
 ```{r}
 # use_python("~/drg-pipeline/data-cleaning/data/python-venv/bin/python", required = TRUE)
 # use_virtualenv("~/drg-pipeline/data-cleaning/data/python-venv", required = TRUE)
-# py_install("numpy")
-# py_install("pandas")
-# py_install("streamlit")
-# py_install("python_dateutil")
-# py_install("tabulate")
+py_install("numpy")
+py_install("pandas")
+py_install("streamlit")
+py_install("python_dateutil")
+py_install("tabulate")
 ```
 
-```{python}
+```{r}
 print(1)
 ```
 
@@ -956,6 +956,9 @@ concatenate_r_files(
 if (.Platform$OS.type == "unix") system("cd ~/drg-pipeline && jupyter nbconvert --no-prompt --to script data-cleaning/drg-cleaning.ipynb --output debug/drg-cleaning")
 library(rmarkdown)
 input <- "~/drg-pipeline/data-cleaning/drg-cleaning.ipynb"
+convert_ipynb(input, output = xfun::with_ext(input, "Rmd"))
+
+input <- "~/drg-pipeline/vm-setup/vm-setup.ipynb"
 convert_ipynb(input, output = xfun::with_ext(input, "Rmd"))
 ```
 
