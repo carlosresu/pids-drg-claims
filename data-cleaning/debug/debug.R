@@ -1208,6 +1208,8 @@ generate_dob <- function(bdays, ages, date_adms) {
   #'
   #' @return character. A vector of dates of birth in "dd/mm/yyyy" format.
 
+  set.seed(global_seed)
+
   require(lubridate)
 
   # Ensure ages are numeric

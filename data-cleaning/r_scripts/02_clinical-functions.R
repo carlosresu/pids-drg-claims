@@ -694,6 +694,8 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
   #'
   #' @return list A list containing the PDX and PDX code.
 
+  set.seed(global_seed)
+
   check_similarity <- function(x, y) {
     score <- 0
     min_len <- min(nchar(x), nchar(y))
@@ -843,6 +845,8 @@ generate_dob <- function(bdays, ages, date_adms) {
   #' @param date_adms character. A vector of admission dates in string format.
   #'
   #' @return character. A vector of dates of birth in "dd/mm/yyyy" format.
+
+  set.seed(global_seed)
 
   require(lubridate)
 

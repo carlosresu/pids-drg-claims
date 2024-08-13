@@ -1,9 +1,26 @@
+---
+title: An R Markdown document converted from "~/drg-pipeline/data-cleaning/drg-cleaning.ipynb"
+output: html_document
+---
+
+---
+title: "DRG Cleaning"
+
+author: "Carlos Resurreccion"
+
+date: "2024-07-01"
+
+---
+
+```{r}
 # %load_ext rpy2.ipython
+```
 
-
+```{r}
 source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
+```
 
-
+```{r}
 # use_python("~/drg-pipeline/data-cleaning/data/python-venv/bin/python", required = TRUE)
 # use_virtualenv("~/drg-pipeline/data-cleaning/data/python-venv", required = TRUE)
 py_install("numpy")
@@ -13,11 +30,15 @@ py_install("python_dateutil")
 py_install("tabulate")
 py_install("swifter")
 py_install("rpy2")
+```
 
-
+```{r}
 print(1)
+```
 
+## Parameters
 
+```{r}
 # IMPORTANT PARAMETERS:
 full_claims_prefix <- "claims_extract_CLAIMS "
 full_claims_bq_prefix <- "claims_extract_CLAIMS\\ "
@@ -139,8 +160,11 @@ ram_limit_gb <- round((1 - ram_buffer) * ram_size, 0)
 # Print the set RAM limit
 # cat("Setting R_FUTURE_MAX_RAM to:", ram_limit_gb, "GB\n")
 cat(sprintf("Setting future.globals.maxSize to: %.1f GB", ram_limit / (1024^3)))
+```
 
+## Param Logic
 
+```{r}
 # Automatically set all "to_flush" variables to FALSE if to_flush_all is FALSE
 if (!is.null(master_flush_all) && master_flush_all) for (var in ls(pattern = "^to_flush")) assign(var, TRUE)
 if (!is.null(master_flush_all) && !master_flush_all) for (var in ls(pattern = "^to_flush")) assign(var, FALSE)
@@ -150,12 +174,18 @@ if (!split_parts == as.integer(split_parts) || split_parts <= 1) stop("ERROR: sp
 if (ram_size <= 64 && split_parts <= 2) stop("Please set split_parts to at least 3 for 64 GB machines or it will likely crash")
 if (ram_size <= 32 && split_parts <= 4) stop("Please set split_parts to at least 5 for 32 GB machines or it will likely crash")
 if (ram_size <= 32 && to_split_read == TRUE) stop("Please set to_split_read to TRUE for 32 GB machines or it will likely crash")
+```
 
+## Loading
 
+### Load Required Libraries & Initial Functions
+
+```{r}
 options(verbose = FALSE) # Hide verbose output for script and library loading
 options(warn = -1) # Hide warnings for script sourcing and library loading
+```
 
-
+```{r}
 scripts <- list( # List of scripts to source
   lib_params = "00_libraries-params.R",
   cleaning = "01_cleaning-functions.R",
@@ -167,13 +197,17 @@ scripts <- list( # List of scripts to source
 
 # Loop to source above scripts
 for (script in scripts) source(here("data-cleaning/r_scripts", script))
+```
 
-
+```{r}
 # TODO: figure out a way to return to default outputs
 # since verbose = TRUE is way too verbose compared to default
 options(warn = 1) # Reenable warnings; see above comments
+```
 
+### Load Full Claims from GCS
 
+```{r}
 for (year in 2018:2021) {
   file_name <- paste0(full_claims_prefix, year, ".csv")
   bq_name <- paste0(full_claims_bq_prefix, year, ".csv")
@@ -195,8 +229,13 @@ for (year in 2018:2021) {
     cat(paste("File", file_name, "already exists in the target directory. Skipping download.\n"))
   }
 }
+```
 
+### Load Mapping Data
 
+#### Define Query Function
+
+```{r}
 # Function to query BigQuery and optionally cache the results as a CSV
 query_bq_to_dt <- function(query, file_path, cache, max_bq_rows) {
   if (file.exists(file_path)) {
@@ -214,8 +253,11 @@ query_bq_to_dt <- function(query, file_path, cache, max_bq_rows) {
   }
   return(dt)
 }
+```
 
+#### BigQueries
 
+```{r}
 # 1. Query and load `grouper_v5.proc`
 proc_query <- paste0(
   "SELECT * FROM `", gcp_proj,
@@ -286,8 +328,11 @@ neoplasms_dt <- as.data.table(phl_icd10[
   grepl("/", icd10),
   .(icd10)
 ][, icd10 := sapply(strsplit(icd10, ","), function(x) trimws(x[2]))])
+```
 
+### Read or Load Total Rows, Compute Sample Size, Assign Suffix
 
+```{r}
 # Load cached total rows file if available, saves ~10 seconds of runtime
 total_rows_file <- here(cache_path, paste0("total_rows_", year_to_load, ".rds"))
 if (file.exists(total_rows_file)) {
@@ -310,8 +355,13 @@ if (to_split) {
 suffix <- paste0(
   ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
 )
+```
 
+## Function Definitions
 
+### Define Helper Functions
+
+```{r}
 clean_data <- function(dt) {
   # Convert source year to integer
   dt[, SRC_YR := as.integer(year_to_load)]
@@ -420,8 +470,9 @@ clean_data <- function(dt) {
     empty_strings_replaced_1 = empty_strings_replaced_1
   )))
 }
+```
 
-
+```{r}
 map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
   split_codes <- split_rvs_codes(rvs_icd9)
   rvs_maps <- create_rvs_map_lists(split_codes$with_drg)
@@ -441,8 +492,9 @@ map_rvs_icd9 <- function(clin_rvs, rvs_icd9) {
     without_drg = unique(rvs_icd9[!rvs %in% names(rvs_maps$rvs_map_list)]$rvs)
   ))
 }
+```
 
-
+```{r}
 implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
   icds <- get_unique_icd_codes(clin_c1, clin_c2, clin_icd)
 
@@ -511,8 +563,11 @@ implement_icd10_mapping <- function(clin_c1, clin_c2, clin_icd, tdrg_icd10) {
     unmatched_sources = unmatched_sources
   ))
 }
+```
 
+### Define Unified Block
 
+```{r}
 # Define a codeblock to avoid repeating it twice when
 # to_profvis is TRUE and again if FALSE
 # Makes it easier to maintain as well, since we only need
@@ -851,8 +906,11 @@ unified_block <- function() {
     return(master_dt)
   } # debug
 }
+```
 
+## Read, Process, Export Data (Call Unified Block)
 
+```{r}
 all_parts_summaries <- list() # initialize list for summaries
 dim_dt <- vector() # initialize vector for dt dimensions
 processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
@@ -871,8 +929,11 @@ if (to_profvis) {
 } else {
   unified_block()
 }
+```
 
+## Run Python Grouper
 
+```{r}
 # Step 1: Source the necessary R scripts
 source(here("data-cleaning", "py_scripts", "reticulate.R"))
 
@@ -925,11 +986,17 @@ subset_df$ageday[valid_rows & subset_df$pat_age == 0] <- as.numeric(difftime(mdy
 
 # Step 9: Display the final DataFrame including the 'pat_bdate' and 'ageday' columns
 print(head(subset_df, 25))
+```
 
+## Runtime Estimation
 
+```{r}
 print_time_estimates() # Print time estimates along with estimate for full claims file
+```
 
+## Debugging
 
+```{r}
 # in case we want to run this cell independently:
 source(here::here("data-cleaning/r_scripts", "03_timing-debug-functions.R"))
 
@@ -943,8 +1010,11 @@ if (.Platform$OS.type == "unix") system("cd ~/drg-pipeline && jupyter nbconvert 
 library(rmarkdown)
 input <- "~/drg-pipeline/data-cleaning/drg-cleaning.ipynb"
 convert_ipynb(input, output = xfun::with_ext(input, "Rmd"))
+```
 
+## Cleanup
 
+```{r}
 # Define the paths and corresponding conditions
 paths <- list(
   to_flush_cleaned_parts_and_samples = c(
@@ -976,4 +1046,5 @@ if (to_debug) {
   rm(list = ls())
   gc()
 }
+```
 

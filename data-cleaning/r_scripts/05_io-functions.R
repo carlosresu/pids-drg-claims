@@ -29,6 +29,8 @@ ensure_sample_files_exist <- function(sample_part) {
   #' @description This function checks if sample files exist for a given sample_part and creates them if they don't.
   #' @param sample_part integer. The sample_part number to process.
   #' @return NULL. Creates sample files as a side effect if they do not exist.
+  #'
+  set.seed(global_seed)
   if (!file.exists(sampled_claims_file)) {
     dt <- fread(
       here(raw_claims_parts_path, paste0(
