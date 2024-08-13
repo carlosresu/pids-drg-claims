@@ -31,7 +31,7 @@ sep <- "," # Choices: "," or "\t"
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # File Path Prefixes:
 clean_prefix <- "data-cleaning"
@@ -871,11 +871,80 @@ if (to_profvis) {
 }
 
 
+# Please run thai grouper via drg-merge-and-upload.ipynb
+claims_fpath <- here(checkpoint_2_path, "checkpoint_2_claims_2018_sampled_6282_.csv")
+grouper_fpath <- here(checkpoint_5_path, "CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_6282_Res.TXT")
+merged_fpath <- here(checkpoint_6_path, "checkpoint_6_grouped_claims.csv")
+
+claims <- fread(claims_fpath, colClasses = "character")
+claims[, caseid := 1:.N]
+grouper <- fread(grouper_fpath, sep = "|", na.strings = "--", header = TRUE)
+result <- merge(claims, grouper, by = "caseid", all.x = TRUE)
+result[, drgname := NULL]
+
+# Convert data types to match BigQuery schema
+result[, caseid := as.integer(caseid)]
+result[, id_series := as.character(id_series)]
+result[, id_pin := as.character(id_pin)]
+result[, date_adm := as.Date(date_adm, format = "%m/%d/%Y")]
+result[, time_adm := as.ITime(time_adm)]
+result[, date_dis := as.Date(date_dis, format = "%m/%d/%Y")]
+result[, time_dis := as.ITime(time_dis)]
+result[, date_rec := as.Date(date_rec, format = "%m/%d/%Y")]
+result[, date_ref := as.Date(date_ref, format = "%m/%d/%Y")]
+result[, date_check := as.Date(date_check, format = "%m/%d/%Y")]
+result[, id_hci := as.character(id_hci)]
+
+# Convert character "0"/"1" to logical for Boolean fields
+result[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
+result[, clin_emergency := as.logical(as.integer(clin_emergency))]
+
+result[, pat_type := as.character(pat_type)]
+result[, clin_acc := as.character(clin_acc)]
+result[, pat_rel := as.character(pat_rel)]
+result[, pat_bdate := as.Date(pat_bdate, format = "%m/%d/%Y")]
+result[, pat_age := as.numeric(pat_age)]
+result[, pat_sex := as.character(pat_sex)]
+result[, pat_bwt := as.numeric(pat_bwt)]
+result[, pat_memcat_parent := as.character(pat_memcat_parent)]
+result[, pat_memcat_child := as.character(pat_memcat_child)]
+result[, clin_discharge := as.integer(clin_discharge)]
+
+result[, claim_status := as.character(claim_status)]
+result[, claim_payout := as.numeric(claim_payout)]
+result[, claim_charge := as.numeric(claim_charge)]
+result[, date_ext := as.Date(date_ext, format = "%m/%d/%Y")]
+result[, id_year := as.integer(id_year)]
+
+result[, clin_c1_orig := as.character(clin_c1_orig)]
+result[, clin_c2_orig := as.character(clin_c2_orig)]
+
+result[, pdx := as.character(pdx)]
+result[, pdx_code := as.integer(pdx_code)]
+result[, drg := as.character(drg)]
+result[, rw := as.numeric(rw)]
+result[, wtlos := as.numeric(wtlos)]
+result[, ot := as.integer(ot)]
+result[, adjrw := as.numeric(adjrw)]
+result[, err := as.integer(err)]
+result[, warn := as.integer(warn)]
+result[, los := as.integer(los)]
+
+fwrite(result, merged_fpath) # Write to file for python grouper before strsplit
+
+# result[, id_hcp := strsplit(id_hcp, "\\|\\|")]
+# result[, clin_c1 := strsplit(clin_c1, "\\|\\|")]
+# result[, clin_c2 := strsplit(clin_c2, "\\|\\|")]
+# result[, clin_icd := strsplit(clin_icd, "\\|\\|")]
+# result[, clin_rvs := strsplit(clin_rvs, "\\|\\|")]
+# result[, icd9_list := strsplit(icd9_list, "\\|\\|")]
+
+
 pandas <- import("pandas")
 
 # Step 1:
 # Copy the master_dt to avoid modifying the original data
-python_input_dt <- data.table::copy(master_dt)
+python_input_dt <- fread(here(checkpoint_6_path, "checkpoint_6_grouped_claims.csv"))
 
 # Convert columns to Date objects, ignoring NA values
 python_input_dt[, pat_bdate_orig := as.Date(pat_bdate, format = "%m/%d/%Y")]
@@ -926,7 +995,17 @@ def split_codes(df, column, prefix, max_cols):
 fixed_columns = [
     'pat_age', 'pat_sex', 'date_adm', 'date_dis',
     'pdx', 'clin_discharge', 'pat_bwt',
-    'pat_bdate', 'pat_bdate_orig'  # Add pat_bdate and pat_bdate_orig
+    'pat_bdate', 'pat_bdate_orig',  # Add pat_bdate and pat_bdate_orig
+    # Add the new columns below
+    'id_series', 'id_pin', 'time_adm', 'time_dis',
+    'date_rec', 'date_ref', 'date_check', 'id_hci',
+    'id_hcp', 'clin_outpatient', 'clin_emergency',
+    'pat_type', 'clin_acc', 'pat_rel', 'pat_memcat_parent',
+    'pat_memcat_child', 'clin_c1', 'clin_c2', 'claim_status',
+    'claim_payout', 'claim_charge', 'date_ext', 'id_year',
+    'clin_icd', 'clin_rvs', 'clin_c1_orig', 'clin_c2_orig',
+    'icd9_list', 'pdx_code', 'drg', 'rw', 'wtlos', 'ot',
+    'adjrw', 'err', 'warn', 'los'
 ]
 
 # Assuming `pandas_df` is already defined in the environment
@@ -951,7 +1030,20 @@ for col in subset_df.select_dtypes(include=['category']).columns:
 subset_df = subset_df.fillna('None')
 
 # Reorder columns to match desired output
-desired_columns = [
+# Columns you want to come first
+priority_columns = [
+    'id_series', 'id_pin', 'date_adm', 'time_adm', 'date_dis', 'time_dis',
+    'date_rec', 'date_ref', 'date_check', 'id_hci', 'id_hcp', 'clin_outpatient',
+    'clin_emergency', 'pat_type', 'clin_acc', 'pat_rel', 'pat_bdate', 'pat_age',
+    'pat_sex', 'pat_bwt', 'pat_memcat_parent', 'pat_memcat_child',
+    'clin_discharge', 'clin_c1', 'clin_c2', 'claim_status', 'claim_payout',
+    'claim_charge', 'date_ext', 'id_year', 'clin_icd', 'clin_rvs',
+    'clin_c1_orig', 'clin_c2_orig', 'icd9_list', 'pdx', 'pdx_code', 'drg',
+    'rw', 'wtlos', 'ot', 'adjrw', 'err', 'warn', 'los'
+]
+
+# Remaining columns to follow the priority columns
+remaining_columns = [
     'patage', 'patsex', 'date_adm', 'date_dis', 'pdx',
     'sdx1', 'sdx2', 'sdx3', 'sdx4', 'sdx5', 'sdx6',
     'sdx7', 'sdx8', 'sdx9', 'sdx10', 'sdx11', 'sdx12',
@@ -961,13 +1053,16 @@ desired_columns = [
     'proc19', 'proc20', 'discharge', 'birthweight', 'ageday'
 ]
 
+# Combine the lists, ensuring no duplicates
+desired_columns = priority_columns + [col for col in remaining_columns if col not in priority_columns]
+
 # Add missing columns with None values if they are not already in the DataFrame
 for col in desired_columns:
     if col not in subset_df.columns:
         subset_df[col] = 'None'
 
 # Store the result in output
-output = subset_df
+output = subset_df.rename(columns = {'drg':'thai_drg'})
 ")
 
 # Retrieve the processed DataFrame back to R
@@ -1005,36 +1100,199 @@ py$pandas_df <- pandas$read_csv(here(checkpoint_7_path, "python_input_2.csv"))
 py_run_string("
 import pandas as pd
 import numpy as np
+import swifter
 from grouper import seeker
 
+# Initialize the necessary libraries
 libs = seeker.Libraries()
 
-# Function to apply drg_seeker to each row
-def apply_drg_seeker(row, libs):
-    result = seeker.drg_seeker(row, libs)
-    return pd.Series({
-        'mdc': result.get('mdc', 'None'),
-        'pdc': result.get('pdc', 'None'),
-        'dc': result.get('dc', 'None'),
-        'pccl': result.get('pccl', 'None'),
-        'drg': result.get('drg', 'None')
-    })
-
-# Apply the function to each row in the DataFrame
-drg_results = pandas_df.apply(lambda row: apply_drg_seeker(row.to_dict(), libs), axis=1)
-
-# Append the new columns to the original DataFrame
-pandas_df = pd.concat([pandas_df, drg_results], axis=1)
+# Apply the drg_seeker function directly to each row using swifter
+pandas_df[['mdc', 'pdc', 'dc', 'pccl', 'drg']] = pandas_df.swifter.apply(
+    lambda row: pd.Series(seeker.drg_seeker(row.to_dict(), libs)),
+    axis=1
+)
 
 # Store the result in output to be retrieved by R
-output = pandas_df
+output = pandas_df.rename(columns={'drg': 'py_drg'})
+
+# Define the desired column order
+desired_columns = [
+    'id_series', 'id_pin', 'date_adm', 'time_adm', 'date_dis', 'time_dis',
+    'date_rec', 'date_ref', 'date_check', 'id_hci', 'id_hcp', 'clin_outpatient',
+    'clin_emergency', 'pat_type', 'clin_acc', 'pat_rel', 'pat_bdate', 'patage',
+    'patsex', 'birthweight', 'pat_memcat_parent', 'pat_memcat_child',
+    'discharge', 'clin_c1', 'clin_c2', 'claim_status', 'claim_payout',
+    'claim_charge', 'date_ext', 'id_year', 'clin_icd', 'icd9_list', 'pdx',
+    'pdx_code', 'thai_drg', 'rw', 'wtlos', 'ot', 'adjrw', 'err', 'warn',
+    'los', 'mdc', 'pdc', 'dc', 'pccl', 'py_drg'
+]
+
+# Reorder the DataFrame and drop any columns not in the desired list
+output = output[desired_columns]
+
+# Define the renaming mapping
+rename_mapping = {
+    'patage': 'pat_age',
+    'patsex': 'pat_sex',
+    'birthweight': 'pat_bwt',
+    'discharge': 'clin_discharge',
+    'icd9_list': 'clin_rvs'
+}
+
+# Rename the columns
+output = output.rename(columns = rename_mapping)
 ")
 
-# Retrieve the final DataFrame back to R
-final_df <- py$output
 
-# Step 7: Display the final DataFrame
-print(head(final_df))
+result <- as.data.table(py$output)
+# Convert data types to match BigQuery schema
+# result[, caseid := as.integer(caseid)]
+result[, id_series := as.character(id_series)]
+result[, id_pin := as.character(id_pin)]
+result[, date_adm := as.Date(date_adm)]
+result[, time_adm := as.ITime(time_adm)]
+result[, date_dis := as.Date(date_dis)]
+result[, time_dis := as.ITime(time_dis)]
+result[, date_rec := as.Date(date_rec)]
+result[, date_ref := as.Date(date_ref)]
+result[, date_check := as.Date(date_check)]
+result[, id_hci := as.character(id_hci)]
+
+# Convert character "0"/"1" to logical for Boolean fields
+result[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
+result[, clin_emergency := as.logical(as.integer(clin_emergency))]
+
+result[, pat_type := as.character(pat_type)]
+result[, clin_acc := as.character(clin_acc)]
+result[, pat_rel := as.character(pat_rel)]
+result[, pat_bdate := as.Date(pat_bdate)]
+result[, pat_age := as.numeric(pat_age)]
+result[, pat_sex := as.character(pat_sex)]
+result[, pat_bwt := as.numeric(pat_bwt)]
+result[, pat_memcat_parent := as.character(pat_memcat_parent)]
+result[, pat_memcat_child := as.character(pat_memcat_child)]
+result[, clin_discharge := as.integer(clin_discharge)]
+
+result[, claim_status := as.character(claim_status)]
+result[, claim_payout := as.numeric(claim_payout)]
+result[, claim_charge := as.numeric(claim_charge)]
+result[, date_ext := as.Date(date_ext)]
+result[, id_year := as.integer(id_year)]
+
+result[, pdx := as.character(pdx)]
+result[, pdx_code := as.integer(pdx_code)]
+result[, thai_drg := as.character(thai_drg)]
+result[, rw := as.numeric(rw)]
+result[, wtlos := as.numeric(wtlos)]
+result[, ot := as.integer(ot)]
+result[, adjrw := as.numeric(adjrw)]
+result[, err := as.integer(err)]
+result[, warn := as.integer(warn)]
+result[, los := as.integer(los)]
+result[, mdc := as.character(mdc)]
+result[, pdc := as.character(pdc)]
+result[, dc := as.character(dc)]
+result[, pccl := as.numeric(pccl)]
+result[, py_drg := as.character(py_drg)]
+
+result[, id_hcp := strsplit(id_hcp, "\\|\\|")]
+result[, clin_c1 := strsplit(clin_c1, "\\|\\|")]
+result[, clin_c2 := strsplit(clin_c2, "\\|\\|")]
+result[, clin_icd := strsplit(clin_icd, "\\|\\|")]
+result[, clin_rvs := strsplit(clin_rvs, "\\|\\|")]
+
+# Replace NULL (empty) arrays with an empty character vector, which is acceptable to BigQuery
+replace_null_with_empty_array <- function(x) {
+  lapply(x, function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y)
+}
+
+result[, id_hcp := replace_null_with_empty_array(id_hcp)]
+result[, clin_c1 := replace_null_with_empty_array(clin_c1)]
+result[, clin_c2 := replace_null_with_empty_array(clin_c2)]
+result[, clin_icd := replace_null_with_empty_array(clin_icd)]
+result[, clin_rvs := replace_null_with_empty_array(clin_rvs)]
+
+
+project_id <- gcp_proj
+dataset_id <- "phic"
+table_id <- "temp_claims_latest"
+
+# Define the schema using bq_field
+table_schema <- list(
+  bq_field("id_series", "STRING", mode = "NULLABLE"),
+  bq_field("id_pin", "STRING", mode = "NULLABLE"),
+  bq_field("date_adm", "DATE", mode = "NULLABLE"),
+  bq_field("time_adm", "TIME", mode = "NULLABLE"),
+  bq_field("date_dis", "DATE", mode = "NULLABLE"),
+  bq_field("time_dis", "TIME", mode = "NULLABLE"),
+  bq_field("date_rec", "DATE", mode = "NULLABLE"),
+  bq_field("date_ref", "DATE", mode = "NULLABLE"),
+  bq_field("date_check", "DATE", mode = "NULLABLE"),
+  bq_field("id_hci", "STRING", mode = "NULLABLE"),
+  bq_field("id_hcp", "STRING", mode = "REPEATED"), # Array of strings
+  bq_field("clin_outpatient", "BOOL", mode = "NULLABLE"),
+  bq_field("clin_emergency", "BOOL", mode = "NULLABLE"),
+  bq_field("pat_type", "STRING", mode = "NULLABLE"),
+  bq_field("clin_acc", "STRING", mode = "NULLABLE"),
+  bq_field("pat_rel", "STRING", mode = "NULLABLE"),
+  bq_field("pat_bdate", "DATE", mode = "NULLABLE"),
+  bq_field("pat_age", "FLOAT64", mode = "NULLABLE"),
+  bq_field("pat_sex", "STRING", mode = "NULLABLE"),
+  bq_field("pat_bwt", "FLOAT64", mode = "NULLABLE"),
+  bq_field("pat_memcat_parent", "STRING", mode = "NULLABLE"),
+  bq_field("pat_memcat_child", "STRING", mode = "NULLABLE"),
+  bq_field("clin_discharge", "INT64", mode = "NULLABLE"),
+  bq_field("clin_c1", "STRING", mode = "REPEATED"), # Array of strings
+  bq_field("clin_c2", "STRING", mode = "REPEATED"), # Array of strings
+  bq_field("claim_status", "STRING", mode = "NULLABLE"),
+  bq_field("claim_payout", "FLOAT64", mode = "NULLABLE"),
+  bq_field("claim_charge", "FLOAT64", mode = "NULLABLE"),
+  bq_field("date_ext", "DATE", mode = "NULLABLE"),
+  bq_field("id_year", "INT64", mode = "NULLABLE"),
+  bq_field("clin_icd", "STRING", mode = "REPEATED"), # Array of strings
+  bq_field("clin_rvs", "STRING", mode = "REPEATED"), # Array of strings
+  bq_field("pdx", "STRING", mode = "NULLABLE"),
+  bq_field("pdx_code", "INT64", mode = "NULLABLE"),
+  bq_field("thai_drg", "STRING", mode = "NULLABLE"),
+  bq_field("rw", "FLOAT64", mode = "NULLABLE"),
+  bq_field("wtlos", "FLOAT64", mode = "NULLABLE"),
+  bq_field("ot", "INT64", mode = "NULLABLE"),
+  bq_field("adjrw", "FLOAT64", mode = "NULLABLE"),
+  bq_field("err", "INT64", mode = "NULLABLE"),
+  bq_field("warn", "INT64", mode = "NULLABLE"),
+  bq_field("los", "INT64", mode = "NULLABLE"),
+  bq_field("mdc", "STRING", mode = "NULLABLE"),
+  bq_field("pdc", "STRING", mode = "NULLABLE"),
+  bq_field("dc", "STRING", mode = "NULLABLE"),
+  bq_field("pccl", "FLOAT64", mode = "NULLABLE"),
+  bq_field("py_drg", "STRING", mode = "NULLABLE")
+)
+
+tryCatch(
+  {
+    # Attempt to create the table
+    bq_table_create(
+      bq_table(project_id, dataset_id, table_id),
+      fields = table_schema
+    )
+    cat("Table created successfully.\n")
+  },
+  error = function(e) {
+    # Check if the error message indicates that the table already exists
+    if (grepl("already exists", e$message, ignore.case = TRUE)) {
+      cat("Table already exists. Skipping creation.\n")
+    } else {
+      # If it's a different error, re-throw the error
+      stop(e)
+    }
+  }
+)
+
+bq_table_upload(
+  bq_table(project_id, dataset_id, table_id),
+  values = result,
+  write_disposition = "WRITE_TRUNCATE" # Options: WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY
+)
 
 
 print_time_estimates() # Print time estimates along with estimate for full claims file

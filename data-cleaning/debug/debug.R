@@ -17,7 +17,8 @@ required_packages <- c(
   "progress",
   "parallel",
   "reticulate",
-  "bigrquery"
+  "bigrquery",
+  "jsonlite"
 )
 
 # Install and load required packages
