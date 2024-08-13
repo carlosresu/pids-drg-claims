@@ -33,14 +33,6 @@ docs/
 po/*~
 # RStudio Connect folder
 rsconnect/
-#git-ignored-files
-git-ignored-files/
-git-ignored-files
-
-#python-code
-python-code
-python-code/
-/.quarto/
 
 #ipynb checkpoints
 data-cleaning/.ipynb_checkpoints/
@@ -51,10 +43,6 @@ data-cleaning/r_scripts/.ipynb_checkpoints
 #git-ignored-files
 data-cleaning/data/
 data-cleaning/data
-
-#python venv
-data-cleaning/python-venv/
-data-cleaning/python-venv
 
 #python grouper
 data-cleaning/grouper/
