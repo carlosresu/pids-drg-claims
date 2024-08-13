@@ -1058,6 +1058,8 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
   #'
   #' @return list A list containing the PDX and PDX code.
 
+  set.seed(global_seed)
+
   check_similarity <- function(x, y) {
     score <- 0
     min_len <- min(nchar(x), nchar(y))
@@ -2346,6 +2348,8 @@ ensure_sample_files_exist <- function(sample_part) {
   #' @description This function checks if sample files exist for a given sample_part and creates them if they don't.
   #' @param sample_part integer. The sample_part number to process.
   #' @return NULL. Creates sample files as a side effect if they do not exist.
+  #'
+  set.seed(global_seed)
   if (!file.exists(sampled_claims_file)) {
     dt <- fread(
       here(raw_claims_parts_path, paste0(

@@ -14,6 +14,7 @@ date: "2024-07-01"
 
 ```{r}
 # %load_ext rpy2.ipython
+gc()
 ```
 
 ```{r}
@@ -30,10 +31,6 @@ py_install("python_dateutil")
 py_install("tabulate")
 py_install("swifter")
 py_install("rpy2")
-```
-
-```{r}
-print(1)
 ```
 
 ## Parameters
@@ -54,7 +51,7 @@ sep <- "," # Choices: "," or "\t"
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # File Path Prefixes:
 clean_prefix <- "data-cleaning"
@@ -934,12 +931,21 @@ if (to_profvis) {
 ## Run Python Grouper
 
 ```{r}
-# Step 1: Source the necessary R scripts
-source(here("data-cleaning", "py_scripts", "reticulate.R"))
+pandas <- import("pandas")
 
+# Step 1:
 # Copy the master_dt to avoid modifying the original data
 python_input_dt <- data.table::copy(master_dt)
-python_input_dt[, pat_bdate_orig := pat_bdate]
+
+# Convert columns to Date objects, ignoring NA values
+python_input_dt[, pat_bdate_orig := as.Date(pat_bdate, format = "%m/%d/%Y")]
+python_input_dt[, pat_bdate := as.Date(pat_bdate, format = "%m/%d/%Y")]
+python_input_dt[, date_adm := as.Date(date_adm, format = "%m/%d/%Y")]
+python_input_dt[, date_dis := as.Date(date_dis, format = "%m/%d/%Y")]
+python_input_dt[, date_rec := as.Date(date_rec, format = "%m/%d/%Y")]
+python_input_dt[, date_ref := as.Date(date_ref, format = "%m/%d/%Y")]
+python_input_dt[, date_ext := as.Date(date_ext, format = "%m/%d/%Y")]
+python_input_dt[, date_check := as.Date(date_check, format = "%m/%d/%Y")]
 
 # Create a data.table for rows with negative `pat_age`
 negative_age_dt <- python_input_dt[pat_age < 0, ]
@@ -948,44 +954,149 @@ negative_age_dt <- python_input_dt[pat_age < 0, ]
 positive_age_dt <- python_input_dt[pat_age >= 0, ]
 
 # Process rows with non-negative `pat_age`
-positive_age_dt[, pat_bdate := format(dmy(generate_dob(pat_bdate_orig, pat_age, date_adm)), "%m/%d/%Y")]
+positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate_orig, "%m/%d/%Y"), pat_age, format(date_adm, "%m/%d/%Y")))]
 
 # For negative `pat_age`, keep `pat_bdate` as it is
-negative_age_dt[, pat_bdate := format(mdy(pat_bdate_orig), "%m/%d/%Y")]
+negative_age_dt[, pat_bdate := pat_bdate_orig]
 
 # Combine the processed data
-result_dt <- rbind(positive_age_dt, negative_age_dt)
+result_dt <- rbindlist(list(positive_age_dt, negative_age_dt))
 
-# Step 3: Import the necessary Python script
-source_python(here("data-cleaning", "grouper", "seeker.py"))
+fwrite(result_dt, here(checkpoint_7_path, "python_input.csv"))
 
-# Step 4: Convert the `data.table` (master_dt) to a pandas DataFrame
-py$pandas_df <- py$pd$DataFrame(result_dt)
+# Convert the `data.table` (result_dt) to a pandas DataFrame
+pandas_df <- pandas$read_csv(here(checkpoint_7_path, "python_input.csv"))
+# pandas_df <- pandas$DataFrame(as.data.frame(result_dt)) # Doesn't work for some reason
+# print(head(pandas_df))
+py$pandas_df <- pandas_df
+```
 
-# Step 5: Access any necessary Python libraries or classes
-py$libs <- py$Libraries()
+```{r}
+# Step 3: Convert `clin_icd` and `icd9_list` columns, replace NaN with "None"
+py_run_string("
+import pandas as pd
+import numpy as np
 
-# Step 6: Subset the DataFrame in Python, process `clin_icd` and `icd9_list`, and replace `NaN` and `<NA>` with "None"
-py_run_file(here("data-cleaning", "py_scripts", "convert_to_dict.py"))
+# Create sdx and proc columns from clin_icd and icd9_list
+def split_codes(df, column, prefix, max_cols):
+    split_cols = df[column].str.split(r'\\|\\|', expand=True).iloc[:, :max_cols]
+    split_cols.columns = [f'{prefix}{i+1}' for i in range(split_cols.shape[1])]
+    split_cols = split_cols.reindex(columns=[f'{prefix}{i+1}' for i in range(max_cols)], fill_value=np.nan)
+    return split_cols
 
-# Step 7: Convert the subsetted DataFrame back to R
+# Fixed columns to keep
+fixed_columns = [
+    'pat_age', 'pat_sex', 'date_adm', 'date_dis',
+    'pdx', 'clin_discharge', 'pat_bwt',
+    'pat_bdate', 'pat_bdate_orig'  # Add pat_bdate and pat_bdate_orig
+]
+
+# Assuming `pandas_df` is already defined in the environment
+# Create sdx and proc columns
+sdx_columns = split_codes(pandas_df, 'clin_icd', 'sdx', 12)
+proc_columns = split_codes(pandas_df, 'icd9_list', 'proc', 20)
+
+# Combine all columns into the final DataFrame
+subset_df = pd.concat([pandas_df[fixed_columns], sdx_columns, proc_columns], axis=1)
+
+# Rename 'clin_discharge' to 'discharge'
+subset_df.rename(columns={'clin_discharge': 'discharge',
+                          'pat_bwt': 'birthweight',
+                          'pat_age': 'patage',
+                          'pat_sex': 'patsex'}, inplace=True)
+
+# Ensure 'None' is a category in all Categorical columns
+for col in subset_df.select_dtypes(include=['category']).columns:
+    subset_df[col] = subset_df[col].cat.add_categories(['None'])
+
+# Replace NaN and NA with 'None'
+subset_df = subset_df.fillna('None')
+
+# Reorder columns to match desired output
+desired_columns = [
+    'patage', 'patsex', 'date_adm', 'date_dis', 'pdx',
+    'sdx1', 'sdx2', 'sdx3', 'sdx4', 'sdx5', 'sdx6',
+    'sdx7', 'sdx8', 'sdx9', 'sdx10', 'sdx11', 'sdx12',
+    'proc1', 'proc2', 'proc3', 'proc4', 'proc5', 'proc6',
+    'proc7', 'proc8', 'proc9', 'proc10', 'proc11', 'proc12',
+    'proc13', 'proc14', 'proc15', 'proc16', 'proc17', 'proc18',
+    'proc19', 'proc20', 'discharge', 'birthweight', 'ageday'
+]
+
+# Add missing columns with None values if they are not already in the DataFrame
+for col in desired_columns:
+    if col not in subset_df.columns:
+        subset_df[col] = 'None'
+
+# Store the result in output
+output = subset_df
+")
+
+# Retrieve the processed DataFrame back to R
 subset_df <- py$output
 
-# Step 8: Generate the 'ageday' column based on 'pat_bdate'
-# Initialize the 'ageday' column with "None"
-subset_df$ageday <- "None"
+# Debugging: Print a few rows to check date formats
+# print(head(subset_df))
 
-# Filter rows where pat_age is a non-negative integer
-valid_rows <- subset_df$pat_age >= 0 & subset_df$pat_age %% 1 == 0
+# Step 1: Ensure date columns are properly converted to Date objects
+subset_df$date_adm <- as.Date(subset_df$date_adm, format = "%Y-%m-%d")
+subset_df$pat_bdate <- as.Date(subset_df$pat_bdate, format = "%Y-%m-%d")
 
-# Calculate 'ageday' only for valid rows
-subset_df$ageday[valid_rows & subset_df$pat_age == 0] <- as.numeric(difftime(mdy(subset_df$date_adm[valid_rows & subset_df$pat_age == 0]),
-  mdy(subset_df$pat_bdate[valid_rows & subset_df$pat_age == 0]),
-  units = "days"
-))
+# Step 2: Initialize the 'ageday' column with NA
+subset_df$ageday <- NA
 
-# Step 9: Display the final DataFrame including the 'pat_bdate' and 'ageday' columns
-print(head(subset_df, 25))
+# Step 3: Calculate 'ageday' only for valid rows where pat_age == 0
+valid_rows <- subset_df$patage >= 0 & subset_df$patage %% 1 == 0
+
+subset_df$ageday[valid_rows & subset_df$patage == 0] <- as.numeric(
+  difftime(
+    subset_df$date_adm[valid_rows & subset_df$patage == 0],
+    subset_df$pat_bdate[valid_rows & subset_df$patage == 0],
+    units = "days"
+  )
+)
+
+# Step 4: Replace NA values in 'ageday' with "None"
+subset_df$ageday[is.na(subset_df$ageday)] <- "None"
+
+fwrite(as.data.table(subset_df), here(checkpoint_7_path, "python_input_2.csv"))
+# Step 5: Convert the DataFrame to a format suitable for Python processing
+py$pandas_df <- pandas$read_csv(here(checkpoint_7_path, "python_input_2.csv"))
+
+# Step 6: Process each row of the DataFrame through `drg_seeker` and append results
+py_run_string("
+import pandas as pd
+import numpy as np
+from grouper import seeker
+
+libs = seeker.Libraries()
+
+# Function to apply drg_seeker to each row
+def apply_drg_seeker(row, libs):
+    result = seeker.drg_seeker(row, libs)
+    return pd.Series({
+        'mdc': result.get('mdc', 'None'),
+        'pdc': result.get('pdc', 'None'),
+        'dc': result.get('dc', 'None'),
+        'pccl': result.get('pccl', 'None'),
+        'drg': result.get('drg', 'None')
+    })
+
+# Apply the function to each row in the DataFrame
+drg_results = pandas_df.apply(lambda row: apply_drg_seeker(row.to_dict(), libs), axis=1)
+
+# Append the new columns to the original DataFrame
+pandas_df = pd.concat([pandas_df, drg_results], axis=1)
+
+# Store the result in output to be retrieved by R
+output = pandas_df
+")
+
+# Retrieve the final DataFrame back to R
+final_df <- py$output
+
+# Step 7: Display the final DataFrame
+print(final_df)
 ```
 
 ## Runtime Estimation
