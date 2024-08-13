@@ -891,9 +891,6 @@ library(rmarkdown)
 input <- "~/drg-pipeline/data-cleaning/drg-cleaning.ipynb"
 convert_ipynb(input, output = xfun::with_ext(input, "Rmd"))
 
-input <- "~/drg-pipeline/vm-setup/vm-setup.ipynb"
-convert_ipynb(input, output = xfun::with_ext(input, "Rmd"))
-
 
 # Define the paths and corresponding conditions
 paths <- list(
