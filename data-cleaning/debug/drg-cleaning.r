@@ -803,7 +803,7 @@ unified_block <- function() {
   cat("\nRow Counts Match for All Parts\n") # only prints if above succeeds
 
   if (to_combine) {
-    master_dt <- rbindlist(master_dt_list)
+    master_dt <<- rbindlist(master_dt_list)
     master_grouper_input_dt <- rbindlist(master_grouper_input_list)
     master_grouper_input_dt[, CASEID := 1:nrow(master_grouper_input_dt)]
     # master_dt[is.na(master_dt)] <- ""
@@ -846,7 +846,7 @@ unified_block <- function() {
 
   # End main execution logic
   if (to_debug) {
-    return(NULL)
+    return(master_dt)
   } # debug
 }
 
@@ -871,7 +871,8 @@ if (to_profvis) {
 }
 
 
-source_python(here("data-cleaning", "grouper", "__init__.py"))
+source_python(here("data-cleaning", "grouper", "seeker.py"))
+pandas_df <- r_to_py(master_dt)
 
 
 print_time_estimates() # Print time estimates along with estimate for full claims file
