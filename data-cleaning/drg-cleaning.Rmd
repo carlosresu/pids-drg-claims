@@ -969,9 +969,7 @@ pandas_df <- pandas$read_csv(here(checkpoint_7_path, "python_input.csv"))
 # pandas_df <- pandas$DataFrame(as.data.frame(result_dt)) # Doesn't work for some reason
 # print(head(pandas_df))
 py$pandas_df <- pandas_df
-```
 
-```{r}
 # Step 3: Convert `clin_icd` and `icd9_list` columns, replace NaN with "None"
 py_run_string("
 import pandas as pd
@@ -1096,7 +1094,7 @@ output = pandas_df
 final_df <- py$output
 
 # Step 7: Display the final DataFrame
-print(final_df)
+print(head(final_df))
 ```
 
 ## Runtime Estimation

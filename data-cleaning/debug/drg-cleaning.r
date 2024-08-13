@@ -910,7 +910,6 @@ pandas_df <- pandas$read_csv(here(checkpoint_7_path, "python_input.csv"))
 # print(head(pandas_df))
 py$pandas_df <- pandas_df
 
-
 # Step 3: Convert `clin_icd` and `icd9_list` columns, replace NaN with "None"
 py_run_string("
 import pandas as pd
@@ -1035,7 +1034,7 @@ output = pandas_df
 final_df <- py$output
 
 # Step 7: Display the final DataFrame
-print(final_df)
+print(head(final_df))
 
 
 print_time_estimates() # Print time estimates along with estimate for full claims file
