@@ -53,8 +53,8 @@ data-cleaning/data/
 data-cleaning/data
 
 #python venv
-venv
-venv/
+data-cleaning/python-venv/
+data-cleaning/python-venv
 
 #python grouper
 data-cleaning/grouper/
