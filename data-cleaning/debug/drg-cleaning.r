@@ -1,12 +1,12 @@
-# %load_ext rpy2.ipython
+rm(list = ls())
 gc()
 
 
+# Load libraries and minor parameters
 source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
 
 
-# use_python("~/drg-pipeline/data-cleaning/data/python-venv/bin/python", required = TRUE)
-# use_virtualenv("~/drg-pipeline/data-cleaning/data/python-venv", required = TRUE)
+# Install python packages for reticulate
 py_install("numpy")
 py_install("pandas")
 py_install("streamlit")
@@ -18,7 +18,7 @@ py_install("rpy2")
 
 to_bypass_prompts <- TRUE # Whether to prompt for user inputs or not
 # (if FALSE, default values in this cell will be used)
-thai_prompt_override <- FALSE # Whether to prompt for thai grouper even if bypassing all other prompts
+thai_prompt <- FALSE # Whether to prompt for thai grouper even if bypassing all other prompts
 
 # IMPORTANT PARAMETERS:
 full_claims_prefix <- "claims_extract_CLAIMS "
@@ -146,7 +146,7 @@ prompt_with_default <- function(prompt_text, default_value) {
       paste0(
         "Using default value (",
         default_value, ") for ",
-        deparse(substitute(variable))
+        deparse(substitute(default_value))
       )
     )
     return(default_value)
@@ -162,52 +162,14 @@ year_to_load <- prompt_with_default("Enter year_to_load", year_to_load)
 to_sample <- as.logical(prompt_with_default("Sample data? (TRUE/FALSE)", to_sample))
 sample_size_divisor <- as.integer(prompt_with_default("Enter sample_size_divisor", sample_size_divisor))
 
-# # Prompt for manual ICD code patterns and replacements
-# manual_patterns_to_replace <- strsplit(prompt_with_default(
-#   "Enter ICD patterns to replace (comma-separated, no need for \\b)",
-#   paste(manual_patterns_to_replace, collapse = ",")
-# ), ",")[[1]]
-# manual_patterns_to_replace <- paste0("\\b", trimws(manual_patterns_to_replace), "\\b")
-
-# manual_code_replacements <- strsplit(prompt_with_default(
-#   "Enter ICD code replacements (comma-separated)",
-#   paste(manual_code_replacements, collapse = ",")
-# ), ",")[[1]]
-
-# # Validate lengths of patterns and replacements
-# if (length(manual_patterns_to_replace) != length(manual_code_replacements)) {
-#   stop("Error: The number of patterns does not match the number of replacements.")
-# }
-
 # Prompt for output options
 to_write <- as.logical(prompt_with_default("Write output files? (TRUE/FALSE)", to_write))
 to_combine <- as.logical(prompt_with_default("Combine files? (TRUE/FALSE)", to_combine))
 to_group <- as.logical(prompt_with_default("Export for batch grouper? (TRUE/FALSE)", to_group))
 
-# Debug and profiling options
-# to_debug <- as.logical(prompt_with_default("Enable debug mode? (TRUE/FALSE)", to_debug))
-# to_profvis <- as.logical(prompt_with_default("Run profvis profiling? (TRUE/FALSE)", to_profvis))
-# to_view_checks <- as.logical(prompt_with_default("View checks and print statements? (TRUE/FALSE)", to_view_checks))
-# to_view_checks_parallel <- as.logical(prompt_with_default("View checks during parallel processing? (TRUE/FALSE)", to_view_checks_parallel))
-# to_split_read <- as.logical(prompt_with_default("Enable split read mode? (TRUE/FALSE)", to_split_read))
-# to_dec_mem_usage <- as.logical(prompt_with_default("Decrease memory usage? (TRUE/FALSE)", to_dec_mem_usage))
-# tmp_nrow <- as.integer(prompt_with_default("Set temporary row count (tmp_nrow)", tmp_nrow))
-# diff_chars <- as.integer(prompt_with_default("Set diff_chars", diff_chars))
-# end_nrow <- as.integer(prompt_with_default("Enter end_nrow", end_nrow))
-# split_parts <- as.integer(prompt_with_default("Enter split_parts", split_parts))
-# max_bq_rows <- as.integer(prompt_with_default("Enter max_bq_rows", max_bq_rows))
-# encode <- prompt_with_default("Enter encode", encode)
-# sep <- prompt_with_default("Enter separator (sep)", sep)
 # Flush options
 to_flush_master <- as.logical(prompt_with_default("Flush master files? (TRUE/FALSE)", to_flush_master))
 to_flush_partial <- as.logical(prompt_with_default("Flush partial files? (TRUE/FALSE)", to_flush_partial))
-
-# Prompt for seed
-# seed <- as.integer(prompt_with_default("Enter seed for reproducibility", seed))
-global_seed <- seed
-
-# Set seed for reproducibility
-set.seed(seed)
 
 # RAM settings
 ram_size <- as.numeric(prompt_with_default("Enter RAM size (GB)", ram_size))
@@ -219,11 +181,8 @@ options(future.globals.maxSize = ram_limit)
 
 # Compute the RAM limit for R processes, leaving the buffer for the OS
 ram_limit_gb <- round((1 - ram_buffer) * ram_size, 0)
-# Set the environment variable R_FUTURE_MAX_RAM in GB
-# Sys.setenv(R_FUTURE_MAX_RAM = paste0(ram_limit_gb, "G"))
 
 # Print the set RAM limit
-# cat("Setting R_FUTURE_MAX_RAM to:", ram_limit_gb, "GB\n")
 cat(sprintf("Setting future.globals.maxSize to: %.1f GB", ram_limit / (1024^3)))
 
 
@@ -945,7 +904,11 @@ if (to_profvis) {
 }
 
 
-if (!to_bypass_prompts && thai_prompt_override) {
+claims_fpath <- here(checkpoint_2_path, paste0("checkpoint_2_claims_", year_to_load, suffix, ".csv"))
+grouper_fpath <- here(checkpoint_5_path, paste0(toupper(paste0("checkpoint_4_thai_grouper_input_", year_to_load, suffix)), "Res.txt"))
+merged_fpath <- here(checkpoint_6_path, "checkpoint_6_grouped_claims.csv")
+
+if (thai_prompt || !to_bypass_prompts || !file.exists(grouper_fpath)) {
   response <- tolower(readline(prompt = "Have you run the Thai grouper manually? (y/n): "))
 
   if (response == "y") {
@@ -962,10 +925,8 @@ if (!to_bypass_prompts && thai_prompt_override) {
 }
 
 
-# Please run thai grouper via drg-merge-and-upload.ipynb
-claims_fpath <- here(checkpoint_2_path, "checkpoint_2_claims_2018_sampled_6282_.csv")
-grouper_fpath <- here(checkpoint_5_path, "CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_6282_Res.TXT")
-merged_fpath <- here(checkpoint_6_path, "checkpoint_6_grouped_claims.csv")
+# Please run thai grouper first
+
 
 claims <- fread(claims_fpath, colClasses = "character")
 claims[, caseid := 1:.N]
@@ -1049,7 +1010,7 @@ positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate_orig, "%m/%d/%Y
 negative_age_dt[, pat_bdate := pat_bdate_orig]
 
 # Combine the processed data
-result_dt <- rbindlist(list(positive_age_dt, negative_age_dt))
+result_dt <- rbind(positive_age_dt, negative_age_dt)
 
 fwrite(result_dt, here(checkpoint_7_path, "python_input.csv"))
 
@@ -1271,15 +1232,14 @@ result[, (array_columns) := lapply(.SD, function(x) {
 }), .SDcols = array_columns]
 
 
-project_id <- gcp_proj
-dataset_id <- "phic"
-table_id <- "temp_claims_latest"
+dataset_id <- "phic" # bq dataset
+table_id <- "temp_claims_latest" # bq table
 
 # Check if the table should be dropped and replaced
 if (to_replace_bq) {
   tryCatch(
     {
-      bq_table_delete(bq_table(project_id, dataset_id, table_id))
+      bq_table_delete(bq_table(gcp_proj, dataset_id, table_id))
       message("Table dropped successfully.\n")
     },
     error = function(e) {
@@ -1298,7 +1258,7 @@ if (to_replace_bq) {
 tryCatch(
   {
     bq_table_create(
-      bq_table(project_id, dataset_id, table_id),
+      bq_table(gcp_proj, dataset_id, table_id),
       fields = fromJSON(here("data-cleaning/r_scripts", "bq_schema.json"), simplifyDataFrame = FALSE)
     )
     skip_bq_upload <<- FALSE
@@ -1322,7 +1282,7 @@ if (!skip_bq_upload) {
     {
       # Attempt to upload with WRITE_EMPTY
       bq_table_upload(
-        bq_table(project_id, dataset_id, table_id),
+        bq_table(gcp_proj, dataset_id, table_id),
         values = result,
         write_disposition = "WRITE_EMPTY" # Try to write only if the table is empty
       )
@@ -1374,12 +1334,12 @@ paths <- list(
   )
 )
 
-# Iterate over the paths and conditions
+# Iterate over the paths and conditions to delete them if the condition is true
 for (condition in names(paths)) {
   if (get(condition)) {
     system(paste(
       "rm -r",
-      paste(here(unlist(paths[[condition]])), collapse = " ")
+      paste(here::here(unlist(paths[[condition]])), collapse = " ")
     ))
   }
 }
