@@ -18,6 +18,7 @@ py_install("rpy2")
 
 to_bypass_prompts <- TRUE # Whether to prompt for user inputs or not
 # (if FALSE, default values in this cell will be used)
+thai_prompt_override <- FALSE # Whether to prompt for thai grouper even if bypassing all other prompts
 
 # IMPORTANT PARAMETERS:
 full_claims_prefix <- "claims_extract_CLAIMS "
@@ -944,7 +945,7 @@ if (to_profvis) {
 }
 
 
-if (!to_bypass_prompts) {
+if (!to_bypass_prompts && thai_prompt_override) {
   response <- tolower(readline(prompt = "Have you run the Thai grouper manually? (y/n): "))
 
   if (response == "y") {
@@ -1300,12 +1301,14 @@ tryCatch(
       bq_table(project_id, dataset_id, table_id),
       fields = fromJSON(here("data-cleaning/r_scripts", "bq_schema.json"), simplifyDataFrame = FALSE)
     )
+    skip_bq_upload <<- FALSE
     message("Table created successfully.\n")
   },
   error = function(e) {
     # Check if the error message indicates that the table already exists
     if (grepl("already exists", e$message, ignore.case = TRUE)) {
-      cat("Table already exists. Skipping creation.\n")
+      skip_bq_upload <<- TRUE
+      message("Table already exists. Skipping creation and upload.")
     } else {
       # If it's a different error, re-throw the error
       stop(e)
@@ -1313,14 +1316,29 @@ tryCatch(
   }
 )
 
-# Upload the data to the BigQuery table
-bq_table_upload(
-  bq_table(project_id, dataset_id, table_id),
-  values = result,
-  write_disposition = "WRITE_TRUNCATE" # Options: WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY
-)
-
-message("BQ upload successful.")
+# Upload to BQ only if table is empty
+if (!skip_bq_upload) {
+  tryCatch(
+    {
+      # Attempt to upload with WRITE_EMPTY
+      bq_table_upload(
+        bq_table(project_id, dataset_id, table_id),
+        values = result,
+        write_disposition = "WRITE_EMPTY" # Try to write only if the table is empty
+      )
+      message("Data uploaded successfully with WRITE_EMPTY.\n")
+    },
+    error = function(e) {
+      if (grepl("already exists", e$message, ignore.case = TRUE)) {
+        # Handle the specific "already exists" error
+        message("Upload skipped: table already exists and is not empty.")
+      } else {
+        # Handle all other errors
+        message("Error during upload: ", e$message)
+      }
+    }
+  )
+}
 
 
 print_time_estimates() # Print time estimates along with estimate for full claims file
