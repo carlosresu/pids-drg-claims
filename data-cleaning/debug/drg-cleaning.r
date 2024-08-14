@@ -904,8 +904,11 @@ if (to_profvis) {
 }
 
 
+print(here(checkpoint_2_path, paste0("checkpoint_2_claims_", year_to_load, suffix, ".csv")))
+
+
 claims_fpath <- here(checkpoint_2_path, paste0("checkpoint_2_claims_", year_to_load, suffix, ".csv"))
-grouper_fpath <- here(checkpoint_5_path, paste0(toupper(paste0("checkpoint_4_thai_grouper_input_", year_to_load, suffix)), "Res.txt"))
+grouper_fpath <- here(checkpoint_5_path, paste0(toupper(paste0("checkpoint_4_thai_grouper_input_", year_to_load, suffix)), "Res.TXT"))
 merged_fpath <- here(checkpoint_6_path, "checkpoint_6_grouped_claims.csv")
 
 if (thai_prompt || !to_bypass_prompts || !file.exists(grouper_fpath)) {
@@ -926,8 +929,6 @@ if (thai_prompt || !to_bypass_prompts || !file.exists(grouper_fpath)) {
 
 
 # Please run thai grouper first
-
-
 claims <- fread(claims_fpath, colClasses = "character")
 claims[, caseid := 1:.N]
 grouper <- fread(grouper_fpath, sep = "|", na.strings = "--", header = TRUE)

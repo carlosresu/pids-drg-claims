@@ -18,7 +18,8 @@ required_packages <- c(
   "parallel",
   "reticulate",
   "bigrquery",
-  "jsonlite"
+  "jsonlite",
+  "googleCloudStorageR"
 )
 
 # Install and load required packages
