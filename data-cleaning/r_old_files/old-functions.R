@@ -1990,3 +1990,120 @@
 #     }
 #   }
 # }
+# result <- as.data.table(py$output)
+# # Convert data types to match BigQuery schema
+# # result[, caseid := as.integer(caseid)]
+# result[, id_series := as.character(id_series)]
+# result[, id_pin := as.character(id_pin)]
+# result[, date_adm := as.Date(date_adm)]
+# result[, time_adm := as.ITime(time_adm)]
+# result[, date_dis := as.Date(date_dis)]
+# result[, time_dis := as.ITime(time_dis)]
+# result[, date_rec := as.Date(date_rec)]
+# result[, date_ref := as.Date(date_ref)]
+# result[, date_check := as.Date(date_check)]
+# result[, id_hci := as.character(id_hci)]
+
+# # Convert character "0"/"1" to logical for Boolean fields
+# result[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
+# result[, clin_emergency := as.logical(as.integer(clin_emergency))]
+
+# result[, pat_type := as.character(pat_type)]
+# result[, clin_acc := as.character(clin_acc)]
+# result[, pat_rel := as.character(pat_rel)]
+# result[, pat_bdate := as.Date(pat_bdate)]
+# result[, pat_age := as.numeric(pat_age)]
+# result[, pat_sex := as.character(pat_sex)]
+# result[, pat_bwt := as.numeric(pat_bwt)]
+# result[, pat_memcat_parent := as.character(pat_memcat_parent)]
+# result[, pat_memcat_child := as.character(pat_memcat_child)]
+# result[, clin_discharge := as.integer(clin_discharge)]
+
+# result[, claim_status := as.character(claim_status)]
+# result[, claim_payout := as.numeric(claim_payout)]
+# result[, claim_charge := as.numeric(claim_charge)]
+# result[, date_ext := as.Date(date_ext)]
+# result[, id_year := as.integer(id_year)]
+
+# result[, pdx := as.character(pdx)]
+# result[, pdx_code := as.integer(pdx_code)]
+# result[, thai_drg := as.character(thai_drg)]
+# result[, rw := as.numeric(rw)]
+# result[, wtlos := as.numeric(wtlos)]
+# result[, ot := as.integer(ot)]
+# result[, adjrw := as.numeric(adjrw)]
+# result[, err := as.integer(err)]
+# result[, warn := as.integer(warn)]
+# result[, los := as.integer(los)]
+# result[, mdc := as.character(mdc)]
+# result[, pdc := as.character(pdc)]
+# result[, dc := as.character(dc)]
+# result[, pccl := as.numeric(pccl)]
+# result[, py_drg := as.character(py_drg)]
+
+# result[, id_hcp := strsplit(id_hcp, "\\|\\|")]
+# result[, clin_c1 := strsplit(clin_c1, "\\|\\|")]
+# result[, clin_c2 := strsplit(clin_c2, "\\|\\|")]
+# result[, clin_icd := strsplit(clin_icd, "\\|\\|")]
+# result[, clin_rvs := strsplit(clin_rvs, "\\|\\|")]
+
+# # Replace NULL (empty) arrays with an empty character vector, which is acceptable to BigQuery
+# replace_null_with_empty_array <- function(x) {
+#   lapply(x, function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y)
+# }
+
+# result[, id_hcp := replace_null_with_empty_array(id_hcp)]
+# result[, clin_c1 := replace_null_with_empty_array(clin_c1)]
+# result[, clin_c2 := replace_null_with_empty_array(clin_c2)]
+# result[, clin_icd := replace_null_with_empty_array(clin_icd)]
+# result[, clin_rvs := replace_null_with_empty_array(clin_rvs)]
+# Define the schema using bq_field
+# table_schema <- list(
+#   bq_field("id_series", "STRING", mode = "NULLABLE"),
+#   bq_field("id_pin", "STRING", mode = "NULLABLE"),
+#   bq_field("date_adm", "DATE", mode = "NULLABLE"),
+#   bq_field("time_adm", "TIME", mode = "NULLABLE"),
+#   bq_field("date_dis", "DATE", mode = "NULLABLE"),
+#   bq_field("time_dis", "TIME", mode = "NULLABLE"),
+#   bq_field("date_rec", "DATE", mode = "NULLABLE"),
+#   bq_field("date_ref", "DATE", mode = "NULLABLE"),
+#   bq_field("date_check", "DATE", mode = "NULLABLE"),
+#   bq_field("id_hci", "STRING", mode = "NULLABLE"),
+#   bq_field("id_hcp", "STRING", mode = "REPEATED"), # Array of strings
+#   bq_field("clin_outpatient", "BOOL", mode = "NULLABLE"),
+#   bq_field("clin_emergency", "BOOL", mode = "NULLABLE"),
+#   bq_field("pat_type", "STRING", mode = "NULLABLE"),
+#   bq_field("clin_acc", "STRING", mode = "NULLABLE"),
+#   bq_field("pat_rel", "STRING", mode = "NULLABLE"),
+#   bq_field("pat_bdate", "DATE", mode = "NULLABLE"),
+#   bq_field("pat_age", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("pat_sex", "STRING", mode = "NULLABLE"),
+#   bq_field("pat_bwt", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("pat_memcat_parent", "STRING", mode = "NULLABLE"),
+#   bq_field("pat_memcat_child", "STRING", mode = "NULLABLE"),
+#   bq_field("clin_discharge", "INT64", mode = "NULLABLE"),
+#   bq_field("clin_c1", "STRING", mode = "REPEATED"), # Array of strings
+#   bq_field("clin_c2", "STRING", mode = "REPEATED"), # Array of strings
+#   bq_field("claim_status", "STRING", mode = "NULLABLE"),
+#   bq_field("claim_payout", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("claim_charge", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("date_ext", "DATE", mode = "NULLABLE"),
+#   bq_field("id_year", "INT64", mode = "NULLABLE"),
+#   bq_field("clin_icd", "STRING", mode = "REPEATED"), # Array of strings
+#   bq_field("clin_rvs", "STRING", mode = "REPEATED"), # Array of strings
+#   bq_field("pdx", "STRING", mode = "NULLABLE"),
+#   bq_field("pdx_code", "INT64", mode = "NULLABLE"),
+#   bq_field("thai_drg", "STRING", mode = "NULLABLE"),
+#   bq_field("rw", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("wtlos", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("ot", "INT64", mode = "NULLABLE"),
+#   bq_field("adjrw", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("err", "INT64", mode = "NULLABLE"),
+#   bq_field("warn", "INT64", mode = "NULLABLE"),
+#   bq_field("los", "INT64", mode = "NULLABLE"),
+#   bq_field("mdc", "STRING", mode = "NULLABLE"),
+#   bq_field("pdc", "STRING", mode = "NULLABLE"),
+#   bq_field("dc", "STRING", mode = "NULLABLE"),
+#   bq_field("pccl", "FLOAT64", mode = "NULLABLE"),
+#   bq_field("py_drg", "STRING", mode = "NULLABLE")
+# )

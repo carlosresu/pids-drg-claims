@@ -1,0 +1,237 @@
+[
+  {
+    "name": "id_series",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "id_pin",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_adm",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "time_adm",
+    "type": "TIME",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_dis",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "time_dis",
+    "type": "TIME",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_rec",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_ref",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_check",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "id_hci",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "id_hcp",
+    "type": "STRING",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "clin_outpatient",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_emergency",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_type",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_acc",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_rel",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_bdate",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_age",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_sex",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_bwt",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_memcat_parent",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_memcat_child",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_discharge",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_c1",
+    "type": "STRING",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "clin_c2",
+    "type": "STRING",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "claim_status",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "claim_payout",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "claim_charge",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_ext",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "id_year",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_icd",
+    "type": "STRING",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "clin_rvs",
+    "type": "STRING",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "pdx",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pdx_code",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_drg",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "rw",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "wtlos",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "ot",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "adjrw",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "err",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "warn",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "los",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "mdc",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pdc",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "dc",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pccl",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "py_drg",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  }
+]

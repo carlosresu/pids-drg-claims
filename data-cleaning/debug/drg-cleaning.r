@@ -16,10 +16,56 @@ py_install("swifter")
 py_install("rpy2")
 
 
+to_bypass_prompts <- TRUE # Whether to prompt for user inputs or not
+# (if FALSE, default values in this cell will be used)
+
 # IMPORTANT PARAMETERS:
 full_claims_prefix <- "claims_extract_CLAIMS "
-full_claims_bq_prefix <- "claims_extract_CLAIMS\\ "
 year_to_load <- "2018" # Which claims year to load # TODO: maybe add a script that loops through all claims?
+
+# Input:
+to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
+sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+
+# Output:
+to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
+to_combine <- TRUE # Whether to combine checkpoint 1 files into one data.table
+to_group <- TRUE # Whether to export for the batch grouper or not
+to_replace_bq <- FALSE # Whether to drop the existing bq table and recreate it
+
+# Manual Tweaks:
+manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b")
+manual_code_replacements <- c("O800", "O80", "O809")
+
+drop_cols <- c( # Which columns to drop
+  paste0("ICDCODE", 13:14), # Start
+  "ICCODED15", # note that ICDCODE15 is misspelled as ICCODED15 in all claims
+  paste0("ICDCODE", 16:170), # Continuation
+  "MEMCAT_SUBCHILD_DESC" # Drop as per Cel's suggestion
+)
+
+# Flush files
+to_flush_master <- FALSE # whether to flush aux-files, checkpoints, profvis, debug, cache, and samples
+to_flush_partial <- FALSE # whether to flush partial files (raw files but split into split_parts parts)
+
+global_seed <- seed <- 123
+# Seed for reproducibility (Important for stuff like randomly choosing a pdx among multiple possible options)
+set.seed(seed) # Setting the seed
+global_seed <- seed # global_seed for future_lapply parts for parallelized operations
+
+ram_size <- 32 # Input virtual or physical machine's RAM size here
+
+
+# Debug:
+to_debug <- FALSE # whether to print debug statements
+to_profvis <- TRUE # Conduct runtime duration analysis via profvis or not
+to_view_checks <- TRUE # Whether to view checks and print statements
+to_view_checks_parallel <- FALSE # Whether to view intermediate per split_part/chunk checks and print statements (not consolidated) when parallelized
+to_parallel <- TRUE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
+to_split_read <- FALSE # WARNING: TRUE uses a lot of memory!!
+to_dec_mem_usage <- FALSE # Whether to run rm() and gc() at every possible step
+tmp_nrow <- Inf # Per split_part/chunk end_nrow (leave at Inf)
+diff_chars <- 0
 split_parts <- 15 # How many (integer) parts to split the 12+m row claims file into # TODO: a value of 10 for claims year 2018 leads to quoted newline errors
 end_nrow <- 10 # How many rows/entries to show in summary tables
 is_unix <- if (.Platform$OS.type == "unix") TRUE else FALSE # Detect operating system architecture
@@ -29,9 +75,8 @@ cat(paste("GCP Project:", gcp_proj, "\n"))
 encode <- "unknown" # Choices: unknown, UTF-8, Latin-1
 sep <- "," # Choices: "," or "\t"
 
-# Input:
-to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+ram_buffer <- 0.1 # How much of a buffer to leave for the OS
+
 
 # File Path Prefixes:
 clean_prefix <- "data-cleaning"
@@ -50,7 +95,6 @@ checkpoint_7_path <- file.path(chkpt_path, "checkpoint_7_py_input")
 checkpoint_8_path <- file.path(chkpt_path, "checkpoint_8_py_output")
 cache_path <- file.path(clean_prefix, "cache")
 aux_path <- file.path(data_prefix, "aux-files")
-cleaned_claims_path <- file.path(claims_prefix, "cleaned")
 raw_claims_path <- file.path(claims_prefix, "raw")
 raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
 raw_claims_samples_path <- file.path(claims_prefix, "raw", "samples")
@@ -80,52 +124,95 @@ full_claims_file <- here(
   paste0(full_claims_prefix, year_to_load, ".csv")
 )
 
-# Manual Tweaks:
-manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b")
-manual_code_replacements <- c("O800", "O80", "O809")
 
-drop_cols <- c( # Which columns to drop
-  paste0("ICDCODE", 13:14), # Start
-  "ICCODED15", # note that ICDCODE15 is misspelled as ICCODED15 in all claims
-  paste0("ICDCODE", 16:170), # Continuation
-  "MEMCAT_SUBCHILD_DESC" # Drop as per Cel's suggestion
-)
+# Stop if forecasted memory usage is expected to crash the system
+if (!split_parts == as.integer(split_parts) || split_parts <= 1) stop("ERROR: split_parts must be an integer greater than or equal to 2!")
+if (ram_size <= 64 && split_parts <= 2) stop("Please set split_parts to at least 3 for 64 GB machines or it will likely crash")
+if (ram_size <= 32 && split_parts <= 4) stop("Please set split_parts to at least 5 for 32 GB machines or it will likely crash")
+if (ram_size <= 32 && to_split_read == TRUE) stop("Please set to_split_read to TRUE for 32 GB machines or it will likely crash")
 
-# Output:
-to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
-to_combine <- TRUE # Whether to combine checkpoint 1 files into one data.table
-to_group <- TRUE # Whether to export for the batch grouper or not
+# Function to prompt for input with default value
+prompt_with_default <- function(prompt_text, default_value) {
+  if (!to_bypass_prompts) {
+    user_input <- readline(prompt = paste0(prompt_text, " [Default: ", default_value, "]: "))
+    if (user_input == "") {
+      return(default_value)
+    } else {
+      return(user_input)
+    }
+  } else {
+    message(
+      paste0(
+        "Using default value (",
+        default_value, ") for ",
+        deparse(substitute(variable))
+      )
+    )
+    return(default_value)
+  }
+}
 
-# Debug:
-to_debug <- FALSE # whether to print debug statements
-to_profvis <- TRUE # Conduct runtime duration analysis via profvis or not
-to_view_checks <- TRUE # Whether to view checks and print statements
-to_view_checks_parallel <- FALSE # Whether to view intermediate per split_part/chunk checks and print statements (not consolidated) when parallelized
-to_parallel <- TRUE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
-to_split_read <- FALSE # WARNING: TRUE uses a lot of memory!!
-to_dec_mem_usage <- FALSE # Whether to run rm() and gc() at every possible step
-tmp_nrow <- Inf # Per split_part/chunk end_nrow (leave at Inf)
-diff_chars <- 0
+# Set parameters based on prompts or defaults
+full_claims_prefix <- prompt_with_default("Enter full_claims_prefix", full_claims_prefix)
+full_claims_bq_prefix <- str_replace_all(full_claims_prefix, " ", "\\\\ ")
+year_to_load <- prompt_with_default("Enter year_to_load", year_to_load)
 
-# Flush files
-master_flush_all <- FALSE # Whether to flush all files
+# Prompt for whether to sample
+to_sample <- as.logical(prompt_with_default("Sample data? (TRUE/FALSE)", to_sample))
+sample_size_divisor <- as.integer(prompt_with_default("Enter sample_size_divisor", sample_size_divisor))
 
-to_flush_cache_and_profvis <- FALSE # Whether to cache
-to_flush_aux_files <- FALSE # Whether to delete aux files to pull from BQ again
-to_flush_checkpoints <- FALSE # Whether to delete checkpoints to free up space
-to_flush_cleaned_parts_and_samples <- FALSE # Whether to delete parts and samples to free up space (WARNING: TAKES A WHILE TO REGENERATE)
-to_flush_raw <- FALSE # Whether to delete raw claims files (WARNING: PULLING FROM GCS TAKES A WHILE AND COSTS MONEY)
-to_flush_debug <- FALSE # Whether to delete everything folder (debug)
+# # Prompt for manual ICD code patterns and replacements
+# manual_patterns_to_replace <- strsplit(prompt_with_default(
+#   "Enter ICD patterns to replace (comma-separated, no need for \\b)",
+#   paste(manual_patterns_to_replace, collapse = ",")
+# ), ",")[[1]]
+# manual_patterns_to_replace <- paste0("\\b", trimws(manual_patterns_to_replace), "\\b")
 
+# manual_code_replacements <- strsplit(prompt_with_default(
+#   "Enter ICD code replacements (comma-separated)",
+#   paste(manual_code_replacements, collapse = ",")
+# ), ",")[[1]]
 
-global_seed <- seed <- 123
-# Seed for reproducibility (Important for stuff like randomly choosing a pdx among multiple possible options)
-set.seed(seed) # Setting the seed
-global_seed <- seed # global_seed for future_lapply parts for parallelized operations
+# # Validate lengths of patterns and replacements
+# if (length(manual_patterns_to_replace) != length(manual_code_replacements)) {
+#   stop("Error: The number of patterns does not match the number of replacements.")
+# }
 
-ram_size <- 32 # Input virtual or physical machine's RAM size here
-ram_buffer <- 0.1 # How much of a buffer to leave for the OS
-ram_limit <- (1 - ram_buffer) * (ram_size) * (1024^3) # Compute ram_limit in bytes
+# Prompt for output options
+to_write <- as.logical(prompt_with_default("Write output files? (TRUE/FALSE)", to_write))
+to_combine <- as.logical(prompt_with_default("Combine files? (TRUE/FALSE)", to_combine))
+to_group <- as.logical(prompt_with_default("Export for batch grouper? (TRUE/FALSE)", to_group))
+
+# Debug and profiling options
+# to_debug <- as.logical(prompt_with_default("Enable debug mode? (TRUE/FALSE)", to_debug))
+# to_profvis <- as.logical(prompt_with_default("Run profvis profiling? (TRUE/FALSE)", to_profvis))
+# to_view_checks <- as.logical(prompt_with_default("View checks and print statements? (TRUE/FALSE)", to_view_checks))
+# to_view_checks_parallel <- as.logical(prompt_with_default("View checks during parallel processing? (TRUE/FALSE)", to_view_checks_parallel))
+# to_split_read <- as.logical(prompt_with_default("Enable split read mode? (TRUE/FALSE)", to_split_read))
+# to_dec_mem_usage <- as.logical(prompt_with_default("Decrease memory usage? (TRUE/FALSE)", to_dec_mem_usage))
+# tmp_nrow <- as.integer(prompt_with_default("Set temporary row count (tmp_nrow)", tmp_nrow))
+# diff_chars <- as.integer(prompt_with_default("Set diff_chars", diff_chars))
+# end_nrow <- as.integer(prompt_with_default("Enter end_nrow", end_nrow))
+# split_parts <- as.integer(prompt_with_default("Enter split_parts", split_parts))
+# max_bq_rows <- as.integer(prompt_with_default("Enter max_bq_rows", max_bq_rows))
+# encode <- prompt_with_default("Enter encode", encode)
+# sep <- prompt_with_default("Enter separator (sep)", sep)
+# Flush options
+to_flush_master <- as.logical(prompt_with_default("Flush master files? (TRUE/FALSE)", to_flush_master))
+to_flush_partial <- as.logical(prompt_with_default("Flush partial files? (TRUE/FALSE)", to_flush_partial))
+
+# Prompt for seed
+# seed <- as.integer(prompt_with_default("Enter seed for reproducibility", seed))
+global_seed <- seed
+
+# Set seed for reproducibility
+set.seed(seed)
+
+# RAM settings
+ram_size <- as.numeric(prompt_with_default("Enter RAM size (GB)", ram_size))
+# ram_buffer <- as.numeric(prompt_with_default("Enter RAM buffer (0.0-1.0)", ram_buffer))
+ram_limit <- (1 - ram_buffer) * ram_size * (1024^3)
+
 # Allowing each future_lapply session to use more memory
 options(future.globals.maxSize = ram_limit)
 
@@ -137,17 +224,6 @@ ram_limit_gb <- round((1 - ram_buffer) * ram_size, 0)
 # Print the set RAM limit
 # cat("Setting R_FUTURE_MAX_RAM to:", ram_limit_gb, "GB\n")
 cat(sprintf("Setting future.globals.maxSize to: %.1f GB", ram_limit / (1024^3)))
-
-
-# Automatically set all "to_flush" variables to FALSE if to_flush_all is FALSE
-if (!is.null(master_flush_all) && master_flush_all) for (var in ls(pattern = "^to_flush")) assign(var, TRUE)
-if (!is.null(master_flush_all) && !master_flush_all) for (var in ls(pattern = "^to_flush")) assign(var, FALSE)
-
-# Stop if forecasted memory usage is expected to crash the system
-if (!split_parts == as.integer(split_parts) || split_parts <= 1) stop("ERROR: split_parts must be an integer greater than or equal to 2!")
-if (ram_size <= 64 && split_parts <= 2) stop("Please set split_parts to at least 3 for 64 GB machines or it will likely crash")
-if (ram_size <= 32 && split_parts <= 4) stop("Please set split_parts to at least 5 for 32 GB machines or it will likely crash")
-if (ram_size <= 32 && to_split_read == TRUE) stop("Please set to_split_read to TRUE for 32 GB machines or it will likely crash")
 
 
 options(verbose = FALSE) # Hide verbose output for script and library loading
@@ -220,7 +296,7 @@ proc_query <- paste0(
   ".grouper_v5.proc` LIMIT ", max_bq_rows
 )
 proc <- query_bq_to_dt(proc_query, here(aux_path, "proc.csv"),
-  cache = TRUE, max_bq_rows = max_bq_rows
+  cache = FALSE, max_bq_rows = max_bq_rows
 )
 proc[, CODE := as.character(CODE)]
 
@@ -230,7 +306,7 @@ rvs_icd9_query <- paste0(
   ".phic.acr_rvs_map` LIMIT ", max_bq_rows
 )
 rvs_icd9 <- query_bq_to_dt(rvs_icd9_query, here(aux_path, "rvs_icd9cm.csv"),
-  cache = TRUE, max_bq_rows = max_bq_rows
+  cache = FALSE, max_bq_rows = max_bq_rows
 )
 
 # Convert rvs to character and handle icd9cm conversion carefully
@@ -254,7 +330,7 @@ acr_rvs_query <- paste0(
   ".phic.acr_procedure` LIMIT ", max_bq_rows
 )
 acr_rvs <- query_bq_to_dt(acr_rvs_query, here(aux_path, "acr_rvs.csv"),
-  cache = TRUE, max_bq_rows = max_bq_rows
+  cache = FALSE, max_bq_rows = max_bq_rows
 )
 
 # 4. Query and load `grouper_v5.i10`
@@ -263,7 +339,7 @@ i10_query <- paste0(
   ".grouper_v5.i10` LIMIT ", max_bq_rows
 )
 tdrg_icd10 <- query_bq_to_dt(i10_query, here(aux_path, "i10.csv"),
-  cache = TRUE, max_bq_rows = max_bq_rows
+  cache = FALSE, max_bq_rows = max_bq_rows
 )
 setkey(tdrg_icd10, "CODE")
 
@@ -276,7 +352,7 @@ phl_icd10_query <- paste0(
   ".icd.phl_icd10` LIMIT ", max_bq_rows
 )
 phl_icd10 <- query_bq_to_dt(phl_icd10_query, here(aux_path, "phl_icd10.csv"),
-  cache = TRUE, max_bq_rows = max_bq_rows
+  cache = FALSE, max_bq_rows = max_bq_rows
 )
 
 # Filter and process neoplasms
@@ -851,15 +927,12 @@ unified_block <- function() {
 }
 
 
-all_parts_summaries <- list() # initialize list for summaries
+all_parts_summaries <- master_dt_list <- master_grouper_input_list <- list() # initialize lists
 dim_dt <- vector() # initialize vector for dt dimensions
 processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
 nthreads <- parallelly::availableCores() # detect available threads
 cat(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
-master_dt <- data.table()
-master_dt_list <- list()
-master_grouper_input_dt <- data.table()
-master_grouper_input_list <- list()
+master_dt <- master_grouper_input_dt <- data.table() # initialize data.tables
 
 # Call the main function with or without profvis
 if (to_profvis) {
@@ -868,6 +941,23 @@ if (to_profvis) {
   }), profvis_fpath)
 } else {
   unified_block()
+}
+
+
+if (!to_bypass_prompts) {
+  response <- tolower(readline(prompt = "Have you run the Thai grouper manually? (y/n): "))
+
+  if (response == "y") {
+    message("Continuing with the script...\n")
+    # Continue with the rest of the script
+  } else {
+    message("Stopping the script.\n")
+    stop("Thai Grouper not run yet. Script terminated.
+  Continue on manually if necessary")
+  }
+} else {
+  message("Thai Grouper is assumed to have been run already.
+  Continuing with the script...\n")
 }
 
 
@@ -932,13 +1022,6 @@ result[, los := as.integer(los)]
 
 fwrite(result, merged_fpath) # Write to file for python grouper before strsplit
 
-# result[, id_hcp := strsplit(id_hcp, "\\|\\|")]
-# result[, clin_c1 := strsplit(clin_c1, "\\|\\|")]
-# result[, clin_c2 := strsplit(clin_c2, "\\|\\|")]
-# result[, clin_icd := strsplit(clin_icd, "\\|\\|")]
-# result[, clin_rvs := strsplit(clin_rvs, "\\|\\|")]
-# result[, icd9_list := strsplit(icd9_list, "\\|\\|")]
-
 
 pandas <- import("pandas")
 
@@ -947,14 +1030,10 @@ pandas <- import("pandas")
 python_input_dt <- fread(here(checkpoint_6_path, "checkpoint_6_grouped_claims.csv"))
 
 # Convert columns to Date objects, ignoring NA values
+date_columns <- names(python_input_dt)[grepl("date", names(python_input_dt))]
+
 python_input_dt[, pat_bdate_orig := as.Date(pat_bdate, format = "%m/%d/%Y")]
-python_input_dt[, pat_bdate := as.Date(pat_bdate, format = "%m/%d/%Y")]
-python_input_dt[, date_adm := as.Date(date_adm, format = "%m/%d/%Y")]
-python_input_dt[, date_dis := as.Date(date_dis, format = "%m/%d/%Y")]
-python_input_dt[, date_rec := as.Date(date_rec, format = "%m/%d/%Y")]
-python_input_dt[, date_ref := as.Date(date_ref, format = "%m/%d/%Y")]
-python_input_dt[, date_ext := as.Date(date_ext, format = "%m/%d/%Y")]
-python_input_dt[, date_check := as.Date(date_check, format = "%m/%d/%Y")]
+python_input_dt[, (date_columns) := lapply(.SD, as.Date, format = "%m/%d/%Y"), .SDcols = date_columns]
 
 # Create a data.table for rows with negative `pat_age`
 negative_age_dt <- python_input_dt[pat_age < 0, ]
@@ -1144,138 +1223,84 @@ output = output.rename(columns = rename_mapping)
 ")
 
 
-result <- as.data.table(py$output)
 # Convert data types to match BigQuery schema
-# result[, caseid := as.integer(caseid)]
-result[, id_series := as.character(id_series)]
-result[, id_pin := as.character(id_pin)]
-result[, date_adm := as.Date(date_adm)]
-result[, time_adm := as.ITime(time_adm)]
-result[, date_dis := as.Date(date_dis)]
-result[, time_dis := as.ITime(time_dis)]
-result[, date_rec := as.Date(date_rec)]
-result[, date_ref := as.Date(date_ref)]
-result[, date_check := as.Date(date_check)]
-result[, id_hci := as.character(id_hci)]
+result <- as.data.table(py$output)
 
-# Convert character "0"/"1" to logical for Boolean fields
-result[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
-result[, clin_emergency := as.logical(as.integer(clin_emergency))]
+# Define columns for each type conversion
+character_columns <- c(
+  "id_series", "id_pin", "id_hci", "pat_type", "clin_acc", "pat_rel",
+  "pat_sex", "pat_memcat_parent", "pat_memcat_child", "claim_status",
+  "pdx", "thai_drg", "mdc", "pdc", "dc", "py_drg"
+)
 
-result[, pat_type := as.character(pat_type)]
-result[, clin_acc := as.character(clin_acc)]
-result[, pat_rel := as.character(pat_rel)]
-result[, pat_bdate := as.Date(pat_bdate)]
-result[, pat_age := as.numeric(pat_age)]
-result[, pat_sex := as.character(pat_sex)]
-result[, pat_bwt := as.numeric(pat_bwt)]
-result[, pat_memcat_parent := as.character(pat_memcat_parent)]
-result[, pat_memcat_child := as.character(pat_memcat_child)]
-result[, clin_discharge := as.integer(clin_discharge)]
+date_columns <- c(
+  "date_adm", "date_dis", "date_rec", "date_ref", "date_check",
+  "pat_bdate", "date_ext"
+)
 
-result[, claim_status := as.character(claim_status)]
-result[, claim_payout := as.numeric(claim_payout)]
-result[, claim_charge := as.numeric(claim_charge)]
-result[, date_ext := as.Date(date_ext)]
-result[, id_year := as.integer(id_year)]
+integer_columns <- c("clin_discharge", "pdx_code", "ot", "err", "warn", "los", "id_year")
 
-result[, pdx := as.character(pdx)]
-result[, pdx_code := as.integer(pdx_code)]
-result[, thai_drg := as.character(thai_drg)]
-result[, rw := as.numeric(rw)]
-result[, wtlos := as.numeric(wtlos)]
-result[, ot := as.integer(ot)]
-result[, adjrw := as.numeric(adjrw)]
-result[, err := as.integer(err)]
-result[, warn := as.integer(warn)]
-result[, los := as.integer(los)]
-result[, mdc := as.character(mdc)]
-result[, pdc := as.character(pdc)]
-result[, dc := as.character(dc)]
-result[, pccl := as.numeric(pccl)]
-result[, py_drg := as.character(py_drg)]
+numeric_columns <- c(
+  "pat_age", "pat_bwt", "claim_payout", "claim_charge", "rw", "wtlos",
+  "adjrw", "pccl"
+)
 
-result[, id_hcp := strsplit(id_hcp, "\\|\\|")]
-result[, clin_c1 := strsplit(clin_c1, "\\|\\|")]
-result[, clin_c2 := strsplit(clin_c2, "\\|\\|")]
-result[, clin_icd := strsplit(clin_icd, "\\|\\|")]
-result[, clin_rvs := strsplit(clin_rvs, "\\|\\|")]
+logical_columns <- c("clin_outpatient", "clin_emergency")
 
-# Replace NULL (empty) arrays with an empty character vector, which is acceptable to BigQuery
-replace_null_with_empty_array <- function(x) {
-  lapply(x, function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y)
-}
+time_columns <- c("time_adm", "time_dis")
 
-result[, id_hcp := replace_null_with_empty_array(id_hcp)]
-result[, clin_c1 := replace_null_with_empty_array(clin_c1)]
-result[, clin_c2 := replace_null_with_empty_array(clin_c2)]
-result[, clin_icd := replace_null_with_empty_array(clin_icd)]
-result[, clin_rvs := replace_null_with_empty_array(clin_rvs)]
+# Apply conversions
+result[, (character_columns) := lapply(.SD, as.character), .SDcols = character_columns]
+result[, (date_columns) := lapply(.SD, as.Date), .SDcols = date_columns]
+result[, (integer_columns) := lapply(.SD, as.integer), .SDcols = integer_columns]
+result[, (numeric_columns) := lapply(.SD, as.numeric), .SDcols = numeric_columns]
+result[, (logical_columns) := lapply(.SD, function(x) as.logical(as.integer(x))), .SDcols = logical_columns]
+result[, (time_columns) := lapply(.SD, as.ITime), .SDcols = time_columns]
+
+# Convert string columns to arrays
+array_columns <- c("id_hcp", "clin_c1", "clin_c2", "clin_icd", "clin_rvs")
+result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|\\|")), .SDcols = array_columns]
+
+# Replace NULL (empty) arrays with an empty character vector
+result[, (array_columns) := lapply(.SD, function(x) {
+  lapply(
+    x,
+    function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
+  )
+}), .SDcols = array_columns]
 
 
 project_id <- gcp_proj
 dataset_id <- "phic"
 table_id <- "temp_claims_latest"
 
-# Define the schema using bq_field
-table_schema <- list(
-  bq_field("id_series", "STRING", mode = "NULLABLE"),
-  bq_field("id_pin", "STRING", mode = "NULLABLE"),
-  bq_field("date_adm", "DATE", mode = "NULLABLE"),
-  bq_field("time_adm", "TIME", mode = "NULLABLE"),
-  bq_field("date_dis", "DATE", mode = "NULLABLE"),
-  bq_field("time_dis", "TIME", mode = "NULLABLE"),
-  bq_field("date_rec", "DATE", mode = "NULLABLE"),
-  bq_field("date_ref", "DATE", mode = "NULLABLE"),
-  bq_field("date_check", "DATE", mode = "NULLABLE"),
-  bq_field("id_hci", "STRING", mode = "NULLABLE"),
-  bq_field("id_hcp", "STRING", mode = "REPEATED"), # Array of strings
-  bq_field("clin_outpatient", "BOOL", mode = "NULLABLE"),
-  bq_field("clin_emergency", "BOOL", mode = "NULLABLE"),
-  bq_field("pat_type", "STRING", mode = "NULLABLE"),
-  bq_field("clin_acc", "STRING", mode = "NULLABLE"),
-  bq_field("pat_rel", "STRING", mode = "NULLABLE"),
-  bq_field("pat_bdate", "DATE", mode = "NULLABLE"),
-  bq_field("pat_age", "FLOAT64", mode = "NULLABLE"),
-  bq_field("pat_sex", "STRING", mode = "NULLABLE"),
-  bq_field("pat_bwt", "FLOAT64", mode = "NULLABLE"),
-  bq_field("pat_memcat_parent", "STRING", mode = "NULLABLE"),
-  bq_field("pat_memcat_child", "STRING", mode = "NULLABLE"),
-  bq_field("clin_discharge", "INT64", mode = "NULLABLE"),
-  bq_field("clin_c1", "STRING", mode = "REPEATED"), # Array of strings
-  bq_field("clin_c2", "STRING", mode = "REPEATED"), # Array of strings
-  bq_field("claim_status", "STRING", mode = "NULLABLE"),
-  bq_field("claim_payout", "FLOAT64", mode = "NULLABLE"),
-  bq_field("claim_charge", "FLOAT64", mode = "NULLABLE"),
-  bq_field("date_ext", "DATE", mode = "NULLABLE"),
-  bq_field("id_year", "INT64", mode = "NULLABLE"),
-  bq_field("clin_icd", "STRING", mode = "REPEATED"), # Array of strings
-  bq_field("clin_rvs", "STRING", mode = "REPEATED"), # Array of strings
-  bq_field("pdx", "STRING", mode = "NULLABLE"),
-  bq_field("pdx_code", "INT64", mode = "NULLABLE"),
-  bq_field("thai_drg", "STRING", mode = "NULLABLE"),
-  bq_field("rw", "FLOAT64", mode = "NULLABLE"),
-  bq_field("wtlos", "FLOAT64", mode = "NULLABLE"),
-  bq_field("ot", "INT64", mode = "NULLABLE"),
-  bq_field("adjrw", "FLOAT64", mode = "NULLABLE"),
-  bq_field("err", "INT64", mode = "NULLABLE"),
-  bq_field("warn", "INT64", mode = "NULLABLE"),
-  bq_field("los", "INT64", mode = "NULLABLE"),
-  bq_field("mdc", "STRING", mode = "NULLABLE"),
-  bq_field("pdc", "STRING", mode = "NULLABLE"),
-  bq_field("dc", "STRING", mode = "NULLABLE"),
-  bq_field("pccl", "FLOAT64", mode = "NULLABLE"),
-  bq_field("py_drg", "STRING", mode = "NULLABLE")
-)
+# Check if the table should be dropped and replaced
+if (to_replace_bq) {
+  tryCatch(
+    {
+      bq_table_delete(bq_table(project_id, dataset_id, table_id))
+      message("Table dropped successfully.\n")
+    },
+    error = function(e) {
+      # If the table does not exist, just continue
+      if (grepl("Not found", e$message, ignore.case = TRUE)) {
+        message("Table does not exist, nothing to drop.\n")
+      } else {
+        # If it's a different error, re-throw the error
+        stop(e)
+      }
+    }
+  )
+}
 
+# Attempt to create the table
 tryCatch(
   {
-    # Attempt to create the table
     bq_table_create(
       bq_table(project_id, dataset_id, table_id),
-      fields = table_schema
+      fields = fromJSON(here("data-cleaning/r_scripts", "bq_schema.json"), simplifyDataFrame = FALSE)
     )
-    cat("Table created successfully.\n")
+    message("Table created successfully.\n")
   },
   error = function(e) {
     # Check if the error message indicates that the table already exists
@@ -1288,11 +1313,14 @@ tryCatch(
   }
 )
 
+# Upload the data to the BigQuery table
 bq_table_upload(
   bq_table(project_id, dataset_id, table_id),
   values = result,
   write_disposition = "WRITE_TRUNCATE" # Options: WRITE_TRUNCATE, WRITE_APPEND, WRITE_EMPTY
 )
+
+message("BQ upload successful.")
 
 
 print_time_estimates() # Print time estimates along with estimate for full claims file
@@ -1308,26 +1336,24 @@ concatenate_r_files(
 )
 
 if (.Platform$OS.type == "unix") system("cd ~/drg-pipeline && jupyter nbconvert --no-prompt --to script data-cleaning/drg-cleaning.ipynb --output debug/drg-cleaning")
-library(rmarkdown)
-input <- "~/drg-pipeline/data-cleaning/drg-cleaning.ipynb"
-convert_ipynb(input, output = xfun::with_ext(input, "Rmd"))
+# library(rmarkdown)
+# input <- "~/drg-pipeline/data-cleaning/drg-cleaning.ipynb"
+# convert_ipynb(input, output = xfun::with_ext(input, "Rmd"))
 
 
 # Define the paths and corresponding conditions
 paths <- list(
-  to_flush_cleaned_parts_and_samples = c(
-    "data-cleaning/data/claims/raw/cleaned",
-    "data-cleaning/data/claims/raw/parts",
-    "data-cleaning/data/claims/raw/samples"
-  ),
-  to_flush_cache_and_profvis = c(
+  to_flush_master = c(
     "data-cleaning/cache",
-    "data-cleaning/data/profvis"
+    "data-cleaning/data/profvis",
+    "data-cleaning/data/aux-files",
+    "data-cleaning/data/checkpoints",
+    "data-cleaning/data/claims/raw/samples",
+    "data-cleaning/debug"
   ),
-  to_flush_aux_files = "data-cleaning/data/aux-files",
-  to_flush_checkpoints = "data-cleaning/data/checkpoints",
-  to_flush_raw = "data-cleaning/data/claims/raw",
-  to_flush_debug = "data-cleaning/debug"
+  to_flush_partial = c(
+    "data-cleaning/data/claims/raw/parts"
+  )
 )
 
 # Iterate over the paths and conditions
