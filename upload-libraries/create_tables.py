@@ -34,7 +34,7 @@ for csv_file in csv_files:
     base_name = os.path.splitext(csv_file)[0]
     
     # Define the table ID
-    table_id = f'{client.project}.{DATASET}.{base_name}'
+    bq_table = f'{client.project}.{DATASET}.{base_name}'
 
     # Get the schema from the corresponding sheet in the Excel file
     schema = get_schema(base_name)
@@ -48,9 +48,9 @@ for csv_file in csv_files:
     )
     
     with open(file_path, 'rb') as source_file:
-        job = client.load_table_from_file(source_file, table_id, job_config=job_config)
+        job = client.load_table_from_file(source_file, bq_table, job_config=job_config)
     
     job.result()  # Wait for the job to complete
-    print(f'Loaded {file_path} into {table_id}')
+    print(f'Loaded {file_path} into {bq_table}')
 
 print("All data loaded successfully.")
