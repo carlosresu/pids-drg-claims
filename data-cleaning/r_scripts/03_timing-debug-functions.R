@@ -61,7 +61,7 @@ print_time_estimates <- function() {
 }
 
 # Function to print status updates using lubridate
-print_status_update <- function(status_part, split_parts, processing_times) {
+print_status_update <- function(status_part, split_parts, processing_times, phase) {
   #' @title Print Status Update
   #' @description Print the status update and estimated time remaining.
   #' @param status_part integer. The current status_part number.
@@ -108,21 +108,40 @@ print_status_update <- function(status_part, split_parts, processing_times) {
   remaining_str <- format_time(remaining)
 
   # Determine when to print the status update
-  if (avg_time_per_part >= 4) {
-    # Print status updates for every status_part
-    cat(sprintf(
-      "\rFinished %d of %d parts in %s (ETA %s)       ",
-      status_part, split_parts, elapsed_str, remaining_str
-    ))
-    flush.console()
-  } else if (avg_time_per_part < 4 && status_part %% 5 == 0) {
-    # Print status updates for every 5th, 10th, 15th status_part
-    cat(sprintf(
-      "\rFinished %d of %d parts in %s (ETA %s)       ",
-      status_part, split_parts, elapsed_str, remaining_str
-    ))
-    flush.console()
+  if (phase == "split") {
+    if (avg_time_per_part >= 4) {
+      # Print status updates for every status_part
+      cat(sprintf(
+        "\rFinished splitting %d of %d parts in %s (ETA %s)       ",
+        status_part, split_parts, elapsed_str, remaining_str
+      ))
+      flush.console()
+    } else if (avg_time_per_part < 4 && status_part %% 5 == 0) {
+      # Print status updates for every 5th, 10th, 15th status_part
+      cat(sprintf(
+        "\rFinished splitting %d of %d parts in %s (ETA %s)       ",
+        status_part, split_parts, elapsed_str, remaining_str
+      ))
+      flush.console()
+    }
+  } else if (phase == "clean") {
+    if (avg_time_per_part >= 4) {
+      # Print status updates for every status_part
+      cat(sprintf(
+        "\rFinished cleaning %d of %d parts in %s (ETA %s)       ",
+        status_part, split_parts, elapsed_str, remaining_str
+      ))
+      flush.console()
+    } else if (avg_time_per_part < 4 && status_part %% 5 == 0) {
+      # Print status updates for every 5th, 10th, 15th status_part
+      cat(sprintf(
+        "\rFinished cleaning %d of %d parts in %s (ETA %s)       ",
+        status_part, split_parts, elapsed_str, remaining_str
+      ))
+      flush.console()
+    }
   }
+  
 }
 
 concatenate_r_files <- function(input_path, output_file) {

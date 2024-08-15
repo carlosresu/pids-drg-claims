@@ -405,8 +405,8 @@ combine_comparison_tables <- function(
 
   # Trim whitespaces and calculate the absolute difference in character lengths for unique pairs
   combined_comparison[, `:=`(
-    old_code = gsub("\\s", "", old_code),
-    new_code = gsub("\\s", "", new_code)
+    old_code = gsub("\\s", "", iconv(old_code, to = "UTF-8")),
+    new_code = gsub("\\s", "", iconv(new_code, to = "UTF-8"))
   )]
   combined_comparison[, diff_chars := abs(nchar(old_code) - nchar(new_code))]
 
