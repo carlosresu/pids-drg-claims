@@ -1187,10 +1187,27 @@ export_for_grouper(
   ))
 )
 
+# Upload the file
+gcs_auth(email = gcs_email)
+gcs_upload(
+  file = here(checkpoint_4_path, paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
+  bucket = gcs_bucket,
+  name = paste0(gcs_pre_fpath, "/", paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
+  predefinedAcl = "bucketLevel"
+)
+
+gcs_get_object(
+  object_name = paste0(gcs_post_fpath, "/", toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT"),
+  bucket = gcs_bucket,
+  saveToDisk = here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")),
+  overwrite = TRUE
+)
+
 
 result[, caseid := 1:nrow(result)]
-thai_result <- fread("~/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_5_thai_output/PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_1257_Res.TXT", colClasses = "character")
+thai_result <- fread("~/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_5_thai_output/PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_31408_Res.TXT", colClasses = "character")
 thai_result[, caseid := as.integer(caseid)]
+thai_result[, thai_drg := drg]
 thai_result[, thai_rw := rw]
 thai_result[, thai_wtlos := wtlos]
 thai_result[, thai_ot := ot]
@@ -1198,6 +1215,7 @@ thai_result[, thai_adjrw := adjrw]
 thai_result[, thai_err := err]
 thai_result[, thai_warn := warn]
 thai_result[, thai_los := los]
+thai_result[, drg := NULL]
 thai_result[, drgname := NULL]
 thai_result[, rw := NULL]
 thai_result[, wtlos := NULL]
@@ -1207,7 +1225,7 @@ thai_result[, err := NULL]
 thai_result[, warn := NULL]
 thai_result[, los := NULL]
 merged <- merge(result, thai_result, by = "caseid", all.x = TRUE)
-diff_merged <- merged[!drg == py_drg]
+diff_merged <- merged[!thai_drg == py_drg]
 print(head(diff_merged))
 fwrite(diff_merged, "test.csv")
 

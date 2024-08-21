@@ -249,6 +249,9 @@ export_for_grouper <- function(dt, output_txt_file) {
   #   }
   # }
   # Write the data.table to a file with vertical bar (|) as delimiter
+  
+  str(output_dt)
+
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
 
   if (to_debug) {
