@@ -1004,6 +1004,14 @@ result[, clin_c2_orig := as.character(clin_c2_orig)]
 result[, pdx := as.character(pdx)]
 result[, pdx_code := as.integer(pdx_code)]
 
+
+result[, `:=`(
+  clin_c1 = ifelse(clin_c1 == pdx, NA_character_, clin_c1),
+  clin_c2 = ifelse(clin_c2 == pdx, NA_character_, clin_c2),
+  clin_icd = mapply(function(pdx_var, sdx_var) sdx_var[sdx_var != pdx_var], pdx, clin_icd, SIMPLIFY = FALSE)
+)]
+
+
 fwrite(result, here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")))
 
 
@@ -1181,7 +1189,7 @@ export_for_grouper(
 
 
 result[, caseid := 1:nrow(result)]
-thai_result <- fread("/home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_5_thai_output/PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_1257_Res.TXT", colClasses = "character")
+thai_result <- fread("~/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_5_thai_output/PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_1257_Res.TXT", colClasses = "character")
 thai_result[, caseid := as.integer(caseid)]
 thai_result[, thai_rw := rw]
 thai_result[, thai_wtlos := wtlos]
@@ -1200,7 +1208,7 @@ thai_result[, los := NULL]
 merged <- merge(result, thai_result, by = "caseid", all.x = TRUE)
 diff_merged <- merged[!drg == py_drg]
 print(head(diff_merged))
-# fwrite(diff_merged, "test.csv")
+fwrite(diff_merged, "test.csv")
 
 
 # # Upload the file
