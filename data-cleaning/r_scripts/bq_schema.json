@@ -150,7 +150,7 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "clin_icd",
+    "name": "clin_sdx",
     "type": "STRING",
     "mode": "REPEATED"
   },
@@ -160,7 +160,7 @@
     "mode": "REPEATED"
   },
   {
-    "name": "pdx",
+    "name": "clin_pdx",
     "type": "STRING",
     "mode": "NULLABLE"
   },
@@ -175,57 +175,47 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "rw",
+    "name": "thai_rw",
     "type": "FLOAT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "wtlos",
+    "name": "thai_wtlos",
     "type": "FLOAT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "ot",
+    "name": "thai_ot",
     "type": "INT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "adjrw",
+    "name": "thai_adjrw",
     "type": "FLOAT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "err",
+    "name": "thai_err",
     "type": "INT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "warn",
+    "name": "thai_warn",
     "type": "INT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "los",
+    "name": "thai_los",
     "type": "INT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "mdc",
+    "name": "py_pdc",
     "type": "STRING",
     "mode": "NULLABLE"
   },
   {
-    "name": "pdc",
-    "type": "STRING",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "dc",
-    "type": "STRING",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "pccl",
+    "name": "py_pccl",
     "type": "FLOAT64",
     "mode": "NULLABLE"
   },

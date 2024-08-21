@@ -130,7 +130,9 @@ replace_empty_with_na <- function(dt, to_view_checks) {
 
   return(
     list(
+      # data to return
       return_data = dt,
+      # returned summary for checks and outputs
       return_replacement_summary = replacement_summary
     )
   )
@@ -205,15 +207,15 @@ clean_clinical_columns <- function(dt) {
 
   dt[, clin_rvs := lapply(clin_rvs, unique)]
 
-  return_list <- list(
-    dt = dt,
-    discard_rvs_one = clin_c1_discarded_rvs,
-    discard_rvs_two = clin_c2_discarded_rvs
-  )
-
-  # str(return_list)
-
-  return(return_list)
+  return(
+        list(
+          # dt to return
+          dt = dt,
+          # other things to return for checks and outputs
+          discard_rvs_one = clin_c1_discarded_rvs,
+          discard_rvs_two = clin_c2_discarded_rvs
+          )
+        )
 }
 
 transfer_icd_codes <- function(dt) {

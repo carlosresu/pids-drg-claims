@@ -14,37 +14,6 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
 
   cat("\nRename Success:\n", summary$final_rename_success, "")
 
-  # if (nrow(summary$final_ICD_replacements_1) > 0) {
-  #   print(kable(head(summary$final_ICD_replacements_1, end_nrow),
-  #     format = "markdown",
-  #     caption = "ICD Text Normalization for clin_c1 Before Splitting"
-  #   ))
-  # } else {
-  #   cat(
-  #     sprintf(
-  #       "\nNo ICD replacements found in clin_c1 with more than %d diff. chars.",
-  #       diff_chars
-  #     ),
-  #     "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
-  #   )
-  # }
-
-
-  # if (nrow(summary$final_ICD_replacements_2) > 0) {
-  #   print(kable(head(summary$final_ICD_replacements_2, end_nrow),
-  #     format = "markdown",
-  #     caption = "ICD Text Normalization for clin_c2 Before Splitting"
-  #   ))
-  # } else {
-  #   cat(
-  #     sprintf(
-  #       "\nNo ICD replacements found in clin_c2 with more than %d diff. chars.",
-  #       diff_chars
-  #     ),
-  #     "\nNote: commas, asterisks, plus signs, and whitespaces are ignored.\n"
-  #   )
-  # }
-
   final_icd_replacements <- unique(rbind(
     summary$final_ICD_replacements_1,
     summary$final_ICD_replacements_2
@@ -111,24 +80,6 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   display_unique_mappings(
     summary$final_claim_status_mapped, "Claim Status", tmp_nrow
   )
-
-  # if (nrow(summary$final_discard_rvs_one) > 0) {
-  #   print(kable(head(summary$final_discard_rvs_one, tmp_nrow),
-  #     format = "markdown",
-  #     caption = "Discarded RVS Codes One"
-  #   ))
-  # } else {
-  #   cat("\nNo RVS codes discarded in the first set.\n\n")
-  # }
-
-  # if (nrow(summary$final_discard_rvs_two) > 0) {
-  #   print(kable(head(summary$final_discard_rvs_two, tmp_nrow),
-  #     format = "markdown",
-  #     caption = "Discarded RVS Codes Two"
-  #   ))
-  # } else {
-  #   cat("\nNo RVS codes discarded in the second set.\n\n")
-  # }
 
   final_discard_rvs <- rbind(
     summary$final_discard_rvs_one,
@@ -292,84 +243,6 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   )
 }
 
-# combine_comparison_tables <- function(
-#     summaries, comparison_field, tmp_nrow, diff_chars) {
-#   #' @title Combine Comparison Tables
-#   #'
-#   #' @description This function combines comparison tables from
-#   #' multiple summaries into one, and ranks rows by a custom fuzzy match score
-#   #' that prioritizes letter differences in ICD codes,
-#   #' ignoring '+', '*', ',', '.', and spaces.
-#   #'
-#   #' @param summaries list. A list of summary tables.
-#   #' @param comparison_field character. The field in the summaries to compare.
-#   #' @param tmp_nrow integer. The number of
-#   #' rows to show in the intermediate summary.
-#   #' @param diff_chars numeric. The minimum fuzzy match score to filter.
-#   #'
-#   #' @return data.table. The combined comparison table.
-
-#   # Helper function to clean strings by removing specified characters
-#   clean_string <- function(strings) {
-#     # Remove '+', '*', ',', '.', and spaces
-#     cleaned_strings <- gsub("[+*,.\\s]", "", strings)
-#     return(cleaned_strings)
-#   }
-
-#   # Process each summary to extract comparison data
-#   comparison_list <- lapply(summaries, function(summary) {
-#     summary_data <- summary[[comparison_field]]
-#     if (!is.null(summary_data) && nrow(summary_data) > 0) {
-#       summary_data <- summary_data[, .(old_code, new_code, count)]
-#     }
-#     return(summary_data)
-#   })
-
-#   # Combine all comparison data into a single data.table
-#   combined_comparison <- rbindlist(comparison_list, fill = TRUE)
-
-#   if (nrow(combined_comparison) == 0) {
-#     return(data.table(
-#       old_code = character(),
-#       new_code = character(),
-#       count = integer(),
-#       differing_chars = numeric()
-#     ))
-#   }
-
-#   # Clean both old_code and new_code columns
-#   combined_comparison[, `:=`(
-#     clean_old = clean_string(old_code),
-#     clean_new = clean_string(new_code)
-#   )]
-
-#   # Calculate the difference in number of characters between clean_old and clean_new
-#   combined_comparison[, differing_chars := abs(nchar(clean_old) - nchar(clean_new))]
-
-#   # Filter rows based on diff_chars
-#   combined_comparison <- combined_comparison[differing_chars > diff_chars]
-
-#   if (nrow(combined_comparison) == 0) {
-#     return(data.table(
-#       old_code = character(),
-#       new_code = character(),
-#       count = integer(),
-#       differing_chars = numeric()
-#     ))
-#   }
-
-#   # Sum counts, sort by differing_chars, and order by descending count
-#   combined_comparison <- combined_comparison[,
-#     .(count = sum(count, na.rm = TRUE), differing_chars = max(differing_chars, na.rm = TRUE)),
-#     by = .(old_code, new_code)
-#   ][order(-differing_chars, -count)]
-
-#   # Select the top rows based on tmp_nrow
-#   combined_comparison <- head(combined_comparison, tmp_nrow)
-
-#   return(combined_comparison)
-# }
-
 combine_comparison_tables <- function(
     summaries, comparison_field, tmp_nrow = 10) {
   #' @title Combine Comparison Tables
@@ -420,8 +293,6 @@ combine_comparison_tables <- function(
   return(unique_combinations)
 }
 
-
-# Function to filter and sort the final ICD-10 map
 process_final_icd10_map <- function(icd10_map_dt, tmp_nrow = 10) {
   #' @title Process Final ICD-10 Map
   #'

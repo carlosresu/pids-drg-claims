@@ -29,8 +29,10 @@ remap_patient_type <- function(pat_type) {
   }
 
   list(
-    original = pat_type,
+    # main return variable to be saved back to dt
     remapped = remapped_pat_type,
+    # other return variables for checks and outputs
+    original = pat_type,
     unmapped = unknown_types
   )
 }
@@ -69,8 +71,10 @@ remap_claim_status <- function(claim_status) {
   }
 
   list(
-    original = claim_status,
+    # main return variable to be saved back to dt
     remapped = remapped_claim_status,
+    # other return variables for checks and outputs
+    original = claim_status,
     unmapped = unknown_types
   )
 }
@@ -107,8 +111,10 @@ remap_memcat_parent_desc <- function(pat_memcat_parent) {
   }
 
   list(
-    original = pat_memcat_parent,
+    # main return variable to be saved back to dt
     remapped = remapped_memcat_parent,
+    # other return variables for checks and outputs
+    original = pat_memcat_parent,
     unmapped = unknown_parents
   )
 }
@@ -169,8 +175,10 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
   }
 
   list(
-    original = pat_memcat_child,
+    # main return variable to be saved back to dt
     remapped = remapped_memcat_child,
+    # other return variables for checks and outputs
+    original = pat_memcat_child,
     unmapped = unknown_children
   )
 }
@@ -214,8 +222,10 @@ remap_disposition <- function(clin_discharge) {
   }
 
   list(
-    original = clin_discharge,
+    # main return variable to be saved back to dt
     remapped = remapped_discharge,
+    # other return variables for checks and outputs
+    original = clin_discharge,
     unmapped = unknown_dispositions
   )
 }
@@ -329,19 +339,23 @@ remap_patient_data <- function(dt, to_view_checks) {
     claim_status_unmap <- result$unmapped
   }
 
-  return(list(
-    data = dt,
-    pat_type_mapped = pat_mapped,
-    pat_memcat_parent_mapped = parent_mapped,
-    pat_memcat_child_mapped = child_mapped,
-    clin_discharge_mapped = discharge_mapped,
-    claim_status_mapped = claim_status_mapped,
-    pat_type_unmapped = pat_unmap,
-    memcat_parent_unmapped = parent_unmap,
-    memcat_child_unmapped = child_unmap,
-    discharge_unmapped = discharge_unmap,
-    claim_status_unmapped = claim_status_unmap
-  ))
+  return(
+    list(
+      # main data return
+      data = dt,
+      # other return variables for checks and outputs
+      pat_type_mapped = pat_mapped,
+      pat_memcat_parent_mapped = parent_mapped,
+      pat_memcat_child_mapped = child_mapped,
+      clin_discharge_mapped = discharge_mapped,
+      claim_status_mapped = claim_status_mapped,
+      pat_type_unmapped = pat_unmap,
+      memcat_parent_unmapped = parent_unmap,
+      memcat_child_unmapped = child_unmap,
+      discharge_unmapped = discharge_unmap,
+      claim_status_unmapped = claim_status_unmap
+    )
+  )
 }
 
 remove_lumped_icd_codes <- function(column) {
@@ -564,15 +578,27 @@ ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
   )
 }
 
-# Function to split RVS codes
 split_rvs_codes <- function(rvs_icd9) {
+  #' @title Split RVS Codes
+  #' @description This function splits RVS codes into those with and without DRG.
+  #'
+  #' @param rvs_icd9 A data table containing RVS codes and a logical column `is_drg`.
+  #'
+  #' @return A list containing two data tables: `with_drg` (RVS codes with DRG) and `without_drg` (RVS codes without DRG).
+
   with_drg <- rvs_icd9[is_drg == TRUE]
   without_drg <- rvs_icd9[!rvs %in% with_drg$rvs]
   return(list(with_drg = with_drg, without_drg = without_drg))
 }
 
-# Function to create RVS map lists
 create_rvs_map_lists <- function(with_drg) {
+  #' @title Create RVS Map Lists
+  #' @description This function creates two lists for mapping RVS codes to ICD-9-CM codes: one for solo mappings and one for multi-mappings.
+  #'
+  #' @param with_drg A data table of RVS codes with corresponding DRG, ordered by `rvs` and `is_drg`.
+  #'
+  #' @return A list containing `rvs_map_list` (RVS codes with multiple ICD-9-CM mappings) and `rvs_map_solo` (RVS codes with a single ICD-9-CM mapping).
+
   setorder(with_drg, rvs, -is_drg)
   unique_rvs <- with_drg[, .(icd9cm_list = list(icd9cm)), by = rvs]
   solo <- unique_rvs[lengths(icd9cm_list) == 1]
@@ -584,8 +610,15 @@ create_rvs_map_lists <- function(with_drg) {
   return(list(rvs_map_list = rvs_map_list, rvs_map_solo = rvs_map_solo))
 }
 
-# Function to get ICD-9 codes from clinical RVS
 get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
+  #' @title Get ICD-9 Codes from Clinical RVS
+  #' @description This function retrieves ICD-9 codes based on clinical RVS codes from a given environment.
+  #'
+  #' @param clin_rvs A list of clinical RVS codes.
+  #' @param rvs_map_solo_env An environment containing mappings from RVS codes to ICD-9 codes.
+  #'
+  #' @return A list of ICD-9 codes corresponding to the provided clinical RVS codes.
+
   lapply(clin_rvs, function(x) {
     codes <- unlist(x)
     mappable <- codes[
@@ -599,8 +632,15 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
   })
 }
 
-# Function to find and append valid RVS codes
 find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
+  #' @title Find and Append Valid RVS Codes
+  #' @description This function identifies valid RVS codes in a data table and appends them to existing clinical RVS codes.
+  #'
+  #' @param datatable A data table containing `clin_rvs` and `col` columns.
+  #' @param valid_rvs_codes A vector of valid RVS codes to be used for matching.
+  #'
+  #' @return None (modifies the data table in place).
+
   regex_5_digit <- "\\b\\d{5}\\b"
   valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in valid_rvs_codes) {
@@ -619,8 +659,14 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
   )]
 }
 
-# Function to remove 5-digit codes
 remove_5_digit_codes <- function(col) {
+  #' @title Remove 5-Digit Codes
+  #' @description This function removes 5-digit codes from a given column.
+  #'
+  #' @param col A character vector containing codes.
+  #'
+  #' @return A modified character vector with 5-digit codes removed.
+
   # Ensure input is a character vector
   col <- as.character(col) # Convert to character if not already
 
@@ -638,8 +684,15 @@ remove_5_digit_codes <- function(col) {
   return(modified_col)
 }
 
-# Function to warn about invalid RVS codes
 warn_invalid_rvs <- function(matches, valid_rvs_codes) {
+  #' @title Warn About Invalid RVS Codes
+  #' @description This function identifies and warns about invalid RVS codes found in a set of matches.
+  #'
+  #' @param matches A list of matched codes to be checked for validity.
+  #' @param valid_rvs_codes A vector of valid RVS codes.
+  #'
+  #' @return A data table of invalid RVS codes and their counts, if any are found; otherwise, an empty data table.
+
   valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in valid_rvs_codes) {
     assign(code, TRUE, envir = valid_rvs_env)
@@ -661,8 +714,16 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
   return(discarded_table)
 }
 
-# Function to append and remove RVS codes
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
+  #' @title Append and Remove RVS Codes
+  #' @description This function appends valid RVS codes to clinical data and removes any invalid 5-digit codes.
+  #'
+  #' @param clin_rvs A list of clinical RVS codes.
+  #' @param col A character vector of codes to be processed.
+  #' @param rvs_icd9 A data table of valid RVS codes.
+  #'
+  #' @return A list containing the modified `clin_rvs`, `col`, and a data table of `discarded_rvs`.
+
   datatable <- data.table(clin_rvs = clin_rvs, col = col)
   valid_rvs_codes <- rvs_icd9$rvs
 
