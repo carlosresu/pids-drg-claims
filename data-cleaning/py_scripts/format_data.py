@@ -21,8 +21,8 @@ fixed_columns = [
     'pat_memcat_child', 'clin_c1', 'clin_c2', 'claim_status',
     'claim_payout', 'claim_charge', 'date_ext', 'id_year',
     'clin_icd', 'clin_rvs', 'clin_c1_orig', 'clin_c2_orig',
-    'icd9_list', 'pdx_code', 'drg', 'rw', 'wtlos', 'ot',
-    'adjrw', 'err', 'warn', 'los'
+    'icd9_list', 'pdx_code' # , 'drg', 'rw', 'wtlos', 'ot',
+    # 'adjrw', 'err', 'warn', 'los'
 ]
 
 # Assuming `pandas_df` is already defined in the environment
@@ -55,8 +55,8 @@ priority_columns = [
     'pat_sex', 'pat_bwt', 'pat_memcat_parent', 'pat_memcat_child',
     'clin_discharge', 'clin_c1', 'clin_c2', 'claim_status', 'claim_payout',
     'claim_charge', 'date_ext', 'id_year', 'clin_icd', 'clin_rvs',
-    'clin_c1_orig', 'clin_c2_orig', 'icd9_list', 'pdx', 'pdx_code', 'drg',
-    'rw', 'wtlos', 'ot', 'adjrw', 'err', 'warn', 'los'
+    'clin_c1_orig', 'clin_c2_orig', 'icd9_list', 'pdx', 'pdx_code'
+    # , 'drg', 'rw', 'wtlos', 'ot', 'adjrw', 'err', 'warn', 'los'
 ]
 
 # Remaining columns to follow the priority columns

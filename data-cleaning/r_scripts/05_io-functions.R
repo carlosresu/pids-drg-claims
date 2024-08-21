@@ -123,31 +123,105 @@ read_appropriate_file <- function(read_part, to_sample) {
   )
 }
 
-# Function to export data for batch grouper
-export_for_grouper <- function(dt, year_to_load, output_txt_file, loop_part) {
+# # Function to export data for batch grouper
+# export_for_grouper <- function(
+#   dt, year_to_load, output_txt_file #, loop_part
+# ) {
+#   #' @title Export Data for Batch Grouper
+#   #'
+#   #' @description This function exports data for batch grouper,
+#   #' generating necessary columns and formatting them accordingly.
+#   #'
+#   #' @param dt data.table. The input data table.
+#   #' @param year_to_load integer. The year to load.
+#   #' @param output_txt_file character. The path to the output text file.
+#   #'
+#   #' @return NULL.
+
+#   output_dt <- data.table(CASEID = 1:nrow(dt))
+#   output_dt[, DOB := generate_dob(dt$pat_bdate, dt$pat_age, dt$date_adm)]
+#   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
+#   output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
+#   output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]
+#   output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
+#   output_dt[, TimeDsc := gsub(":", "", dt$time_dis)]
+#   output_dt[, DischT := dt$clin_discharge]
+#   output_dt[, AdmWt := dt$pat_bwt]
+#   output_dt[, PDx := dt$pdx]
+
+#   icd_codes_list <- lapply(dt$clin_icd, function(icd_str) {
+#     codes <- unlist(icd_str)
+#     length(codes) <- 12
+#     codes
+#   })
+#   icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
+#   icd_cols <- paste0("SDx", 1:12)
+#   output_dt[, (icd_cols) := icd_codes]
+
+#   rvs_codes_list <- lapply(dt$icd9_list, function(rvs_str) {
+#     codes <- unlist(rvs_str)
+#     length(codes) <- 20
+#     codes
+#   })
+#   rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
+#   proc_cols <- paste0("Proc", 1:20)
+#   output_dt[, (proc_cols) := rvs_codes]
+
+#   # Replace NA values with '--'
+#   output_dt[is.na(output_dt)] <- "--"
+#   # Convert list columns to comma-separated strings
+#   for (col in names(output_dt)) {
+#     if (is.list(output_dt[[col]])) {
+#       output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
+#     }
+#   }
+
+#   # Write the data.table to a file
+#   # if (to_combine) master_grouper_input_list[[loop_part]] <<- output_dt
+#   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
+
+#   if (to_dec_mem_usage) rm(output_dt) # debug
+#   if (to_dec_mem_usage) gc() # debug
+#   if (to_debug) {
+#     return(NULL)
+#   } # debug
+# }
+
+export_for_grouper <- function(dt, output_txt_file) {
   #' @title Export Data for Batch Grouper
   #'
   #' @description This function exports data for batch grouper,
   #' generating necessary columns and formatting them accordingly.
   #'
   #' @param dt data.table. The input data table.
-  #' @param year_to_load integer. The year to load.
   #' @param output_txt_file character. The path to the output text file.
   #'
   #' @return NULL.
 
   output_dt <- data.table(CASEID = 1:nrow(dt))
-  output_dt[, DOB := generate_dob(dt$pat_bdate, dt$pat_age, dt$date_adm)]
-  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
-  output_dt[, DateAdm := format(mdy(dt$date_adm), "%d/%m/%Y")]
-  output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]
-  output_dt[, DateDsc := format(mdy(dt$date_dis), "%d/%m/%Y")]
-  output_dt[, TimeDsc := gsub(":", "", dt$time_dis)]
-  output_dt[, DischT := dt$clin_discharge]
-  output_dt[, AdmWt := dt$pat_bwt]
-  output_dt[, PDx := dt$pdx]
+  # Format Date of Birth (DOB) and Age
+  output_dt[, DOB := format(ymd(dt$pat_bdate), "%d/%m/%Y")]
 
-  icd_codes_list <- lapply(dt$clin_icd, function(icd_str) {
+  # Format Sex
+  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
+  
+  # Format Admission Date and Time
+  output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
+  output_dt[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
+
+  # Format Discharge Date and Time
+  output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
+  output_dt[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
+
+# Discharge Type
+  output_dt[, DischT := dt$clin_discharge]
+  # Admission Weight
+  output_dt[, AdmWt := dt$pat_bwt]
+  # Principal Diagnosis Code
+  output_dt[, PDx := dt$clin_pdx]
+
+  # Secondary Diagnosis Codes (SDx1 to SDx12)
+  icd_codes_list <- lapply(dt$clin_sdx, function(icd_str) {
     codes <- unlist(icd_str)
     length(codes) <- 12
     codes
@@ -156,7 +230,8 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file, loop_part) {
   icd_cols <- paste0("SDx", 1:12)
   output_dt[, (icd_cols) := icd_codes]
 
-  rvs_codes_list <- lapply(dt$icd9_list, function(rvs_str) {
+  # Procedure Codes (Proc1 to Proc20)
+  rvs_codes_list <- lapply(dt$clin_rvs, function(rvs_str) {
     codes <- unlist(rvs_str)
     length(codes) <- 20
     codes
@@ -167,20 +242,16 @@ export_for_grouper <- function(dt, year_to_load, output_txt_file, loop_part) {
 
   # Replace NA values with '--'
   output_dt[is.na(output_dt)] <- "--"
-  # Convert list columns to comma-separated strings
-  for (col in names(output_dt)) {
-    if (is.list(output_dt[[col]])) {
-      output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
-    }
-  }
-
-  # Write the data.table to a file
-  if (to_combine) master_grouper_input_list[[loop_part]] <<- output_dt
+  # # Convert list columns to comma-separated strings
+  # for (col in names(output_dt)) {
+  #   if (is.list(output_dt[[col]])) {
+  #     output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
+  #   }
+  # }
+  # Write the data.table to a file with vertical bar (|) as delimiter
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
 
-  if (to_dec_mem_usage) rm(output_dt) # debug
-  if (to_dec_mem_usage) gc() # debug
   if (to_debug) {
     return(NULL)
-  } # debug
+  }
 }
