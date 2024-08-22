@@ -1004,84 +1004,372 @@ result[, clin_c2_orig := as.character(clin_c2_orig)]
 result[, pdx := as.character(pdx)]
 result[, pdx_code := as.integer(pdx_code)]
 
-
 result[, `:=`(
   clin_c1 = ifelse(clin_c1 == pdx, NA_character_, clin_c1),
   clin_c2 = ifelse(clin_c2 == pdx, NA_character_, clin_c2),
   clin_icd = mapply(function(pdx_var, sdx_var) sdx_var[sdx_var != pdx_var], pdx, clin_icd, SIMPLIFY = FALSE)
 )]
 
-
 fwrite(result, here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")))
 
+# Step 1: Read in the data from the CSV file
+# result_dt <- fread(here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")), colClasses = "character")
 
-pandas <- import("pandas")
+result_dt <- data.table::copy(result)
 
-# Step 1:
-# Copy the master_dt to avoid modifying the original data
-python_input_dt <- fread(here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")))
-
-# Convert columns to Date objects, ignoring NA values
-date_columns <- names(python_input_dt)[grepl("date", names(python_input_dt))]
-
-python_input_dt[, pat_bdate_orig := as.Date(pat_bdate, format = "%m/%d/%Y")]
-python_input_dt[, (date_columns) := lapply(.SD, as.Date, format = "%m/%d/%Y"), .SDcols = date_columns]
+# # Convert columns to Date objects, ignoring NA values
+date_columns <- names(result_dt)[grepl("date", names(result_dt))]
+# result_dt[, pat_bdate_orig := pat_bdate]
+# result_dt[, (date_columns) := lapply(.SD, as.Date, format = "%Y-%m-%d"), .SDcols = date_columns]
 
 # Create a data.table for rows with negative `pat_age`
-negative_age_dt <- python_input_dt[pat_age < 0, ]
+negative_age_dt <- result_dt[pat_age < 0, ]
 
 # Create a data.table for rows with non-negative `pat_age`
-positive_age_dt <- python_input_dt[pat_age >= 0, ]
+positive_age_dt <- result_dt[pat_age >= 0, ]
 
 # Process rows with non-negative `pat_age`
-positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate_orig, "%Y-%m-%d"), pat_age, format(date_adm, "%Y-%m-%d")))]
+positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate, "%Y-%m-%d"), pat_age, format(date_adm, "%Y-%m-%d")))]
 
 # For negative `pat_age`, keep `pat_bdate` as it is
-negative_age_dt[, pat_bdate := pat_bdate_orig]
+# negative_age_dt[, pat_bdate := pat_bdate_orig]
 
-# Combine the processed data
+# Combine the processed data back together
 result_dt <- rbind(positive_age_dt, negative_age_dt)
 
-fwrite(result_dt, here(checkpoint_7_path, paste0(checkpoint_7a_prefix, ".csv")))
+# Function to split a list column by '||' and ensure a fixed number of columns
+split_codes <- function(dt, column, prefix, max_cols) {
+  # Apply strsplit to each element in the list column
+  split_list <- lapply(dt[[column]], function(x) unlist(strsplit(x, "\\|\\|")))
+  # Ensure that each list element has exactly max_cols elements
+  split_cols <- lapply(1:max_cols, function(i) sapply(split_list, function(x) if (length(x) >= i) x[[i]] else NA_character_))
+  # Convert to data.table
+  split_dt <- as.data.table(split_cols)
+  # Name the columns appropriately
+  setnames(split_dt, paste0(prefix, 1:max_cols))
+  return(split_dt)
+}
 
-# Convert the `data.table` (result_dt) to a pandas DataFrame
-pandas_df <- pandas$read_csv(here(checkpoint_7_path, paste0(checkpoint_7a_prefix, ".csv")))
+# Apply the function to clin_icd and icd9_list
+sdx_columns <- split_codes(result_dt, "clin_icd", "sdx", 12)
+proc_columns <- split_codes(result_dt, "icd9_list", "proc", 20)
 
-py$pandas_df <- pandas_df
+proc_columns[, (names(proc_columns)) := lapply(.SD, as.character)]
+sdx_columns[, (names(sdx_columns)) := lapply(.SD, as.character)]
 
-# Step 3: Convert `clin_icd` and `icd9_list` columns, replace NaN with "None"
-py_run_file(here("data-cleaning", "py_scripts", "format_data.py"))
+# Combine the split columns back into result_dt
+result_dt <- cbind(result_dt, sdx_columns, proc_columns)
 
-# Retrieve the processed DataFrame back to R
-subset_df <- py$output
-
-# Step 1: Ensure date columns are properly converted to Date objects
-subset_df$date_adm <- as.Date(subset_df$date_adm, format = "%Y-%m-%d")
-subset_df$pat_bdate <- as.Date(subset_df$pat_bdate, format = "%Y-%m-%d")
-
-# Step 2: Initialize the 'ageday' column with NA
-subset_df$ageday <- NA
-
-# Step 3: Calculate 'ageday' only for valid rows where pat_age == 0
-valid_rows <- subset_df$patage >= 0 & subset_df$patage %% 1 == 0
-
-subset_df$ageday[valid_rows & subset_df$patage == 0] <- as.numeric(
-  difftime(
-    subset_df$date_adm[valid_rows & subset_df$patage == 0],
-    subset_df$pat_bdate[valid_rows & subset_df$patage == 0],
-    units = "days"
-  )
+# Rename columns
+setnames(result_dt,
+  old = c("clin_discharge", "pat_bwt", "pat_age", "pat_sex"),
+  new = c("discharge", "birthweight", "patage", "patsex")
 )
 
-# Step 4: Replace NA values in 'ageday' with "None"
-subset_df$ageday[is.na(subset_df$ageday)] <- "None"
+# Replace NA with "None" in non-date columns
+non_date_columns <- setdiff(names(result_dt), date_columns)
+result_dt[, (non_date_columns) := lapply(.SD, function(x) ifelse(is.na(x), NA_character_, x)), .SDcols = non_date_columns]
 
-fwrite(as.data.table(subset_df), here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
-# Step 5: Convert the DataFrame to a format suitable for Python processing
-py$pandas_df <- pandas$read_csv(here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
+# Columns you want to come first
+priority_columns <- c(
+  "id_series", "id_pin", "date_adm", "time_adm", "date_dis", "time_dis",
+  "date_rec", "date_ref", "date_check", "id_hci", "id_hcp", "clin_outpatient",
+  "clin_emergency", "pat_type", "clin_acc", "pat_rel", "pat_bdate", "patage",
+  "patsex", "birthweight", "pat_memcat_parent", "pat_memcat_child", "discharge",
+  "clin_c1", "clin_c2", "claim_status", "claim_payout", "claim_charge",
+  "date_ext", "id_year", "clin_icd", "clin_rvs", "clin_c1_orig",
+  "clin_c2_orig", "icd9_list", "pdx", "pdx_code"
+)
+
+# Remaining columns
+remaining_columns <- c(
+  "sdx1", "sdx2", "sdx3", "sdx4", "sdx5", "sdx6",
+  "sdx7", "sdx8", "sdx9", "sdx10", "sdx11", "sdx12",
+  "proc1", "proc2", "proc3", "proc4", "proc5", "proc6",
+  "proc7", "proc8", "proc9", "proc10", "proc11", "proc12",
+  "proc13", "proc14", "proc15", "proc16", "proc17", "proc18",
+  "proc19", "proc20" # , "ageday" , "discharge", "birthweight"
+)
+
+# Combine the lists, ensuring no duplicates
+desired_columns <- unique(c(priority_columns, remaining_columns))
+
+# Reorder the data.table columns
+setcolorder(result_dt, desired_columns)
+
+# Add missing columns with "None" values if they are not already in the data.table
+missing_columns <- setdiff(desired_columns, names(result_dt))
+result_dt[, (missing_columns) := NA_character_]
+
+# Initialize the 'ageday' column with NA
+result_dt[, ageday := NA_real_]
+
+# Calculate 'ageday' only for valid rows where pat_age < 1 and date_adm/pat_bdate are non-NA
+result_dt[
+  !is.na(patage) & patage < 1 & !is.na(date_adm) & !is.na(pat_bdate),
+  ageday := as.numeric(difftime(date_adm, pat_bdate, units = "days"))
+]
+
+# Convert time_adm to numeric
+result_dt[, time_adm := as.numeric(time_adm)]
+result_dt[, time_dis := as.numeric(time_dis)] # Also do the same for time_dis if needed
+
+# Convert time from seconds since midnight to "HH:MM:SS" format
+result_dt[, time_adm := sprintf("%02d:%02d:%02d", time_adm %/% 3600, (time_adm %% 3600) %/% 60, time_adm %% 60)]
+result_dt[, time_dis := sprintf("%02d:%02d:%02d", time_dis %/% 3600, (time_dis %% 3600) %/% 60, time_dis %% 60)]
+
+# Convert ITime to character format "HH:MM:SS"
+result_dt[, time_adm := format(as.ITime(time_adm), "%H:%M:%S")]
+result_dt[, time_dis := format(as.ITime(time_dis), "%H:%M:%S")]
+
+# Combine Date and Time and convert to POSIXct
+result_dt[, date_adm := as.POSIXct(paste(date_adm, time_adm), format = "%Y-%m-%d %H:%M:%S")]
+result_dt[, date_dis := as.POSIXct(paste(date_dis, time_dis), format = "%Y-%m-%d %H:%M:%S")]
+
+# Replace NA values in 'ageday' with "None"
+result_dt[, ageday := fifelse(is.na(ageday), NA, as.character(ageday))]
+
+before_replacing_with_none <- data.table::copy(result_dt)
+
+replace_result <- replace_empty_with_none(result_dt)
+
+result_dt <- replace_result$return_data
+
+# Write the final DataFrame to CSV
+fwrite(result_dt, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
+
+# for (col in date_columns) print(unique(result_dt[[col]]))
+
+# pandas <- import("pandas")
+
+# print(sapply(result_dt, class))
+
+csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv"))
+
+# Use reticulate to run the following Python code within the R environment
+py_run_string(paste0("
+import pandas as pd
+
+# Read the CSV with the specified dtype
+pandas_df = pd.read_csv('", csv_path, "',
+
+dtype = {
+    'id_series': 'string',
+    'id_pin': 'string',
+    # 'date_adm': 'datetime64[ns]',  # POSIXct/POSIXt in R
+    'time_adm': 'string',  # character in R
+    # 'date_dis': 'datetime64[ns]',  # POSIXct/POSIXt in R
+    'time_dis': 'string',  # character in R
+    # 'date_rec': 'datetime64[ns]',  # Date in R
+    # 'date_ref': 'datetime64[ns]',  # Date in R
+    # 'date_check': 'datetime64[ns]',  # Date in R
+    'id_hci': 'string',
+    'id_hcp': 'string',
+    'clin_outpatient': 'string',
+    'clin_emergency': 'string',
+    'pat_type': 'string',
+    'clin_acc': 'string',
+    'pat_rel': 'string',
+    # 'pat_bdate': 'datetime64[ns]',  # Date in R
+    'patage': 'float64',  # numeric in R
+    'patsex': 'string',
+    'birthweight': 'float64',  # character in R
+    'pat_memcat_parent': 'string',
+    'pat_memcat_child': 'string',
+    'discharge': 'string',  # character in R
+    'clin_c1': 'string',
+    'clin_c2': 'string',
+    'claim_status': 'string',
+    'claim_payout': 'string',  # character in R
+    'claim_charge': 'string',  # character in R
+    # 'date_ext': 'datetime64[ns]',  # Date in R
+    'id_year': 'int64',  # integer in R
+    'clin_icd': 'object',  # list in R
+    'clin_rvs': 'string',
+    'clin_c1_orig': 'string',
+    'clin_c2_orig': 'string',
+    'icd9_list': 'string',
+    'pdx': 'string',
+    'pdx_code': 'int64',  # integer in R
+    'sdx1': 'string',
+    'sdx2': 'string',
+    'sdx3': 'string',
+    'sdx4': 'string',
+    'sdx5': 'string',
+    'sdx6': 'string',
+    'sdx7': 'string',
+    'sdx8': 'string',
+    'sdx9': 'string',
+    'sdx10': 'string',
+    'sdx11': 'string',
+    'sdx12': 'string',
+    'proc1': 'string',
+    'proc2': 'string',
+    'proc3': 'string',
+    'proc4': 'string',
+    'proc5': 'string',
+    'proc6': 'string',
+    'proc7': 'string',
+    'proc8': 'string',
+    'proc9': 'string',
+    'proc10': 'string',
+    'proc11': 'string',
+    'proc12': 'string',
+    'proc13': 'string',
+    'proc14': 'string',
+    'proc15': 'string',
+    'proc16': 'string',
+    'proc17': 'string',
+    'proc18': 'string',
+    'proc19': 'string',
+    'proc20': 'string',
+    'ageday': 'Int64'
+},
+
+parse_dates = [
+    'date_adm',
+    'date_dis',
+    'date_rec',
+    'date_ref',
+    'date_check',
+    'pat_bdate',
+    'date_ext'
+]
+    )
+"))
+
+# Access the pandas DataFrame in R if needed
+pandas_df <- py$pandas_df
 
 # Step 6: Process each row of the DataFrame through `drg_seeker` and append results
 py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
+
+
+# # Import pandas
+# pandas <- import("pandas")
+
+# # Step 1: Copy the master_dt to avoid modifying the original data
+# python_input_dt <- fread(here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")))
+
+# # Convert columns to Date objects, ignoring NA values
+# date_columns <- names(python_input_dt)[grepl("date", names(python_input_dt))]
+
+# python_input_dt[, pat_bdate_orig := as.Date(pat_bdate, format = "%m/%d/%Y")]
+# python_input_dt[, (date_columns) := lapply(.SD, as.Date, format = "%m/%d/%Y"), .SDcols = date_columns]
+
+# # Create a data.table for rows with negative `pat_age`
+# negative_age_dt <- python_input_dt[pat_age < 0, ]
+
+# # Create a data.table for rows with non-negative `pat_age`
+# positive_age_dt <- python_input_dt[pat_age >= 0, ]
+
+# # Process rows with non-negative `pat_age`
+# positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate_orig, "%Y-%m-%d"), pat_age, format(date_adm, "%Y-%m-%d")))]
+
+# # For negative `pat_age`, keep `pat_bdate` as it is
+# negative_age_dt[, pat_bdate := pat_bdate_orig]
+
+# # Combine the processed data
+# result_dt <- rbind(positive_age_dt, negative_age_dt)
+
+# # Write the result to CSV
+# csv_path <- here(checkpoint_7_path, paste0(checkpoint_7a_prefix, ".csv"))
+
+# fwrite(result_dt, csv_path)
+
+# # Use reticulate to run the following Python code within the R environment
+# py_run_string(paste0("
+# import pandas as pd
+
+# # Create a dictionary with all columns set to 'string' type
+# dtype_dict = {
+#     'id_series': 'string',
+#     'id_pin': 'string',
+#     'date_adm': 'string',
+#     'time_adm': 'string',
+#     'date_dis': 'string',
+#     'time_dis': 'string',
+#     'date_rec': 'string',
+#     'date_ref': 'string',
+#     'date_check': 'string',
+#     'id_hci': 'string',
+#     'id_hcp': 'string',
+#     'clin_outpatient': 'string',
+#     'clin_emergency': 'string',
+#     'pat_type': 'category',
+#     'clin_acc': 'category',
+#     'pat_rel': 'category',
+#     'pat_bdate': 'string',
+#     'pat_age': 'float64',
+#     'pat_sex': 'category',
+#     'pat_bwt': 'float64',
+#     'pat_memcat_parent': 'category',
+#     'pat_memcat_child': 'category',
+#     'clin_discharge': 'Int64',
+#     'clin_c1': 'string',
+#     'clin_c2': 'string',
+#     'claim_status': 'category',
+#     'claim_payout': 'float64',
+#     'claim_charge': 'float64',
+#     'date_ext': 'string',
+#     'id_year': 'string',
+#     'clin_icd': 'string',
+#     'clin_rvs': 'string',
+#     'clin_c1_orig': 'string',
+#     'clin_c2_orig': 'string',
+#     'icd9_list': 'string',
+#     'pdx': 'string',
+#     'pdx_code': 'string',
+#     'pat_bdate_orig': 'string'
+# }
+
+# # Read the CSV with the specified dtype
+# pandas_df = pd.read_csv('", csv_path, "', dtype=dtype_dict)
+# "))
+
+# # Access the pandas DataFrame in R if needed
+# pandas_df <- py$pandas_df
+
+# # View the structure
+# str(pandas_df)
+
+# # Step 3: Convert `clin_icd` and `icd9_list` columns, replace NaN with "None"
+# py_run_file(here("data-cleaning", "py_scripts", "format_data.py"))
+
+# # Retrieve the processed DataFrame back to R
+# subset_df <- py$output
+
+# # str(subset_df)
+# # Step 1: Ensure date columns are properly converted to Date objects
+# subset_df$date_adm <- as.Date(subset_df$date_adm, format = "%Y-%m-%d")
+# subset_df$pat_bdate <- as.Date(subset_df$pat_bdate, format = "%Y-%m-%d")
+
+# # Step 2: Initialize the 'ageday' column with NA
+# subset_df$ageday <- NA
+
+# # Step 3: Calculate 'ageday' only for valid rows where pat_age == 0
+# valid_rows <- subset_df$patage >= 0 & subset_df$patage %% 1 == 0
+
+# subset_df$ageday[valid_rows & subset_df$patage == 0] <- as.numeric(
+#   difftime(
+#     subset_df$date_adm[valid_rows & subset_df$patage == 0],
+#     subset_df$pat_bdate[valid_rows & subset_df$patage == 0],
+#     units = "days"
+#   )
+# )
+
+# subset_df$date_adm <- as.POSIXct(paste(subset_df$date_adm, subset_df$time_adm), format = "%Y-%m-%d %H:%M:%S")
+# subset_df$date_dis <- as.POSIXct(paste(subset_df$date_dis, subset_df$time_dis), format = "%Y-%m-%d %H:%M:%S")
+
+# # Step 4: Replace NA values in 'ageday' with "None"
+# subset_df$ageday[is.na(subset_df$ageday)] <- "None"
+
+# fwrite(as.data.table(subset_df), here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
+# # Step 5: Convert the DataFrame to a format suitable for Python processing
+# py$pandas_df <- pandas$read_csv(here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
+
+# # Step 6: Process each row of the DataFrame through `drg_seeker` and append results
+# py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
 
 
 # Convert data types to match BigQuery schema
@@ -1205,7 +1493,7 @@ gcs_get_object(
 
 
 result[, caseid := 1:nrow(result)]
-thai_result <- fread("~/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_5_thai_output/PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_31408_Res.TXT", colClasses = "character")
+thai_result <- fread("~/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_5_thai_output/PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_1257_Res.TXT", colClasses = "character")
 thai_result[, caseid := as.integer(caseid)]
 thai_result[, thai_drg := drg]
 thai_result[, thai_rw := rw]
