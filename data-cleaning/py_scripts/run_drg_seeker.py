@@ -24,7 +24,7 @@ desired_columns = [
     'discharge', 'clin_c1', 'clin_c2', 'claim_status', 'claim_payout',
     'claim_charge', 'date_ext', 'id_year', 'clin_icd', 'icd9_list', 'pdx',
     'pdx_code', # 'thai_drg', 'rw', 'wtlos', 'ot', 'adjrw', 'err', 'warn', 'los', 
-    'mdc', 'pdc', 'dc', 'pccl', 'py_drg'
+    'mdc', 'pdc', 'dc', 'pccl', 'py_drg', 'ageday'
 ]
 
 # Reorder the DataFrame and drop any columns not in the desired list

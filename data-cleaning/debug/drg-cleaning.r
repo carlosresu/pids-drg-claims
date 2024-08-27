@@ -1123,8 +1123,8 @@ result_dt[, time_adm := format(as.ITime(time_adm), "%H:%M:%S")]
 result_dt[, time_dis := format(as.ITime(time_dis), "%H:%M:%S")]
 
 # Combine Date and Time and convert to POSIXct
-result_dt[, date_adm := as.POSIXct(paste(date_adm, time_adm), format = "%Y-%m-%d %H:%M:%S")]
-result_dt[, date_dis := as.POSIXct(paste(date_dis, time_dis), format = "%Y-%m-%d %H:%M:%S")]
+result_dt[, date_adm := as.character(paste(date_adm, time_adm), format = "%Y-%m-%d %H:%M:%S")]
+result_dt[, date_dis := as.character(paste(date_dis, time_dis), format = "%Y-%m-%d %H:%M:%S")]
 
 # Replace NA values in 'ageday' with "None"
 result_dt[, ageday := fifelse(is.na(ageday), NA, as.character(ageday))]
@@ -1149,6 +1149,7 @@ csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv"))
 # Use reticulate to run the following Python code within the R environment
 py_run_string(paste0("
 import pandas as pd
+import numpy as np
 
 # Read the CSV with the specified dtype
 pandas_df = pd.read_csv('", csv_path, "',
@@ -1156,13 +1157,13 @@ pandas_df = pd.read_csv('", csv_path, "',
 dtype = {
     'id_series': 'string',
     'id_pin': 'string',
-    # 'date_adm': 'datetime64[ns]',  # POSIXct/POSIXt in R
+    'date_adm': 'string',  # POSIXct/POSIXt in R
     'time_adm': 'string',  # character in R
-    # 'date_dis': 'datetime64[ns]',  # POSIXct/POSIXt in R
+    'date_dis': 'string',  # POSIXct/POSIXt in R
     'time_dis': 'string',  # character in R
-    # 'date_rec': 'datetime64[ns]',  # Date in R
-    # 'date_ref': 'datetime64[ns]',  # Date in R
-    # 'date_check': 'datetime64[ns]',  # Date in R
+    'date_rec': 'string',  # Date in R
+    'date_ref': 'string',  # Date in R
+    'date_check': 'string',  # Date in R
     'id_hci': 'string',
     'id_hcp': 'string',
     'clin_outpatient': 'string',
@@ -1170,7 +1171,7 @@ dtype = {
     'pat_type': 'string',
     'clin_acc': 'string',
     'pat_rel': 'string',
-    # 'pat_bdate': 'datetime64[ns]',  # Date in R
+    'pat_bdate': 'string',  # Date in R
     'patage': 'float64',  # numeric in R
     'patsex': 'string',
     'birthweight': 'float64',  # character in R
@@ -1182,7 +1183,7 @@ dtype = {
     'claim_status': 'string',
     'claim_payout': 'string',  # character in R
     'claim_charge': 'string',  # character in R
-    # 'date_ext': 'datetime64[ns]',  # Date in R
+    'date_ext': 'string',  # Date in R
     'id_year': 'int64',  # integer in R
     'clin_icd': 'object',  # list in R
     'clin_rvs': 'string',
@@ -1223,23 +1224,26 @@ dtype = {
     'proc18': 'string',
     'proc19': 'string',
     'proc20': 'string',
-    'ageday': 'Int64'
-},
+    'ageday': 'float64'
+}
+# , parse_dates = [
+#     'date_adm',
+#     'date_dis',
+#     'date_rec',
+#     'date_ref',
+#     'date_check',
+#     'pat_bdate',
+#     'date_ext'
+# ]
+)
 
-parse_dates = [
-    'date_adm',
-    'date_dis',
-    'date_rec',
-    'date_ref',
-    'date_check',
-    'pat_bdate',
-    'date_ext'
-]
-    )
+pandas_df = pandas_df.replace({pd.NA: None, np.nan: None, '<NA>': None})
 "))
 
-# Access the pandas DataFrame in R if needed
-pandas_df <- py$pandas_df
+str(py$pandas_df)
+
+# # Access the pandas DataFrame in R if needed
+# pandas_df <- py$pandas_df
 
 # Step 6: Process each row of the DataFrame through `drg_seeker` and append results
 py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
@@ -1466,6 +1470,9 @@ post_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
 if (pre_pad_id_series_nrow != post_pad_id_series_nrow) stop("Error: id_series differs pre and post padding") else message("id_series nrow integrity valid")
 if (pre_pad_id_pin_nrow != post_pad_id_pin_nrow) stop("Error: id_series differs pre and post padding") else message("id_pin nrow integrity valid")
 # if (pre_paid_thai_drg_nrow != post_paid_thai_drg_nrow) stop("Error: thai_drg differs pre and post padding") else message("thai_drg nrow integrity valid")
+
+
+# fwrite(result, "test.csv")
 
 
 export_for_grouper(
