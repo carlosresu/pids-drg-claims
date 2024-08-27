@@ -1150,6 +1150,8 @@ csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv"))
 py_run_string(paste0("
 import pandas as pd
 import numpy as np
+from io import StringIO
+import sys
 
 # Read the CSV with the specified dtype
 pandas_df = pd.read_csv('", csv_path, "',
@@ -1177,7 +1179,7 @@ dtype = {
     'birthweight': 'float64',  # character in R
     'pat_memcat_parent': 'string',
     'pat_memcat_child': 'string',
-    'discharge': 'string',  # character in R
+    'discharge': 'Int64',  # character in R
     'clin_c1': 'string',
     'clin_c2': 'string',
     'claim_status': 'string',
@@ -1237,13 +1239,20 @@ dtype = {
 # ]
 )
 
-pandas_df = pandas_df.replace({pd.NA: None, np.nan: None, '<NA>': None})
+pandas_df = pandas_df.replace(pd.NA, None)
+pandas_df = pandas_df.replace(np.nan, None)
+pandas_df = pandas_df.replace('<NA>', None)
+
+# Capture pandas_df.info() output
+buffer = StringIO()
+pandas_df.info(buf=buffer)
+info_output = buffer.getvalue()
+
+info_output
 "))
 
-str(py$pandas_df)
-
-# # Access the pandas DataFrame in R if needed
-# pandas_df <- py$pandas_df
+# Print the captured output in R
+cat(py$info_output)
 
 # Step 6: Process each row of the DataFrame through `drg_seeker` and append results
 py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
@@ -1383,7 +1392,8 @@ result <- as.data.table(py$output)
 character_columns <- c(
   "id_series", "id_pin", "id_hci", "pat_type", "clin_acc", "pat_rel",
   "pat_sex", "pat_memcat_parent", "pat_memcat_child", "claim_status",
-  "pdx", "mdc", "pdc", "dc", "py_drg" # , "thai_drg"
+  "pdx", "mdc", "pdc", "dc", "py_drg", "ageday", "error_code",
+  "warning_code" # , "thai_drg"
 )
 
 date_columns <- c(
@@ -1396,7 +1406,8 @@ integer_columns <- c(
 )
 
 numeric_columns <- c(
-  "pat_age", "pat_bwt", "claim_payout", "claim_charge", "pccl" # , "rw", "wtlos", "adjrw"
+  "pat_age", "pat_bwt", "claim_payout", "claim_charge", "pccl"
+  # , "rw", "wtlos", "adjrw"
 )
 
 logical_columns <- c("clin_outpatient", "clin_emergency")
@@ -1445,8 +1456,12 @@ result[, clin_icd := NULL]
 # result[, los := NULL]
 result[, py_pdc := pdc]
 result[, py_pccl := pccl]
+result[, py_warn := warning_code]
+result[, py_err := error_code]
 result[, pdc := NULL]
 result[, pccl := NULL]
+result[, warning_code := NULL]
+result[, error_code := NULL]
 
 
 result[, mdc := NULL]
@@ -1500,7 +1515,7 @@ gcs_get_object(
 
 
 result[, caseid := 1:nrow(result)]
-thai_result <- fread("~/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_5_thai_output/PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_1257_Res.TXT", colClasses = "character")
+thai_result <- fread(here(checkpoint_5_path, "PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_1257_Res.TXT"), colClasses = "character")
 thai_result[, caseid := as.integer(caseid)]
 thai_result[, thai_drg := drg]
 thai_result[, thai_rw := rw]
