@@ -15,7 +15,7 @@ for (pkg in pkgs) py_install(pkg)
 
 # Prompt Options:
 to_prompt <- FALSE # Whether to prompt for user inputs or not (if FALSE, default values in this cell will be used)
-thai_prompt <- FALSE # Whether to prompt for thai grouper even if bypassing all other prompts
+thai_prompt <- TRUE # Whether to prompt for thai grouper even if bypassing all other prompts
 
 # IMPORTANT PARAMETERS:
 full_claims_prefix <- "claims_extract_CLAIMS " # Include spaces if there are any
@@ -986,6 +986,7 @@ result[, clin_acc := as.character(clin_acc)]
 result[, pat_rel := as.character(pat_rel)]
 result[, pat_bdate := as.Date(pat_bdate, format = "%m/%d/%Y")]
 result[, pat_age := as.numeric(pat_age)]
+result[, pat_age_orig := as.numeric(pat_age)]
 result[, pat_sex := as.character(pat_sex)]
 result[, pat_bwt := as.numeric(pat_bwt)]
 result[, pat_memcat_parent := as.character(pat_memcat_parent)]
@@ -1036,6 +1037,9 @@ positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate, "%Y-%m-%d"), p
 
 # Combine the processed data back together
 result_dt <- rbind(positive_age_dt, negative_age_dt)
+
+# Calculate 'pat_age' only for rows where 'pat_bdate' is not missing
+result_dt[!is.na(pat_bdate), pat_age := floor(as.numeric(interval(pat_bdate, date_adm) / years(1)))]
 
 # Function to split a list column by '||' and ensure a fixed number of columns
 split_codes <- function(dt, column, prefix, max_cols) {
@@ -1385,6 +1389,8 @@ py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
 # py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
 
 
+# str(py$output)
+
 # Convert data types to match BigQuery schema
 result <- as.data.table(py$output)
 
@@ -1506,6 +1512,19 @@ gcs_upload(
   predefinedAcl = "bucketLevel"
 )
 
+if (thai_prompt || to_prompt) {
+  response <- tolower(readline(prompt = "Have you run the Thai grouper manually? (y/n): "))
+  if (response == "y") {
+    message("Continuing with the script...\n")
+    # Continue with the rest of the script
+  } else {
+    message("Stopping the script.\n")
+    stop("Thai Grouper not run yet. Script terminated. Continue on manually if necessary")
+  }
+} else {
+  message("Thai Grouper is assumed to have been run already. Continuing with the script...\n")
+}
+
 gcs_get_object(
   object_name = paste0(gcs_post_fpath, "/", toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT"),
   bucket = gcs_bucket,
@@ -1558,7 +1577,6 @@ fwrite(diff_merged, "test.csv")
 
 # if (thai_prompt || to_prompt || !file.exists(grouper_fpath)) {
 #   response <- tolower(readline(prompt = "Have you run the Thai grouper manually? (y/n): "))
-
 #   if (response == "y") {
 #     message("Continuing with the script...\n")
 #     # Continue with the rest of the script
