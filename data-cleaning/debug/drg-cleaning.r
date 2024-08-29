@@ -30,7 +30,7 @@ bq_table <- "temp_claims_latest" # temp bq table, later renamed to claims_20XX12
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 125 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -1399,7 +1399,7 @@ character_columns <- c(
   "id_series", "id_pin", "id_hci", "pat_type", "clin_acc", "pat_rel",
   "pat_sex", "pat_memcat_parent", "pat_memcat_child", "claim_status",
   "pdx", "mdc", "pdc", "dc", "py_drg", "ageday", "error_code",
-  "warning_code" # , "thai_drg"
+  "warning_code", "pat_bwt" # , "thai_drg"
 )
 
 date_columns <- c(
@@ -1412,7 +1412,7 @@ integer_columns <- c(
 )
 
 numeric_columns <- c(
-  "pat_age", "pat_bwt", "claim_payout", "claim_charge", "pccl"
+  "pat_age", "claim_payout", "claim_charge", "pccl"
   # , "rw", "wtlos", "adjrw"
 )
 
@@ -1534,7 +1534,7 @@ gcs_get_object(
 
 
 result[, caseid := 1:nrow(result)]
-thai_result <- fread(here(checkpoint_5_path, "PRE-TDRG_CHECKPOINT_4_THAI_GROUPER_INPUT_2018_SAMPLED_1257_Res.TXT"), colClasses = "character")
+thai_result <- fread(here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")), colClasses = "character")
 thai_result[, caseid := as.integer(caseid)]
 thai_result[, thai_drg := drg]
 thai_result[, thai_rw := rw]
