@@ -30,7 +30,7 @@ bq_table <- "temp_claims_latest" # temp bq table, later renamed to claims_20XX12
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 5 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -1172,7 +1172,19 @@ replace_result <- replace_empty_with_none(result_dt)
 result_dt <- replace_result$return_data
 
 # Write the final DataFrame to CSV
-fwrite(result_dt, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
+fwrite(result_dt, here(checkpoint_7_path, paste0(checkpoint_7a_prefix, ".csv")))
+
+test <- fread(here(checkpoint_7_path, paste0(checkpoint_7a_prefix, ".csv")), colClasses = "character")
+
+test[, names(test) := lapply(.SD, function(col) {
+  if (is.character(col)) {
+    return(iconv(col, from = "", to = "UTF-8"))
+  } else {
+    return(col)
+  }
+})]
+
+fwrite(test, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
 
 # for (col in date_columns) print(unique(result_dt[[col]]))
 
