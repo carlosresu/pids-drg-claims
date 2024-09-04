@@ -36,8 +36,8 @@ print_time_estimates <- function() {
   }
 
   total_rows_dt <- dim_dt[1] * split_parts
-  total_cells <- dim_dt[1] * dim_dt[2]
-  time_per_cell <- total_time / total_cells
+  # total_cells <- dim_dt[1] * dim_dt[2]
+  # time_per_cell <- total_time / total_cells
   time_per_row <- total_time / total_rows_dt
   time_estimate_total_rows <- time_per_row * total_rows
 

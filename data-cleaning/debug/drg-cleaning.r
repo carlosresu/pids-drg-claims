@@ -30,7 +30,7 @@ bq_table <- "temp_claims_latest" # temp bq table, later renamed to claims_20XX12
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -59,7 +59,7 @@ global_seed <- seed <- 123 # Choose a number as seed
 set.seed(seed) # Setting the seed reproducibility (Important for stuff like randomly choosing a pdx among multiple possible options)
 
 # Machine Specifications
-ram_size <- 32 # Input virtual or physical machine's RAM size here
+ram_size <- 64 # Input virtual or physical machine's RAM size here
 
 # Print GCP project
 cat(paste("GCP Project:", gcp_proj, "\n"))
@@ -72,7 +72,7 @@ to_view_checks <- TRUE # Whether to view checks and print statements
 to_view_checks_parallel <- FALSE # Whether to view intermediate per split_part/chunk checks and print statements (not consolidated) when parallelized
 to_parallel <- TRUE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
 to_split_read <- FALSE # WARNING: TRUE uses a lot of memory!!
-to_dec_mem_usage <- FALSE # Whether to run rm() and gc() at every possible step
+to_dec_mem_usage <- TRUE # Whether to run rm() and gc() at every possible step
 tmp_nrow <- Inf # Per split_part/chunk end_nrow (leave at Inf)
 diff_chars <- 0
 split_parts <- 15 # How many (integer) parts to split the 12+m row claims file into # TODO: a value of 10 for claims year 2018 leads to quoted newline errors
@@ -739,160 +739,185 @@ main_logic_func <- function() {
     ################################################### START OF PROCESS PART ########################################################
     ##################################################################################################################################
 
-    start_time <- Sys.time()
-
-    partial_claims_file <<- here(raw_claims_parts_path, paste0(
-      full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
-    ))
-    ensure_partial_files_exist(loop_part) # Ensure partial exist
-
-    if (to_sample) {
-      sampled_claims_file <<- here(raw_claims_samples_path, paste0(
-        "sampled_claims_", year_to_load, "_", sample_size,
+    if (file.exists(here(checkpoint_1_path, paste0(
+      checkpoint_1_prefix, year_to_load, suffix, "part_",
+      sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
+    )))) {
+      message(paste0("Skipping part ", loop_part, ", proceeding with ", loop_part + 1, "."))
+    } else {
+      start_time <- Sys.time()
+      message(paste0("Partial file no. ", loop_part, " doesn't exist yet. Processing now."))
+      partial_claims_file <<- here(raw_claims_parts_path, paste0(
+        full_claims_prefix, year_to_load,
         "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
       ))
-      ensure_sample_files_exist(loop_part) # Ensure sample files exist
-    }
-    read_result <- read_appropriate_file(loop_part, to_sample) # Read the appropriate file
-    read_in_dt <- read_result$read_result_dt
-    read_in_replacement_summary <- read_result$read_result_replacement_summary
 
-    ##################################################################################################################################
-    ############################################ START OF PARALLELIZE AND SUMMARIZE DATA #############################################
-    ##################################################################################################################################
+      ensure_partial_files_exist(loop_part) # Ensure partial exist
 
-    chunk_size <- ceiling(nrow(read_in_dt) / nthreads)
-    chunks <- split(read_in_dt, rep(1:nthreads, each = chunk_size, length.out = nrow(read_in_dt)))
-
-    if (to_parallel && is_unix) {
-      if (to_debug) message("Conducting mclapply")
-      parallel_results <- mclapply(
-        chunks, process_chunk,
-        mc.cores = nthreads,
-        to_view_checks = to_view_checks,
-        rvs_icd9 = rvs_icd9,
-        tdrg_icd10 = tdrg_icd10,
-        acc_pdx = acc_pdx
-      )
-    } else if (to_parallel && !is_unix) {
-      if (to_debug) message("Conducting future_lapply")
-      parallel_results <- future_lapply(
-        chunks, process_chunk,
-        to_view_checks = to_view_checks,
-        rvs_icd9 = rvs_icd9,
-        tdrg_icd10 = tdrg_icd10,
-        acc_pdx = acc_pdx,
-        future.seed = global_seed
-      )
-    } else {
-      if (to_debug) message("Conducting lapply")
-      parallel_results <- lapply(
-        chunks, process_chunk,
-        to_view_checks = to_view_checks,
-        rvs_icd9 = rvs_icd9,
-        tdrg_icd10 = tdrg_icd10,
-        acc_pdx = acc_pdx
-      )
-    }
-
-    parallel_summaries <- lapply(
-      parallel_results,
-      function(res) res$return_summary
-    )
-    rbound_dt <- rbindlist(lapply(
-      parallel_results,
-      function(res) res$return_chunk
-    ))
-
-    if (to_dec_mem_usage) rm(processed_chunks) # debug
-
-    combined_chunk_summary <- combine_chunk_summaries(
-      parallel_summaries, tmp_nrow
-    )
-
-    if (to_dec_mem_usage) rm(parallel_results) # debug
-
-    acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
-    for (code in acc_pdx) {
-      assign(code, TRUE, envir = acc_pdx_env)
-    }
-
-    invalid_pdx_indices <- which(
-      !is.na(rbound_dt$pdx) & rbound_dt$pdx != "" &
-        !sapply(rbound_dt$pdx, function(x) exists(x, acc_pdx_env))
-    )
-
-    if (length(invalid_pdx_indices) > 0) {
-      cat(paste("Invalid PDx found:", rbound_dt$pdx[invalid_pdx_indices]))
-      combined_chunk_summary$pdx_success <- FALSE
-    } else {
-      combined_chunk_summary$pdx_success <- TRUE
-    }
-
-    if (to_dec_mem_usage) gc() # debug
-
-    ##################################################################################################################################
-    ############################################## END OF PARALLELIZE AND SUMMARIZE DATA #############################################
-    ##################################################################################################################################
-
-    summarized_dt <- rbound_dt
-    combined_parallel_summary <- combined_chunk_summary
-    combined_parallel_summary$replacement_summary <- read_in_replacement_summary
-
-    if (to_write) {
-      fwrite(
-        summarized_dt, here(checkpoint_1_path, paste0(
-          checkpoint_1_prefix, year_to_load, suffix,
-          "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
+      if (to_sample) {
+        sampled_claims_file <<- here(raw_claims_samples_path, paste0(
+          "sampled_claims_", year_to_load, "_", sample_size,
+          "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
         ))
+        ensure_sample_files_exist(loop_part) # Ensure sample files exist
+      }
+      read_result <- read_appropriate_file(loop_part, to_sample) # Read the appropriate file
+      read_in_dt <- read_result$read_result_dt
+      read_in_replacement_summary <- read_result$read_result_replacement_summary
+
+      ##################################################################################################################################
+      ############################################ START OF PARALLELIZE AND SUMMARIZE DATA #############################################
+      ##################################################################################################################################
+
+      chunk_size <- ceiling(nrow(read_in_dt) / nthreads)
+      chunks <- split(read_in_dt, rep(1:nthreads, each = chunk_size, length.out = nrow(read_in_dt)))
+
+      if (to_parallel && is_unix) {
+        if (to_debug) message("Conducting mclapply")
+        parallel_results <- mclapply(
+          chunks, process_chunk,
+          mc.cores = nthreads,
+          to_view_checks = to_view_checks,
+          rvs_icd9 = rvs_icd9,
+          tdrg_icd10 = tdrg_icd10,
+          acc_pdx = acc_pdx
+        )
+      } else if (to_parallel && !is_unix) {
+        if (to_debug) message("Conducting future_lapply")
+        parallel_results <- future_lapply(
+          chunks, process_chunk,
+          to_view_checks = to_view_checks,
+          rvs_icd9 = rvs_icd9,
+          tdrg_icd10 = tdrg_icd10,
+          acc_pdx = acc_pdx,
+          future.seed = global_seed
+        )
+      } else {
+        if (to_debug) message("Conducting lapply")
+        parallel_results <- lapply(
+          chunks, process_chunk,
+          to_view_checks = to_view_checks,
+          rvs_icd9 = rvs_icd9,
+          tdrg_icd10 = tdrg_icd10,
+          acc_pdx = acc_pdx
+        )
+      }
+
+      parallel_summaries <- lapply(
+        parallel_results,
+        function(res) res$return_summary
       )
-    }
-    if (to_combine) master_dt_list[[loop_part]] <- summarized_dt
-    if (to_group) {
-      # export_for_grouper(
-      #   summarized_dt, year_to_load,
-      #   here(checkpoint_3_path, paste0(
-      #     checkpoint_3_prefix, year_to_load, suffix, "part_",
-      #     sprintf("%02d", loop_part), "_of_", split_parts, ".txt"
-      #   )), loop_part
-      # )
-    }
+      rbound_dt <- rbindlist(lapply(
+        parallel_results,
+        function(res) res$return_chunk
+      ))
 
-    ##################################################################################################################################
-    ####################################################### END OF PROCESS PART ######################################################
-    ##################################################################################################################################
+      # if (to_dec_mem_usage) rm(processed_chunks) # debug
 
-    all_parts_summaries[[loop_part]] <- combined_parallel_summary
-    # Save partial summaries to a list
-    processing_times[[loop_part]] <- as.numeric(
-      difftime(Sys.time(), start_time, units = "secs")
-    ) # Save partial processing time to a list
-    # Print status update and ETA
-    print_status_update(loop_part, split_parts, processing_times, "clean")
-    if (loop_part == 1) dim_dt <<- dim(summarized_dt)
-    nrow_end[[loop_part]] <<- nrow(summarized_dt)
+      combined_chunk_summary <- combine_chunk_summaries(
+        parallel_summaries, tmp_nrow
+      )
 
-    if (to_dec_mem_usage) {
-      rm(read_in_dt, rbound_dt, summarized_dt)
-      gc()
+      if (to_dec_mem_usage) rm(parallel_results) # debug
+
+      acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
+      for (code in acc_pdx) {
+        assign(code, TRUE, envir = acc_pdx_env)
+      }
+
+      invalid_pdx_indices <- which(
+        !is.na(rbound_dt$pdx) & rbound_dt$pdx != "" &
+          !sapply(rbound_dt$pdx, function(x) exists(x, acc_pdx_env))
+      )
+
+      if (length(invalid_pdx_indices) > 0) {
+        cat(paste("Invalid PDx found:", rbound_dt$pdx[invalid_pdx_indices]))
+        combined_chunk_summary$pdx_success <- FALSE
+      } else {
+        combined_chunk_summary$pdx_success <- TRUE
+      }
+
+      if (to_dec_mem_usage) gc() # debug
+
+      ##################################################################################################################################
+      ############################################## END OF PARALLELIZE AND SUMMARIZE DATA #############################################
+      ##################################################################################################################################
+
+      summarized_dt <- rbound_dt
+      combined_parallel_summary <- combined_chunk_summary
+      combined_parallel_summary$replacement_summary <- read_in_replacement_summary
+
+      if (to_write) {
+        fwrite(
+          summarized_dt, here(checkpoint_1_path, paste0(
+            checkpoint_1_prefix, year_to_load, suffix,
+            "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
+          ))
+        )
+      }
+      # if (to_combine) master_dt_list[[loop_part]] <- summarized_dt # DISABLING FOR NOW
+      if (to_group) {
+        # export_for_grouper(
+        #   summarized_dt, year_to_load,
+        #   here(checkpoint_3_path, paste0(
+        #     checkpoint_3_prefix, year_to_load, suffix, "part_",
+        #     sprintf("%02d", loop_part), "_of_", split_parts, ".txt"
+        #   )), loop_part
+        # )
+      }
+
+      ##################################################################################################################################
+      ####################################################### END OF PROCESS PART ######################################################
+      ##################################################################################################################################
+
+      all_parts_summaries[[loop_part]] <- combined_parallel_summary
+      # Save partial summaries to a list
+
+      processing_times[[loop_part]] <- as.numeric(
+        difftime(Sys.time(), start_time, units = "secs")
+      ) # Save partial processing time to a list
+      # Print status update and ETA
+      print_status_update(loop_part, split_parts, processing_times, "clean")
+
+      if (to_dec_mem_usage) {
+        rm(read_in_dt, rbound_dt, summarized_dt)
+        gc()
+      }
+
+      if (loop_part == 1) dim_dt <<- dim(summarized_dt)
+      nrow_end[[loop_part]] <<- nrow(summarized_dt)
     }
   }
 
-  for (nrow_part in 1:split_parts) {
-    if (nrow_start[[nrow_part]] != nrow_end[[nrow_part]]) {
-      warning(
-        "WARNING: Row Count Mismatch! Part ", nrow_part,
-        " has ", nrow_start[[nrow_part]], " starting rows and ",
-        nrow_end[[nrow_part]], " ending rows\n"
-      )
-      stop("ERROR: Row Count Mismatch")
+  if (!file.exists(here(checkpoint_1_path, paste0(
+    checkpoint_1_prefix, year_to_load, suffix, "part_",
+    sprintf("%02d", split_parts), "_of_", split_parts, ".csv"
+  )))) {
+    for (nrow_part in 1:split_parts) {
+      if (nrow_start[[nrow_part]] != nrow_end[[nrow_part]]) {
+        warning(
+          "WARNING: Row Count Mismatch! Part ", nrow_part,
+          " has ", nrow_start[[nrow_part]], " starting rows and ",
+          nrow_end[[nrow_part]], " ending rows\n"
+        )
+        stop("ERROR: Row Count Mismatch")
+      }
     }
+  } else {
+    message(paste("Files already exist, skipping row count checking."))
   }
 
   cat("\nRow Counts Match for All Parts\n") # only prints if above succeeds
 
-  if (to_combine) {
+  if (to_combine && !file.exists(here(checkpoint_2_path, paste0(
+    checkpoint_2_prefix, year_to_load, suffix, ".csv"
+  )))) {
+    for (read_part in 1:split_parts) {
+      master_dt_list[[read_part]] <- fread(here(checkpoint_1_path, paste0(
+        checkpoint_1_prefix, year_to_load, suffix,
+        "part_", sprintf("%02d", read_part), "_of_", split_parts, ".csv"
+      )))
+    }
     master_dt <<- rbindlist(master_dt_list)
     # if (to_group) master_grouper_input_dt <- rbindlist(master_grouper_input_list)
     # if (to_group) master_grouper_input_dt[, CASEID := 1:nrow(master_grouper_input_dt)]
@@ -909,7 +934,7 @@ main_logic_func <- function() {
     }
     # print(head(master_dt))
     if (to_dec_mem_usage) {
-      if (to_group) rm(master_dt_list, master_grouper_input_list) else rm(master_dt_list)
+      if (to_group) rm(master_dt_list) else rm(master_dt_list) # rm(master_grouper_input_list)
       gc()
     }
     if (to_write) {
@@ -927,10 +952,16 @@ main_logic_func <- function() {
   }
 
   # Summaries are consolidated from 15 split_parts * 8 chunks = 120 sub outputs
-  print_summary_tables( # Print final summaries
-    combine_parts_summaries(all_parts_summaries, tmp_nrow),
-    end_nrow
-  )
+  if (!file.exists(here(checkpoint_2_path, paste0(
+    checkpoint_2_prefix, year_to_load, suffix, ".csv"
+  )))) {
+    print_summary_tables( # Print final summaries
+      combine_parts_summaries(all_parts_summaries, tmp_nrow),
+      end_nrow
+    )
+  } else {
+    message("Files already exist, skipping summary output.")
+  }
 
   if (to_parallel && !is_unix) plan(sequential) # end parallelization
 
@@ -1727,7 +1758,11 @@ if (to_bq && !skip_bq_upload) {
 
 
 # Print time estimates along with estimate for full claims file
-print_time_estimates()
+if (!file.exists(here(checkpoint_2_path, paste0(
+  checkpoint_2_prefix, year_to_load, suffix, ".csv"
+)))) {
+  print_time_estimates()
+} # TODO get it to work if skipping cleaning
 
 
 # in case we want to run this cell independently:
