@@ -214,7 +214,7 @@ To use Google Cloud Code, press sign in inside the VS Code extension, it'll open
 
 # How To: Run Data Cleaning Code End-to-End
 
-By end-to-end, we mean from GCS pull of raw claims files, to BQ push of claims after cleaning and then grouping.
+By end-to-end, we mean from GCS pull of raw claims files, to BQ push of claims after cleaning and grouping.
 
 Assuming you've already authorized the VS Code Server Code Tunnel in the VM, simply open your local VS Code install (with the Remote Development Extension from Microsoft), then 
 1. Click the `><` button on the bottom left corner of VS Code, and 
