@@ -217,7 +217,7 @@ To use Google Cloud Code, press sign in inside the VS Code extension, it'll open
 By end-to-end, we mean from GCS pull of raw claims files, to BQ push of claims after cleaning and then grouping.
 
 Assuming you've already authorized the VS Code Server Code Tunnel in the VM, simply open your local VS Code install (with the Remote Development Extension from Microsoft), then 
-1. Click the `\>\<` button on the bottom left corner of VS Code, and 
+1. Click the `><` button on the bottom left corner of VS Code, and 
 2. Press `Connect to Tunnel`, then 
 3. Press `GitHub`, then 
 4. Press `drg-data-pipelineus-`
@@ -230,8 +230,8 @@ Finally,
 1. Go over the parameters under `Primary` and `Secondary Parameters`, as well as `File Paths`, and 
 2. Make sure everything is in order.
 
-**Important 1: Ensure you've symbolically linked `/home/data` to `/home/\<username\>/drg-pipeline/data-cleaning`**
-**Important 2: Ensure you've symbolically linked `/home/\<username\>/grouper` (i.e. `./libraries`, `./misc`, `./scripts`, and `./tests`) to `/home/\<username\>/drg-pipeline/data-cleaning`**
+**Important 1: Ensure you've symbolically linked `/home/data` to `/home/<username>/drg-pipeline/data-cleaning`**
+**Important 2: Ensure you've symbolically linked `/home/<username>/grouper` (i.e. `./libraries`, `./misc`, `./scripts`, and `./tests`) to `/home/<username>/drg-pipeline/data-cleaning`**
 
 Steps to run the data-cleaning code end-to-end:
 1. Run the notebook via VS Code's Run All button
