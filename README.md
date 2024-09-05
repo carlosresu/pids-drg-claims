@@ -93,7 +93,6 @@ sudo mkdir -p /home/data
 sudo chmod -R 777 /home/data
 sudo chown -R root:root /home/data
 sudo chmod -R 777 /home/data
-
 ```
 
 Start R to install necessary packages that we need to work with R in VS Code, these cannot be installed later on as we will not be able to access R in our jupyter notebooks otherwise.
@@ -127,7 +126,6 @@ Verify R is usable as a jupyter kernel
 ```
 # Verify R jupyter kernel is usable
 jupyter kernelspec list
-
 ```
 
 Install gcloud CLI on the VM, login with the service account we spoke about earlier.
