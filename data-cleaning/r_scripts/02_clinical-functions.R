@@ -373,7 +373,7 @@ remove_lumped_icd_codes <- function(column) {
   modified_column <- stri_replace_all_regex(
     column,
     "(?<=\\d)(?=[A-Za-z])",
-    "||",
+    "~~",
     opts_regex = stri_opts_regex()
   )
   return(modified_column)
