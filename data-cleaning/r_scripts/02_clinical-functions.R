@@ -136,7 +136,7 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
     "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY",
-    "PROFESSIONAL PRACTITIONER"
+    "PROFESSIONAL PRACTITIONER", "DIRECT CONTRIBUTOR"
   )
   remapped_memcat_child <- fcase(
     pat_memcat_child == "EMPLOYED PRIVATE", "FORMAL",
@@ -156,6 +156,8 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     pat_memcat_child == "FAMILY DRIVER", "FORMAL",
     # added this myself
     pat_memcat_child == "FORMAL ECONOMY", "FORMAL",
+    # added this myself
+    pat_memcat_child == "DIRECT CONTRIBUTOR", "FORMAL",
     # added this myself
     pat_memcat_child == "PROFESSIONAL PRACTITIONER", "INFORMAL"
   )
