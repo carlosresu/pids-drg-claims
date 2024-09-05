@@ -211,3 +211,51 @@ sudo ln -s /home/resurreccion_cmc_gmail_com/grouper/tests /home/resurreccion_cmc
 ```
 
 To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type "curl \<link\>"
+
+# How To: Run Data Cleaning Code End-to-End
+
+By end-to-end, we mean from GCS pull of raw claims files, to BQ push of claims after cleaning and then grouping.
+
+Assuming you've already authorized the VS Code Server Code Tunnel in the VM, simply open your local VS Code install (with the Remote Development Extension from Microsoft), then 
+1. Click the `\>\<` button on the bottom left corner of VS Code, and 
+2. Press `Connect to Tunnel`, then 
+3. Press `GitHub`, then 
+4. Press `drg-data-pipelineus-`
+
+Once inside, 
+1. Select the `drg-pipeline` folder in your user directory that we created by cloning the `drg-pipeline` repo earlier
+2. Open `data-cleaning/drg-cleaning.ipynb`
+
+Finally,
+1. Go over the parameters under `Primary` and `Secondary Parameters`, as well as `File Paths`, and 
+2. Make sure everything is in order.
+
+**Important 1: Ensure you've symbolically linked `/home/data` to `/home/\<username\>/drg-pipeline/data-cleaning`**
+**Important 2: Ensure you've symbolically linked `/home/\<username\>/grouper` (i.e. `./libraries`, `./misc`, `./scripts`, and `./tests`) to `/home/\<username\>/drg-pipeline/data-cleaning`**
+
+Steps to run the data-cleaning code end-to-end:
+1. Run the notebook via VS Code's Run All button
+2. Wait for the code to clean the data. This should take about an hour. 
+3. Review the summary outputs to see if there are any anomalies that need addressing in the code. 
+   1. If there are none, you don't need to do anything to proceed. 
+   2. If there are anomalies, **stop the code now.**
+4. Wait for the code to group the claims via the Python Grouper. It should take quite a few hours.
+5. After it's done, it should then automatically prompt you asking if you've run the Thai Batch Grouper already. 
+   1. If you have, 
+      1. Type `y`. 
+      2. Press `enter`.
+   2. If not:
+      1. **Don't type anything or press enter just yet. Leave it pending.** **DO NOT CLOSE VS CODE OR DISCONNECT FROM THE CODE TUNNEL INSTANCE**
+      2. Go to GCP GCS `phic-claims-checkpoints/pre-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-checkpoints/pre-tdrg?project=drg-pipeline>)
+      3. Find the file it just uploaded.
+      4. Download the file to your local machine. **DO NOT RENAME THE FILE AFTER DOWNLOADING.**
+      5. Run the Thai Batch Grouper `(TGRP50V02.exe)` on the file you just downloaded. It should take an hour or two.
+      6. Go to GCP GCS `phic-claims-checkpoints/post-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-checkpoints/post-tdrg?project=drg-pipeline>)
+      7. Upload the file outputted by the Thai Batch Grouper. **DO NOT RENAME THE FILE BEFORE UPLOADING.**
+      8. Return to your VS Code Code Tunnel Instance.
+      9. Type `y`.
+      10. Press `enter`.
+6.  It should now proceed with the process, first by analyzing and checking for differences between the drg code generated via Python Grouper vs via Thai Batch Grouper.
+    1.  It will write a csv containing said differences (or an empty csv if there are none), 
+    2.  It will write to `~/drg-pipeline/data/checkpoints/checkpoint_9_grouper_differences` as `checkpoint_9_grouper_differences_*.csv`
+7.  It will then push to BQ as `drg-pipeline.phic.claims_20XX1231`
