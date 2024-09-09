@@ -50,11 +50,11 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   cleaned_columns <- lapply(cols_to_process, function(col) {
     clean_column(col, na_like_strings, neoplasms_dt)
   })
-  collapsed_column <- do.call(paste, c(cleaned_columns, sep = "~~"))
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "~~NA", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "NA~~", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "~~$", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "^~~", "")
+  collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "^\\|\\|", "")
   collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
     NA_character_, collapsed_column
   )
@@ -216,10 +216,10 @@ replace_empty_with_none <- function(dt, to_view_checks = FALSE) {
   )
 }
 
-split_to_vector <- function(column) {
+split_to_vector_single <- function(column) {
   #' @title Split a column into a vector
   #'
-  #' @description This function splits the elements of a column by "~~"
+  #' @description This function splits the elements of a column by "|"
   #' and returns a list of vectors.
   #'
   #' @param column character. The column to be split.
@@ -229,7 +229,26 @@ split_to_vector <- function(column) {
     if (is.na(x)) {
       return(NA_character_)
     } else {
-      return(unlist(strsplit(x, "~~", fixed = TRUE)))
+      return(unlist(strsplit(x, "|", fixed = TRUE)))
+    }
+  })
+  return(result)
+}
+
+split_to_vector <- function(column) {
+  #' @title Split a column into a vector
+  #'
+  #' @description This function splits the elements of a column by "||"
+  #' and returns a list of vectors.
+  #'
+  #' @param column character. The column to be split.
+  #'
+  #' @return list. A list of vectors obtained by splitting the column.
+  result <- lapply(column, function(x) {
+    if (is.na(x)) {
+      return(NA_character_)
+    } else {
+      return(unlist(strsplit(x, "||", fixed = TRUE)))
     }
   })
   return(result)
@@ -251,6 +270,7 @@ collapse_and_clean_icd_rvs <- function(dt) {
   dt[, paste0("clin_rvs", 1:20) := NULL]
   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
   dt[, clin_icd := split_to_vector(clin_icd)]
+  # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
   return(dt)
 }

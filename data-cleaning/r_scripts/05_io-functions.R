@@ -204,7 +204,7 @@ export_for_grouper <- function(dt, output_txt_file) {
 
   # Format Sex
   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
-  
+
   # Format Admission Date and Time
   output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
   output_dt[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
@@ -213,7 +213,7 @@ export_for_grouper <- function(dt, output_txt_file) {
   output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
   output_dt[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
 
-# Discharge Type
+  # Discharge Type
   output_dt[, DischT := dt$clin_discharge]
   # Admission Weight
   output_dt[, AdmWt := dt$pat_bwt]
@@ -249,7 +249,7 @@ export_for_grouper <- function(dt, output_txt_file) {
   #   }
   # }
   # Write the data.table to a file with vertical bar (|) as delimiter
-  
+
   str(output_dt)
 
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)

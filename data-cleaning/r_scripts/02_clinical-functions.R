@@ -373,9 +373,103 @@ remove_lumped_icd_codes <- function(column) {
   modified_column <- stri_replace_all_regex(
     column,
     "(?<=\\d)(?=[A-Za-z])",
-    "~~",
+    "||",
     opts_regex = stri_opts_regex()
   )
+  return(modified_column)
+}
+
+remove_lumped_rvs_codes <- function(column) {
+  #' @title Remove Lumped Alphanumeric RVS Codes and Split Every 5 Characters
+  #'
+  #' @description This function removes '|' characters from the input,
+  #' and splits the resulting alphanumeric codes into chunks of 5 characters.
+  #' If the total length of the cleaned code is not a multiple of 5, it will return NA.
+  #'
+  #' @param column character. The column to be processed.
+  #'
+  #' @return character. The modified column with lumped RVS codes separated,
+  #' or NA if the length of the code is not a multiple of 5.
+
+  # Define a helper function to process each code
+  split_rvs_codes_helper <- function(code) {
+    if (is.na(code) || code == "" || is.null(code)) {
+      return(NA_character_) # Return NA if input is NA, empty, or NULL
+    }
+
+    # Remove all '|' characters
+    code_clean <- gsub("\\|", "", code)
+
+    # Ensure that only alphanumeric characters are kept
+    code_clean <- gsub("[^A-Z0-9]", "", code_clean)
+
+    # Check if the cleaned code length is a multiple of 5 characters
+    if (nchar(code_clean) == 0) {
+      return(NA_character_) # Return NA if the code length is not a multiple of 5
+    } else if (nchar(code_clean) %% 5 != 0) {
+      message(paste0("Total length of concatenated RVS codes is not a multiple of 5 characters: ", code_clean))
+      return(NA_character_)
+    } else {
+      # Insert the separator \\|\\| between every 5 characters
+      modified_code <- gsub("(.{5})", "\\1\\|\\|", code_clean)
+
+      # Remove the trailing separator (\\|\\|) if present
+      modified_code <- gsub("\\|\\|$", "", modified_code)
+
+      return(modified_code)
+    }
+  }
+
+  # Apply the helper function to each element in the column
+  modified_column <- sapply(as.character(column), split_rvs_codes_helper, USE.NAMES = FALSE)
+
+  return(modified_column)
+}
+
+remove_lumped_icd9_codes <- function(column) {
+  #' @title Remove Lumped Alphanumeric RVS Codes and Split Every 5 Characters
+  #'
+  #' @description This function removes '|' characters from the input,
+  #' and splits the resulting alphanumeric codes into chunks of 5 characters.
+  #' If the total length of the cleaned code is not a multiple of 5, it will return NA.
+  #'
+  #' @param column character. The column to be processed.
+  #'
+  #' @return character. The modified column with lumped RVS codes separated,
+  #' or NA if the length of the code is not a multiple of 5.
+
+  # Define a helper function to process each code
+  split_rvs_codes_helper_icd9 <- function(code) {
+    if (is.na(code) || code == "" || is.null(code)) {
+      return(NA_character_) # Return NA if input is NA, empty, or NULL
+    }
+
+    # Remove all '|' characters
+    code_clean <- gsub("\\|", "", code)
+
+    # Ensure that only alphanumeric characters are kept
+    code_clean <- gsub("[^A-Z0-9]", "", code_clean)
+
+    # Check if the cleaned code length is a multiple of 4 characters
+    if (nchar(code_clean) == 0) {
+      return(NA_character_) # Return NA if the code length is not a multiple of 4
+    } else if (nchar(code_clean) %% 4 != 0) {
+      message(paste0("Total length of concatenated RVS codes is not a multiple of 4 characters: ", code_clean))
+      return(NA_character_)
+    } else {
+      # Insert the separator \\|\\| between every 4 characters
+      modified_code <- gsub("(.{4})", "\\1\\|\\|", code_clean)
+
+      # Remove the trailing separator (\\|\\|) if present
+      modified_code <- gsub("\\|\\|$", "", modified_code)
+
+      return(modified_code)
+    }
+  }
+
+  # Apply the helper function to each element in the column
+  modified_column <- sapply(as.character(column), split_rvs_codes_helper_icd9, USE.NAMES = FALSE)
+
   return(modified_column)
 }
 
