@@ -242,6 +242,7 @@ export_for_grouper <- function(dt, output_txt_file) {
 
   # Replace NA values with '--'
   output_dt[is.na(output_dt)] <- "--"
+  output_dt[is.null(output_dt)] <- "--"
   # # Convert list columns to comma-separated strings
   # for (col in names(output_dt)) {
   #   if (is.list(output_dt[[col]])) {
