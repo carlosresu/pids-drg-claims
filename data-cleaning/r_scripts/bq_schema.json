@@ -1,10 +1,5 @@
 [
   {
-    "name": "caseid",
-    "type": "INT64",
-    "mode": "NULLABLE"
-  },
-  {
     "name": "id_series",
     "type": "STRING",
     "mode": "NULLABLE"
