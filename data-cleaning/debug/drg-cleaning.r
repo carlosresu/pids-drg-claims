@@ -31,11 +31,11 @@ gcs_bucket <- "phic-claims-checkpoints" # Name of GCS bucket
 gcs_pre_fpath <- "pre-tdrg" # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_post_fpath <- "post-tdrg" # Name of folder path prefix in GCS bucket for thai grouper output
 bq_dataset <- "phic" # bq dataset
-bq_table <- "temp_claims_20240911" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
+bq_table <- "temp_claims_sep11" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -611,24 +611,9 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   clean_result <- clean_data(chunk)
   chunk <- clean_result$return_data
 
-  # chunk[, clin_rvs := split_to_vector(clin_rvs)]
-  # fwrite(chunk, "test1.csv")
-  # chunk[, clin_rvs := gsub("[^A-Z0-9\\|]", "", clin_rvs)]
   if (to_debug) fwrite(chunk, "test1.csv")
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
-
-  # chunk[, clin_rvs := gsub("[^A-Z0-9\\|]", "", clin_rvs)]
-  # chunk[, icd9_list := gsub("[^A-Z0-9\\|]", "", icd9_list)]
-  # chunk[, clin_rvs := split_to_vector(as.character(clin_rvs))]
-  # chunk[, icd9_list := split_to_vector(as.character(icd9_list))]
-  # chunk[, clin_rvs := gsub("[^A-Z0-9\\|]", "", clin_rvs)]
-  # chunk[, icd9_list := gsub("[^A-Z0-9\\|]", "", icd9_list)]
-  # chunk[, clin_rvs := split_to_vector_single(as.character(clin_rvs))]
-  # chunk[, icd9_list := split_to_vector_single(as.character(icd9_list))]
-
-  # # chunk[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
-  # # chunk[, icd9_list := remove_lumped_icd9_codes(icd9_list)]
 
   if (to_debug) fwrite(chunk, "test2.csv")
 
@@ -667,7 +652,7 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   chunk[, clin_c2 := as.character(clin_c2)]
 
   # Write the combined data.table to a single CSV file
-  # fwrite(data.table(Column = colnames(chunk), Class = sapply(chunk, class)), "class.csv")
+  if (to_debug) fwrite(data.table(Column = colnames(chunk), Class = sapply(chunk, class)), "class.csv")
 
   pdx_result <- apply_find_pdx(
     chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
@@ -675,23 +660,7 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
-  # fwrite(chunk, "test2c.csv")
-
-  # # Ensure consistent lengths of clin_rvs and icd9_list
-  # clin_rvs_len <- lengths(chunk$clin_rvs)
-  # icd9_list_len <- lengths(chunk$icd9_list)
-
-  # max_len <- max(c(clin_rvs_len, icd9_list_len))
-  # chunk$clin_rvs <- lapply(chunk$clin_rvs, function(x) {
-  #   length(x) <- max_len
-  #   # return x with a new max length
-  #   return(x)
-  # })
-  # chunk$icd9_list <- lapply(chunk$icd9_list, function(x) {
-  #   length(x) <- max_len
-  #   # return x with a new max length
-  #   return(x)
-  # })
+  if (to_debug) fwrite(chunk, "test2c.csv")
 
   chunk_summary <- modifyList(
     clean_result$return_summary,
@@ -898,16 +867,7 @@ main_logic_func <- function() {
         ))
       )
     }
-    # if (to_combine) master_dt_list[[loop_part]] <- summarized_dt # DISABLING FOR NOW
-    if (to_group) {
-      # export_for_grouper(
-      #   summarized_dt, year_to_load,
-      #   here(checkpoint_3_path, paste0(
-      #     checkpoint_3_prefix, year_to_load, suffix, "part_",
-      #     sprintf("%02d", loop_part), "_of_", split_parts, ".txt"
-      #   )), loop_part
-      # )
-    }
+    # if (to_combine) master_dt_list[[loop_part]] <- summarized_dt # TODO: DISABLING FOR NOW
 
     ##################################################################################################################################
     ####################################################### END OF PROCESS PART ######################################################
@@ -952,20 +912,8 @@ main_logic_func <- function() {
       )))
     }
     master_dt <<- rbindlist(master_dt_list)
-    # if (to_group) master_grouper_input_dt <- rbindlist(master_grouper_input_list)
-    # if (to_group) master_grouper_input_dt[, CASEID := 1:nrow(master_grouper_input_dt)]
-    # master_dt[is.na(master_dt)] <- ""
-    # list_cols <- names(master_dt)[sapply(master_dt, is.list)]
-    # for (col in list_cols) {
-    #   master_dt[, (col) := sapply(.SD[[col]], function(x) {
-    #     # Remove "NA" from the list and collapse to a string
-    #     cleaned <- paste(na.omit(x), collapse = "||")
-    #     # If the cleaned string is empty, return NA_character_,
-    #     # otherwise return the cleaned string
-    #     if (cleaned == "") NA_character_ else cleaned
-    #   }), .SDcols = col]
-    # }
-    # print(head(master_dt))
+
+    if (to_debug) print(head(master_dt))
     if (to_dec_mem_usage) {
       if (to_group) rm(master_dt_list) else rm(master_dt_list) # rm(master_grouper_input_list)
       gc()
@@ -974,13 +922,6 @@ main_logic_func <- function() {
       fwrite(master_dt, here(checkpoint_2_path, paste0(
         checkpoint_2_prefix, year_to_load, suffix, ".csv"
       )))
-      # fwrite(master_grouper_input_dt,
-      #   here(checkpoint_4_path, paste0(
-      #     checkpoint_4_prefix,
-      #     year_to_load, suffix, ".txt"
-      #   )),
-      #   sep = "|", col.names = TRUE, quote = FALSE # quotes don't work with thai grouper
-      # )
     }
   }
 
@@ -1018,9 +959,6 @@ if (to_profvis) {
 } else {
   main_logic_func()
 }
-
-
-# str(master_dt)
 
 
 # Please run thai grouper first
@@ -1214,15 +1152,15 @@ test[, names(test) := lapply(.SD, function(col) {
   }
 })]
 
-# print(head(test, 10))
+if (to_debug) print(head(test, 10))
 
 fwrite(test, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv")))
 
-# for (col in date_columns) print(unique(result_dt[[col]]))
+if (to_debug) for (col in date_columns) print(unique(result_dt[[col]]))
 
 # pandas <- import("pandas")
 
-# print(sapply(test, class))
+if (to_debug) print(sapply(test, class))
 
 csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv"))
 
@@ -1341,161 +1279,15 @@ py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
 cat(py$statements)
 
 
-# # Import pandas
-# pandas <- import("pandas")
-
-# # Step 1: Copy the master_dt to avoid modifying the original data
-# python_input_dt <- fread(here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")))
-
-# # Convert columns to Date objects, ignoring NA values
-# date_columns <- names(python_input_dt)[grepl("date", names(python_input_dt))]
-
-# python_input_dt[, pat_bdate_orig := as.Date(pat_bdate, format = "%m/%d/%Y")]
-# python_input_dt[, (date_columns) := lapply(.SD, as.Date, format = "%m/%d/%Y"), .SDcols = date_columns]
-
-# # Create a data.table for rows with negative `pat_age`
-# negative_age_dt <- python_input_dt[pat_age < 0, ]
-
-# # Create a data.table for rows with non-negative `pat_age`
-# positive_age_dt <- python_input_dt[pat_age >= 0, ]
-
-# # Process rows with non-negative `pat_age`
-# positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate_orig, "%Y-%m-%d"), pat_age, format(date_adm, "%Y-%m-%d")))]
-
-# # For negative `pat_age`, keep `pat_bdate` as it is
-# negative_age_dt[, pat_bdate := pat_bdate_orig]
-
-# # Combine the processed data
-# result_dt <- rbind(positive_age_dt, negative_age_dt)
-
-# # Write the result to CSV
-# csv_path <- here(checkpoint_7_path, paste0(checkpoint_7a_prefix, ".csv"))
-
-# fwrite(result_dt, csv_path)
-
-# # Use reticulate to run the following Python code within the R environment
-# py_run_string(paste0("
-# import pandas as pd
-
-# # Create a dictionary with all columns set to 'string' type
-# dtype_dict = {
-#     'id_series': 'string',
-#     'id_pin': 'string',
-#     'date_adm': 'string',
-#     'time_adm': 'string',
-#     'date_dis': 'string',
-#     'time_dis': 'string',
-#     'date_rec': 'string',
-#     'date_ref': 'string',
-#     'date_check': 'string',
-#     'id_hci': 'string',
-#     'id_hcp': 'string',
-#     'clin_outpatient': 'string',
-#     'clin_emergency': 'string',
-#     'pat_type': 'category',
-#     'clin_acc': 'category',
-#     'pat_rel': 'category',
-#     'pat_bdate': 'string',
-#     'pat_age': 'float64',
-#     'pat_sex': 'category',
-#     'pat_bwt': 'float64',
-#     'pat_memcat_parent': 'category',
-#     'pat_memcat_child': 'category',
-#     'clin_discharge': 'Int64',
-#     'clin_c1': 'string',
-#     'clin_c2': 'string',
-#     'claim_status': 'category',
-#     'claim_payout': 'float64',
-#     'claim_charge': 'float64',
-#     'date_ext': 'string',
-#     'id_year': 'string',
-#     'clin_icd': 'string',
-#     'clin_rvs': 'string',
-#     'clin_c1_orig': 'string',
-#     'clin_c2_orig': 'string',
-#     'icd9_list': 'string',
-#     'pdx': 'string',
-#     'pdx_code': 'string',
-#     'pat_bdate_orig': 'string'
-# }
-
-# # Read the CSV with the specified dtype
-# pandas_df = pd.read_csv('", csv_path, "', dtype=dtype_dict)
-# "))
-
-# # Access the pandas DataFrame in R if needed
-# pandas_df <- py$pandas_df
-
-# # View the structure
-# str(pandas_df)
-
-# # Step 3: Convert `clin_icd` and `icd9_list` columns, replace NaN with "None"
-# py_run_file(here("data-cleaning", "py_scripts", "format_data.py"))
-
-# # Retrieve the processed DataFrame back to R
-# subset_df <- py$output
-
-# # str(subset_df)
-# # Step 1: Ensure date columns are properly converted to Date objects
-# subset_df$date_adm <- as.Date(subset_df$date_adm, format = "%Y-%m-%d")
-# subset_df$pat_bdate <- as.Date(subset_df$pat_bdate, format = "%Y-%m-%d")
-
-# # Step 2: Initialize the 'ageday' column with NA
-# subset_df$ageday <- NA
-
-# # Step 3: Calculate 'ageday' only for valid rows where pat_age == 0
-# valid_rows <- subset_df$patage >= 0 & subset_df$patage %% 1 == 0
-
-# subset_df$ageday[valid_rows & subset_df$patage == 0] <- as.numeric(
-#   difftime(
-#     subset_df$date_adm[valid_rows & subset_df$patage == 0],
-#     subset_df$pat_bdate[valid_rows & subset_df$patage == 0],
-#     units = "days"
-#   )
-# )
-
-# subset_df$date_adm <- as.POSIXct(paste(subset_df$date_adm, subset_df$time_adm), format = "%Y-%m-%d %H:%M:%S")
-# subset_df$date_dis <- as.POSIXct(paste(subset_df$date_dis, subset_df$time_dis), format = "%Y-%m-%d %H:%M:%S")
-
-# # Step 4: Replace NA values in 'ageday' with "None"
-# subset_df$ageday[is.na(subset_df$ageday)] <- "None"
-
-# fwrite(as.data.table(subset_df), here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
-# # Step 5: Convert the DataFrame to a format suitable for Python processing
-# py$pandas_df <- pandas$read_csv(here(checkpoint_7_path, paste0(checkpoint_7b_prefix, ".csv")))
-
-# # Step 6: Process each row of the DataFrame through `drg_seeker` and append results
-# py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
-
-
-# str(py$output)
+if (to_debug) str(py$output)
 
 # Convert data types to match BigQuery schema
 result <- as.data.table(py$output)
-
-# # Define columns for each type conversion
-# character_columns <- c(
-#   "id_series", "id_pin", "id_hci", "pat_type", "clin_acc", "pat_rel",
-#   "pat_sex", "pat_memcat_parent", "pat_memcat_child", "claim_status",
-#   "pdx", "mdc", "pdc", "dc", "py_drg", "ageday", "error_code",
-#   "warning_code", "pat_bwt" # , "thai_drg"
-# )
 
 date_columns <- c(
   "date_adm", "date_dis", "date_rec", "date_ref", "date_check",
   "pat_bdate", "date_ext"
 )
-
-# integer_columns <- c(
-#   "clin_discharge", "pdx_code", "id_year" # , "ot", "err", "warn", "los"
-# )
-
-# numeric_columns <- c(
-#   "pat_age", "claim_payout", "claim_charge", "pccl"
-#   # , "rw", "wtlos", "adjrw"
-# )
-
-# logical_columns <- c("clin_outpatient", "clin_emergency")
 
 time_columns <- c("time_adm", "time_dis")
 
@@ -1573,20 +1365,6 @@ result[, clin_pdx := pdx]
 result[, clin_sdx := clin_icd]
 result[, pdx := NULL]
 result[, clin_icd := NULL]
-# result[, thai_rw := rw]
-# result[, thai_wtlos := wtlos]
-# result[, thai_ot := ot]
-# result[, thai_adjrw := adjrw]
-# result[, thai_err := err]
-# result[, thai_warn := warn]
-# result[, thai_los := los]
-# result[, rw := NULL]
-# result[, wtlos := NULL]
-# result[, ot := NULL]
-# result[, adjrw := NULL]
-# result[, err := NULL]
-# result[, warn := NULL]
-# result[, los := NULL]
 result[, py_pdc := pdc]
 result[, py_pccl := pccl]
 result[, py_warn := warning_code]
@@ -1595,10 +1373,7 @@ result[, pdc := NULL]
 result[, pccl := NULL]
 result[, warning_code := NULL]
 result[, error_code := NULL]
-
-# Drop mdc and dc
 result[, mdc := NULL]
-# result[, dc := NULL]
 
 
 pre_pad_id_series_nrow <- result[, uniqueN(id_series)]
@@ -1617,7 +1392,7 @@ if (pre_pad_id_pin_nrow != post_pad_id_pin_nrow) stop("Error: id_series differs 
 if (to_debug) fwrite(result, "test3.csv")
 
 
-# fwrite(result, "test3.csv")
+if (to_debug) fwrite(result, "test3.csv")
 
 
 export_for_grouper(
@@ -1660,7 +1435,7 @@ gcs_get_object(
 before_merge <- data.table::copy(result)
 before_merge[, caseid := 1:nrow(result)]
 thai_result <- fread(here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")), colClasses = "character")
-# print(head(thai_result))
+if (to_debug) print(head(thai_result))
 thai_result[, caseid := as.integer(caseid)]
 thai_result[, thai_drg := drg]
 thai_result[, thai_rw := rw]
@@ -1679,68 +1454,23 @@ thai_result[, adjrw := NULL]
 thai_result[, err := NULL]
 thai_result[, warn := NULL]
 thai_result[, los := NULL]
-# print(head(before_merge))
+if (to_debug) print(head(before_merge))
 merged <- merge(before_merge, thai_result, by = "caseid", all.x = TRUE)
-# print(head(merged))
+if (to_debug) print(head(merged))
 diff_merged <- merged[!as.character(ifelse(is.na(py_drg), "NA", py_drg)) == as.character(thai_drg)]
 print(nrow(diff_merged))
 fwrite(diff_merged, here(checkpoint_9_path, paste0("checkpoint_9_grouper_differences_", year_to_load, suffix, ".csv")))
-
-
-# # Upload the file
-# if (to_gcs) {
-#   gcs_auth(email = gcs_email)
-#   gcs_upload(
-#     file = here(checkpoint_4_path, paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
-#     bucket = gcs_bucket,
-#     name = paste0(gcs_pre_fpath, "/", paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
-#     predefinedAcl = "bucketLevel"
-#   )
-# }
-
-
-# claims_fpath <- here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".csv"))
-# grouper_fpath <- here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT"))
-# merged_fpath <- here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv"))
-
-# if (thai_prompt || to_prompt || !file.exists(grouper_fpath)) {
-#   response <- tolower(readline(prompt = "Have you run the Thai grouper manually? (y/n): "))
-#   if (response == "y") {
-#     message("Continuing with the script...\n")
-#     # Continue with the rest of the script
-#   } else {
-#     message("Stopping the script.\n")
-#     stop("Thai Grouper not run yet. Script terminated. Continue on manually if necessary")
-#   }
-# } else {
-#   message("Thai Grouper is assumed to have been run already. Continuing with the script...\n")
-# }
-
-
-# if (to_gcs) {
-#   gcs_get_object(
-#     object_name = paste0(gcs_post_fpath, "/", toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT"),
-#     bucket = gcs_bucket,
-#     saveToDisk = here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")),
-#     overwrite = TRUE
-#   )
-# }
 
 
 str(merged)
 if (to_debug) fwrite(merged, "test4.csv")
 
 
-# # Please run thai grouper first
-# claims <- fread(claims_fpath, colClasses = "character")
-# # claims[, caseid := 1:.N]
-# # claims[, caseid := as.character(caseid)]
-# # grouper <- fread(grouper_fpath, sep = "|", na.strings = "--", header = TRUE, colClasses = "character")
-# # result <- merge(claims, grouper, by = "caseid", all.x = TRUE)
-
+# Please run thai grouper first
 result <- data.table::copy(merged)
 
 result[, caseid := as.integer(caseid)]
+result[, caseid := NULL]
 
 # Convert data types to match BigQuery schema
 result[, id_series := as.character(id_series)]
@@ -1779,9 +1509,14 @@ result[, date_ext := as.Date(date_ext, format = "%Y-%m-%d")]
 result[, id_year := as.integer(id_year)]
 
 result[, clin_sdx := clin_sdx] # as is
+result[, clin_proc := clin_rvs] # as is
+result[, clin_rvs := NULL] # as is
+result[, pat_ageday := as.integer(ageday)] # as is
+result[, ageday := NULL]
 
 result[, clin_pdx := as.character(clin_pdx)]
-result[, pdx_code := as.integer(pdx_code)]
+result[, clin_pdx_code := as.integer(pdx_code)]
+result[, pdx_code := NULL]
 
 result[, thai_drg := as.character(thai_drg)]
 result[, thai_rw := as.numeric(thai_rw)]
@@ -1796,9 +1531,60 @@ result[, py_pdc := as.character(py_pdc)]
 result[, py_pccl := as.numeric(py_pccl)]
 result[, py_drg := as.character(py_drg)]
 result[, py_warn := as.character(py_warn)]
-result[, py_err := as.character(py_err)]
+result[, py_err := as.character(ifelse(py_err == "NaN", NA_character_, py_err))]
 
-# fwrite(result, merged_fpath) # Write to file for python grouper before strsplit
+# Reorder the columns in the result data.table to match the schema
+setcolorder(result, c(
+  # "caseid",
+  "id_year",
+  "id_series",
+  "id_pin",
+  "id_hci",
+  "id_hcp",
+  "date_adm",
+  "time_adm",
+  "date_dis",
+  "time_dis",
+  "date_rec",
+  "date_ref",
+  "date_check",
+  "date_ext",
+  "pat_type",
+  "pat_rel",
+  "pat_bdate",
+  "pat_age",
+  "pat_ageday",
+  "pat_sex",
+  "pat_bwt",
+  "pat_memcat_parent",
+  "pat_memcat_child",
+  "claim_status",
+  "claim_payout",
+  "claim_charge",
+  "clin_discharge",
+  "clin_outpatient",
+  "clin_emergency",
+  "clin_acc",
+  "clin_c1",
+  "clin_c2",
+  "clin_sdx",
+  "clin_proc",
+  "clin_pdx",
+  "clin_pdx_code",
+  "thai_drg",
+  "thai_rw",
+  "thai_wtlos",
+  "thai_ot",
+  "thai_adjrw",
+  "thai_err",
+  "thai_warn",
+  "thai_los",
+  "py_drg",
+  "py_pdc",
+  "py_pccl",
+  "py_warn",
+  "py_err"
+))
 
 
 if (nrow(result) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")
