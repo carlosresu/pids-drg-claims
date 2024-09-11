@@ -35,7 +35,7 @@ bq_table <- "temp_claims_sep11" # temp bq table, later renamed to claims_20XX123
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -661,6 +661,20 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   chunk$pdx_code <- pdx_result$pdx_code
 
   if (to_debug) fwrite(chunk, "test2c.csv")
+
+  # Function to remove clin_pdx from list columns
+  remove_pdx_from_list <- function(pdx, lst) {
+    if (!is.na(pdx)) {
+      # Remove clin_pdx from the list and ensure the result is a character vector
+      lst <- setdiff(lst, pdx)
+    }
+    return(lst)
+  }
+
+  # Apply the function to each row and ensure the result is a character vector within the list column
+  chunk[, clin_c1 := lapply(seq_len(.N), function(i) as.character(remove_pdx_from_list(pdx[i], clin_c1[[i]])))]
+  chunk[, clin_c2 := lapply(seq_len(.N), function(i) as.character(remove_pdx_from_list(pdx[i], clin_c2[[i]])))]
+  chunk[, clin_icd := lapply(seq_len(.N), function(i) as.character(remove_pdx_from_list(pdx[i], clin_icd[[i]])))]
 
   chunk_summary <- modifyList(
     clean_result$return_summary,
