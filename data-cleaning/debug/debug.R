@@ -163,11 +163,11 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   cleaned_columns <- lapply(cols_to_process, function(col) {
     clean_column(col, na_like_strings, neoplasms_dt)
   })
-  collapsed_column <- do.call(paste, c(cleaned_columns, sep = "~~"))
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "~~NA", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "NA~~", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "~~$", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "^~~", "")
+  collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
+  collapsed_column <- stri_replace_all_regex(collapsed_column, "^\\|\\|", "")
   collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
     NA_character_, collapsed_column
   )
@@ -329,10 +329,10 @@ replace_empty_with_none <- function(dt, to_view_checks = FALSE) {
   )
 }
 
-split_to_vector <- function(column) {
+split_to_vector_single <- function(column) {
   #' @title Split a column into a vector
   #'
-  #' @description This function splits the elements of a column by "~~"
+  #' @description This function splits the elements of a column by "|"
   #' and returns a list of vectors.
   #'
   #' @param column character. The column to be split.
@@ -342,7 +342,26 @@ split_to_vector <- function(column) {
     if (is.na(x)) {
       return(NA_character_)
     } else {
-      return(unlist(strsplit(x, "~~", fixed = TRUE)))
+      return(unlist(strsplit(x, "|", fixed = TRUE)))
+    }
+  })
+  return(result)
+}
+
+split_to_vector <- function(column) {
+  #' @title Split a column into a vector
+  #'
+  #' @description This function splits the elements of a column by "||"
+  #' and returns a list of vectors.
+  #'
+  #' @param column character. The column to be split.
+  #'
+  #' @return list. A list of vectors obtained by splitting the column.
+  result <- lapply(column, function(x) {
+    if (is.na(x)) {
+      return(NA_character_)
+    } else {
+      return(unlist(strsplit(x, "||", fixed = TRUE)))
     }
   })
   return(result)
@@ -364,7 +383,7 @@ collapse_and_clean_icd_rvs <- function(dt) {
   dt[, paste0("clin_rvs", 1:20) := NULL]
   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
   dt[, clin_icd := split_to_vector(clin_icd)]
-  dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
+  # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
   return(dt)
 }
@@ -820,7 +839,7 @@ remove_lumped_icd_codes <- function(column) {
   modified_column <- stri_replace_all_regex(
     column,
     "(?<=\\d)(?=[A-Za-z])",
-    "~~",
+    "||",
     opts_regex = stri_opts_regex()
   )
   return(modified_column)
@@ -848,22 +867,23 @@ remove_lumped_rvs_codes <- function(column) {
     code_clean <- gsub("\\|", "", code)
 
     # Ensure that only alphanumeric characters are kept
-    code_clean <- gsub("[^A-Za-z0-9]", "", code_clean)
+    code_clean <- gsub("[^A-Z0-9]", "", code_clean)
 
     # Check if the cleaned code length is a multiple of 5 characters
     if (nchar(code_clean) == 0) {
       return(NA_character_) # Return NA if the code length is not a multiple of 5
     } else if (nchar(code_clean) %% 5 != 0) {
-      stop("Total length of concatenated RVS codes is not a multiple of 5 characters")
+      message(paste0("Total length of concatenated RVS codes is not a multiple of 5 characters: ", code_clean))
+      return(NA_character_)
+    } else {
+      # Insert the separator \\|\\| between every 5 characters
+      modified_code <- gsub("(.{5})", "\\1\\|\\|", code_clean)
+
+      # Remove the trailing separator (\\|\\|) if present
+      modified_code <- gsub("\\|\\|$", "", modified_code)
+
+      return(modified_code)
     }
-
-    # Insert the separator ~~ between every 5 characters
-    modified_code <- gsub("(.{5})", "\\1~~", code_clean)
-
-    # Remove the trailing separator (~~) if present
-    modified_code <- gsub("~~$", "", modified_code)
-
-    return(modified_code)
   }
 
   # Apply the helper function to each element in the column
@@ -872,6 +892,52 @@ remove_lumped_rvs_codes <- function(column) {
   return(modified_column)
 }
 
+remove_lumped_icd9_codes <- function(column) {
+  #' @title Remove Lumped Alphanumeric RVS Codes and Split Every 5 Characters
+  #'
+  #' @description This function removes '|' characters from the input,
+  #' and splits the resulting alphanumeric codes into chunks of 5 characters.
+  #' If the total length of the cleaned code is not a multiple of 5, it will return NA.
+  #'
+  #' @param column character. The column to be processed.
+  #'
+  #' @return character. The modified column with lumped RVS codes separated,
+  #' or NA if the length of the code is not a multiple of 5.
+
+  # Define a helper function to process each code
+  split_rvs_codes_helper_icd9 <- function(code) {
+    if (is.na(code) || code == "" || is.null(code)) {
+      return(NA_character_) # Return NA if input is NA, empty, or NULL
+    }
+
+    # Remove all '|' characters
+    code_clean <- gsub("\\|", "", code)
+
+    # Ensure that only alphanumeric characters are kept
+    code_clean <- gsub("[^A-Z0-9]", "", code_clean)
+
+    # Check if the cleaned code length is a multiple of 4 characters
+    if (nchar(code_clean) == 0) {
+      return(NA_character_) # Return NA if the code length is not a multiple of 4
+    } else if (nchar(code_clean) %% 4 != 0) {
+      message(paste0("Total length of concatenated RVS codes is not a multiple of 4 characters: ", code_clean))
+      return(NA_character_)
+    } else {
+      # Insert the separator \\|\\| between every 4 characters
+      modified_code <- gsub("(.{4})", "\\1\\|\\|", code_clean)
+
+      # Remove the trailing separator (\\|\\|) if present
+      modified_code <- gsub("\\|\\|$", "", modified_code)
+
+      return(modified_code)
+    }
+  }
+
+  # Apply the helper function to each element in the column
+  modified_column <- sapply(as.character(column), split_rvs_codes_helper_icd9, USE.NAMES = FALSE)
+
+  return(modified_column)
+}
 
 # Function to transfer extra ICD-10 codes to clinical ICD
 transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
@@ -1236,23 +1302,88 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   )
 }
 
+# # Function to find the primary diagnosis (PDX) based on the provided logic
+# find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
+#   #' @title Find primary diagnosis (PDX)
+#   #'
+#   #' @description This function finds the primary diagnosis (PDX) based
+#   #' on the provided clinical codes and acceptable PDX environment.
+#   #'
+#   #' @param clin_c1 character The first clinical code.
+#   #' @param clin_c2 character The second clinical code.
+#   #' @param clin_icd list The list of clinical ICD codes.
+#   #' @param acc_pdx_env environment The environment containing
+#   #' acceptable PDX codes.
+#   #'
+#   #' @return list A list containing the PDX and PDX code.
+
+#   set.seed(global_seed)
+
+#   check_similarity <- function(x, y) {
+#     score <- 0
+#     min_len <- min(nchar(x), nchar(y))
+#     for (i in 1:min_len) {
+#       if (substr(x, i, i) == substr(y, i, i)) {
+#         score <- score + 1
+#       }
+#     }
+#     return(score)
+#   }
+
+#   clin_icd <- unlist(clin_icd)
+
+#   # Get a list of all SDx that may be chosen as PDx
+#   pdxs <- unique(clin_icd)
+#   pdxs <- pdxs[sapply(pdxs, function(x) exists(x, acc_pdx_env))]
+
+#   # For those with no acceptable PDx or only 1 acceptable PDx
+#   if (length(pdxs) == 0) {
+#     return(list(pdx = NA_character_, pdx_code = 99))
+#   } else if (length(pdxs) == 1) {
+#     return(list(pdx = pdxs[1], pdx_code = 3))
+#   }
+
+#   # If there are multiple eligible PDx,
+#   # see if any are related to the starting letters
+#   for (cr in c(clin_c1, clin_c2)) {
+#     if (!is.na(cr)) {
+#       if (exists(cr, acc_pdx_env)) { # If clin_c* is a valid ICD-10
+#         # Get starting letter of clin_c*
+#         starting_letter <- substr(cr, 1, 1)
+#         # List all valid ICD-10 codes with same starting letter
+#         starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
+#         # If there's only one similar eligible PDx, choose that
+#         if (length(starting_codes) == 1) {
+#           return(list(pdx = starting_codes[1], pdx_code = 4))
+#         }
+#         # If there are multiple similar eligible PDx
+#         if (length(starting_codes) > 1) {
+#           # Obtain the one that most resembles the case rate
+#           starting_codes <- starting_codes[
+#             order(sapply(
+#               starting_codes,
+#               function(x) check_similarity(cr, x)
+#             ), decreasing = TRUE)
+#           ]
+#           return(list(pdx = starting_codes[1], pdx_code = 5))
+#         }
+#       }
+#     }
+#   }
+
+#   # If there is no related starting letter, choose randomly
+#   if (length(pdxs) > 0) {
+#     return(list(pdx = sample(pdxs, 1), pdx_code = 6))
+#   }
+
+#   return(list(pdx = NA_character_, pdx_code = 99))
+# }
+
 # Function to find the primary diagnosis (PDX) based on the provided logic
 find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
-  #' @title Find primary diagnosis (PDX)
-  #'
-  #' @description This function finds the primary diagnosis (PDX) based
-  #' on the provided clinical codes and acceptable PDX environment.
-  #'
-  #' @param clin_c1 character The first clinical code.
-  #' @param clin_c2 character The second clinical code.
-  #' @param clin_icd list The list of clinical ICD codes.
-  #' @param acc_pdx_env environment The environment containing
-  #' acceptable PDX codes.
-  #'
-  #' @return list A list containing the PDX and PDX code.
-
   set.seed(global_seed)
 
+  # Function to check similarity between two strings
   check_similarity <- function(x, y) {
     score <- 0
     min_len <- min(nchar(x), nchar(y))
@@ -1264,40 +1395,33 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
     return(score)
   }
 
-  clin_icd <- unlist(clin_icd)
+  # Unlist clin_icd properly
+  clin_icd <- unlist(strsplit(clin_icd, "\\|")) # Split by '|' if needed
 
-  # Get a list of all SDx that may be chosen as PDx
+  # Get a list of all ICDs that are acceptable as PDx
   pdxs <- unique(clin_icd)
   pdxs <- pdxs[sapply(pdxs, function(x) exists(x, acc_pdx_env))]
 
-  # For those with no acceptable PDx or only 1 acceptable PDx
+  # For cases with no or one acceptable PDx
   if (length(pdxs) == 0) {
     return(list(pdx = NA_character_, pdx_code = 99))
   } else if (length(pdxs) == 1) {
     return(list(pdx = pdxs[1], pdx_code = 3))
   }
 
-  # If there are multiple eligible PDx,
-  # see if any are related to the starting letters
+  # If there are multiple eligible PDx, check clin_c1 and clin_c2
   for (cr in c(clin_c1, clin_c2)) {
     if (!is.na(cr)) {
-      if (exists(cr, acc_pdx_env)) { # If clin_c* is a valid ICD-10
-        # Get starting letter of clin_c*
+      if (exists(cr, acc_pdx_env)) {
         starting_letter <- substr(cr, 1, 1)
-        # List all valid ICD-10 codes with same starting letter
         starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
-        # If there's only one similar eligible PDx, choose that
         if (length(starting_codes) == 1) {
           return(list(pdx = starting_codes[1], pdx_code = 4))
-        }
-        # If there are multiple similar eligible PDx
-        if (length(starting_codes) > 1) {
-          # Obtain the one that most resembles the case rate
+        } else if (length(starting_codes) > 1) {
           starting_codes <- starting_codes[
-            order(sapply(
-              starting_codes,
-              function(x) check_similarity(cr, x)
-            ), decreasing = TRUE)
+            order(sapply(starting_codes, function(x) check_similarity(cr, x)),
+              decreasing = TRUE
+            )
           ]
           return(list(pdx = starting_codes[1], pdx_code = 5))
         }
@@ -1305,7 +1429,7 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
     }
   }
 
-  # If there is no related starting letter, choose randomly
+  # Choose randomly if no match based on starting letters
   if (length(pdxs) > 0) {
     return(list(pdx = sample(pdxs, 1), pdx_code = 6))
   }
@@ -1313,20 +1437,85 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
   return(list(pdx = NA_character_, pdx_code = 99))
 }
 
-apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
-  #' @title Apply find PDX
-  #'
-  #' @description This function applies the find PDX logic
-  #' to a set of clinical codes and acceptable PDX codes.
-  #'
-  #' @param clin_c1 list The list of first clinical codes.
-  #' @param clin_c2 list The list of second clinical codes.
-  #' @param clin_icd list The list of clinical ICD codes.
-  #' @param acc_pdx character The list of acceptable PDX codes.
-  #'
-  #' @return list A list containing the PDX and PDX codes
-  #' for the input clinical codes.
+# apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+#   #' @title Apply find PDX
+#   #'
+#   #' @description This function applies the find PDX logic
+#   #' to a set of clinical codes and acceptable PDX codes.
+#   #'
+#   #' @param clin_c1 list The list of first clinical codes.
+#   #' @param clin_c2 list The list of second clinical codes.
+#   #' @param clin_icd list The list of clinical ICD codes.
+#   #' @param acc_pdx character The list of acceptable PDX codes.
+#   #'
+#   #' @return list A list containing the PDX and PDX codes
+#   #' for the input clinical codes.
 
+#   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
+#   for (code in acc_pdx) {
+#     assign(code, TRUE, envir = acc_pdx_env)
+#   }
+
+#   datatable <- data.table(
+#     clin_c1 = clin_c1,
+#     clin_c2 = clin_c2,
+#     clin_icd = clin_icd
+#   )
+
+#   # Vectorized application of find_pdx function
+#   find_pdx_vectorized <- function(clin_c1, clin_c2, clin_icd) {
+#     # Convert lists to characters for easy handling
+#     clin_c1_char <- sapply(
+#       clin_c1, function(x) if (is.null(x)) NA_character_ else x
+#     )
+#     clin_c2_char <- sapply(
+#       clin_c2, function(x) if (is.null(x)) NA_character_ else x
+#     )
+#     clin_icd_char <- sapply(
+#       clin_icd, function(x) paste(x, collapse = ",")
+#     )
+
+#     # Initialize result vectors
+#     pdx <- rep(NA_character_, length(clin_c1))
+#     pdx_code <- rep(NA_integer_, length(clin_c1))
+
+#     # Batch check clin_c1 and clin_c2
+#     clin_c1_check <- sapply(clin_c1_char, function(x) exists(x, acc_pdx_env))
+#     clin_c2_check <- sapply(clin_c2_char, function(x) exists(x, acc_pdx_env))
+
+#     pdx[clin_c1_check] <- clin_c1_char[clin_c1_check]
+#     pdx_code[clin_c1_check] <- 1
+
+#     clin_c2_only_check <- !clin_c1_check & clin_c2_check
+#     pdx[clin_c2_only_check] <- clin_c2_char[clin_c2_only_check]
+#     pdx_code[clin_c2_only_check] <- 2
+
+#     # Apply find_pdx function to remaining rows
+#     remaining_indices <- which(is.na(pdx))
+#     for (i in remaining_indices) {
+#       result <- find_pdx(
+#         clin_c1_char[i], clin_c2_char[i], clin_icd_char[i], acc_pdx_env
+#       )
+#       pdx[i] <- result$pdx
+#       pdx_code[i] <- result$pdx_code
+#     }
+
+#     return(list(pdx = pdx, pdx_code = pdx_code))
+#   }
+
+#   pdx_results <- find_pdx_vectorized(
+#     datatable$clin_c1,
+#     datatable$clin_c2,
+#     datatable$clin_icd
+#   )
+#   datatable[, pdx := pdx_results$pdx]
+#   datatable[, pdx_code := pdx_results$pdx_code]
+
+#   return(list(pdx = datatable$pdx, pdx_code = datatable$pdx_code))
+# }
+
+# Function to apply the find_pdx logic to a data.table
+apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
@@ -1338,24 +1527,14 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
     clin_icd = clin_icd
   )
 
-  # Vectorized application of find_pdx function
   find_pdx_vectorized <- function(clin_c1, clin_c2, clin_icd) {
-    # Convert lists to characters for easy handling
-    clin_c1_char <- sapply(
-      clin_c1, function(x) if (is.null(x)) NA_character_ else x
-    )
-    clin_c2_char <- sapply(
-      clin_c2, function(x) if (is.null(x)) NA_character_ else x
-    )
-    clin_icd_char <- sapply(
-      clin_icd, function(x) paste(x, collapse = ",")
-    )
+    clin_c1_char <- sapply(clin_c1, function(x) if (is.null(x)) NA_character_ else x)
+    clin_c2_char <- sapply(clin_c2, function(x) if (is.null(x)) NA_character_ else x)
+    clin_icd_char <- sapply(clin_icd, function(x) paste(x, collapse = "|")) # Join with '|'
 
-    # Initialize result vectors
     pdx <- rep(NA_character_, length(clin_c1))
     pdx_code <- rep(NA_integer_, length(clin_c1))
 
-    # Batch check clin_c1 and clin_c2
     clin_c1_check <- sapply(clin_c1_char, function(x) exists(x, acc_pdx_env))
     clin_c2_check <- sapply(clin_c2_char, function(x) exists(x, acc_pdx_env))
 
@@ -1366,7 +1545,6 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
     pdx[clin_c2_only_check] <- clin_c2_char[clin_c2_only_check]
     pdx_code[clin_c2_only_check] <- 2
 
-    # Apply find_pdx function to remaining rows
     remaining_indices <- which(is.na(pdx))
     for (i in remaining_indices) {
       result <- find_pdx(
@@ -2678,7 +2856,7 @@ export_for_grouper <- function(dt, output_txt_file) {
 
   # Format Sex
   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
-  
+
   # Format Admission Date and Time
   output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
   output_dt[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
@@ -2687,7 +2865,7 @@ export_for_grouper <- function(dt, output_txt_file) {
   output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
   output_dt[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
 
-# Discharge Type
+  # Discharge Type
   output_dt[, DischT := dt$clin_discharge]
   # Admission Weight
   output_dt[, AdmWt := dt$pat_bwt]
@@ -2716,6 +2894,7 @@ export_for_grouper <- function(dt, output_txt_file) {
 
   # Replace NA values with '--'
   output_dt[is.na(output_dt)] <- "--"
+  output_dt[is.null(output_dt)] <- "--"
   # # Convert list columns to comma-separated strings
   # for (col in names(output_dt)) {
   #   if (is.list(output_dt[[col]])) {
@@ -2723,7 +2902,7 @@ export_for_grouper <- function(dt, output_txt_file) {
   #   }
   # }
   # Write the data.table to a file with vertical bar (|) as delimiter
-  
+
   str(output_dt)
 
   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)

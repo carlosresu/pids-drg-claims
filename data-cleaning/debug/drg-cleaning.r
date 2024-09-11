@@ -7,10 +7,15 @@ gc()
 source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
 
 
-# Python packages to install
+# List of Python packages to install
 pkgs <- c("numpy", "pandas", "streamlit", "python_dateutil", "tabulate", "swifter", "rpy2")
-# Install python packages for reticulate
-for (pkg in pkgs) py_install(pkg)
+
+# Install Python packages for reticulate only if they are not already installed
+for (pkg in pkgs) {
+  if (!py_module_available(pkg)) {
+    py_install(pkg)
+  }
+}
 
 
 # Prompt Options:
@@ -26,7 +31,7 @@ gcs_bucket <- "phic-claims-checkpoints" # Name of GCS bucket
 gcs_pre_fpath <- "pre-tdrg" # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_post_fpath <- "post-tdrg" # Name of folder path prefix in GCS bucket for thai grouper output
 bq_dataset <- "phic" # bq dataset
-bq_table <- "temp_claims_series_check" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
+bq_table <- "temp_claims_20240911" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
@@ -449,7 +454,7 @@ clean_data <- function(dt) {
   # Remove lumped ICD codes
   dt[, clin_c1 := remove_lumped_icd_codes(clin_c1)]
   dt[, clin_c2 := remove_lumped_icd_codes(clin_c2)]
-  dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
+  # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
 
   # Clean clinical columns
   clean_clin_col_res <- clean_clinical_columns(dt)
@@ -606,8 +611,26 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   clean_result <- clean_data(chunk)
   chunk <- clean_result$return_data
 
+  # chunk[, clin_rvs := split_to_vector(clin_rvs)]
+  # fwrite(chunk, "test1.csv")
+  # chunk[, clin_rvs := gsub("[^A-Z0-9\\|]", "", clin_rvs)]
+  if (to_debug) fwrite(chunk, "test1.csv")
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs, rvs_icd9)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
+
+  # chunk[, clin_rvs := gsub("[^A-Z0-9\\|]", "", clin_rvs)]
+  # chunk[, icd9_list := gsub("[^A-Z0-9\\|]", "", icd9_list)]
+  # chunk[, clin_rvs := split_to_vector(as.character(clin_rvs))]
+  # chunk[, icd9_list := split_to_vector(as.character(icd9_list))]
+  # chunk[, clin_rvs := gsub("[^A-Z0-9\\|]", "", clin_rvs)]
+  # chunk[, icd9_list := gsub("[^A-Z0-9\\|]", "", icd9_list)]
+  # chunk[, clin_rvs := split_to_vector_single(as.character(clin_rvs))]
+  # chunk[, icd9_list := split_to_vector_single(as.character(icd9_list))]
+
+  # # chunk[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
+  # # chunk[, icd9_list := remove_lumped_icd9_codes(icd9_list)]
+
+  if (to_debug) fwrite(chunk, "test2.csv")
 
   clin_c1 <- chunk$clin_c1
   clin_c2 <- chunk$clin_c2
@@ -624,27 +647,51 @@ process_chunk <- function(chunk, to_view_checks, rvs_icd9, tdrg_icd10, acc_pdx) 
   chunk <- res2$return_data
   empty_strings_replaced_2 <- res2$return_replacement_summary
 
+  # fwrite(chunk, "test2b.csv")
+
+  # Function to remove all whitespace characters from character vectors
+  remove_whitespace <- function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Return NA for NULL or empty lists
+    } else {
+      return(gsub("\\s+", "", x)) # Remove all whitespace characters
+    }
+  }
+
+  # Apply the function to the list columns 'clin_c1', 'clin_c2', and 'clin_icd'
+  chunk[, clin_c1 := lapply(clin_c1, remove_whitespace)]
+  chunk[, clin_c2 := lapply(clin_c2, remove_whitespace)]
+  chunk[, clin_icd := lapply(clin_icd, remove_whitespace)]
+
+  chunk[, clin_c1 := as.character(clin_c1)]
+  chunk[, clin_c2 := as.character(clin_c2)]
+
+  # Write the combined data.table to a single CSV file
+  # fwrite(data.table(Column = colnames(chunk), Class = sapply(chunk, class)), "class.csv")
+
   pdx_result <- apply_find_pdx(
     chunk$clin_c1, chunk$clin_c2, chunk$clin_icd, acc_pdx
   )
   chunk$pdx <- pdx_result$pdx
   chunk$pdx_code <- pdx_result$pdx_code
 
-  # Ensure consistent lengths of clin_rvs and icd9_list
-  clin_rvs_len <- lengths(chunk$clin_rvs)
-  icd9_list_len <- lengths(chunk$icd9_list)
+  # fwrite(chunk, "test2c.csv")
 
-  max_len <- max(c(clin_rvs_len, icd9_list_len))
-  chunk$clin_rvs <- lapply(chunk$clin_rvs, function(x) {
-    length(x) <- max_len
-    # return x with a new max length
-    return(x)
-  })
-  chunk$icd9_list <- lapply(chunk$icd9_list, function(x) {
-    length(x) <- max_len
-    # return x with a new max length
-    return(x)
-  })
+  # # Ensure consistent lengths of clin_rvs and icd9_list
+  # clin_rvs_len <- lengths(chunk$clin_rvs)
+  # icd9_list_len <- lengths(chunk$icd9_list)
+
+  # max_len <- max(c(clin_rvs_len, icd9_list_len))
+  # chunk$clin_rvs <- lapply(chunk$clin_rvs, function(x) {
+  #   length(x) <- max_len
+  #   # return x with a new max length
+  #   return(x)
+  # })
+  # chunk$icd9_list <- lapply(chunk$icd9_list, function(x) {
+  #   length(x) <- max_len
+  #   # return x with a new max length
+  #   return(x)
+  # })
 
   chunk_summary <- modifyList(
     clean_result$return_summary,
@@ -742,7 +789,7 @@ main_logic_func <- function() {
     ##################################################################################################################################
 
     start_time <- Sys.time()
-    message(paste0("Partial file no. ", loop_part, " doesn't exist yet. Processing now."))
+    # message(paste0("Partial file no. ", loop_part, " doesn't exist yet. Processing now."))
     partial_claims_file <<- here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
       "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
@@ -912,7 +959,7 @@ main_logic_func <- function() {
     # for (col in list_cols) {
     #   master_dt[, (col) := sapply(.SD[[col]], function(x) {
     #     # Remove "NA" from the list and collapse to a string
-    #     cleaned <- paste(na.omit(x), collapse = "~~")
+    #     cleaned <- paste(na.omit(x), collapse = "||")
     #     # If the cleaned string is empty, return NA_character_,
     #     # otherwise return the cleaned string
     #     if (cleaned == "") NA_character_ else cleaned
@@ -973,14 +1020,13 @@ if (to_profvis) {
 }
 
 
-str(master_dt)
+# str(master_dt)
 
 
 # Please run thai grouper first
 result <- fread(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".csv")), colClasses = "character")
 
-str(result)
-
+# str(result)
 # Convert data types to match BigQuery schema
 result[, id_series := as.character(id_series)]
 result[, id_pin := as.character(id_pin)]
@@ -1057,10 +1103,10 @@ result_dt <- rbind(positive_age_dt, negative_age_dt)
 # Calculate 'pat_age' only for rows where 'pat_bdate' is not missing
 result_dt[!is.na(pat_bdate), pat_age := floor(as.numeric(interval(pat_bdate, date_adm) / years(1)))]
 
-# Function to split a list column by '~~' and ensure a fixed number of columns
+# Function to split a list column by '||' and ensure a fixed number of columns
 split_codes <- function(dt, column, prefix, max_cols) {
   # Apply strsplit to each element in the list column
-  split_list <- lapply(dt[[column]], function(x) unlist(strsplit(x, "~~")))
+  split_list <- lapply(dt[[column]], function(x) unlist(strsplit(x, "\\|")))
   # Ensure that each list element has exactly max_cols elements
   split_cols <- lapply(1:max_cols, function(i) sapply(split_list, function(x) if (length(x) >= i) x[[i]] else NA_character_))
   # Convert to data.table
@@ -1168,13 +1214,15 @@ test[, names(test) := lapply(.SD, function(col) {
   }
 })]
 
+# print(head(test, 10))
+
 fwrite(test, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv")))
 
 # for (col in date_columns) print(unique(result_dt[[col]]))
 
 # pandas <- import("pandas")
 
-# print(sapply(result_dt, class))
+# print(sapply(test, class))
 
 csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv"))
 
@@ -1274,6 +1322,7 @@ dtype = {
 pandas_df = pandas_df.replace(pd.NA, None)
 pandas_df = pandas_df.replace(np.nan, None)
 pandas_df = pandas_df.replace('<NA>', None)
+pandas_df = pandas_df.replace('None', None)
 
 # Capture pandas_df.info() output
 buffer = StringIO()
@@ -1288,6 +1337,8 @@ cat(py$info_output)
 
 # Step 6: Process each row of the DataFrame through `drg_seeker` and append results
 py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
+
+cat(py$statements)
 
 
 # # Import pandas
@@ -1422,43 +1473,43 @@ py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
 # Convert data types to match BigQuery schema
 result <- as.data.table(py$output)
 
-# Define columns for each type conversion
-character_columns <- c(
-  "id_series", "id_pin", "id_hci", "pat_type", "clin_acc", "pat_rel",
-  "pat_sex", "pat_memcat_parent", "pat_memcat_child", "claim_status",
-  "pdx", "mdc", "pdc", "dc", "py_drg", "ageday", "error_code",
-  "warning_code", "pat_bwt" # , "thai_drg"
-)
+# # Define columns for each type conversion
+# character_columns <- c(
+#   "id_series", "id_pin", "id_hci", "pat_type", "clin_acc", "pat_rel",
+#   "pat_sex", "pat_memcat_parent", "pat_memcat_child", "claim_status",
+#   "pdx", "mdc", "pdc", "dc", "py_drg", "ageday", "error_code",
+#   "warning_code", "pat_bwt" # , "thai_drg"
+# )
 
 date_columns <- c(
   "date_adm", "date_dis", "date_rec", "date_ref", "date_check",
   "pat_bdate", "date_ext"
 )
 
-integer_columns <- c(
-  "clin_discharge", "pdx_code", "id_year" # , "ot", "err", "warn", "los"
-)
+# integer_columns <- c(
+#   "clin_discharge", "pdx_code", "id_year" # , "ot", "err", "warn", "los"
+# )
 
-numeric_columns <- c(
-  "pat_age", "claim_payout", "claim_charge", "pccl"
-  # , "rw", "wtlos", "adjrw"
-)
+# numeric_columns <- c(
+#   "pat_age", "claim_payout", "claim_charge", "pccl"
+#   # , "rw", "wtlos", "adjrw"
+# )
 
-logical_columns <- c("clin_outpatient", "clin_emergency")
+# logical_columns <- c("clin_outpatient", "clin_emergency")
 
 time_columns <- c("time_adm", "time_dis")
 
-# Apply conversions
-result[, (character_columns) := lapply(.SD, as.character), .SDcols = character_columns]
+# # Apply conversions
+# result[, (character_columns) := lapply(.SD, as.character), .SDcols = character_columns]
 result[, (date_columns) := lapply(.SD, as.Date), .SDcols = date_columns]
-result[, (integer_columns) := lapply(.SD, as.integer), .SDcols = integer_columns]
-result[, (numeric_columns) := lapply(.SD, as.numeric), .SDcols = numeric_columns]
-result[, (logical_columns) := lapply(.SD, function(x) as.logical(as.integer(x))), .SDcols = logical_columns]
+# result[, (integer_columns) := lapply(.SD, as.integer), .SDcols = integer_columns]
+# result[, (numeric_columns) := lapply(.SD, as.numeric), .SDcols = numeric_columns]
+# result[, (logical_columns) := lapply(.SD, function(x) as.logical(as.integer(x))), .SDcols = logical_columns]
 result[, (time_columns) := lapply(.SD, as.ITime), .SDcols = time_columns]
 
 # Convert string columns to arrays
-array_columns <- c("id_hcp", "clin_c1", "clin_c2", "clin_icd", "clin_rvs")
-result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "~~")), .SDcols = array_columns]
+array_columns <- c("id_hcp")
+result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|\\|")), .SDcols = array_columns]
 
 # Replace NULL (empty) arrays with an empty character vector
 result[, (array_columns) := lapply(.SD, function(x) {
@@ -1467,6 +1518,54 @@ result[, (array_columns) := lapply(.SD, function(x) {
     function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
   )
 }), .SDcols = array_columns]
+
+
+# Convert string columns to arrays
+array_columns <- c("clin_c1", "clin_c2", "clin_icd", "clin_rvs")
+result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
+
+# Replace NULL (empty) arrays with an empty character vector
+result[, (array_columns) := lapply(.SD, function(x) {
+  lapply(
+    x,
+    function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
+  )
+}), .SDcols = array_columns]
+
+# Manual fixes
+result[, pat_bwt := as.character(unlist(lapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
+result[, ageday := as.character(unlist(lapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
+# Convert 'warning_code' list column to a simple character column
+result[, warning_code := sapply(warning_code, function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(NA_character_) # Set NA for NULL or empty lists
+  } else {
+    return(as.character(unlist(x)))
+  }
+})]
+
+# Convert 'clin_c1' and 'clin_c2' list columns to simple character columns
+result[, clin_c1 := sapply(clin_c1, function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(NA_character_) # Set NA for NULL or empty lists
+  } else {
+    return(as.character(unlist(x)))
+  }
+})]
+
+result[, clin_c2 := sapply(clin_c2, function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(NA_character_) # Set NA for NULL or empty lists
+  } else {
+    return(as.character(unlist(x)))
+  }
+})]
+
+# Ensure the final columns are of type character and no longer lists
+result[, warning_code := as.character(warning_code)]
+result[, clin_c1 := as.character(clin_c1)]
+result[, clin_c2 := as.character(clin_c2)]
+str(result)
 
 
 # rename columns for bq push, dropping the pre-renamed source columns, also drop mdc and dc
@@ -1497,21 +1596,17 @@ result[, pccl := NULL]
 result[, warning_code := NULL]
 result[, error_code := NULL]
 
-
+# Drop mdc and dc
 result[, mdc := NULL]
-result[, dc := NULL]
+# result[, dc := NULL]
 
 
 pre_pad_id_series_nrow <- result[, uniqueN(id_series)]
 pre_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
 # pre_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
-
-
 # result[, thai_drg := str_pad(thai_drg, width = 5, side = "left", pad = "0")]
 result[, id_series := str_pad(id_series, width = 13, side = "left", pad = "0")]
 result[, id_pin := str_pad(id_pin, width = 20, side = "left", pad = "0")]
-
-
 post_pad_id_series_nrow <- result[, uniqueN(id_series)]
 post_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
 # post_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
@@ -1519,9 +1614,10 @@ post_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
 if (pre_pad_id_series_nrow != post_pad_id_series_nrow) stop("Error: id_series differs pre and post padding") else message("id_series nrow integrity valid")
 if (pre_pad_id_pin_nrow != post_pad_id_pin_nrow) stop("Error: id_series differs pre and post padding") else message("id_pin nrow integrity valid")
 # if (pre_paid_thai_drg_nrow != post_paid_thai_drg_nrow) stop("Error: thai_drg differs pre and post padding") else message("thai_drg nrow integrity valid")
+if (to_debug) fwrite(result, "test3.csv")
 
 
-# fwrite(result, "test.csv")
+# fwrite(result, "test3.csv")
 
 
 export_for_grouper(
@@ -1561,8 +1657,10 @@ gcs_get_object(
 )
 
 
-result[, caseid := 1:nrow(result)]
+before_merge <- data.table::copy(result)
+before_merge[, caseid := 1:nrow(result)]
 thai_result <- fread(here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")), colClasses = "character")
+# print(head(thai_result))
 thai_result[, caseid := as.integer(caseid)]
 thai_result[, thai_drg := drg]
 thai_result[, thai_rw := rw]
@@ -1581,9 +1679,11 @@ thai_result[, adjrw := NULL]
 thai_result[, err := NULL]
 thai_result[, warn := NULL]
 thai_result[, los := NULL]
-merged <- merge(result, thai_result, by = "caseid", all.x = TRUE)
-diff_merged <- merged[!thai_drg == py_drg]
-print(head(diff_merged))
+# print(head(before_merge))
+merged <- merge(before_merge, thai_result, by = "caseid", all.x = TRUE)
+# print(head(merged))
+diff_merged <- merged[!as.character(ifelse(is.na(py_drg), "NA", py_drg)) == as.character(thai_drg)]
+print(nrow(diff_merged))
 fwrite(diff_merged, here(checkpoint_9_path, paste0("checkpoint_9_grouper_differences_", year_to_load, suffix, ".csv")))
 
 
@@ -1628,6 +1728,7 @@ fwrite(diff_merged, here(checkpoint_9_path, paste0("checkpoint_9_grouper_differe
 
 
 str(merged)
+if (to_debug) fwrite(merged, "test4.csv")
 
 
 # # Please run thai grouper first
@@ -1644,50 +1745,58 @@ result[, caseid := as.integer(caseid)]
 # Convert data types to match BigQuery schema
 result[, id_series := as.character(id_series)]
 result[, id_pin := as.character(id_pin)]
-result[, date_adm := as.Date(date_adm, format = "%m/%d/%Y")]
+result[, date_adm := as.Date(date_adm, format = "%Y-%m-%d")]
 result[, time_adm := as.ITime(time_adm)]
-result[, date_dis := as.Date(date_dis, format = "%m/%d/%Y")]
+result[, date_dis := as.Date(date_dis, format = "%Y-%m-%d")]
 result[, time_dis := as.ITime(time_dis)]
-result[, date_rec := as.Date(date_rec, format = "%m/%d/%Y")]
-result[, date_ref := as.Date(date_ref, format = "%m/%d/%Y")]
-result[, date_check := as.Date(date_check, format = "%m/%d/%Y")]
+result[, date_rec := as.Date(date_rec, format = "%Y-%m-%d")]
+result[, date_ref := as.Date(date_ref, format = "%Y-%m-%d")]
+result[, date_check := as.Date(date_check, format = "%Y-%m-%d")]
 result[, id_hci := as.character(id_hci)]
+result[, id_hci := id_hci] # as is
 
 # Convert character "0"/"1" to logical for Boolean fields
-result[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
-result[, clin_emergency := as.logical(as.integer(clin_emergency))]
+result[, clin_outpatient := as.logical(clin_outpatient)] # as is
+result[, clin_emergency := as.logical(clin_emergency)] # as is
 
 result[, pat_type := as.character(pat_type)]
 result[, clin_acc := as.character(clin_acc)]
 result[, pat_rel := as.character(pat_rel)]
-result[, pat_bdate := as.Date(pat_bdate, format = "%m/%d/%Y")]
+result[, pat_bdate := as.Date(pat_bdate, format = "%Y-%m-%d")]
 result[, pat_age := as.numeric(pat_age)]
 result[, pat_sex := as.character(pat_sex)]
 result[, pat_bwt := as.numeric(pat_bwt)]
 result[, pat_memcat_parent := as.character(pat_memcat_parent)]
 result[, pat_memcat_child := as.character(pat_memcat_child)]
 result[, clin_discharge := as.integer(clin_discharge)]
+result[, clin_c1 := as.character(clin_c1)]
+result[, clin_c2 := as.character(clin_c2)]
 
 result[, claim_status := as.character(claim_status)]
 result[, claim_payout := as.numeric(claim_payout)]
 result[, claim_charge := as.numeric(claim_charge)]
-result[, date_ext := as.Date(date_ext, format = "%m/%d/%Y")]
+result[, date_ext := as.Date(date_ext, format = "%Y-%m-%d")]
 result[, id_year := as.integer(id_year)]
 
-result[, clin_c1_orig := as.character(clin_c1_orig)]
-result[, clin_c2_orig := as.character(clin_c2_orig)]
+result[, clin_sdx := clin_sdx] # as is
 
-result[, pdx := as.character(pdx)]
+result[, clin_pdx := as.character(clin_pdx)]
 result[, pdx_code := as.integer(pdx_code)]
-result[, drgname := NULL]
-result[, drg := as.character(drg)]
-result[, rw := as.numeric(rw)]
-result[, wtlos := as.numeric(wtlos)]
-result[, ot := as.integer(ot)]
-result[, adjrw := as.numeric(adjrw)]
-result[, err := as.integer(err)]
-result[, warn := as.integer(warn)]
-result[, los := as.integer(los)]
+
+result[, thai_drg := as.character(thai_drg)]
+result[, thai_rw := as.numeric(thai_rw)]
+result[, thai_wtlos := as.numeric(thai_wtlos)]
+result[, thai_ot := as.integer(thai_ot)]
+result[, thai_adjrw := as.numeric(thai_adjrw)]
+result[, thai_err := as.integer(thai_err)]
+result[, thai_warn := as.integer(thai_warn)]
+result[, thai_los := as.integer(thai_los)]
+
+result[, py_pdc := as.character(py_pdc)]
+result[, py_pccl := as.numeric(py_pccl)]
+result[, py_drg := as.character(py_drg)]
+result[, py_warn := as.character(py_warn)]
+result[, py_err := as.character(py_err)]
 
 # fwrite(result, merged_fpath) # Write to file for python grouper before strsplit
 

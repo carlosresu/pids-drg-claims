@@ -1,5 +1,10 @@
 [
   {
+    "name": "caseid",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "id_series",
     "type": "STRING",
     "mode": "NULLABLE"
@@ -90,6 +95,11 @@
     "mode": "NULLABLE"
   },
   {
+    "name": "pat_ageday",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "pat_sex",
     "type": "STRING",
     "mode": "NULLABLE"
@@ -117,12 +127,12 @@
   {
     "name": "clin_c1",
     "type": "STRING",
-    "mode": "REPEATED"
+    "mode": "NULLABLE"
   },
   {
     "name": "clin_c2",
     "type": "STRING",
-    "mode": "REPEATED"
+    "mode": "NULLABLE"
   },
   {
     "name": "claim_status",
@@ -155,7 +165,7 @@
     "mode": "REPEATED"
   },
   {
-    "name": "clin_rvs",
+    "name": "clin_proc",
     "type": "STRING",
     "mode": "REPEATED"
   },
@@ -221,6 +231,16 @@
   },
   {
     "name": "py_drg",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "py_warn",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "py_err",
     "type": "STRING",
     "mode": "NULLABLE"
   }
