@@ -1522,7 +1522,7 @@ result[, claim_charge := as.numeric(claim_charge)]
 result[, date_ext := as.Date(date_ext, format = "%Y-%m-%d")]
 result[, id_year := as.integer(id_year)]
 
-result[, clin_sdx := clin_sdx] # as is
+# result[, clin_sdx := clin_sdx] # as is
 result[, clin_proc := clin_rvs] # as is
 result[, clin_rvs := NULL] # as is
 result[, pat_ageday := as.integer(ageday)] # as is
