@@ -1,5 +1,10 @@
 [
   {
+    "name": "id_year",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "id_series",
     "type": "STRING",
     "mode": "NULLABLE"
@@ -8,6 +13,16 @@
     "name": "id_pin",
     "type": "STRING",
     "mode": "NULLABLE"
+  },
+  {
+    "name": "id_hci",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "id_hcp",
+    "type": "STRING",
+    "mode": "REPEATED"
   },
   {
     "name": "date_adm",
@@ -45,32 +60,12 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "id_hci",
-    "type": "STRING",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "id_hcp",
-    "type": "STRING",
-    "mode": "REPEATED"
-  },
-  {
-    "name": "clin_outpatient",
-    "type": "BOOL",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "clin_emergency",
-    "type": "BOOL",
+    "name": "date_ext",
+    "type": "DATE",
     "mode": "NULLABLE"
   },
   {
     "name": "pat_type",
-    "type": "STRING",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "clin_acc",
     "type": "STRING",
     "mode": "NULLABLE"
   },
@@ -115,21 +110,6 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "clin_discharge",
-    "type": "INT64",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "clin_c1",
-    "type": "STRING",
-    "mode": "NULLABLE"
-  },
-  {
-    "name": "clin_c2",
-    "type": "STRING",
-    "mode": "NULLABLE"
-  },
-  {
     "name": "claim_status",
     "type": "STRING",
     "mode": "NULLABLE"
@@ -145,13 +125,33 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "date_ext",
-    "type": "DATE",
+    "name": "clin_discharge",
+    "type": "INT64",
     "mode": "NULLABLE"
   },
   {
-    "name": "id_year",
-    "type": "INT64",
+    "name": "clin_outpatient",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_emergency",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_acc",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_c1",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_c2",
+    "type": "STRING",
     "mode": "NULLABLE"
   },
   {
@@ -170,7 +170,7 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "pdx_code",
+    "name": "clin_pdx_code",
     "type": "INT64",
     "mode": "NULLABLE"
   },
