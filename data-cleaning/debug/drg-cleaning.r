@@ -31,11 +31,11 @@ gcs_bucket <- "phic-claims-checkpoints" # Name of GCS bucket
 gcs_pre_fpath <- "pre-tdrg" # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_post_fpath <- "post-tdrg" # Name of folder path prefix in GCS bucket for thai grouper output
 bq_dataset <- "phic" # bq dataset
-bq_table <- "temp_claims_sep11" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
+bq_table <- "temp_claims_latest" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
