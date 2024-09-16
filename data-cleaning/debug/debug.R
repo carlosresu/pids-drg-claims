@@ -174,6 +174,84 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   return(collapsed_column)
 }
 
+replace_empty_with_na_python <- function(dt, to_view_checks) {
+  #' @title Replace empty strings with NA
+  #'
+  #' @description This function replaces empty strings, "NA", and "character(0)"
+  #' with NA in character, factor, and list columns of the data table.
+  #' Optionally provides a summary of replacements.
+  #'
+  #' @param dt data.table. The data table to be processed.
+  #' @param to_view_checks logical. Whether to provide a
+  #' summary of replacements.
+  #'
+  #' @return list. A list containing the processed data table
+  #' and the replacement summary.
+
+  char_factor_cols <- names(dt)[sapply(
+    dt,
+    function(col) is.character(col) || is.factor(col) || is.list(col)
+  )]
+
+  replacement_summary <- data.table(
+    Column = character(),
+    Empty_Replaced = integer(),
+    NA_Replaced = integer(),
+    Character0_Replaced = integer()
+  )
+
+  for (col_name in char_factor_cols) {
+    col <- dt[[col_name]]
+    if (to_view_checks) {
+      empty_count <- sum(col == "", na.rm = TRUE)
+      na_count <- sum(col == "NA", na.rm = TRUE)
+      char0_count <- sum(col == "character(0)", na.rm = TRUE)
+    }
+
+    # Using set to avoid copying
+    dt[
+      get(
+        col_name
+      ) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
+      (col_name) := NA
+    ]
+
+    if (is.factor(col)) {
+      set(dt,
+        j = col_name,
+        value = factor(dt[[col_name]],
+          levels = c(levels(col), NA)
+        )
+      )
+    }
+
+    if (to_view_checks) {
+      replacement_summary <- rbind(replacement_summary, data.table(
+        Column = col_name,
+        Empty_Replaced = empty_count,
+        NA_Replaced = na_count,
+        Character0_Replaced = char0_count
+      ))
+    }
+  }
+
+  if (to_view_checks) {
+    # Filter out rows where all counts are zero
+    replacement_summary <- replacement_summary[
+      Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
+    ]
+  }
+
+  return(
+    list(
+      # data to return
+      return_data = dt,
+      # returned summary for checks and outputs
+      return_replacement_summary = replacement_summary
+    )
+  )
+}
+
 replace_empty_with_na <- function(dt, to_view_checks) {
   #' @title Replace empty strings with NA
   #'
@@ -2650,31 +2728,31 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
 
   return(final_combined_summaries)
 }
-ensure_partial_files_exist <- function(partial_part) {
-  #' @title Ensure Partial Files Exist
-  #' @description This function checks if partial files exist for a
-  #' given partial_part and creates them if they don't.
-  #' @param partial_part integer. The partial_part number to process.
-  #' @return NULL. Creates partial files as a side effect if they do not exist.
-  chunk_file <- partial_claims_file
-  if (!file.exists(chunk_file)) {
-    rows_per_part <- ceiling(total_rows / split_parts)
-    start_row <- (partial_part - 1) * rows_per_part + 1
-    end_row <- min(partial_part * rows_per_part, total_rows)
-    dt <- fread(
-      file = full_claims_file,
-      skip = start_row,
-      nrows = end_row - start_row + 1,
-      na.strings = na_values,
-      colClasses = "character",
-      header = FALSE,
-      encoding = encode,
-      sep = sep
-    )
-    setnames(dt, colnames(full_header))
-    fwrite(dt, chunk_file, quote = TRUE)
-  }
-}
+# ensure_partial_files_exist <- function(partial_part) {
+#   #' @title Ensure Partial Files Exist
+#   #' @description This function checks if partial files exist for a
+#   #' given partial_part and creates them if they don't.
+#   #' @param partial_part integer. The partial_part number to process.
+#   #' @return NULL. Creates partial files as a side effect if they do not exist.
+#   chunk_file <- partial_claims_file
+#   if (!file.exists(chunk_file)) {
+#     rows_per_part <- ceiling(total_rows / split_parts)
+#     start_row <- (partial_part - 1) * rows_per_part + 1
+#     end_row <- min(partial_part * rows_per_part, total_rows)
+#     dt <- fread(
+#       file = full_claims_file,
+#       skip = start_row,
+#       nrows = end_row - start_row + 1,
+#       na.strings = na_values,
+#       colClasses = "character",
+#       header = FALSE,
+#       encoding = encode,
+#       sep = sep
+#     )
+#     setnames(dt, colnames(full_header))
+#     fwrite(dt, chunk_file, quote = TRUE)
+#   }
+# }
 
 ensure_sample_files_exist <- function(sample_part) {
   #' @title Ensure Sample Files Exist
@@ -2684,17 +2762,15 @@ ensure_sample_files_exist <- function(sample_part) {
   #'
   set.seed(global_seed)
   if (!file.exists(sampled_claims_file)) {
-    dt <- fread(
+    dt <- readRDS(
       here(raw_claims_parts_path, paste0(
         full_claims_prefix, year_to_load,
-        "_part_", sprintf("%02d", sample_part), "_of_", split_parts, ".csv"
-      )),
-      skip = 1, na.strings = na_values,
-      colClasses = "character", header = FALSE, encoding = encode, sep = sep
+        "_part_", sprintf("%02d", sample_part), "_of_", split_parts, ".rds"
+      ))
     )
     dt <- dt[sample(.N, min(sample_size, .N))]
-    setnames(dt, colnames(full_header))
-    fwrite(dt, sampled_claims_file, quote = TRUE)
+    # setnames(dt, colnames(full_header))
+    saveRDS(dt, sampled_claims_file, compress = FALSE)
   }
 }
 
@@ -2712,14 +2788,11 @@ read_appropriate_file <- function(read_part, to_sample) {
   } else {
     here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".csv"
+      "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
     ))
   }
 
-  dt <- fread(chunk_file,
-    na.strings = na_values, colClasses = "character",
-    header = TRUE, encoding = encode, sep = sep
-  )
+  dt <- readRDS(chunk_file)
 
   if (to_debug) print(head(dt), 2) # debug
 
@@ -2774,70 +2847,6 @@ read_appropriate_file <- function(read_part, to_sample) {
     )
   )
 }
-
-# # Function to export data for batch grouper
-# export_for_grouper <- function(
-#   dt, year_to_load, output_txt_file #, loop_part
-# ) {
-#   #' @title Export Data for Batch Grouper
-#   #'
-#   #' @description This function exports data for batch grouper,
-#   #' generating necessary columns and formatting them accordingly.
-#   #'
-#   #' @param dt data.table. The input data table.
-#   #' @param year_to_load integer. The year to load.
-#   #' @param output_txt_file character. The path to the output text file.
-#   #'
-#   #' @return NULL.
-
-#   output_dt <- data.table(CASEID = 1:nrow(dt))
-#   output_dt[, DOB := generate_dob(dt$pat_bdate, dt$pat_age, dt$date_adm)]
-#   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
-#   output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
-#   output_dt[, TimeAdm := gsub(":", "", dt$time_adm)]
-#   output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
-#   output_dt[, TimeDsc := gsub(":", "", dt$time_dis)]
-#   output_dt[, DischT := dt$clin_discharge]
-#   output_dt[, AdmWt := dt$pat_bwt]
-#   output_dt[, PDx := dt$pdx]
-
-#   icd_codes_list <- lapply(dt$clin_icd, function(icd_str) {
-#     codes <- unlist(icd_str)
-#     length(codes) <- 12
-#     codes
-#   })
-#   icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
-#   icd_cols <- paste0("SDx", 1:12)
-#   output_dt[, (icd_cols) := icd_codes]
-
-#   rvs_codes_list <- lapply(dt$icd9_list, function(rvs_str) {
-#     codes <- unlist(rvs_str)
-#     length(codes) <- 20
-#     codes
-#   })
-#   rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
-#   proc_cols <- paste0("Proc", 1:20)
-#   output_dt[, (proc_cols) := rvs_codes]
-
-#   # Replace NA values with '--'
-#   output_dt[is.na(output_dt)] <- "--"
-#   # Convert list columns to comma-separated strings
-#   for (col in names(output_dt)) {
-#     if (is.list(output_dt[[col]])) {
-#       output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
-#     }
-#   }
-
-#   # Write the data.table to a file
-#   # if (to_combine) master_grouper_input_list[[loop_part]] <<- output_dt
-#   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
-
-#   if (to_dec_mem_usage) rm(output_dt) # debug
-#   if (to_dec_mem_usage) gc() # debug
-#   if (to_debug) {
-#     return(NULL)
-#   } # debug
-# }
 
 export_for_grouper <- function(dt, output_txt_file) {
   #' @title Export Data for Batch Grouper

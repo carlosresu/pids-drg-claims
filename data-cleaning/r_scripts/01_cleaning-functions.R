@@ -61,6 +61,84 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   return(collapsed_column)
 }
 
+replace_empty_with_na_python <- function(dt, to_view_checks) {
+  #' @title Replace empty strings with NA
+  #'
+  #' @description This function replaces empty strings, "NA", and "character(0)"
+  #' with NA in character, factor, and list columns of the data table.
+  #' Optionally provides a summary of replacements.
+  #'
+  #' @param dt data.table. The data table to be processed.
+  #' @param to_view_checks logical. Whether to provide a
+  #' summary of replacements.
+  #'
+  #' @return list. A list containing the processed data table
+  #' and the replacement summary.
+
+  char_factor_cols <- names(dt)[sapply(
+    dt,
+    function(col) is.character(col) || is.factor(col) || is.list(col)
+  )]
+
+  replacement_summary <- data.table(
+    Column = character(),
+    Empty_Replaced = integer(),
+    NA_Replaced = integer(),
+    Character0_Replaced = integer()
+  )
+
+  for (col_name in char_factor_cols) {
+    col <- dt[[col_name]]
+    if (to_view_checks) {
+      empty_count <- sum(col == "", na.rm = TRUE)
+      na_count <- sum(col == "NA", na.rm = TRUE)
+      char0_count <- sum(col == "character(0)", na.rm = TRUE)
+    }
+
+    # Using set to avoid copying
+    dt[
+      get(
+        col_name
+      ) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
+      (col_name) := NA
+    ]
+
+    if (is.factor(col)) {
+      set(dt,
+        j = col_name,
+        value = factor(dt[[col_name]],
+          levels = c(levels(col), NA)
+        )
+      )
+    }
+
+    if (to_view_checks) {
+      replacement_summary <- rbind(replacement_summary, data.table(
+        Column = col_name,
+        Empty_Replaced = empty_count,
+        NA_Replaced = na_count,
+        Character0_Replaced = char0_count
+      ))
+    }
+  }
+
+  if (to_view_checks) {
+    # Filter out rows where all counts are zero
+    replacement_summary <- replacement_summary[
+      Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
+    ]
+  }
+
+  return(
+    list(
+      # data to return
+      return_data = dt,
+      # returned summary for checks and outputs
+      return_replacement_summary = replacement_summary
+    )
+  )
+}
+
 replace_empty_with_na <- function(dt, to_view_checks) {
   #' @title Replace empty strings with NA
   #'

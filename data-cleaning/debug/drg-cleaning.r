@@ -8,14 +8,10 @@ source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
 
 
 # List of Python packages to install
-pkgs <- c("numpy", "pandas", "streamlit", "python_dateutil", "tabulate", "swifter", "rpy2")
+pkgs <- c("numpy", "pandas", "streamlit", "python_dateutil", "tabulate", "swifter", "rpy2", "pyreadr")
 
 # Install Python packages for reticulate only if they are not already installed
-for (pkg in pkgs) {
-  if (!py_module_available(pkg)) {
-    py_install(pkg)
-  }
-}
+for (pkg in pkgs) if (!py_module_available(pkg)) py_install(pkg)
 
 
 # Prompt Options:
@@ -721,35 +717,48 @@ main_logic_func <- function() {
     header = TRUE, encoding = encode, sep = sep
   )
 
-  # Define Split and Save function
+  if (!file.exists(here(raw_claims_parts_path, paste0(
+    full_claims_prefix, year_to_load,
+    "_part_", sprintf("%02d", split_parts),
+    "_of_", split_parts, ".rds"
+  )))) {
+    full_file <<- fread(
+      file = full_claims_file, colClasses = "character",
+      header = TRUE, encoding = encode, sep = sep
+    )
+  }
+
   split_and_save <- function(split_and_save_part) {
     rows_per_part <- ceiling(total_rows / split_parts)
     chunk_file <- here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
       "_part_", sprintf("%02d", split_and_save_part),
-      "_of_", split_parts, ".csv"
+      "_of_", split_parts, ".rds"
     ))
+
+    # Only process if the part does not already exist
     if (!file.exists(chunk_file)) {
       start_row <- (split_and_save_part - 1) * rows_per_part + 1
       end_row <- min(split_and_save_part * rows_per_part, total_rows)
-      chunk_dt <- fread(
-        file = full_claims_file,
-        skip = start_row,
-        nrows = end_row - start_row + 1,
-        na.strings = na_values,
-        colClasses = "character",
-        header = FALSE,
-        encoding = encode,
-        sep = sep
-      )
-      setnames(chunk_dt, colnames(full_header))
-      if (to_debug) print(head(chunk_dt), 2) # debug
-      fwrite(chunk_dt, chunk_file)
+
+      # Handle the first chunk with a header, skip header for subsequent chunks
+      chunk_dt <- full_file[start_row:end_row]
+
+      # Debug print
+      if (to_debug) print(head(chunk_dt), 2)
+
+      # Write the chunk to a CSV file
+      saveRDS(chunk_dt, chunk_file, compress = FALSE)
+
+      # Reduce memory usage if specified
       if (to_dec_mem_usage) rm(chunk_dt)
       if (to_dec_mem_usage) gc()
+
+      # Save processing time for this part
       split_processing_times[[split_loop_part]] <- as.numeric(
         difftime(Sys.time(), start_time, units = "secs")
-      ) # Save partial processing time to a list
+      )
+
       # Print status update and ETA
       print_status_update(split_loop_part, split_parts, split_processing_times, "split")
     }
@@ -775,15 +784,15 @@ main_logic_func <- function() {
     # message(paste0("Partial file no. ", loop_part, " doesn't exist yet. Processing now."))
     partial_claims_file <<- here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
+      "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
     ))
 
-    ensure_partial_files_exist(loop_part) # Ensure partial exist
+    # ensure_partial_files_exist(loop_part) # Ensure partial exist
 
     if (to_sample) {
       sampled_claims_file <<- here(raw_claims_samples_path, paste0(
         "sampled_claims_", year_to_load, "_", sample_size,
-        "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
+        "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
       ))
       ensure_sample_files_exist(loop_part) # Ensure sample files exist
     }
@@ -874,11 +883,12 @@ main_logic_func <- function() {
     combined_parallel_summary$replacement_summary <- read_in_replacement_summary
 
     if (to_write) {
-      fwrite(
+      saveRDS(
         summarized_dt, here(checkpoint_1_path, paste0(
           checkpoint_1_prefix, year_to_load, suffix,
-          "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".csv"
-        ))
+          "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
+        )),
+        compress = FALSE
       )
     }
     # if (to_combine) master_dt_list[[loop_part]] <- summarized_dt # TODO: DISABLING FOR NOW
@@ -920,9 +930,9 @@ main_logic_func <- function() {
 
   if (to_combine) {
     for (read_part in 1:split_parts) {
-      master_dt_list[[read_part]] <- fread(here(checkpoint_1_path, paste0(
+      master_dt_list[[read_part]] <- readRDS(here(checkpoint_1_path, paste0(
         checkpoint_1_prefix, year_to_load, suffix,
-        "part_", sprintf("%02d", read_part), "_of_", split_parts, ".csv"
+        "part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
       )))
     }
     master_dt <<- rbindlist(master_dt_list)
@@ -933,9 +943,9 @@ main_logic_func <- function() {
       gc()
     }
     if (to_write) {
-      fwrite(master_dt, here(checkpoint_2_path, paste0(
-        checkpoint_2_prefix, year_to_load, suffix, ".csv"
-      )))
+      saveRDS(master_dt, here(checkpoint_2_path, paste0(
+        checkpoint_2_prefix, year_to_load, suffix, ".rds"
+      )), compress = FALSE)
     }
   }
 
@@ -976,7 +986,7 @@ if (to_profvis) {
 
 
 # Please run thai grouper first
-result <- fread(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".csv")), colClasses = "character")
+result <- readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds")))
 
 # str(result)
 # Convert data types to match BigQuery schema
@@ -1025,7 +1035,7 @@ result[, `:=`(
   clin_icd = mapply(function(pdx_var, sdx_var) sdx_var[sdx_var != pdx_var], pdx, clin_icd, SIMPLIFY = FALSE)
 )]
 
-fwrite(result, here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")))
+saveRDS(result, here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".rds")), compress = FALSE)
 
 # Step 1: Read in the data from the CSV file
 # result_dt <- fread(here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")), colClasses = "character")
@@ -1154,9 +1164,9 @@ replace_result <- replace_empty_with_none(result_dt)
 result_dt <- replace_result$return_data
 
 # Write the final DataFrame to CSV
-fwrite(result_dt, here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, ".csv")))
+saveRDS(result_dt, here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, ".rds")), compress = FALSE)
 
-test <- fread(here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, ".csv")), colClasses = "character")
+test <- readRDS(here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, ".rds")))
 
 test[, names(test) := lapply(.SD, function(col) {
   if (is.character(col)) {
@@ -1168,6 +1178,7 @@ test[, names(test) := lapply(.SD, function(col) {
 
 if (to_debug) print(head(test, 10))
 
+# saveRDS(as.data.frame(test), here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".rds")), compress = FALSE)
 fwrite(test, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv")))
 
 if (to_debug) for (col in date_columns) print(unique(result_dt[[col]]))
@@ -1176,6 +1187,7 @@ if (to_debug) for (col in date_columns) print(unique(result_dt[[col]]))
 
 if (to_debug) print(sapply(test, class))
 
+# csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".rds"))
 csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv"))
 
 # Use reticulate to run the following Python code within the R environment
@@ -1184,6 +1196,7 @@ import pandas as pd
 import numpy as np
 from io import StringIO
 import sys
+
 
 # Read the CSV with the specified dtype
 pandas_df = pd.read_csv('", csv_path, "',
@@ -1391,6 +1404,7 @@ result[, mdc := NULL]
 
 
 pre_pad_id_series_nrow <- result[, uniqueN(id_series)]
+print(pre_pad_id_series_nrow)
 pre_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
 # pre_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
 # result[, thai_drg := str_pad(thai_drg, width = 5, side = "left", pad = "0")]
@@ -1473,7 +1487,7 @@ merged <- merge(before_merge, thai_result, by = "caseid", all.x = TRUE)
 if (to_debug) print(head(merged))
 diff_merged <- merged[!as.character(ifelse(is.na(py_drg), "NA", py_drg)) == as.character(thai_drg)]
 print(nrow(diff_merged))
-fwrite(diff_merged, here(checkpoint_9_path, paste0("checkpoint_9_grouper_differences_", year_to_load, suffix, ".csv")))
+saveRDS(diff_merged, here(checkpoint_9_path, paste0("checkpoint_9_grouper_differences_", year_to_load, suffix, ".rds")))
 
 
 str(merged)
