@@ -363,23 +363,23 @@ clean_clinical_columns <- function(dt) {
   dt <- transfer_icd_codes(dt)
   dt <- deduplicate_icd_codes(dt)
 
-  clin_c1_rvs_results <- append_and_remove_rvs(
-    dt$clin_rvs, dt$clin_c1, rvs_icd9
+  c1_rvs_results <- append_and_remove_rvs(
+    dt$clin_rvs, dt$c1, rvs_icd9
   )
-  dt[, clin_rvs := clin_c1_rvs_results$clin_rvs]
-  dt[, clin_c1 := clin_c1_rvs_results$col]
-  clin_c1_discarded_rvs <- clin_c1_rvs_results$discarded_rvs
+  dt[, clin_rvs := c1_rvs_results$clin_rvs]
+  dt[, c1 := c1_rvs_results$col]
+  c1_discarded_rvs <- c1_rvs_results$discarded_rvs
 
-  # cat(clin_c1_discarded_rvs)
+  # cat(c1_discarded_rvs)
 
-  clin_c2_rvs_results <- append_and_remove_rvs(
-    dt$clin_rvs, dt$clin_c2, rvs_icd9
+  c2_rvs_results <- append_and_remove_rvs(
+    dt$clin_rvs, dt$c2, rvs_icd9
   )
-  dt[, clin_rvs := clin_c2_rvs_results$clin_rvs]
-  dt[, clin_c2 := clin_c2_rvs_results$col]
-  clin_c2_discarded_rvs <- clin_c2_rvs_results$discarded_rvs
+  dt[, clin_rvs := c2_rvs_results$clin_rvs]
+  dt[, c2 := c2_rvs_results$col]
+  c2_discarded_rvs <- c2_rvs_results$discarded_rvs
 
-  # cat(clin_c2_discarded_rvs)
+  # cat(c2_discarded_rvs)
 
   dt[, clin_rvs := lapply(clin_rvs, unique)]
 
@@ -388,8 +388,8 @@ clean_clinical_columns <- function(dt) {
       # dt to return
       dt = dt,
       # other things to return for checks and outputs
-      discard_rvs_one = clin_c1_discarded_rvs,
-      discard_rvs_two = clin_c2_discarded_rvs
+      discard_rvs_one = c1_discarded_rvs,
+      discard_rvs_two = c2_discarded_rvs
     )
   )
 }
@@ -400,19 +400,19 @@ transfer_icd_codes <- function(dt) {
   #' to clinical ICD in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-  dt[, clin_c1 := split_to_vector(clin_c1)]
-  clin_c1_result <- transfer_extra_icd10s_to_clin_icd(
-    dt$clin_icd, dt$clin_c1
+  dt[, c1 := split_to_vector(c1)]
+  c1_result <- transfer_extra_icd10s_to_clin_icd(
+    dt$clin_icd, dt$c1
   )
-  dt[, clin_icd := clin_c1_result$clin_icd]
-  dt[, clin_c1 := clin_c1_result$col_first]
+  dt[, clin_icd := c1_result$clin_icd]
+  dt[, c1 := c1_result$col_first]
 
-  dt[, clin_c2 := split_to_vector(clin_c2)]
-  clin_c2_result <- transfer_extra_icd10s_to_clin_icd(
-    dt$clin_icd, dt$clin_c2
+  dt[, c2 := split_to_vector(c2)]
+  c2_result <- transfer_extra_icd10s_to_clin_icd(
+    dt$clin_icd, dt$c2
   )
-  dt[, clin_icd := clin_c2_result$clin_icd]
-  dt[, clin_c2 := clin_c2_result$col_first]
+  dt[, clin_icd := c2_result$clin_icd]
+  dt[, c2 := c2_result$col_first]
 
   return(dt)
 }
@@ -423,9 +423,9 @@ deduplicate_icd_codes <- function(dt) {
   #' within and across clinical columns in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-  dedup_result <- ensure_unique_icd_codes(dt$clin_c1, dt$clin_c2, dt$clin_icd)
-  dt[, clin_c1 := dedup_result$clin_c1]
-  dt[, clin_c2 := dedup_result$clin_c2]
+  dedup_result <- ensure_unique_icd_codes(dt$c1, dt$c2, dt$clin_icd)
+  dt[, c1 := dedup_result$c1]
+  dt[, c2 := dedup_result$c2]
   dt[, clin_icd := dedup_result$clin_icd]
   return(dt)
 }

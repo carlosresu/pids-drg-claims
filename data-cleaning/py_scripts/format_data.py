@@ -18,9 +18,9 @@ fixed_columns = [
     'date_rec', 'date_ref', 'date_check', 'id_hci',
     'id_hcp', 'clin_outpatient', 'clin_emergency',
     'pat_type', 'clin_acc', 'pat_rel', 'pat_memcat_parent',
-    'pat_memcat_child', 'clin_c1', 'clin_c2', 'claim_status',
+    'pat_memcat_child', 'c1', 'c2', 'claim_status',
     'claim_payout', 'claim_charge', 'date_ext', 'id_year',
-    'clin_icd', 'clin_rvs', 'clin_c1_orig', 'clin_c2_orig',
+    'clin_icd', 'clin_rvs', 'c1_orig', 'c2_orig',
     'icd9_list', 'pdx_code' # , 'drg', 'rw', 'wtlos', 'ot',
     # 'adjrw', 'err', 'warn', 'los'
 ]
@@ -53,9 +53,9 @@ priority_columns = [
     'date_rec', 'date_ref', 'date_check', 'id_hci', 'id_hcp', 'clin_outpatient',
     'clin_emergency', 'pat_type', 'clin_acc', 'pat_rel', 'pat_bdate', 'pat_age',
     'pat_sex', 'pat_bwt', 'pat_memcat_parent', 'pat_memcat_child',
-    'clin_discharge', 'clin_c1', 'clin_c2', 'claim_status', 'claim_payout',
+    'clin_discharge', 'c1', 'c2', 'claim_status', 'claim_payout',
     'claim_charge', 'date_ext', 'id_year', 'clin_icd', 'clin_rvs',
-    'clin_c1_orig', 'clin_c2_orig', 'icd9_list', 'pdx', 'pdx_code'
+    'c1_orig', 'c2_orig', 'icd9_list', 'pdx', 'pdx_code'
     # , 'drg', 'rw', 'wtlos', 'ot', 'adjrw', 'err', 'warn', 'los'
 ]
 

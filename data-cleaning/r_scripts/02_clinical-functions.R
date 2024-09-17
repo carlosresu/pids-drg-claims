@@ -497,19 +497,19 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
 }
 
 # Function to get unique ICD codes
-get_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
+get_unique_icd_codes <- function(c1, c2, clin_icd) {
   #' @title Get Unique ICD Codes
   #'
   #' @description This function retrieves unique ICD codes from
   #' the given columns.
   #'
-  #' @param clin_c1 list. The clinical column 1 ICD codes.
-  #' @param clin_c2 list. The clinical column 2 ICD codes.
+  #' @param c1 list. The clinical column 1 ICD codes.
+  #' @param c2 list. The clinical column 2 ICD codes.
   #' @param clin_icd list. The clinical ICD codes.
   #'
   #' @return character. The unique ICD codes.
 
-  icds <- unique(c(unlist(clin_c1), unlist(clin_c2), unlist(clin_icd)))
+  icds <- unique(c(unlist(c1), unlist(c2), unlist(clin_icd)))
   icds <- icds[!is.na(icds)]
   return(icds)
 }
@@ -594,14 +594,14 @@ generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
 
 # Helper function to map ICD-10 codes to columns
 apply_icd10_mapping_to_columns <- function(
-    clin_c1, clin_c2, clin_icd, icd10_env) {
+    c1, c2, clin_icd, icd10_env) {
   #' @title Apply ICD-10 Mapping to Columns
   #'
   #' @description This function maps ICD-10 codes to the given columns
   #' using the provided environment.
   #'
-  #' @param clin_c1 list. The clinical column 1 ICD codes.
-  #' @param clin_c2 list. The clinical column 2 ICD codes.
+  #' @param c1 list. The clinical column 1 ICD codes.
+  #' @param c2 list. The clinical column 2 ICD codes.
   #' @param clin_icd list. The clinical ICD codes.
   #' @param icd10_env environment. The environment with ICD-10 codes.
   #'
@@ -612,63 +612,63 @@ apply_icd10_mapping_to_columns <- function(
     return(unname(unlist(mapped)))
   }
 
-  clin_c1_mapped <- lapply(clin_c1, map_icd10_helper)
-  clin_c2_mapped <- lapply(clin_c2, map_icd10_helper)
+  c1_mapped <- lapply(c1, map_icd10_helper)
+  c2_mapped <- lapply(c2, map_icd10_helper)
   clin_icd_mapped <- lapply(clin_icd, map_icd10_helper)
 
   return(
     list(
-      clin_c1 = clin_c1_mapped,
-      clin_c2 = clin_c2_mapped,
+      c1 = c1_mapped,
+      c2 = c2_mapped,
       clin_icd = clin_icd_mapped
     )
   )
 }
 
 # Function to ensure unique ICD codes
-ensure_unique_icd_codes <- function(clin_c1, clin_c2, clin_icd) {
+ensure_unique_icd_codes <- function(c1, c2, clin_icd) {
   #' @title Ensure Unique ICD Codes
   #'
   #' @description This function ensures that ICD codes are unique
   #' within and across clinical columns.
   #'
-  #' @param clin_c1 list. The clinical column 1 ICD codes.
-  #' @param clin_c2 list. The clinical column 2 ICD codes.
+  #' @param c1 list. The clinical column 1 ICD codes.
+  #' @param c2 list. The clinical column 2 ICD codes.
   #' @param clin_icd list. The clinical ICD codes.
   #'
   #' @return list. A list containing the deduplicated clinical columns.
 
   # Convert lists to data.table for efficient processing
   datatable <- data.table(
-    clin_c1 = clin_c1,
-    clin_c2 = clin_c2,
+    c1 = c1,
+    c2 = c2,
     clin_icd = clin_icd
   )
 
   # Deduplicate each column
-  datatable[, clin_c1 := lapply(clin_c1, unique)]
-  datatable[, clin_c2 := lapply(clin_c2, unique)]
+  datatable[, c1 := lapply(c1, unique)]
+  datatable[, c2 := lapply(c2, unique)]
   datatable[, clin_icd := lapply(clin_icd, unique)]
 
-  # Remove entries in clin_icd that are in clin_c1 or clin_c2
+  # Remove entries in clin_icd that are in c1 or c2
   datatable[, clin_icd := Map(function(c1, c2, icd) {
     setdiff(icd, union(c1, c2))
-  }, clin_c1, clin_c2, clin_icd)]
+  }, c1, c2, clin_icd)]
 
-  # Remove entries in clin_c1 that are in clin_c2
-  datatable[, clin_c1 := Map(function(c1, c2) {
+  # Remove entries in c1 that are in c2
+  datatable[, c1 := Map(function(c1, c2) {
     setdiff(c1, c2)
-  }, clin_c1, clin_c2)]
+  }, c1, c2)]
 
-  # Remove entries in clin_c2 that are in clin_c1
-  datatable[, clin_c2 := Map(function(c1, c2) {
+  # Remove entries in c2 that are in c1
+  datatable[, c2 := Map(function(c1, c2) {
     setdiff(c2, c1)
-  }, clin_c1, clin_c2)]
+  }, c1, c2)]
 
   return(
     list(
-      clin_c1 = datatable$clin_c1,
-      clin_c2 = datatable$clin_c2,
+      c1 = datatable$c1,
+      c2 = datatable$c2,
       clin_icd = datatable$clin_icd
     )
   )
@@ -837,7 +837,7 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
 }
 
 # Function to find the primary diagnosis (PDX) based on the provided logic
-find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
+find_pdx <- function(c1, c2, clin_icd, acc_pdx_env) {
   set.seed(global_seed)
 
   # Function to check similarity between two strings
@@ -866,8 +866,8 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
     return(list(pdx = pdxs[1], pdx_code = 3))
   }
 
-  # If there are multiple eligible PDx, check clin_c1 and clin_c2
-  for (cr in c(clin_c1, clin_c2)) {
+  # If there are multiple eligible PDx, check c1 and c2
+  for (cr in c(c1, c2)) {
     if (!is.na(cr)) {
       if (exists(cr, acc_pdx_env)) {
         starting_letter <- substr(cr, 1, 1)
@@ -895,40 +895,40 @@ find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx_env) {
 }
 
 # Function to apply the find_pdx logic to a data.table
-apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
+apply_find_pdx <- function(c1, c2, clin_icd, acc_pdx) {
   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
   }
 
   datatable <- data.table(
-    clin_c1 = clin_c1,
-    clin_c2 = clin_c2,
+    c1 = c1,
+    c2 = c2,
     clin_icd = clin_icd
   )
 
-  find_pdx_vectorized <- function(clin_c1, clin_c2, clin_icd) {
-    clin_c1_char <- sapply(clin_c1, function(x) if (is.null(x)) NA_character_ else x)
-    clin_c2_char <- sapply(clin_c2, function(x) if (is.null(x)) NA_character_ else x)
+  find_pdx_vectorized <- function(c1, c2, clin_icd) {
+    c1_char <- sapply(c1, function(x) if (is.null(x)) NA_character_ else x)
+    c2_char <- sapply(c2, function(x) if (is.null(x)) NA_character_ else x)
     clin_icd_char <- sapply(clin_icd, function(x) paste(x, collapse = "|")) # Join with '|'
 
-    pdx <- rep(NA_character_, length(clin_c1))
-    pdx_code <- rep(NA_integer_, length(clin_c1))
+    pdx <- rep(NA_character_, length(c1))
+    pdx_code <- rep(NA_integer_, length(c1))
 
-    clin_c1_check <- sapply(clin_c1_char, function(x) exists(x, acc_pdx_env))
-    clin_c2_check <- sapply(clin_c2_char, function(x) exists(x, acc_pdx_env))
+    c1_check <- sapply(c1_char, function(x) exists(x, acc_pdx_env))
+    c2_check <- sapply(c2_char, function(x) exists(x, acc_pdx_env))
 
-    pdx[clin_c1_check] <- clin_c1_char[clin_c1_check]
-    pdx_code[clin_c1_check] <- 1
+    pdx[c1_check] <- c1_char[c1_check]
+    pdx_code[c1_check] <- 1
 
-    clin_c2_only_check <- !clin_c1_check & clin_c2_check
-    pdx[clin_c2_only_check] <- clin_c2_char[clin_c2_only_check]
-    pdx_code[clin_c2_only_check] <- 2
+    c2_only_check <- !c1_check & c2_check
+    pdx[c2_only_check] <- c2_char[c2_only_check]
+    pdx_code[c2_only_check] <- 2
 
     remaining_indices <- which(is.na(pdx))
     for (i in remaining_indices) {
       result <- find_pdx(
-        clin_c1_char[i], clin_c2_char[i], clin_icd_char[i], acc_pdx_env
+        c1_char[i], c2_char[i], clin_icd_char[i], acc_pdx_env
       )
       pdx[i] <- result$pdx
       pdx_code[i] <- result$pdx_code
@@ -938,8 +938,8 @@ apply_find_pdx <- function(clin_c1, clin_c2, clin_icd, acc_pdx) {
   }
 
   pdx_results <- find_pdx_vectorized(
-    datatable$clin_c1,
-    datatable$clin_c2,
+    datatable$c1,
+    datatable$c2,
     datatable$clin_icd
   )
   datatable[, pdx := pdx_results$pdx]
