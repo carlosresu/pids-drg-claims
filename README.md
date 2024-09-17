@@ -204,10 +204,11 @@ sudo ln -s /home/resurreccion_cmc_gmail_com/grouper /home/resurreccion_cmc_gmail
 Link /home/resurreccion_cmc_gmail_com/grouper contents into /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
 
 ```
-sudo ln -s /home/resurreccion_cmc_gmail_com/grouper/libraries /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
-sudo ln -s /home/resurreccion_cmc_gmail_com/grouper/misc /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
-sudo ln -s /home/resurreccion_cmc_gmail_com/grouper/scripts /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
-sudo ln -s /home/resurreccion_cmc_gmail_com/grouper/tests /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning/libraries
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/misc ~/drg-pipeline/data-cleaning/misc
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/tests ~/drg-pipeline/data-cleaning/scripts
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/tests ~/drg-pipeline/data-cleaning/tests
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/scripts ~/drg-pipeline/data-cleaning/scripts
 ```
 
 To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type "curl \<link\>"
@@ -231,7 +232,7 @@ Finally,
 2. Make sure everything is in order.
 
 **Important 1: Ensure you've symbolically linked `/home/data` to `/home/<username>/drg-pipeline/data-cleaning`**
-**Important 2: Ensure you've symbolically linked `/home/<username>/grouper` (i.e. `./libraries`, `./misc`, `./scripts`, and `./tests`) to `/home/<username>/drg-pipeline/data-cleaning`**
+**Important 2: Ensure you've symbolically linked `/home/<username>/drg-pipeline/data-cleaning/grouper` (i.e. `./libraries`, `./misc`, `./scripts`, and `./tests`) to `/home/<username>/drg-pipeline/data-cleaning`**
 
 Steps to run the data-cleaning code end-to-end:
 1. Run the notebook via VS Code's Run All button
