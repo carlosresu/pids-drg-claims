@@ -139,7 +139,7 @@ replace_empty_with_na_python <- function(dt, to_view_checks) {
   )
 }
 
-replace_empty_with_na <- function(dt, to_view_checks) {
+replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
   #' @title Replace empty strings with NA
   #'
   #' @description This function replaces empty strings, "NA", and "character(0)"
