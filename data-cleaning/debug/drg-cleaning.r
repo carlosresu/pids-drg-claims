@@ -31,7 +31,7 @@ bq_table <- "temp_claims_latest" # temp bq table, later renamed to claims_20XX12
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -1068,9 +1068,16 @@ result_dt[!is.na(pat_bdate), pat_age := floor(as.numeric(interval(pat_bdate, dat
 # Function to split a list column by '||' and ensure a fixed number of columns
 split_codes <- function(dt, column, prefix, max_cols) {
   # Apply strsplit to each element in the list column
-  split_list <- lapply(dt[[column]], function(x) unlist(strsplit(x, "\\|")))
-  # Ensure that each list element has exactly max_cols elements
-  split_cols <- lapply(1:max_cols, function(i) sapply(split_list, function(x) if (length(x) >= i) x[[i]] else NA_character_))
+  if (is_unix) {
+    split_list <- mclapply(dt[[column]], function(x) unlist(strsplit(x, "\\|")))
+    # Ensure that each list element has exactly max_cols elements
+    split_cols <- mclapply(1:max_cols, function(i) sapply(split_list, function(x) if (length(x) >= i) x[[i]] else NA_character_))
+  } else {
+    split_list <- future_lapply(dt[[column]], function(x) unlist(strsplit(x, "\\|")))
+    # Ensure that each list element has exactly max_cols elements
+    split_cols <- future_lapply(1:max_cols, function(i) sapply(split_list, function(x) if (length(x) >= i) x[[i]] else NA_character_))
+  }
+
   # Convert to data.table
   split_dt <- as.data.table(split_cols)
   # Name the columns appropriately
@@ -1082,8 +1089,14 @@ split_codes <- function(dt, column, prefix, max_cols) {
 sdx_columns <- split_codes(result_dt, "clin_icd", "sdx", 12)
 proc_columns <- split_codes(result_dt, "icd9_list", "proc", 20)
 
-proc_columns[, (names(proc_columns)) := lapply(.SD, as.character)]
-sdx_columns[, (names(sdx_columns)) := lapply(.SD, as.character)]
+if (is_unix) {
+  proc_columns[, (names(proc_columns)) := mclapply(.SD, as.character)]
+  sdx_columns[, (names(sdx_columns)) := mclapply(.SD, as.character)]
+} else {
+  proc_columns[, (names(proc_columns)) := future_lapply(.SD, as.character)]
+  sdx_columns[, (names(sdx_columns)) := future_lapply(.SD, as.character)]
+}
+
 
 # Combine the split columns back into result_dt
 result_dt <- cbind(result_dt, sdx_columns, proc_columns)
@@ -1096,7 +1109,11 @@ setnames(result_dt,
 
 # Replace NA with "None" in non-date columns
 non_date_columns <- setdiff(names(result_dt), date_columns)
-result_dt[, (non_date_columns) := lapply(.SD, function(x) ifelse(is.na(x), NA_character_, x)), .SDcols = non_date_columns]
+if (is_unix) {
+  result_dt[, (non_date_columns) := mclapply(.SD, function(x) ifelse(is.na(x), NA_character_, x)), .SDcols = non_date_columns]
+} else {
+  result_dt[, (non_date_columns) := future_lapply(.SD, function(x) ifelse(is.na(x), NA_character_, x)), .SDcols = non_date_columns]
+}
 
 # Columns you want to come first
 priority_columns <- c(
@@ -1159,7 +1176,7 @@ result_dt[, ageday := fifelse(is.na(ageday), NA, as.character(ageday))]
 
 before_replacing_with_none <- data.table::copy(result_dt)
 
-replace_result <- replace_empty_with_none(result_dt)
+replace_result <- replace_empty_with_na(result_dt) # TODO: See if this works if changed from replace_empty_with_none
 
 result_dt <- replace_result$return_data
 
@@ -1168,13 +1185,24 @@ saveRDS(result_dt, here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, 
 
 test <- data.table::copy(result_dt)
 
-test[, names(test) := lapply(.SD, function(col) {
-  if (is.character(col)) {
-    return(iconv(col, from = "", to = "UTF-8"))
-  } else {
-    return(col)
-  }
-})]
+if (is_unix) {
+  test[, names(test) := mclapply(.SD, function(col) {
+    if (is.character(col)) {
+      return(iconv(col, from = "", to = "UTF-8"))
+    } else {
+      return(col)
+    }
+  })]
+} else {
+  test[, names(test) := future_lapply(.SD, function(col) {
+    if (is.character(col)) {
+      return(iconv(col, from = "", to = "UTF-8"))
+    } else {
+      return(col)
+    }
+  })]
+}
+
 
 if (to_debug) print(head(test, 10))
 
@@ -1333,14 +1361,26 @@ for (col in names(full_data)) {
   }
 
   # If the column is a list, traverse its elements
-  if (is.list(full_data[[col]])) {
-    full_data[[col]] <- lapply(full_data[[col]], function(x) {
-      if (is.character(x)) {
-        # Replace 'None' and '<NA>' in list elements
-        x[x == "None" | x == "<NA>"] <- NA_character_
-      }
-      x # Return modified element
-    })
+  if (is_unix) {
+    if (is.list(full_data[[col]])) {
+      full_data[[col]] <- mclapply(full_data[[col]], function(x) {
+        if (is.character(x)) {
+          # Replace 'None' and '<NA>' in list elements
+          x[x == "None" | x == "<NA>"] <- NA_character_
+        }
+        x # Return modified element
+      })
+    }
+  } else {
+    if (is.list(full_data[[col]])) {
+      full_data[[col]] <- lapply(full_data[[col]], function(x) {
+        if (is.character(x)) {
+          # Replace 'None' and '<NA>' in list elements
+          x[x == "None" | x == "<NA>"] <- NA_character_
+        }
+        x # Return modified element
+      })
+    }
   }
 }
 
@@ -1417,43 +1457,87 @@ result[, (array_columns) := lapply(.SD, function(x) {
 # }), .SDcols = array_columns]
 
 # Manual fixes
+result[, clin_rvs := icd9_list]
+
 result[, pat_bwt := as.character(unlist(lapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
 result[, ageday := as.character(unlist(lapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
 
-# Convert 'warning_code' list column to a simple character column
-result[, warning_code := sapply(warning_code, function(x) {
-  if (is.null(x) || length(x) == 0) {
-    return(NA_character_) # Set NA for NULL or empty lists
-  } else {
-    return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
-  }
-})]
+if (is_unix) {
+  library(parallel)
 
-# Convert 'error_code' list column to a simple character column
-result[, error_code := sapply(error_code, function(x) {
-  if (is.null(x) || length(x) == 0) {
-    return(NA_character_) # Set NA for NULL or empty lists
-  } else {
-    return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
-  }
-})]
+  # Convert 'warning_code' list column to a simple character column using mclapply
+  result[, warning_code := mclapply(warning_code, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
+    }
+  }, mc.cores = 4)] # Adjust mc.cores to your system's capacity
 
-# Convert 'clin_c1' and 'clin_c2' list columns to simple character columns
-result[, clin_c1 := sapply(clin_c1, function(x) {
-  if (is.null(x) || length(x) == 0) {
-    return(NA_character_) # Set NA for NULL or empty lists
-  } else {
-    return(as.character(unlist(x)))
-  }
-})]
+  # Convert 'error_code' list column to a simple character column using mclapply
+  result[, error_code := mclapply(error_code, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
+    }
+  }, mc.cores = 4)]
 
-result[, clin_c2 := sapply(clin_c2, function(x) {
-  if (is.null(x) || length(x) == 0) {
-    return(NA_character_) # Set NA for NULL or empty lists
-  } else {
-    return(as.character(unlist(x)))
-  }
-})]
+  # Convert 'clin_c1' list column using mclapply
+  result[, clin_c1 := mclapply(clin_c1, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(as.character(unlist(x)))
+    }
+  }, mc.cores = 4)]
+
+  # Convert 'clin_c2' list column using mclapply
+  result[, clin_c2 := mclapply(clin_c2, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(as.character(unlist(x)))
+    }
+  }, mc.cores = 4)]
+} else {
+  # Convert 'warning_code' list column to a simple character column using sapply
+  result[, warning_code := sapply(warning_code, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
+    }
+  })]
+
+  # Convert 'error_code' list column to a simple character column using sapply
+  result[, error_code := sapply(error_code, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
+    }
+  })]
+
+  # Convert 'clin_c1' list column using sapply
+  result[, clin_c1 := sapply(clin_c1, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(as.character(unlist(x)))
+    }
+  })]
+
+  # Convert 'clin_c2' list column using sapply
+  result[, clin_c2 := sapply(clin_c2, function(x) {
+    if (is.null(x) || length(x) == 0) {
+      return(NA_character_) # Set NA for NULL or empty lists
+    } else {
+      return(as.character(unlist(x)))
+    }
+  })]
+}
+
 
 # Ensure the final columns are of type character and no longer lists
 result[, warning_code := as.character(warning_code)]
@@ -1464,15 +1548,42 @@ result[, clin_c2 := as.character(clin_c2)]
 
 # Convert string columns to arrays (list of character vectors)
 array_columns <- c("warning_code", "error_code")
-result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
 
-# Replace NULL (empty) arrays with an empty character vector
-result[, (array_columns) := lapply(.SD, function(x) {
-  lapply(
-    x,
-    function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
-  )
-}), .SDcols = array_columns]
+if (is_unix) {
+  result[, (array_columns) := mclapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
+  # Replace NULL (empty) arrays with an empty character vector
+  result[, (array_columns) := mclapply(.SD, function(x) {
+    lapply(x, function(y) {
+      # Ensure y is not a list and apply condition checks safely
+      if (is.character(y) && all(!is.na(y)) && all(y == "NA")) {
+        return(character(0))
+      }
+      # Check for other conditions: NULL, empty list, or all NA
+      if (length(y) == 0 || is.null(y) || all(is.na(y))) {
+        return(character(0))
+      } else {
+        return(y)
+      }
+    })
+  }), .SDcols = array_columns]
+} else {
+  result[, (array_columns) := future_lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
+  # Replace NULL (empty) arrays with an empty character vector
+  result[, (array_columns) := future_lapply(.SD, function(x) {
+    lapply(x, function(y) {
+      # Ensure y is not a list and apply condition checks safely
+      if (is.character(y) && all(!is.na(y)) && all(y == "NA")) {
+        return(character(0))
+      }
+      # Check for other conditions: NULL, empty list, or all NA
+      if (length(y) == 0 || is.null(y) || all(is.na(y))) {
+        return(character(0))
+      } else {
+        return(y)
+      }
+    })
+  }), .SDcols = array_columns]
+}
 
 result[, id_series := as.character(id_series)]
 result[, id_pin := as.character(id_pin)]
@@ -1523,6 +1634,7 @@ result[, mdc := NULL]
 
 
 if (to_debug) fwrite(result, "test3.csv")
+str(result)
 
 
 export_for_grouper(
@@ -1638,8 +1750,19 @@ result[, claim_charge := as.numeric(claim_charge)]
 result[, date_ext := as.Date(date_ext, format = "%Y-%m-%d")]
 result[, id_year := as.integer(id_year)]
 
-# result[, clin_sdx := clin_sdx] # as is
+if (is_unix) {
+  result[, clin_sdx := mclapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
+} else {
+  result[, clin_sdx := future_lapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
+}
+
 result[, clin_proc := clin_rvs] # as is
+if (is_unix) {
+  result[, clin_proc := mclapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
+} else {
+  result[, clin_proc := future_lapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
+}
+
 result[, clin_rvs := NULL] # as is
 result[, pat_ageday := as.integer(ageday)] # as is
 result[, ageday := NULL]
@@ -1716,6 +1839,11 @@ setcolorder(result, c(
   "py_err"
 ))
 
+result[, clin_c1_orig := NULL]
+result[, clin_c2_orig := NULL]
+result[, icd9_list := NULL]
+result[, pat_age_orig := NULL]
+
 
 if (nrow(result) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")
 
@@ -1728,7 +1856,7 @@ if (to_drop_bq) {
     },
     error = function(e) {
       # If the table does not exist, just continue
-      if (grepl("Not found", e$message, ignore.case = TRUE)) {
+      if (grepl("Not found", e, ignore.case = TRUE)) {
         message("Table does not exist, nothing to drop.\n")
       } else {
         # If it's a different error, re-throw the error
@@ -1750,7 +1878,7 @@ tryCatch(
   },
   error = function(e) {
     # Check if the error message indicates that the table already exists
-    if (grepl("already exists", e$message, ignore.case = TRUE)) {
+    if (grepl("already exists", e, ignore.case = TRUE)) {
       skip_bq_upload <<- TRUE
       message("Table already exists. Skipping creation and upload.")
     } else {
@@ -1772,12 +1900,12 @@ if (to_bq && !skip_bq_upload) {
       message("Data uploaded successfully with WRITE_EMPTY.\n")
     },
     error = function(e) {
-      if (grepl("already exists", e$message, ignore.case = TRUE)) {
+      if (grepl("already exists", e, ignore.case = TRUE)) {
         # Handle the specific "already exists" error
         message("Upload skipped: table already exists and is not empty.")
       } else {
         # Handle all other errors
-        message("Error during upload: ", e$message)
+        message("Error during upload: ", e)
       }
     }
   )
