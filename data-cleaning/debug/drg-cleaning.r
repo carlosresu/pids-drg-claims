@@ -31,7 +31,7 @@ bq_table <- "temp_claims_latest" # temp bq table, later renamed to claims_20XX12
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -1203,14 +1203,12 @@ if (is_unix) {
   })]
 }
 
-
 if (to_debug) print(head(test, 10))
 
 for_fwrite <- test[, c(
   "id_series", "date_adm", "date_dis", "patage", "patsex", "discharge", "pdx",
   paste0("sdx", 1:12), paste0("proc", 1:20), "birthweight", "ageday"
 ), with = FALSE]
-
 
 # saveRDS(as.data.frame(test), here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".rds")), compress = FALSE)
 fwrite(for_fwrite, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv")))
@@ -1348,64 +1346,40 @@ result <- as.data.table(py$output)
 result[, id_series := as.integer(id_series)]
 
 full_data <- data.table::copy(test)
-# Loop through each column and replace 'None', '<NA>', NaN, and NULL with NA
-for (col in names(full_data)) {
-  # If the column is a character vector
-  if (is.character(full_data[[col]])) {
-    full_data[[col]][full_data[[col]] == "None" | full_data[[col]] == "<NA>"] <- NA
-  }
 
-  # If the column is numeric, handle NaN values
-  if (is.numeric(full_data[[col]])) {
-    full_data[[col]][is.nan(full_data[[col]])] <- NA_real_
-  }
+# Define the function to process data with parallelization using mclapply where possible
+process_data_parallel <- function(data) {
+  # Process character columns: Replace 'None' and '<NA>' with NA
+  char_cols <- names(data)[sapply(data, is.character)]
+  data[, (char_cols) := mclapply(.SD, function(col) {
+    col[col == "None" | col == "<NA>"] <- NA_character_
+    return(col)
+  }), .SDcols = char_cols] # Adjust mc.cores based on your system
 
-  # If the column is a list, traverse its elements
-  if (is_unix) {
-    if (is.list(full_data[[col]])) {
-      full_data[[col]] <- mclapply(full_data[[col]], function(x) {
-        if (is.character(x)) {
-          # Replace 'None' and '<NA>' in list elements
-          x[x == "None" | x == "<NA>"] <- NA_character_
-        }
-        x # Return modified element
-      })
-    }
-  } else {
-    if (is.list(full_data[[col]])) {
-      full_data[[col]] <- lapply(full_data[[col]], function(x) {
-        if (is.character(x)) {
-          # Replace 'None' and '<NA>' in list elements
-          x[x == "None" | x == "<NA>"] <- NA_character_
-        }
-        x # Return modified element
-      })
-    }
-  }
-}
+  # Process numeric columns: Replace NaN with NA
+  num_cols <- names(data)[sapply(data, is.numeric)]
+  data[, (num_cols) := mclapply(.SD, function(col) {
+    col[is.nan(col)] <- NA_real_
+    return(col)
+  }), .SDcols = num_cols]
 
-for (col in names(result)) {
-  # If the column is a character vector
-  if (is.character(result[[col]])) {
-    result[[col]][result[[col]] == "None" | result[[col]] == "<NA>"] <- NA
-  }
-
-  # If the column is numeric, handle NaN values
-  if (is.numeric(result[[col]])) {
-    result[[col]][is.nan(result[[col]])] <- NA_real_
-  }
-
-  # If the column is a list, traverse its elements
-  if (is.list(result[[col]])) {
-    result[[col]] <- lapply(result[[col]], function(x) {
+  # Process list columns
+  list_cols <- names(data)[sapply(data, is.list)]
+  data[, (list_cols) := mclapply(.SD, function(col) {
+    lapply(col, function(x) {
       if (is.character(x)) {
-        # Replace 'None' and '<NA>' in list elements
         x[x == "None" | x == "<NA>"] <- NA_character_
       }
-      x # Return modified element
+      return(x)
     })
-  }
+  }), .SDcols = list_cols]
+
+  return(data)
 }
+
+# Apply the parallelized function to both 'full_data' and 'result'
+full_data <- process_data_parallel(full_data)
+result <- process_data_parallel(result)
 
 setnames(full_data,
   old = c("discharge", "birthweight", "patage", "patsex"),
@@ -1423,26 +1397,38 @@ date_columns <- c(
 
 time_columns <- c("time_adm", "time_dis")
 
-# # Apply conversions
-# result[, (character_columns) := lapply(.SD, as.character), .SDcols = character_columns]
-result[, (date_columns) := lapply(.SD, as.Date), .SDcols = date_columns]
-# result[, (integer_columns) := lapply(.SD, as.integer), .SDcols = integer_columns]
-# result[, (numeric_columns) := lapply(.SD, as.numeric), .SDcols = numeric_columns]
-# result[, (logical_columns) := lapply(.SD, function(x) as.logical(as.integer(x))), .SDcols = logical_columns]
-result[, (time_columns) := lapply(.SD, as.ITime), .SDcols = time_columns]
+if (is_unix) {
+  result[, (date_columns) := mclapply(.SD, as.Date), .SDcols = date_columns]
+  result[, (time_columns) := mclapply(.SD, as.ITime), .SDcols = time_columns]
+} else {
+  result[, (date_columns) := future_lapply(.SD, as.Date), .SDcols = date_columns]
+  result[, (time_columns) := future_lapply(.SD, as.ITime), .SDcols = time_columns]
+}
 
 # Convert string columns to arrays
 array_columns <- c("id_hcp")
-result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|\\|")), .SDcols = array_columns]
 
-# Replace NULL (empty) arrays with an empty character vector
-result[, (array_columns) := lapply(.SD, function(x) {
-  lapply(
-    x,
-    function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
-  )
-}), .SDcols = array_columns]
+if (is_unix) {
+  result[, (array_columns) := mclapply(.SD, function(x) strsplit(x, "\\|\\|")), .SDcols = array_columns]
 
+  # Replace NULL (empty) arrays with an empty character vector
+  result[, (array_columns) := mclapply(.SD, function(x) {
+    lapply(
+      x,
+      function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
+    )
+  }), .SDcols = array_columns]
+} else {
+  result[, (array_columns) := future_lapply(.SD, function(x) strsplit(x, "\\|\\|")), .SDcols = array_columns]
+
+  # Replace NULL (empty) arrays with an empty character vector
+  result[, (array_columns) := future_lapply(.SD, function(x) {
+    lapply(
+      x,
+      function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
+    )
+  }), .SDcols = array_columns]
+}
 
 # # Convert string columns to arrays
 # array_columns <- c("clin_c1", "clin_c2", "clin_icd", "clin_rvs")
@@ -1459,12 +1445,15 @@ result[, (array_columns) := lapply(.SD, function(x) {
 # Manual fixes
 result[, clin_rvs := icd9_list]
 
-result[, pat_bwt := as.character(unlist(lapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
-result[, ageday := as.character(unlist(lapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
+if (is_unix) {
+  result[, pat_bwt := as.character(unlist(mclapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
+  result[, ageday := as.character(unlist(mclapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
+} else {
+  result[, pat_bwt := as.character(unlist(future_lapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
+  result[, ageday := as.character(unlist(future_lapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
+}
 
 if (is_unix) {
-  library(parallel)
-
   # Convert 'warning_code' list column to a simple character column using mclapply
   result[, warning_code := mclapply(warning_code, function(x) {
     if (is.null(x) || length(x) == 0) {
@@ -1472,7 +1461,7 @@ if (is_unix) {
     } else {
       return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
     }
-  }, mc.cores = 4)] # Adjust mc.cores to your system's capacity
+  })] # Adjust mc.cores to your system's capacity
 
   # Convert 'error_code' list column to a simple character column using mclapply
   result[, error_code := mclapply(error_code, function(x) {
@@ -1481,7 +1470,7 @@ if (is_unix) {
     } else {
       return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
     }
-  }, mc.cores = 4)]
+  })]
 
   # Convert 'clin_c1' list column using mclapply
   result[, clin_c1 := mclapply(clin_c1, function(x) {
@@ -1490,7 +1479,7 @@ if (is_unix) {
     } else {
       return(as.character(unlist(x)))
     }
-  }, mc.cores = 4)]
+  })]
 
   # Convert 'clin_c2' list column using mclapply
   result[, clin_c2 := mclapply(clin_c2, function(x) {
@@ -1499,7 +1488,7 @@ if (is_unix) {
     } else {
       return(as.character(unlist(x)))
     }
-  }, mc.cores = 4)]
+  })]
 } else {
   # Convert 'warning_code' list column to a simple character column using sapply
   result[, warning_code := sapply(warning_code, function(x) {
