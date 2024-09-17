@@ -990,8 +990,8 @@ result <- readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_lo
 
 # str(result)
 # Convert data types to match BigQuery schema
-result[, id_series := as.character(id_series)]
-result[, id_pin := as.character(id_pin)]
+result[, id_series := as.integer(id_series)]
+result[, id_pin := as.integer(id_pin)]
 result[, date_adm := as.Date(date_adm, format = "%m/%d/%Y")]
 result[, time_adm := as.ITime(time_adm)]
 result[, date_dis := as.Date(date_dis, format = "%m/%d/%Y")]
@@ -1166,7 +1166,7 @@ result_dt <- replace_result$return_data
 # Write the final DataFrame to CSV
 saveRDS(result_dt, here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, ".rds")), compress = FALSE)
 
-test <- readRDS(here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, ".rds")))
+test <- data.table::copy(result_dt)
 
 test[, names(test) := lapply(.SD, function(col) {
   if (is.character(col)) {
@@ -1178,8 +1178,14 @@ test[, names(test) := lapply(.SD, function(col) {
 
 if (to_debug) print(head(test, 10))
 
+for_fwrite <- test[, c(
+  "id_series", "date_adm", "date_dis", "patage", "patsex", "discharge", "pdx",
+  paste0("sdx", 1:12), paste0("proc", 1:20), "birthweight", "ageday"
+), with = FALSE]
+
+
 # saveRDS(as.data.frame(test), here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".rds")), compress = FALSE)
-fwrite(test, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv")))
+fwrite(for_fwrite, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv")))
 
 if (to_debug) for (col in date_columns) print(unique(result_dt[[col]]))
 
@@ -1202,43 +1208,43 @@ import sys
 pandas_df = pd.read_csv('", csv_path, "',
 
 dtype = {
-    'id_series': 'string',
-    'id_pin': 'string',
+    'id_series': 'int64',
+    # 'id_pin': 'int64',
     'date_adm': 'string',  # POSIXct/POSIXt in R
-    'time_adm': 'string',  # character in R
+    # 'time_adm': 'string',  # character in R
     'date_dis': 'string',  # POSIXct/POSIXt in R
-    'time_dis': 'string',  # character in R
-    'date_rec': 'string',  # Date in R
-    'date_ref': 'string',  # Date in R
-    'date_check': 'string',  # Date in R
-    'id_hci': 'string',
-    'id_hcp': 'string',
-    'clin_outpatient': 'string',
-    'clin_emergency': 'string',
-    'pat_type': 'string',
-    'clin_acc': 'string',
-    'pat_rel': 'string',
-    'pat_bdate': 'string',  # Date in R
+    # 'time_dis': 'string',  # character in R
+    # 'date_rec': 'string',  # Date in R
+    # 'date_ref': 'string',  # Date in R
+    # 'date_check': 'string',  # Date in R
+    # 'id_hci': 'string',
+    # 'id_hcp': 'string',
+    # 'clin_outpatient': 'string',
+    # 'clin_emergency': 'string',
+    # 'pat_type': 'string',
+    # 'clin_acc': 'string',
+    # 'pat_rel': 'string',
+    # 'pat_bdate': 'string',  # Date in R
     'patage': 'float64',  # numeric in R
     'patsex': 'string',
     'birthweight': 'float64',  # character in R
-    'pat_memcat_parent': 'string',
-    'pat_memcat_child': 'string',
+    # 'pat_memcat_parent': 'string',
+    # 'pat_memcat_child': 'string',
     'discharge': 'Int64',  # character in R
-    'clin_c1': 'string',
-    'clin_c2': 'string',
-    'claim_status': 'string',
-    'claim_payout': 'string',  # character in R
-    'claim_charge': 'string',  # character in R
-    'date_ext': 'string',  # Date in R
-    'id_year': 'int64',  # integer in R
-    'clin_icd': 'object',  # list in R
-    'clin_rvs': 'string',
-    'clin_c1_orig': 'string',
-    'clin_c2_orig': 'string',
-    'icd9_list': 'string',
+    # 'clin_c1': 'string',
+    # 'clin_c2': 'string',
+    # 'claim_status': 'string',
+    # 'claim_payout': 'string',  # character in R
+    # 'claim_charge': 'string',  # character in R
+    # 'date_ext': 'string',  # Date in R
+    # 'id_year': 'int64',  # integer in R
+    # 'clin_icd': 'object',  # list in R
+    # 'clin_rvs': 'string',
+    # 'clin_c1_orig': 'string',
+    # 'clin_c2_orig': 'string',
+    # 'icd9_list': 'string',
     'pdx': 'string',
-    'pdx_code': 'int64',  # integer in R
+    # 'pdx_code': 'int64',  # integer in R
     'sdx1': 'string',
     'sdx2': 'string',
     'sdx3': 'string',
@@ -1311,6 +1317,65 @@ if (to_debug) str(py$output)
 # Convert data types to match BigQuery schema
 result <- as.data.table(py$output)
 
+result[, id_series := as.integer(id_series)]
+
+full_data <- data.table::copy(test)
+# Loop through each column and replace 'None', '<NA>', NaN, and NULL with NA
+for (col in names(full_data)) {
+  # If the column is a character vector
+  if (is.character(full_data[[col]])) {
+    full_data[[col]][full_data[[col]] == "None" | full_data[[col]] == "<NA>"] <- NA
+  }
+
+  # If the column is numeric, handle NaN values
+  if (is.numeric(full_data[[col]])) {
+    full_data[[col]][is.nan(full_data[[col]])] <- NA_real_
+  }
+
+  # If the column is a list, traverse its elements
+  if (is.list(full_data[[col]])) {
+    full_data[[col]] <- lapply(full_data[[col]], function(x) {
+      if (is.character(x)) {
+        # Replace 'None' and '<NA>' in list elements
+        x[x == "None" | x == "<NA>"] <- NA_character_
+      }
+      x # Return modified element
+    })
+  }
+}
+
+for (col in names(result)) {
+  # If the column is a character vector
+  if (is.character(result[[col]])) {
+    result[[col]][result[[col]] == "None" | result[[col]] == "<NA>"] <- NA
+  }
+
+  # If the column is numeric, handle NaN values
+  if (is.numeric(result[[col]])) {
+    result[[col]][is.nan(result[[col]])] <- NA_real_
+  }
+
+  # If the column is a list, traverse its elements
+  if (is.list(result[[col]])) {
+    result[[col]] <- lapply(result[[col]], function(x) {
+      if (is.character(x)) {
+        # Replace 'None' and '<NA>' in list elements
+        x[x == "None" | x == "<NA>"] <- NA_character_
+      }
+      x # Return modified element
+    })
+  }
+}
+
+setnames(full_data,
+  old = c("discharge", "birthweight", "patage", "patsex"),
+  new = c("clin_discharge", "pat_bwt", "pat_age", "pat_sex")
+)
+
+full_data[, (c(paste0("sdx", 1:12), paste0("proc", 1:20))) := NULL]
+
+result <- merge(full_data, result, by = "id_series", all = TRUE)
+
 date_columns <- c(
   "date_adm", "date_dis", "date_rec", "date_ref", "date_check",
   "pat_bdate", "date_ext"
@@ -1339,27 +1404,37 @@ result[, (array_columns) := lapply(.SD, function(x) {
 }), .SDcols = array_columns]
 
 
-# Convert string columns to arrays
-array_columns <- c("clin_c1", "clin_c2", "clin_icd", "clin_rvs")
-result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
+# # Convert string columns to arrays
+# array_columns <- c("clin_c1", "clin_c2", "clin_icd", "clin_rvs")
+# result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
 
-# Replace NULL (empty) arrays with an empty character vector
-result[, (array_columns) := lapply(.SD, function(x) {
-  lapply(
-    x,
-    function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
-  )
-}), .SDcols = array_columns]
+# # Replace NULL (empty) arrays with an empty character vector
+# result[, (array_columns) := lapply(.SD, function(x) {
+#   lapply(
+#     x,
+#     function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
+#   )
+# }), .SDcols = array_columns]
 
 # Manual fixes
 result[, pat_bwt := as.character(unlist(lapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
 result[, ageday := as.character(unlist(lapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
+
 # Convert 'warning_code' list column to a simple character column
 result[, warning_code := sapply(warning_code, function(x) {
   if (is.null(x) || length(x) == 0) {
     return(NA_character_) # Set NA for NULL or empty lists
   } else {
-    return(as.character(unlist(x)))
+    return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
+  }
+})]
+
+# Convert 'error_code' list column to a simple character column
+result[, error_code := sapply(error_code, function(x) {
+  if (is.null(x) || length(x) == 0) {
+    return(NA_character_) # Set NA for NULL or empty lists
+  } else {
+    return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
   }
 })]
 
@@ -1382,9 +1457,36 @@ result[, clin_c2 := sapply(clin_c2, function(x) {
 
 # Ensure the final columns are of type character and no longer lists
 result[, warning_code := as.character(warning_code)]
+result[, error_code := as.character(error_code)]
 result[, clin_c1 := as.character(clin_c1)]
 result[, clin_c2 := as.character(clin_c2)]
-str(result)
+# str(result)
+
+# Convert string columns to arrays (list of character vectors)
+array_columns <- c("warning_code", "error_code")
+result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
+
+# Replace NULL (empty) arrays with an empty character vector
+result[, (array_columns) := lapply(.SD, function(x) {
+  lapply(
+    x,
+    function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
+  )
+}), .SDcols = array_columns]
+
+result[, id_series := as.character(id_series)]
+result[, id_pin := as.character(id_pin)]
+
+
+# # Sample 10,000 rows from the result (adjust if result has fewer than 10,000 rows)
+# set.seed(123)
+# sampled_result <- result[sample(.N, min(50000, .N))]
+
+# # Write the sampled result to a CSV file
+# fwrite(sampled_result, "test.csv")
+
+
+# print(sampled_result[id_series == 3801061, warning_code])
 
 
 # rename columns for bq push, dropping the pre-renamed source columns, also drop mdc and dc
@@ -1403,21 +1505,21 @@ result[, error_code := NULL]
 result[, mdc := NULL]
 
 
-pre_pad_id_series_nrow <- result[, uniqueN(id_series)]
-print(pre_pad_id_series_nrow)
-pre_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
-# pre_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
-# result[, thai_drg := str_pad(thai_drg, width = 5, side = "left", pad = "0")]
-result[, id_series := str_pad(id_series, width = 13, side = "left", pad = "0")]
-result[, id_pin := str_pad(id_pin, width = 20, side = "left", pad = "0")]
-post_pad_id_series_nrow <- result[, uniqueN(id_series)]
-post_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
-# post_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
+# pre_pad_id_series_nrow <- result[, uniqueN(id_series)]
+# print(pre_pad_id_series_nrow)
+# pre_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
+# # pre_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
+# # result[, thai_drg := str_pad(thai_drg, width = 5, side = "left", pad = "0")]
+# result[, id_series := str_pad(id_series, width = 13, side = "left", pad = "0")]
+# result[, id_pin := str_pad(id_pin, width = 20, side = "left", pad = "0")]
+# post_pad_id_series_nrow <- result[, uniqueN(id_series)]
+# post_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
+# # post_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
 
-if (pre_pad_id_series_nrow != post_pad_id_series_nrow) stop("Error: id_series differs pre and post padding") else message("id_series nrow integrity valid")
-if (pre_pad_id_pin_nrow != post_pad_id_pin_nrow) stop("Error: id_series differs pre and post padding") else message("id_pin nrow integrity valid")
-# if (pre_paid_thai_drg_nrow != post_paid_thai_drg_nrow) stop("Error: thai_drg differs pre and post padding") else message("thai_drg nrow integrity valid")
-if (to_debug) fwrite(result, "test3.csv")
+# if (pre_pad_id_series_nrow != post_pad_id_series_nrow) stop("Error: id_series differs pre and post padding") else message("id_series nrow integrity valid")
+# if (pre_pad_id_pin_nrow != post_pad_id_pin_nrow) stop("Error: id_series differs pre and post padding") else message("id_pin nrow integrity valid")
+# # if (pre_paid_thai_drg_nrow != post_paid_thai_drg_nrow) stop("Error: thai_drg differs pre and post padding") else message("thai_drg nrow integrity valid")
+# if (to_debug) fwrite(result, "test3.csv")
 
 
 if (to_debug) fwrite(result, "test3.csv")
@@ -1558,8 +1660,8 @@ result[, thai_los := as.integer(thai_los)]
 result[, py_pdc := as.character(py_pdc)]
 result[, py_pccl := as.numeric(py_pccl)]
 result[, py_drg := as.character(py_drg)]
-result[, py_warn := as.character(py_warn)]
-result[, py_err := as.character(ifelse(py_err == "NaN", NA_character_, py_err))]
+result[, py_warn := py_warn] # as is
+result[, py_err := py_err] # as is
 
 # Reorder the columns in the result data.table to match the schema
 setcolorder(result, c(

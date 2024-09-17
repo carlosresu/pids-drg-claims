@@ -65,32 +65,26 @@ output = pandas_df.rename(columns={'drg': 'py_drg'})
 
 # Define the desired column order
 desired_columns = [
-    'id_series', 'id_pin', 'date_adm', 'time_adm', 'date_dis', 'time_dis',
-    'date_rec', 'date_ref', 'date_check', 'id_hci', 'id_hcp', 'clin_outpatient',
-    'clin_emergency', 'pat_type', 'clin_acc', 'pat_rel', 'pat_bdate', 'patage',
-    'patsex', 'birthweight', 'pat_memcat_parent', 'pat_memcat_child',
-    'discharge', 'clin_c1', 'clin_c2', 'claim_status', 'claim_payout',
-    'claim_charge', 'date_ext', 'id_year', 'clin_icd', 'icd9_list', 'pdx',
-    'pdx_code', 'mdc', 'pdc', 
+    'id_series', 'mdc', 'pdc', 
     # 'dc', 
-    'pccl', 'py_drg', 'ageday', 'error_code', 
+    'pccl', 'py_drg', 'error_code', 
     'warning_code'
 ]
 
 # Reorder the DataFrame and drop any columns not in the desired list
 output = output[desired_columns]
 
-# Define the renaming mapping
-rename_mapping = {
-    'patage': 'pat_age',
-    'patsex': 'pat_sex',
-    'birthweight': 'pat_bwt',
-    'discharge': 'clin_discharge',
-    'icd9_list': 'clin_rvs'
-}
+# # Define the renaming mapping
+# rename_mapping = {
+#     'patage': 'pat_age',
+#     'patsex': 'pat_sex',
+#     'birthweight': 'pat_bwt',
+#     'discharge': 'clin_discharge',
+#     'icd9_list': 'clin_rvs'
+# }
 
-# Rename the columns
-output = output.rename(columns=rename_mapping)
+# # Rename the columns
+# output = output.rename(columns=rename_mapping)
 
 # Capture the print statements
 statements = statements_io.getvalue()
