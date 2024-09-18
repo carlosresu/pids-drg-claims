@@ -1,3 +1,8 @@
+system("git submodule update --init --recursive")
+# system("git submodule foreach --recursive git fetch && git submodule foreach --recursive git reset --hard origin/main")
+Sys.setenv(PYTHONPATH = here::here("data-cleaning", "grouper"))
+
+
 # Delete all R objects and run garbage collection so we start with a clean slate
 rm(list = ls())
 gc()
@@ -988,8 +993,11 @@ if (to_profvis) {
 }
 
 
-# Please run thai grouper first
-result <- readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds")))
+if (exists("master_dt")) {
+  result <- data.table::copy(master_dt)
+} else {
+  result <- readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds")))
+}
 
 # str(result)
 # Convert data types to match BigQuery schema
@@ -997,8 +1005,10 @@ result[, id_series := as.integer(id_series)]
 result[, id_pin := as.integer(id_pin)]
 result[, date_adm := as.Date(date_adm, format = "%m/%d/%Y")]
 result[, time_adm := as.ITime(time_adm)]
+result[is.na(time_adm), time_adm := as.ITime("00:00:00")]
 result[, date_dis := as.Date(date_dis, format = "%m/%d/%Y")]
 result[, time_dis := as.ITime(time_dis)]
+result[is.na(time_dis), time_dis := as.ITime("00:00:00")]
 result[, date_rec := as.Date(date_rec, format = "%m/%d/%Y")]
 result[, date_ref := as.Date(date_ref, format = "%m/%d/%Y")]
 result[, date_check := as.Date(date_check, format = "%m/%d/%Y")]
@@ -1222,6 +1232,10 @@ if (to_debug) for (col in date_columns) print(unique(result_dt[[col]]))
 
 if (to_debug) print(sapply(test, class))
 
+
+# print(for_fwrite[id_series == 1435799])
+
+
 # csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".rds"))
 csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv"))
 
@@ -1334,6 +1348,9 @@ info_output
 
 # Print the captured output in R
 cat(py$info_output)
+
+
+# Sys.setenv(PYTHONPATH = here("data-cleaning", "grouper"))
 
 # Step 6: Process each row of the DataFrame through `drg_seeker` and append results
 py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
