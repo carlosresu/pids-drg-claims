@@ -204,11 +204,11 @@ sudo ln -s /home/resurreccion_cmc_gmail_com/grouper /home/resurreccion_cmc_gmail
 Link /home/resurreccion_cmc_gmail_com/grouper contents into /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
 
 ```
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning/libraries
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/misc ~/drg-pipeline/data-cleaning/misc
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/tests ~/drg-pipeline/data-cleaning/scripts
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/tests ~/drg-pipeline/data-cleaning/tests
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/scripts ~/drg-pipeline/data-cleaning/scripts
+sudo ln -s ~/drg-pipeline/grouper/libraries ~/drg-pipeline/libraries
+sudo ln -s ~/drg-pipeline/grouper/misc ~/drg-pipeline/misc
+sudo ln -s ~/drg-pipeline/grouper/tests ~/drg-pipeline/scripts
+sudo ln -s ~/drg-pipeline/grouper/tests ~/drg-pipeline/tests
+sudo ln -s ~/drg-pipeline/grouper/scripts ~/drg-pipeline/scripts
 ```
 
 To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type "curl \<link\>"

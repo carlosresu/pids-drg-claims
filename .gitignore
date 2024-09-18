@@ -43,3 +43,5 @@ data-cleaning/data
 
 #python grouper
 chrome-remote-desktop_current_amd64.deb
+
+grouper/test.py
