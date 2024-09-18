@@ -6,6 +6,8 @@ import traceback
 import sys
 import io
 
+# from scripts import *
+
 ### START OF seeker.py
 # import pandas as pd
 # import numpy as np
@@ -14,11 +16,11 @@ import io
 # import itertools
 # import dateutil.parser
 
-# from grouper.scripts.data import *
-# from grouper.scripts.mdc import *
-# from grouper.scripts.pdc import *
-# from grouper.scripts.dc import *
-# from grouper.scripts.drg import *
+# from scripts.data import *
+# from scripts.mdc import *
+# from scripts.pdc import *
+# from scripts.dc import *
+# from scripts.drg import *
 
 # # Class for all libraries on the backend of the TDRG grouper
 # class Libraries():

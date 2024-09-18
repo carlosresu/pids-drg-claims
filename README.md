@@ -189,31 +189,10 @@ Symbolically Link /home/data to your username's drg-pipeline/data-cleaning folde
 sudo ln -s /home/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
 ```
 
-Clone grouper into your home folder first
+Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
 
 ```
-git clone https://github.com/pids-drg/grouper
-```
-
-Link /home/resurreccion_cmc_gmail_com/grouper to /home/resurreccion_cmc_gmail_com/drg-pipeline
-
-```
-sudo ln -s /home/resurreccion_cmc_gmail_com/grouper /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
-```
-
-Link /home/resurreccion_cmc_gmail_com/grouper contents into /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
-
-```
-sudo ln -s ~/drg-pipeline/grouper/libraries ~/drg-pipeline/libraries
-sudo ln -s ~/drg-pipeline/grouper/misc ~/drg-pipeline/misc
-sudo ln -s ~/drg-pipeline/grouper/scripts ~/drg-pipeline/scripts
-sudo ln -s ~/drg-pipeline/grouper/tests ~/drg-pipeline/tests
-
-sudo ln -s ~/drg-pipeline/grouper ~/drg-pipeline/data-cleaning
-sudo ln -s ~/drg-pipeline/grouper/libraries ~/drg-pipeline/data-cleaning
-sudo ln -s ~/drg-pipeline/grouper/misc ~/drg-pipeline/data-cleaning
-sudo ln -s ~/drg-pipeline/grouper/scripts ~/drg-pipeline/data-cleaning
-sudo ln -s ~/drg-pipeline/grouper/tests ~/drg-pipeline/data-cleaning
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
 ```
 
 To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type "curl \<link\>"
