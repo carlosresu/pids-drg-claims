@@ -195,7 +195,7 @@ Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline
 sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
 ```
 
-To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type "curl \<link\>"
+To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type `curl \<link\>`
 
 # How To: Run Data Cleaning Code End-to-End
 
@@ -216,7 +216,7 @@ Finally,
 2. Make sure everything is in order.
 
 **Important 1: Ensure you've symbolically linked `/home/data` to `/home/<username>/drg-pipeline/data-cleaning`**
-**Important 2: Ensure you've symbolically linked `/home/<username>/drg-pipeline/data-cleaning/grouper` (i.e. `./libraries`, `./misc`, `./scripts`, and `./tests`) to `/home/<username>/drg-pipeline/data-cleaning`**
+**Important 2: Ensure you've symbolically linked `~/drg-pipeline/data-cleaning/grouper/libraries` to `~/drg-pipeline/data-cleaning`**
 
 Steps to run the data-cleaning code end-to-end:
 1. Run the notebook via VS Code's Run All button
