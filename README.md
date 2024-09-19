@@ -195,7 +195,7 @@ Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline
 sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
 ```
 
-To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type `curl \<link\>`
+To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type `curl <link>`
 
 # How To: Run Data Cleaning Code End-to-End
 
