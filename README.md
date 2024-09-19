@@ -216,6 +216,7 @@ Finally,
 2. Make sure everything is in order.
 
 **Important 1: Ensure you've symbolically linked `/home/data` to `/home/<username>/drg-pipeline/data-cleaning`**
+
 **Important 2: Ensure you've symbolically linked `~/drg-pipeline/data-cleaning/grouper/libraries` to `~/drg-pipeline/data-cleaning`**
 
 Steps to run the data-cleaning code end-to-end:
