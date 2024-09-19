@@ -1,5 +1,5 @@
 system("git submodule update --init --recursive")
-# system("git submodule foreach --recursive git fetch && git submodule foreach --recursive git reset --hard origin/main")
+# system("git submodule foreach --recursive git fetch && git submodule foreach --recursive && git reset --hard origin/main")
 Sys.setenv(PYTHONPATH = here::here("data-cleaning", "grouper"))
 
 
@@ -43,8 +43,8 @@ to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until 
 to_combine <- TRUE # Whether to combine checkpoint 1 files into one data.table
 to_group <- TRUE # Whether to export for the batch grouper or not
 to_gcs <- TRUE # Whether to push to GCS or nt (Thai Grouper Input/Output)
-to_bq <- TRUE # Whether to push to BQ or not
-to_drop_bq <- TRUE # Whether to drop the existing bq table and recreate it
+to_bq <- FALSE # Whether to push to BQ or not
+to_drop_bq <- FALSE # Whether to drop the existing bq table and recreate it
 
 # Manual Tweaks:
 manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD codes to replace
@@ -219,7 +219,7 @@ options(warn = -1) # Hide warnings for script sourcing and library loading
 
 
 scripts <- list( # List of scripts to source
-  lib_params = "00_libraries-params.R",
+  # lib_params = "00_libraries-params.R",
   cleaning = "01_cleaning-functions.R",
   clinical = "02_clinical-functions.R",
   timing_debug = "03_timing-debug-functions.R",
@@ -1050,9 +1050,6 @@ result[, `:=`(
 
 saveRDS(result, here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".rds")), compress = FALSE)
 
-# Step 1: Read in the data from the CSV file
-# result_dt <- fread(here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".csv")), colClasses = "character")
-
 result_dt <- data.table::copy(result)
 
 # # Convert columns to Date objects, ignoring NA values
@@ -1374,7 +1371,7 @@ process_data_parallel <- function(data) {
   data[, (char_cols) := mclapply(.SD, function(col) {
     col[col == "None" | col == "<NA>"] <- NA_character_
     return(col)
-  }), .SDcols = char_cols] # Adjust mc.cores based on your system
+  }), .SDcols = char_cols]
 
   # Process numeric columns: Replace NaN with NA
   num_cols <- names(data)[sapply(data, is.numeric)]
@@ -1596,17 +1593,6 @@ if (is_unix) {
 
 result[, id_series := as.character(id_series)]
 result[, id_pin := as.character(id_pin)]
-
-
-# # Sample 10,000 rows from the result (adjust if result has fewer than 10,000 rows)
-# set.seed(123)
-# sampled_result <- result[sample(.N, min(50000, .N))]
-
-# # Write the sampled result to a CSV file
-# fwrite(sampled_result, "test.csv")
-
-
-# print(sampled_result[id_series == 3801061, warning_code])
 
 
 # rename columns for bq push, dropping the pre-renamed source columns, also drop mdc and dc
