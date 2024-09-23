@@ -43,8 +43,8 @@ to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until 
 to_combine <- TRUE # Whether to combine checkpoint 1 files into one data.table
 to_group <- TRUE # Whether to export for the batch grouper or not
 to_gcs <- TRUE # Whether to push to GCS or nt (Thai Grouper Input/Output)
-to_bq <- FALSE # Whether to push to BQ or not
-to_drop_bq <- FALSE # Whether to drop the existing bq table and recreate it
+to_bq <- TRUE # Whether to push to BQ or not
+to_drop_bq <- TRUE # Whether to drop the existing bq table and recreate it
 
 # Manual Tweaks:
 manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD codes to replace
