@@ -1593,9 +1593,7 @@ if (is_unix) {
 
 result[, id_series := as.character(id_series)]
 result[, id_pin := as.character(id_pin)]
-
-
-# rename columns for bq push, dropping the pre-renamed source columns, also drop mdc and dc
+# rename columns for thai grouper and bq push, dropping the pre-renamed source columns, also drop mdc and dc
 result[, clin_pdx := pdx]
 result[, clin_sdx := clin_icd]
 result[, pdx := NULL]
@@ -1609,23 +1607,6 @@ result[, pccl := NULL]
 result[, warning_code := NULL]
 result[, error_code := NULL]
 result[, mdc := NULL]
-
-
-# pre_pad_id_series_nrow <- result[, uniqueN(id_series)]
-# print(pre_pad_id_series_nrow)
-# pre_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
-# # pre_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
-# # result[, thai_drg := str_pad(thai_drg, width = 5, side = "left", pad = "0")]
-# result[, id_series := str_pad(id_series, width = 13, side = "left", pad = "0")]
-# result[, id_pin := str_pad(id_pin, width = 20, side = "left", pad = "0")]
-# post_pad_id_series_nrow <- result[, uniqueN(id_series)]
-# post_pad_id_pin_nrow <- result[, uniqueN(id_pin)]
-# # post_paid_thai_drg_nrow <- result[, uniqueN(thai_drg)]
-
-# if (pre_pad_id_series_nrow != post_pad_id_series_nrow) stop("Error: id_series differs pre and post padding") else message("id_series nrow integrity valid")
-# if (pre_pad_id_pin_nrow != post_pad_id_pin_nrow) stop("Error: id_series differs pre and post padding") else message("id_pin nrow integrity valid")
-# # if (pre_paid_thai_drg_nrow != post_paid_thai_drg_nrow) stop("Error: thai_drg differs pre and post padding") else message("thai_drg nrow integrity valid")
-# if (to_debug) fwrite(result, "test3.csv")
 
 
 if (to_debug) fwrite(result, "test3.csv")
@@ -1670,7 +1651,7 @@ gcs_get_object(
 
 
 before_merge <- data.table::copy(result)
-before_merge[, caseid := 1:nrow(result)]
+before_merge[, caseid := as.integer(id_series)]
 thai_result <- fread(here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")), colClasses = "character")
 if (to_debug) print(head(thai_result))
 thai_result[, caseid := as.integer(caseid)]
@@ -1704,85 +1685,86 @@ if (to_debug) fwrite(merged, "test4.csv")
 
 
 # Please run thai grouper first
-result <- data.table::copy(merged)
+result_after_thai <- data.table::copy(merged)
 
-result[, caseid := as.integer(caseid)]
-result[, caseid := NULL]
+result_after_thai[, caseid := NULL]
 
 # Convert data types to match BigQuery schema
-result[, id_series := as.character(id_series)]
-result[, id_pin := as.character(id_pin)]
-result[, date_adm := as.Date(date_adm, format = "%Y-%m-%d")]
-result[, time_adm := as.ITime(time_adm)]
-result[, date_dis := as.Date(date_dis, format = "%Y-%m-%d")]
-result[, time_dis := as.ITime(time_dis)]
-result[, date_rec := as.Date(date_rec, format = "%Y-%m-%d")]
-result[, date_ref := as.Date(date_ref, format = "%Y-%m-%d")]
-result[, date_check := as.Date(date_check, format = "%Y-%m-%d")]
-result[, id_hci := as.character(id_hci)]
-result[, id_hci := id_hci] # as is
+# format as full numbers, no exponential form
+result_after_thai[, id_series := trimws(formatC(as.integer(id_series), format = "f", digits = 0))]
+# format as full numbers, no exponential form
+result_after_thai[, id_pin := trimws(formatC(as.integer(id_pin), format = "f", digits = 0))]
+result_after_thai[, date_adm := as.Date(date_adm, format = "%Y-%m-%d")]
+result_after_thai[, time_adm := as.ITime(time_adm)]
+result_after_thai[, date_dis := as.Date(date_dis, format = "%Y-%m-%d")]
+result_after_thai[, time_dis := as.ITime(time_dis)]
+result_after_thai[, date_rec := as.Date(date_rec, format = "%Y-%m-%d")]
+result_after_thai[, date_ref := as.Date(date_ref, format = "%Y-%m-%d")]
+result_after_thai[, date_check := as.Date(date_check, format = "%Y-%m-%d")]
+result_after_thai[, id_hci := as.character(id_hci)]
+result_after_thai[, id_hcp := id_hcp] # as is
 
 # Convert character "0"/"1" to logical for Boolean fields
-result[, clin_outpatient := as.logical(clin_outpatient)] # as is
-result[, clin_emergency := as.logical(clin_emergency)] # as is
+result_after_thai[, clin_outpatient := as.logical(clin_outpatient)] # as is
+result_after_thai[, clin_emergency := as.logical(clin_emergency)] # as is
 
-result[, pat_type := as.character(pat_type)]
-result[, clin_acc := as.character(clin_acc)]
-result[, pat_rel := as.character(pat_rel)]
-result[, pat_bdate := as.Date(pat_bdate, format = "%Y-%m-%d")]
-result[, pat_age := as.numeric(pat_age)]
-result[, pat_sex := as.character(pat_sex)]
-result[, pat_bwt := as.numeric(pat_bwt)]
-result[, pat_memcat_parent := as.character(pat_memcat_parent)]
-result[, pat_memcat_child := as.character(pat_memcat_child)]
-result[, clin_discharge := as.integer(clin_discharge)]
+result_after_thai[, pat_type := as.character(pat_type)]
+result_after_thai[, clin_acc := as.character(clin_acc)]
+result_after_thai[, pat_rel := as.character(pat_rel)]
+result_after_thai[, pat_bdate := as.Date(pat_bdate, format = "%Y-%m-%d")]
+result_after_thai[, pat_age := as.numeric(pat_age)]
+result_after_thai[, pat_sex := as.character(pat_sex)]
+result_after_thai[, pat_bwt := as.numeric(pat_bwt)]
+result_after_thai[, pat_memcat_parent := as.character(pat_memcat_parent)]
+result_after_thai[, pat_memcat_child := as.character(pat_memcat_child)]
+result_after_thai[, clin_discharge := as.integer(clin_discharge)]
 # result[, clin_c1 := clin_c1]
 # result[, clin_c2 := clin_c2]
 
-result[, claim_status := as.character(claim_status)]
-result[, claim_payout := as.numeric(claim_payout)]
-result[, claim_charge := as.numeric(claim_charge)]
-result[, date_ext := as.Date(date_ext, format = "%Y-%m-%d")]
-result[, id_year := as.integer(id_year)]
+result_after_thai[, claim_status := as.character(claim_status)]
+result_after_thai[, claim_payout := as.numeric(claim_payout)]
+result_after_thai[, claim_charge := as.numeric(claim_charge)]
+result_after_thai[, date_ext := as.Date(date_ext, format = "%Y-%m-%d")]
+result_after_thai[, id_year := as.integer(id_year)]
 
 if (is_unix) {
-  result[, clin_sdx := mclapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
+  result_after_thai[, clin_sdx := mclapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
 } else {
-  result[, clin_sdx := future_lapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
+  result_after_thai[, clin_sdx := future_lapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
 }
 
-result[, clin_proc := clin_rvs] # as is
+result_after_thai[, clin_proc := clin_rvs] # as is
 if (is_unix) {
-  result[, clin_proc := mclapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
+  result_after_thai[, clin_proc := mclapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
 } else {
-  result[, clin_proc := future_lapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
+  result_after_thai[, clin_proc := future_lapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
 }
 
-result[, clin_rvs := NULL] # as is
-result[, pat_ageday := as.integer(ageday)] # as is
-result[, ageday := NULL]
+result_after_thai[, clin_rvs := NULL] # as is
+result_after_thai[, pat_ageday := as.integer(ageday)] # as is
+result_after_thai[, ageday := NULL]
 
-result[, clin_pdx := as.character(clin_pdx)]
-result[, clin_pdx_code := as.integer(pdx_code)]
-result[, pdx_code := NULL]
+result_after_thai[, clin_pdx := as.character(clin_pdx)]
+result_after_thai[, clin_pdx_code := as.integer(pdx_code)]
+result_after_thai[, pdx_code := NULL]
 
-result[, thai_drg := as.character(thai_drg)]
-result[, thai_rw := as.numeric(thai_rw)]
-result[, thai_wtlos := as.numeric(thai_wtlos)]
-result[, thai_ot := as.integer(thai_ot)]
-result[, thai_adjrw := as.numeric(thai_adjrw)]
-result[, thai_err := as.integer(thai_err)]
-result[, thai_warn := as.integer(thai_warn)]
-result[, thai_los := as.integer(thai_los)]
+result_after_thai[, thai_drg := as.character(thai_drg)]
+result_after_thai[, thai_rw := as.numeric(thai_rw)]
+result_after_thai[, thai_wtlos := as.numeric(thai_wtlos)]
+result_after_thai[, thai_ot := as.integer(thai_ot)]
+result_after_thai[, thai_adjrw := as.numeric(thai_adjrw)]
+result_after_thai[, thai_err := as.integer(thai_err)]
+result_after_thai[, thai_warn := as.integer(thai_warn)]
+result_after_thai[, thai_los := as.integer(thai_los)]
 
-result[, py_pdc := as.character(py_pdc)]
-result[, py_pccl := as.numeric(py_pccl)]
-result[, py_drg := as.character(py_drg)]
-result[, py_warn := py_warn] # as is
-result[, py_err := py_err] # as is
+result_after_thai[, py_pdc := as.character(py_pdc)]
+result_after_thai[, py_pccl := as.numeric(py_pccl)]
+result_after_thai[, py_drg := as.character(py_drg)]
+result_after_thai[, py_warn := py_warn] # as is
+result_after_thai[, py_err := py_err] # as is
 
 # Reorder the columns in the result data.table to match the schema
-setcolorder(result, c(
+setcolorder(result_after_thai, c(
   # "caseid",
   "id_year",
   "id_series",
@@ -1834,16 +1816,22 @@ setcolorder(result, c(
   "py_err"
 ))
 
-result[, icd9_list := NULL]
-result[, pat_age_orig := NULL]
+result_after_thai[, icd9_list := NULL]
+result_after_thai[, pat_age_orig := NULL]
 
-result[, c1_orig := NULL]
-result[, c2_orig := NULL]
-result[, c1 := NULL]
-result[, c2 := NULL]
+result_after_thai[, c1_orig := NULL]
+result_after_thai[, c2_orig := NULL]
+result_after_thai[, c1 := NULL]
+result_after_thai[, c2 := NULL]
 
 
-if (nrow(result) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")
+# str(result_after_thai)
+print(result_after_thai[grepl("e", id_series)])
+print(result_after_thai[grepl("e", id_pin)])
+print(result_after_thai[grepl("e", id_hci)])
+
+
+if (nrow(result_after_thai) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")
 
 # Check if the table should be dropped and replaced
 if (to_drop_bq) {
@@ -1892,7 +1880,7 @@ if (to_bq && !skip_bq_upload) {
     {
       bq_table_upload(
         bq_table(gcp_proj, bq_dataset, bq_table),
-        values = result,
+        values = result_after_thai,
         write_disposition = "WRITE_EMPTY"
       )
       message("Data uploaded successfully with WRITE_EMPTY.\n")

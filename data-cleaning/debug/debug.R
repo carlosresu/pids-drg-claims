@@ -2633,7 +2633,8 @@ export_for_grouper <- function(dt, output_txt_file) {
   #'
   #' @return NULL.
 
-  output_dt <- data.table(CASEID = 1:nrow(dt))
+  output_dt <- data.table()
+  output_dt[, CASEID := dt$id_series]
   # Format Date of Birth (DOB) and Age
   output_dt[, DOB := format(ymd(dt$pat_bdate), "%d/%m/%Y")]
 
