@@ -948,7 +948,6 @@ apply_find_pdx <- function(c1, c2, clin_icd, acc_pdx) {
   return(list(pdx = datatable$pdx, pdx_code = datatable$pdx_code))
 }
 
-# Function to generate date of birth (DOB) vectorized
 generate_dob <- function(bdays, ages, date_adms) {
   #' @title Generate Date of Birth Vectorized
   #'
@@ -961,61 +960,48 @@ generate_dob <- function(bdays, ages, date_adms) {
   #'
   #' @return character. A vector of dates of birth in "dd/mm/yyyy" format.
 
-  set.seed(global_seed)
-
+  set.seed(global_seed) # Ensure reproducibility
   require(lubridate)
 
   # Ensure ages are numeric
   ages <- as.numeric(ages)
 
+  # Initialize DOB vector with NA
   dob <- rep(NA_character_, length(ages))
 
-  # Use provided birthdates where available
+  # 1. Use provided birthdates where available
   valid_bdays_indices <- !is.na(bdays) & bdays != ""
   dob[valid_bdays_indices] <- format(
-    ymd(bdays[valid_bdays_indices]),
+    ymd(bdays[valid_bdays_indices]), # Convert valid birthdates
     "%d/%m/%Y"
   )
 
-  # Identify indices where birthdates are missing
+  # 2. Handle cases where birthdates are missing
   missing_bday_indices <- which(is.na(bdays) | bdays == "")
-  ref_dates <- ymd(date_adms[missing_bday_indices])
+  ref_dates <- ymd(date_adms[missing_bday_indices]) # Admission dates
 
-  # Handle cases where ages are zero:
-  # For age 0, generate a random date within the past 27 days
-  # from the admission date.
+  # 3. Handle age == 0
   zero_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
   )
-  dob[missing_bday_indices[zero_age_indices]] <- format(
-    ref_dates[zero_age_indices] - days(
-      sample(
-        1:27, length(zero_age_indices),
-        replace = TRUE
-      )
-    ), "%d/%m/%Y"
-  )
+  if (length(zero_age_indices) > 0) {
+    dob[missing_bday_indices[zero_age_indices]] <- format(
+      ref_dates[zero_age_indices] - days(
+        sample(1:27, length(zero_age_indices), replace = TRUE) # Random days within the past month
+      ), "%d/%m/%Y"
+    )
+  }
 
-  # Handle cases where ages are positive:
-  # For positive ages, subtract the truncated age in years and a random
-  # number of days (up to 170) from the admission date.
+  # 4. Handle positive ages (no random days)
   positive_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0
   )
-  truncated_ages <- floor(
-    ages[missing_bday_indices][positive_age_indices]
-  )
-  dob[missing_bday_indices[positive_age_indices]] <- format(
-    ref_dates[positive_age_indices] - years(truncated_ages) - days(
-      sample(1:170, length(positive_age_indices), replace = TRUE)
-    ), "%d/%m/%Y"
-  )
-
-  # # Check that all years for dates are above 1900
-  # years <- year(ymd(dob))
-  # if (any(years < 1900)) {
-  #   stop("Generated dates have years below 1900")
-  # }
+  if (length(positive_age_indices) > 0) {
+    truncated_ages <- floor(ages[missing_bday_indices][positive_age_indices]) # Truncate ages
+    dob[missing_bday_indices[positive_age_indices]] <- format(
+      ref_dates[positive_age_indices] - years(truncated_ages), "%d/%m/%Y" # Subtract exact age in years
+    )
+  }
 
   return(dob)
 }
