@@ -170,7 +170,7 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "clin_pdx_code",
+    "name": "clin_pdx_source",
     "type": "INT64",
     "mode": "NULLABLE"
   }

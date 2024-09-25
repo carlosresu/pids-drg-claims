@@ -1,0 +1,47 @@
+[
+  {
+    "name": "id_series",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_drg",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_rw",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_wtlos",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_ot",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_adjrw",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_err",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_warn",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "thai_los",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  }
+]
