@@ -1,6 +1,6 @@
 system("git submodule update --init --recursive")
 # system("git submodule foreach --recursive git fetch && git submodule foreach --recursive && git reset --hard origin/main")
-Sys.setenv(PYTHONPATH = here::here("data-cleaning", "grouper"))
+# Sys.setenv(PYTHONPATH = here::here("data-cleaning", "grouper"))
 
 
 # Delete all R objects and run garbage collection so we start with a clean slate
@@ -10,13 +10,6 @@ gc()
 
 # Load libraries and minor parameters
 source(here::here("data-cleaning/r_scripts", "00_libraries-params.R"))
-
-
-# List of Python packages to install
-pkgs <- c("numpy", "pandas", "streamlit", "python_dateutil", "tabulate", "swifter", "rpy2", "pyreadr")
-
-# Install Python packages for reticulate only if they are not already installed
-for (pkg in pkgs) if (!py_module_available(pkg)) py_install(pkg)
 
 
 # Prompt Options:
@@ -32,10 +25,10 @@ gcs_bucket <- "phic-claims-checkpoints" # Name of GCS bucket
 gcs_pre_fpath <- "pre-tdrg" # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_post_fpath <- "post-tdrg" # Name of folder path prefix in GCS bucket for thai grouper output
 bq_dataset <- "phic" # bq dataset
-bq_table <- "temp_claims_latest" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
+bq_table <- "temp_claims" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 
 # Input:
-to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
+to_sample <- FALSE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
 sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
@@ -350,6 +343,20 @@ neoplasms_dt <- as.data.table(phl_icd10[
   grepl("/", icd10),
   .(icd10)
 ][, icd10 := sapply(strsplit(icd10, ","), function(x) trimws(x[2]))])
+
+# 6. Query and load `drg-pipeline.grouper_v5.i10vx`
+i10vx_query <- paste0(
+  "SELECT * FROM `", gcp_proj,
+  ".grouper_v5.i10vx` LIMIT ", max_bq_rows
+)
+i10vx <- query_bq_to_dt(i10vx_query, here(aux_path, "i10vx.csv"),
+  cache = FALSE, max_bq_rows = max_bq_rows
+)
+setkey(i10vx, "code")
+acc_icd <- unique(i10vx[, code])
+
+
+str(acc_icd)
 
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
@@ -995,843 +1002,307 @@ if (to_profvis) {
 
 if (exists("master_dt")) {
   result <- data.table::copy(master_dt)
+  rm(master_dt)
+  gc()
 } else {
   result <- readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds")))
+  gc()
 }
 
-# str(result)
-# Convert data types to match BigQuery schema
-result[, id_series := as.integer(id_series)]
-result[, id_pin := as.integer(id_pin)]
-result[, date_adm := as.Date(date_adm, format = "%m/%d/%Y")]
-result[, time_adm := as.ITime(time_adm)]
-result[is.na(time_adm), time_adm := as.ITime("00:00:00")]
-result[, date_dis := as.Date(date_dis, format = "%m/%d/%Y")]
-result[, time_dis := as.ITime(time_dis)]
-result[is.na(time_dis), time_dis := as.ITime("00:00:00")]
-result[, date_rec := as.Date(date_rec, format = "%m/%d/%Y")]
-result[, date_ref := as.Date(date_ref, format = "%m/%d/%Y")]
-result[, date_check := as.Date(date_check, format = "%m/%d/%Y")]
-result[, id_hci := as.character(id_hci)]
+# Track invalid age corrections
+invalid_age_before <- nrow(result[pat_age < -1 | pat_age > 124, .(id_series)])
 
-# Convert character "0"/"1" to logical for Boolean fields
+# Use c1_orig and c2_orig as clin_c1 and clin_c2
+result[, clin_c1 := c1_orig]
+result[, clin_c2 := c2_orig]
+result[, c("c1_orig", "c2_orig") := NULL]
+
+# Use icd9_list as clin_proc
+result[, clin_proc := icd9_list]
+result[, icd9_list := NULL]
+
+# Remove the primary diagnosis from the list of secondary diagnoses
+result[, clin_icd := Map(function(pdx_var, sdx_var) sdx_var[sdx_var != pdx_var], pdx, clin_icd)]
+result[, clin_sdx := clin_icd]
+result[, clin_icd := NULL]
+
+result[, c("c1", "c2", "clin_rvs") := NULL]
+gc()
+# Process date columns
+date_cols <- c("date_adm", "date_dis", "date_rec", "date_ref", "date_check", "pat_bdate", "date_ext")
+if (is_unix) {
+  result[, (date_cols) := mclapply(.SD, function(x) as.Date(x, format = "%m/%d/%Y"), mc.cores = parallel::detectCores()), .SDcols = date_cols]
+} else {
+  result[, (date_cols) := lapply(.SD, function(x) as.Date(x, format = "%m/%d/%Y")), .SDcols = date_cols]
+}
+
+# Process time columns
+time_cols <- c("time_adm", "time_dis")
+standardize_time <- function(x) {
+  x <- ifelse(is.na(x), "00:00:00", paste0(x, ":00"))
+  as.ITime(x)
+}
+if (is_unix) {
+  result[, (time_cols) := mclapply(.SD, standardize_time, mc.cores = parallel::detectCores()), .SDcols = time_cols]
+} else {
+  result[, (time_cols) := lapply(.SD, standardize_time), .SDcols = time_cols]
+}
+
+# Process logical columns
 result[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
 result[, clin_emergency := as.logical(as.integer(clin_emergency))]
 
-result[, pat_type := as.character(pat_type)]
-result[, clin_acc := as.character(clin_acc)]
-result[, pat_rel := as.character(pat_rel)]
-result[, pat_bdate := as.Date(pat_bdate, format = "%m/%d/%Y")]
-result[, pat_age := as.numeric(pat_age)]
-result[, pat_age_orig := as.numeric(pat_age)]
-result[, pat_sex := as.character(pat_sex)]
-result[, pat_bwt := as.numeric(pat_bwt)]
-result[, pat_memcat_parent := as.character(pat_memcat_parent)]
-result[, pat_memcat_child := as.character(pat_memcat_child)]
-result[, clin_discharge := as.integer(clin_discharge)]
-
-result[, claim_status := as.character(claim_status)]
-result[, claim_payout := as.numeric(claim_payout)]
-result[, claim_charge := as.numeric(claim_charge)]
-result[, date_ext := as.Date(date_ext, format = "%m/%d/%Y")]
-result[, id_year := as.integer(id_year)]
-
-result[, c1_orig := as.character(c1_orig)]
-result[, c2_orig := as.character(c2_orig)]
-
-result[, pdx := as.character(pdx)]
-result[, pdx_code := as.integer(pdx_code)]
-
-result[, `:=`(
-  # c1 = ifelse(c1 == pdx, NA_character_, c1), # Keep c1 even if it's the pdx
-  # c2 = ifelse(c2 == pdx, NA_character_, c2), # Keep c2 even if it's the pdx
-  clin_icd = mapply(function(pdx_var, sdx_var) sdx_var[sdx_var != pdx_var], pdx, clin_icd, SIMPLIFY = FALSE)
-)]
-
-saveRDS(result, here(checkpoint_6_path, paste0(checkpoint_6_prefix, ".rds")), compress = FALSE)
-
-result_dt <- data.table::copy(result)
-
-# # Convert columns to Date objects, ignoring NA values
-date_columns <- names(result_dt)[grepl("date", names(result_dt))]
-# result_dt[, pat_bdate_orig := pat_bdate]
-# result_dt[, (date_columns) := lapply(.SD, as.Date, format = "%Y-%m-%d"), .SDcols = date_columns]
-
-# Create a data.table for rows with negative `pat_age`
-negative_age_dt <- result_dt[pat_age < 0, ]
-
-# Create a data.table for rows with non-negative `pat_age`
-positive_age_dt <- result_dt[pat_age >= 0, ]
-
-# Process rows with non-negative `pat_age`
-positive_age_dt[, pat_bdate := dmy(generate_dob(format(pat_bdate, "%Y-%m-%d"), pat_age, format(date_adm, "%Y-%m-%d")))]
-
-# For negative `pat_age`, keep `pat_bdate` as it is
-# negative_age_dt[, pat_bdate := pat_bdate_orig]
-
-# Combine the processed data back together
-result_dt <- rbind(positive_age_dt, negative_age_dt)
-
-# Calculate 'pat_age' only for rows where 'pat_bdate' is not missing
-result_dt[!is.na(pat_bdate), pat_age := floor(as.numeric(interval(pat_bdate, date_adm) / years(1)))]
-
-# Function to split a list column by '||' and ensure a fixed number of columns
-split_codes <- function(dt, column, prefix, max_cols) {
-  # Apply strsplit to each element in the list column
-  if (is_unix) {
-    split_list <- mclapply(dt[[column]], function(x) unlist(strsplit(x, "\\|")))
-    # Ensure that each list element has exactly max_cols elements
-    split_cols <- mclapply(1:max_cols, function(i) sapply(split_list, function(x) if (length(x) >= i) x[[i]] else NA_character_))
-  } else {
-    split_list <- future_lapply(dt[[column]], function(x) unlist(strsplit(x, "\\|")))
-    # Ensure that each list element has exactly max_cols elements
-    split_cols <- future_lapply(1:max_cols, function(i) sapply(split_list, function(x) if (length(x) >= i) x[[i]] else NA_character_))
-  }
-
-  # Convert to data.table
-  split_dt <- as.data.table(split_cols)
-  # Name the columns appropriately
-  setnames(split_dt, paste0(prefix, 1:max_cols))
-  return(split_dt)
-}
-
-# Apply the function to clin_icd and icd9_list
-sdx_columns <- split_codes(result_dt, "clin_icd", "sdx", 12)
-proc_columns <- split_codes(result_dt, "icd9_list", "proc", 20)
-
+# Process numeric columns
+num_cols <- c("pat_age", "pat_bwt", "clin_discharge", "claim_payout", "claim_charge", "id_year", "pdx_code")
 if (is_unix) {
-  proc_columns[, (names(proc_columns)) := mclapply(.SD, as.character)]
-  sdx_columns[, (names(sdx_columns)) := mclapply(.SD, as.character)]
+  result[, (num_cols) := mclapply(.SD, as.numeric, mc.cores = parallel::detectCores()), .SDcols = num_cols]
 } else {
-  proc_columns[, (names(proc_columns)) := future_lapply(.SD, as.character)]
-  sdx_columns[, (names(sdx_columns)) := future_lapply(.SD, as.character)]
+  result[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
 }
 
-
-# Combine the split columns back into result_dt
-result_dt <- cbind(result_dt, sdx_columns, proc_columns)
-
-# Rename columns
-setnames(result_dt,
-  old = c("clin_discharge", "pat_bwt", "pat_age", "pat_sex"),
-  new = c("discharge", "birthweight", "patage", "patsex")
-)
-
-# Replace NA with "None" in non-date columns
-non_date_columns <- setdiff(names(result_dt), date_columns)
+# Process integer columns
+int_cols <- c("clin_discharge", "id_year", "pdx_code")
 if (is_unix) {
-  result_dt[, (non_date_columns) := mclapply(.SD, function(x) ifelse(is.na(x), NA_character_, x)), .SDcols = non_date_columns]
+  result[, (int_cols) := mclapply(.SD, as.integer, mc.cores = parallel::detectCores()), .SDcols = int_cols]
 } else {
-  result_dt[, (non_date_columns) := future_lapply(.SD, function(x) ifelse(is.na(x), NA_character_, x)), .SDcols = non_date_columns]
+  result[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
 }
 
-# Columns you want to come first
-priority_columns <- c(
-  "id_series", "id_pin", "date_adm", "time_adm", "date_dis", "time_dis",
-  "date_rec", "date_ref", "date_check", "id_hci", "id_hcp", "clin_outpatient",
-  "clin_emergency", "pat_type", "clin_acc", "pat_rel", "pat_bdate", "patage",
-  "patsex", "birthweight", "pat_memcat_parent", "pat_memcat_child", "discharge",
-  "c1", "c2", "claim_status", "claim_payout", "claim_charge",
-  "date_ext", "id_year", "clin_icd", "clin_rvs", "c1_orig",
-  "c2_orig", "icd9_list", "pdx", "pdx_code"
+# Process character columns
+char_cols <- c("id_hcp", "pat_type", "clin_acc", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child", "claim_status", "pdx")
+if (is_unix) {
+  result[, (char_cols) := mclapply(.SD, as.character, mc.cores = parallel::detectCores()), .SDcols = char_cols]
+} else {
+  result[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
+}
+
+# Age correction logic
+invalid_ages_before_correction <- result[pat_age < 0 | pat_age > 124, .N]
+invalid_age_ids_before <- result[pat_age < 0 | pat_age > 124, id_series]
+
+result[pat_age < 0 & pat_age >= -1, pat_age := 0]
+result[pat_age < -1 & is.na(pat_bdate), pat_age := NA_integer_]
+result[pat_age > 124, pat_age := NA_integer_]
+result[pat_age < -1 & !is.na(pat_bdate), pat_age := floor(as.numeric(interval(pat_bdate, date_adm) / years(1)))]
+
+# Regenerate or correct DOB
+invalid_bdate_before <- result[is.na(pat_bdate), .N]
+invalid_bdate_ids_before <- result[is.na(pat_bdate), id_series]
+
+result[!is.na(pat_age), pat_bdate := dmy(generate_dob(format(pat_bdate, "%Y-%m-%d"), pat_age, format(date_adm, "%Y-%m-%d")))]
+result[!is.na(pat_bdate) & pat_bdate <= date_adm, pat_age := floor(as.numeric(interval(pat_bdate, date_adm) / years(1)))]
+result[pat_age < -1 & !is.na(pat_bdate) & pat_bdate > date_adm, pat_age := NA_integer_]
+result[pat_age > 124 | pat_age < 0, pat_age := NA_integer_]
+
+# Save invalid age rows to CSV
+invalid_age_path <- here("data-cleaning", "debug", "invalid_age.csv")
+fwrite(data.table(id_series = invalid_age_ids_before), invalid_age_path)
+
+# Save invalid birthdate rows to CSV
+invalid_bdate_path <- here("data-cleaning", "debug", "invalid_bdate.csv")
+fwrite(data.table(id_series = invalid_bdate_ids_before), invalid_bdate_path)
+
+# Print messages for invalid ages corrected
+invalid_ages_after_correction <- result[pat_age < 0 | pat_age > 124, .N]
+message(
+  "Number of invalid ages corrected: ", invalid_ages_before_correction - invalid_ages_after_correction,
+  ". Invalid ages are those with a value less than 0 or greater than 124, which were reset to NA or corrected."
 )
 
-# Remaining columns
-remaining_columns <- c(
-  "sdx1", "sdx2", "sdx3", "sdx4", "sdx5", "sdx6",
-  "sdx7", "sdx8", "sdx9", "sdx10", "sdx11", "sdx12",
-  "proc1", "proc2", "proc3", "proc4", "proc5", "proc6",
-  "proc7", "proc8", "proc9", "proc10", "proc11", "proc12",
-  "proc13", "proc14", "proc15", "proc16", "proc17", "proc18",
-  "proc19", "proc20" # , "ageday" , "discharge", "birthweight"
+# Print messages for invalid birthdates corrected
+invalid_bdate_after <- result[is.na(pat_bdate), .N]
+message(
+  "Number of invalid birthdates corrected: ", invalid_bdate_before - invalid_bdate_after,
+  ". Invalid birthdates are missing values (NA), which were corrected based on age and admission dates."
 )
 
-# Combine the lists, ensuring no duplicates
-desired_columns <- unique(c(priority_columns, remaining_columns))
+result[, pat_ageday := NA_integer_]
 
-# Reorder the data.table columns
-setcolorder(result_dt, desired_columns)
+# Process pat_ageday for patients younger than 1 year
+invalid_ageday_before <- result[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), .N]
+invalid_ageday_ids_before <- result[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), id_series]
 
-# Add missing columns with "None" values if they are not already in the data.table
-missing_columns <- setdiff(desired_columns, names(result_dt))
-result_dt[, (missing_columns) := NA_character_]
-
-# Initialize the 'ageday' column with NA
-result_dt[, ageday := NA_real_]
-
-# Calculate 'ageday' only for valid rows where pat_age < 1 and date_adm/pat_bdate are non-NA
-result_dt[
-  !is.na(patage) & patage < 1 & !is.na(date_adm) & !is.na(pat_bdate),
-  ageday := as.numeric(difftime(date_adm, pat_bdate, units = "days"))
+result[
+  !is.na(pat_age) & pat_age >= 0 & pat_age < 1 & !is.na(date_adm) & !is.na(pat_bdate),
+  pat_ageday := as.integer(difftime(date_adm, pat_bdate, units = "days"))
 ]
 
-# Convert time_adm to numeric
-result_dt[, time_adm := as.numeric(time_adm)]
-result_dt[, time_dis := as.numeric(time_dis)] # Also do the same for time_dis if needed
-
-# Convert time from seconds since midnight to "HH:MM:SS" format
-result_dt[, time_adm := sprintf("%02d:%02d:%02d", time_adm %/% 3600, (time_adm %% 3600) %/% 60, time_adm %% 60)]
-result_dt[, time_dis := sprintf("%02d:%02d:%02d", time_dis %/% 3600, (time_dis %% 3600) %/% 60, time_dis %% 60)]
-
-# Convert ITime to character format "HH:MM:SS"
-result_dt[, time_adm := format(as.ITime(time_adm), "%H:%M:%S")]
-result_dt[, time_dis := format(as.ITime(time_dis), "%H:%M:%S")]
-
-# Combine Date and Time and convert to POSIXct
-result_dt[, date_adm := as.character(paste(date_adm, time_adm), format = "%Y-%m-%d %H:%M:%S")]
-result_dt[, date_dis := as.character(paste(date_dis, time_dis), format = "%Y-%m-%d %H:%M:%S")]
-
-# Replace NA values in 'ageday' with "None"
-result_dt[, ageday := fifelse(is.na(ageday), NA, as.character(ageday))]
-
-before_replacing_with_none <- data.table::copy(result_dt)
-
-replace_result <- replace_empty_with_na(result_dt) # TODO: See if this works if changed from replace_empty_with_none
-
-result_dt <- replace_result$return_data
-
-# Write the final DataFrame to CSV
-saveRDS(result_dt, here(checkpoint_7_path, paste0(checkpoint_7a_prefix, suffix, ".rds")), compress = FALSE)
-
-test <- data.table::copy(result_dt)
-
-if (is_unix) {
-  test[, names(test) := mclapply(.SD, function(col) {
-    if (is.character(col)) {
-      return(iconv(col, from = "", to = "UTF-8"))
-    } else {
-      return(col)
-    }
-  })]
-} else {
-  test[, names(test) := future_lapply(.SD, function(col) {
-    if (is.character(col)) {
-      return(iconv(col, from = "", to = "UTF-8"))
-    } else {
-      return(col)
-    }
-  })]
+if ("ageday" %in% colnames(result)) {
+  result[, ageday := NULL]
 }
-
-if (to_debug) print(head(test, 10))
-
-for_fwrite <- test[, c(
-  "id_series", "date_adm", "date_dis", "patage", "patsex", "discharge", "pdx",
-  paste0("sdx", 1:12), paste0("proc", 1:20), "birthweight", "ageday"
-), with = FALSE]
-
-# saveRDS(as.data.frame(test), here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".rds")), compress = FALSE)
-fwrite(for_fwrite, here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv")))
-
-if (to_debug) for (col in date_columns) print(unique(result_dt[[col]]))
-
-# pandas <- import("pandas")
-
-if (to_debug) print(sapply(test, class))
-
-
-# print(for_fwrite[id_series == 1435799])
-
-
-# csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".rds"))
-csv_path <- here(checkpoint_7_path, paste0(checkpoint_7b_prefix, suffix, ".csv"))
-
-# Use reticulate to run the following Python code within the R environment
-py_run_string(paste0("
-import pandas as pd
-import numpy as np
-from io import StringIO
-import sys
-
-
-# Read the CSV with the specified dtype
-pandas_df = pd.read_csv('", csv_path, "',
-
-dtype = {
-    'id_series': 'int64',
-    # 'id_pin': 'int64',
-    'date_adm': 'string',  # POSIXct/POSIXt in R
-    # 'time_adm': 'string',  # character in R
-    'date_dis': 'string',  # POSIXct/POSIXt in R
-    # 'time_dis': 'string',  # character in R
-    # 'date_rec': 'string',  # Date in R
-    # 'date_ref': 'string',  # Date in R
-    # 'date_check': 'string',  # Date in R
-    # 'id_hci': 'string',
-    # 'id_hcp': 'string',
-    # 'clin_outpatient': 'string',
-    # 'clin_emergency': 'string',
-    # 'pat_type': 'string',
-    # 'clin_acc': 'string',
-    # 'pat_rel': 'string',
-    # 'pat_bdate': 'string',  # Date in R
-    'patage': 'float64',  # numeric in R
-    'patsex': 'string',
-    'birthweight': 'float64',  # character in R
-    # 'pat_memcat_parent': 'string',
-    # 'pat_memcat_child': 'string',
-    'discharge': 'Int64',  # character in R
-    # 'c1': 'string',
-    # 'c2': 'string',
-    # 'claim_status': 'string',
-    # 'claim_payout': 'string',  # character in R
-    # 'claim_charge': 'string',  # character in R
-    # 'date_ext': 'string',  # Date in R
-    # 'id_year': 'int64',  # integer in R
-    # 'clin_icd': 'object',  # list in R
-    # 'clin_rvs': 'string',
-    # 'c1_orig': 'string',
-    # 'c2_orig': 'string',
-    # 'icd9_list': 'string',
-    'pdx': 'string',
-    # 'pdx_code': 'int64',  # integer in R
-    'sdx1': 'string',
-    'sdx2': 'string',
-    'sdx3': 'string',
-    'sdx4': 'string',
-    'sdx5': 'string',
-    'sdx6': 'string',
-    'sdx7': 'string',
-    'sdx8': 'string',
-    'sdx9': 'string',
-    'sdx10': 'string',
-    'sdx11': 'string',
-    'sdx12': 'string',
-    'proc1': 'string',
-    'proc2': 'string',
-    'proc3': 'string',
-    'proc4': 'string',
-    'proc5': 'string',
-    'proc6': 'string',
-    'proc7': 'string',
-    'proc8': 'string',
-    'proc9': 'string',
-    'proc10': 'string',
-    'proc11': 'string',
-    'proc12': 'string',
-    'proc13': 'string',
-    'proc14': 'string',
-    'proc15': 'string',
-    'proc16': 'string',
-    'proc17': 'string',
-    'proc18': 'string',
-    'proc19': 'string',
-    'proc20': 'string',
-    'ageday': 'float64'
-}
-# , parse_dates = [
-#     'date_adm',
-#     'date_dis',
-#     'date_rec',
-#     'date_ref',
-#     'date_check',
-#     'pat_bdate',
-#     'date_ext'
-# ]
+gc()
+# Print messages for invalid ageday corrections
+invalid_ageday_after <- result[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), .N]
+message(
+  "Number of agedays generated: ", invalid_ageday_before - invalid_ageday_after,
+  ". Agedays generated are for where the patient is younger than 1 year, so the exact number of days was generated."
 )
 
-pandas_df = pandas_df.replace(pd.NA, None)
-pandas_df = pandas_df.replace(np.nan, None)
-pandas_df = pandas_df.replace('<NA>', None)
-pandas_df = pandas_df.replace('None', None)
+# Assuming acc_icd_env is an environment containing acc_icd codes
+acc_icd_env <- new.env(hash = TRUE, parent = emptyenv())
+for (code in acc_icd) {
+  assign(code, TRUE, envir = acc_icd_env)
+}
 
-# Capture pandas_df.info() output
-buffer = StringIO()
-pandas_df.info(buf=buffer)
-info_output = buffer.getvalue()
+# Modify the data.table operation to use mget with the acc_icd_env
+result[, clin_sdx := lapply(clin_sdx, function(row) {
+  codes <- unlist(row)
+  valid_codes <- codes[!is.na(mget(codes, envir = acc_icd_env, ifnotfound = NA))]
+  if (length(valid_codes) > 0) {
+    return(valid_codes)
+  } else {
+    return(NA_character_)
+  }
+})]
 
-info_output
-"))
+# Optionally unlist each element of clin_sdx
+result[, clin_sdx := lapply(clin_sdx, unlist)]
 
-# Print the captured output in R
-cat(py$info_output)
+na_replaced_result <- replace_empty_with_na(result)
 
+result <- na_replaced_result$return_data
 
-# Sys.setenv(PYTHONPATH = here("data-cleaning", "grouper"))
+# Process character columns and convert to UTF-8
+if (is_unix) {
+  result[, (char_cols) := mclapply(.SD, function(col) iconv(col, from = "", to = "UTF-8"), mc.cores = parallel::detectCores()), .SDcols = char_cols]
+} else {
+  result[, (char_cols) := lapply(.SD, function(col) iconv(col, from = "", to = "UTF-8")), .SDcols = char_cols]
+}
 
-# Step 6: Process each row of the DataFrame through `drg_seeker` and append results
-py_run_file(here("data-cleaning", "py_scripts", "run_drg_seeker.py"))
-
-cat(py$statements)
-
-
-if (to_debug) str(py$output)
-
-# Convert data types to match BigQuery schema
-result <- as.data.table(py$output)
-
-result[, id_series := as.integer(id_series)]
-
-full_data <- data.table::copy(test)
-
-# Define the function to process data with parallelization using mclapply where possible
-process_data_parallel <- function(data) {
-  # Process character columns: Replace 'None' and '<NA>' with NA
+# Processing function for further data cleaning
+process_data <- function(data) {
+  # Process character columns
   char_cols <- names(data)[sapply(data, is.character)]
-  data[, (char_cols) := mclapply(.SD, function(col) {
-    col[col == "None" | col == "<NA>"] <- NA_character_
-    return(col)
-  }), .SDcols = char_cols]
+  if (is_unix) {
+    data[, (char_cols) := mclapply(.SD, function(col) {
+      col[col %in% c("None", "")] <- NA_character_
+      return(col) # Return modified element
+    }, mc.cores = parallel::detectCores()), .SDcols = char_cols]
+  } else {
+    data[, (char_cols) := lapply(.SD, function(col) {
+      col[col %in% c("None", "")] <- NA_character_
+      return(col) # Return modified element
+    }), .SDcols = char_cols]
+  }
 
-  # Process numeric columns: Replace NaN with NA
+  # Process numeric columns
   num_cols <- names(data)[sapply(data, is.numeric)]
-  data[, (num_cols) := mclapply(.SD, function(col) {
-    col[is.nan(col)] <- NA_real_
-    return(col)
-  }), .SDcols = num_cols]
+  if (is_unix) {
+    data[, (num_cols) := mclapply(.SD, function(col) {
+      col[is.nan(col)] <- NA_real_
+      return(col) # Return modified element
+    }, mc.cores = parallel::detectCores()), .SDcols = num_cols]
+  } else {
+    data[, (num_cols) := lapply(.SD, function(col) {
+      col[is.nan(col)] <- NA_real_
+      return(col) # Return modified element
+    }), .SDcols = num_cols]
+  }
 
-  # Process list columns
+  # Process list columns, ensuring handling of character elements within lists
   list_cols <- names(data)[sapply(data, is.list)]
-  data[, (list_cols) := mclapply(.SD, function(col) {
-    lapply(col, function(x) {
-      if (is.character(x)) {
-        x[x == "None" | x == "<NA>"] <- NA_character_
-      }
-      return(x)
-    })
-  }), .SDcols = list_cols]
-
+  if (is_unix) {
+    data[, (list_cols) := mclapply(.SD, function(col) {
+      lapply(col, function(x) {
+        if (is.character(x)) x[x %in% c("None", "")] <- NA_character_ # Replace "None" and empty strings with NA
+        return(x) # Return modified list element
+      })
+    }, mc.cores = parallel::detectCores()), .SDcols = list_cols]
+  } else {
+    data[, (list_cols) := lapply(.SD, function(col) {
+      lapply(col, function(x) {
+        if (is.character(x)) x[x %in% c("None", "")] <- NA_character_
+        return(x) # Return modified list element
+      })
+    }), .SDcols = list_cols]
+  }
   return(data)
 }
-
-# Apply the parallelized function to both 'full_data' and 'result'
-full_data <- process_data_parallel(full_data)
-result <- process_data_parallel(result)
-
-setnames(full_data,
-  old = c("discharge", "birthweight", "patage", "patsex"),
-  new = c("clin_discharge", "pat_bwt", "pat_age", "pat_sex")
-)
-
-full_data[, (c(paste0("sdx", 1:12), paste0("proc", 1:20))) := NULL]
-
-result <- merge(full_data, result, by = "id_series", all = TRUE)
-
-date_columns <- c(
-  "date_adm", "date_dis", "date_rec", "date_ref", "date_check",
-  "pat_bdate", "date_ext"
-)
-
-time_columns <- c("time_adm", "time_dis")
-
-if (is_unix) {
-  result[, (date_columns) := mclapply(.SD, as.Date), .SDcols = date_columns]
-  result[, (time_columns) := mclapply(.SD, as.ITime), .SDcols = time_columns]
-} else {
-  result[, (date_columns) := future_lapply(.SD, as.Date), .SDcols = date_columns]
-  result[, (time_columns) := future_lapply(.SD, as.ITime), .SDcols = time_columns]
-}
+result <- process_data(result)
 
 # Convert string columns to arrays
 array_columns <- c("id_hcp")
-
 if (is_unix) {
-  result[, (array_columns) := mclapply(.SD, function(x) strsplit(x, "\\|\\|")), .SDcols = array_columns]
-
-  # Replace NULL (empty) arrays with an empty character vector
   result[, (array_columns) := mclapply(.SD, function(x) {
-    lapply(
-      x,
-      function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
-    )
-  }), .SDcols = array_columns]
+    x <- strsplit(x, "\\|\\|")
+    lapply(x, function(y) if (length(y) == 0L || all(is.na(y))) character(0) else y)
+  }, mc.cores = parallel::detectCores()), .SDcols = array_columns]
 } else {
-  result[, (array_columns) := future_lapply(.SD, function(x) strsplit(x, "\\|\\|")), .SDcols = array_columns]
-
-  # Replace NULL (empty) arrays with an empty character vector
-  result[, (array_columns) := future_lapply(.SD, function(x) {
-    lapply(
-      x,
-      function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
-    )
+  result[, (array_columns) := lapply(.SD, function(x) {
+    x <- strsplit(x, "\\|\\|")
+    lapply(x, function(y) if (length(y) == 0L || all(is.na(y))) character(0) else y)
   }), .SDcols = array_columns]
 }
 
-# # Convert string columns to arrays
-# array_columns <- c("c1", "c2", "clin_icd", "clin_rvs")
-# result[, (array_columns) := lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
-
-# # Replace NULL (empty) arrays with an empty character vector
-# result[, (array_columns) := lapply(.SD, function(x) {
-#   lapply(
-#     x,
-#     function(y) if (length(y) == 0 || is.null(y) || all(is.na(y))) character(0) else y
-#   )
-# }), .SDcols = array_columns]
-
-# Manual fixes
-result[, clin_rvs := icd9_list]
-
+# Ensure 'clin_sdx', 'clin_proc', and 'id_hcp' are not NULL
+list_columns <- c("clin_sdx", "clin_proc", "id_hcp")
 if (is_unix) {
-  result[, pat_bwt := as.character(unlist(mclapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
-  result[, ageday := as.character(unlist(mclapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
+  result[, (list_columns) := mclapply(.SD, function(col) {
+    lapply(col, function(x) if (is.null(x) || length(x) == 0L || all(is.na(x))) character(0) else x)
+  }, mc.cores = parallel::detectCores()), .SDcols = list_columns]
 } else {
-  result[, pat_bwt := as.character(unlist(future_lapply(pat_bwt, function(pat_bwt) as.numeric(ifelse(is.null(pat_bwt), NA_real_, pat_bwt)))))]
-  result[, ageday := as.character(unlist(future_lapply(ageday, function(ageday) as.numeric(ifelse(is.null(ageday), NA_real_, ageday)))))]
+  result[, (list_columns) := lapply(.SD, function(col) {
+    lapply(col, function(x) if (is.null(x) || length(x) == 0L || all(is.na(x))) character(0) else x)
+  }), .SDcols = list_columns]
 }
 
-if (is_unix) {
-  # Convert 'warning_code' list column to a simple character column using mclapply
-  result[, warning_code := mclapply(warning_code, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
-    }
-  })] # Adjust mc.cores to your system's capacity
+setnames(result, c("pdx", "pdx_code"), c("clin_pdx", "clin_pdx_source"))
 
-  # Convert 'error_code' list column to a simple character column using mclapply
-  result[, error_code := mclapply(error_code, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
-    }
-  })]
-
-  # Convert 'c1' list column using mclapply
-  result[, c1 := mclapply(c1, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(as.character(unlist(x)))
-    }
-  })]
-
-  # Convert 'c2' list column using mclapply
-  result[, c2 := mclapply(c2, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(as.character(unlist(x)))
-    }
-  })]
-} else {
-  # Convert 'warning_code' list column to a simple character column using sapply
-  result[, warning_code := sapply(warning_code, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
-    }
-  })]
-
-  # Convert 'error_code' list column to a simple character column using sapply
-  result[, error_code := sapply(error_code, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(paste(unlist(x, recursive = TRUE), collapse = "|")) # Flatten the list and join with "|"
-    }
-  })]
-
-  # Convert 'c1' list column using sapply
-  result[, c1 := sapply(c1, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(as.character(unlist(x)))
-    }
-  })]
-
-  # Convert 'c2' list column using sapply
-  result[, c2 := sapply(c2, function(x) {
-    if (is.null(x) || length(x) == 0) {
-      return(NA_character_) # Set NA for NULL or empty lists
-    } else {
-      return(as.character(unlist(x)))
-    }
-  })]
-}
-
-
-# Ensure the final columns are of type character and no longer lists
-result[, warning_code := as.character(warning_code)]
-result[, error_code := as.character(error_code)]
-result[, c1 := as.character(c1)]
-result[, c2 := as.character(c2)]
-# str(result)
-
-# Convert string columns to arrays (list of character vectors)
-array_columns <- c("warning_code", "error_code")
-
-if (is_unix) {
-  result[, (array_columns) := mclapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
-  # Replace NULL (empty) arrays with an empty character vector
-  result[, (array_columns) := mclapply(.SD, function(x) {
-    lapply(x, function(y) {
-      # Ensure y is not a list and apply condition checks safely
-      if (is.character(y) && all(!is.na(y)) && all(y == "NA")) {
-        return(character(0))
-      }
-      # Check for other conditions: NULL, empty list, or all NA
-      if (length(y) == 0 || is.null(y) || all(is.na(y))) {
-        return(character(0))
-      } else {
-        return(y)
-      }
-    })
-  }), .SDcols = array_columns]
-} else {
-  result[, (array_columns) := future_lapply(.SD, function(x) strsplit(x, "\\|")), .SDcols = array_columns]
-  # Replace NULL (empty) arrays with an empty character vector
-  result[, (array_columns) := future_lapply(.SD, function(x) {
-    lapply(x, function(y) {
-      # Ensure y is not a list and apply condition checks safely
-      if (is.character(y) && all(!is.na(y)) && all(y == "NA")) {
-        return(character(0))
-      }
-      # Check for other conditions: NULL, empty list, or all NA
-      if (length(y) == 0 || is.null(y) || all(is.na(y))) {
-        return(character(0))
-      } else {
-        return(y)
-      }
-    })
-  }), .SDcols = array_columns]
-}
-
-result[, id_series := as.character(id_series)]
-result[, id_pin := as.character(id_pin)]
-# rename columns for thai grouper and bq push, dropping the pre-renamed source columns, also drop mdc and dc
-result[, clin_pdx := pdx]
-result[, clin_sdx := clin_icd]
-result[, pdx := NULL]
-result[, clin_icd := NULL]
-result[, py_pdc := pdc]
-result[, py_pccl := pccl]
-result[, py_warn := warning_code]
-result[, py_err := error_code]
-result[, pdc := NULL]
-result[, pccl := NULL]
-result[, warning_code := NULL]
-result[, error_code := NULL]
-result[, mdc := NULL]
-
-
-if (to_debug) fwrite(result, "test3.csv")
-str(result)
-
-
-export_for_grouper(
-  result,
-  here(checkpoint_4_path, paste0(
-    checkpoint_4_prefix, year_to_load, suffix, ".txt"
-  ))
-)
-
-# Upload the file
-gcs_auth(email = gcs_email)
-gcs_upload(
-  file = here(checkpoint_4_path, paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
-  bucket = gcs_bucket,
-  name = paste0(gcs_pre_fpath, "/", paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
-  predefinedAcl = "bucketLevel"
-)
-
-if (thai_prompt || to_prompt) {
-  response <- tolower(readline(prompt = "Have you run the Thai grouper manually? (y/n): "))
-  if (response == "y") {
-    message("Continuing with the script...\n")
-    # Continue with the rest of the script
-  } else {
-    message("Stopping the script.\n")
-    stop("Thai Grouper not run yet. Script terminated. Continue on manually if necessary")
-  }
-} else {
-  message("Thai Grouper is assumed to have been run already. Continuing with the script...\n")
-}
-
-gcs_get_object(
-  object_name = paste0(gcs_post_fpath, "/", toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT"),
-  bucket = gcs_bucket,
-  saveToDisk = here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")),
-  overwrite = TRUE
-)
-
-
-before_merge <- data.table::copy(result)
-before_merge[, caseid := as.integer(id_series)]
-thai_result <- fread(here(checkpoint_5_path, paste0(toupper(paste0(checkpoint_5_prefix, year_to_load, suffix)), "Res.TXT")), colClasses = "character")
-if (to_debug) print(head(thai_result))
-thai_result[, caseid := as.integer(caseid)]
-thai_result[, thai_drg := drg]
-thai_result[, thai_rw := rw]
-thai_result[, thai_wtlos := wtlos]
-thai_result[, thai_ot := ot]
-thai_result[, thai_adjrw := adjrw]
-thai_result[, thai_err := err]
-thai_result[, thai_warn := warn]
-thai_result[, thai_los := los]
-thai_result[, drg := NULL]
-thai_result[, drgname := NULL]
-thai_result[, rw := NULL]
-thai_result[, wtlos := NULL]
-thai_result[, ot := NULL]
-thai_result[, adjrw := NULL]
-thai_result[, err := NULL]
-thai_result[, warn := NULL]
-thai_result[, los := NULL]
-if (to_debug) print(head(before_merge))
-merged <- merge(before_merge, thai_result, by = "caseid", all.x = TRUE)
-if (to_debug) print(head(merged))
-diff_merged <- merged[!as.character(ifelse(is.na(py_drg), "NA", py_drg)) == as.character(thai_drg)]
-print(nrow(diff_merged))
-fwrite(diff_merged, here(checkpoint_9_path, paste0("checkpoint_9_grouper_differences_", year_to_load, suffix, ".csv")))
-
-
-str(merged)
-if (to_debug) fwrite(merged, "test4.csv")
-
-
-# Please run thai grouper first
-result_after_thai <- data.table::copy(merged)
-
-result_after_thai[, caseid := NULL]
-
-# Convert data types to match BigQuery schema
-# format as full numbers, no exponential form
-result_after_thai[, id_series := trimws(formatC(as.integer(id_series), format = "f", digits = 0))]
-# format as full numbers, no exponential form
-result_after_thai[, id_pin := trimws(formatC(as.integer(id_pin), format = "f", digits = 0))]
-result_after_thai[, date_adm := as.Date(date_adm, format = "%Y-%m-%d")]
-result_after_thai[, time_adm := as.ITime(time_adm)]
-result_after_thai[, date_dis := as.Date(date_dis, format = "%Y-%m-%d")]
-result_after_thai[, time_dis := as.ITime(time_dis)]
-result_after_thai[, date_rec := as.Date(date_rec, format = "%Y-%m-%d")]
-result_after_thai[, date_ref := as.Date(date_ref, format = "%Y-%m-%d")]
-result_after_thai[, date_check := as.Date(date_check, format = "%Y-%m-%d")]
-result_after_thai[, id_hci := as.character(id_hci)]
-result_after_thai[, id_hcp := id_hcp] # as is
-
-# Convert character "0"/"1" to logical for Boolean fields
-result_after_thai[, clin_outpatient := as.logical(clin_outpatient)] # as is
-result_after_thai[, clin_emergency := as.logical(clin_emergency)] # as is
-
-result_after_thai[, pat_type := as.character(pat_type)]
-result_after_thai[, clin_acc := as.character(clin_acc)]
-result_after_thai[, pat_rel := as.character(pat_rel)]
-result_after_thai[, pat_bdate := as.Date(pat_bdate, format = "%Y-%m-%d")]
-result_after_thai[, pat_age := as.numeric(pat_age)]
-result_after_thai[, pat_sex := as.character(pat_sex)]
-result_after_thai[, pat_bwt := as.numeric(pat_bwt)]
-result_after_thai[, pat_memcat_parent := as.character(pat_memcat_parent)]
-result_after_thai[, pat_memcat_child := as.character(pat_memcat_child)]
-result_after_thai[, clin_discharge := as.integer(clin_discharge)]
-# result[, clin_c1 := clin_c1]
-# result[, clin_c2 := clin_c2]
-
-result_after_thai[, claim_status := as.character(claim_status)]
-result_after_thai[, claim_payout := as.numeric(claim_payout)]
-result_after_thai[, claim_charge := as.numeric(claim_charge)]
-result_after_thai[, date_ext := as.Date(date_ext, format = "%Y-%m-%d")]
-result_after_thai[, id_year := as.integer(id_year)]
-
-if (is_unix) {
-  result_after_thai[, clin_sdx := mclapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
-} else {
-  result_after_thai[, clin_sdx := future_lapply(clin_sdx, function(x) if (all(is.na(x))) character(0) else x)]
-}
-
-result_after_thai[, clin_proc := clin_rvs] # as is
-if (is_unix) {
-  result_after_thai[, clin_proc := mclapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
-} else {
-  result_after_thai[, clin_proc := future_lapply(clin_proc, function(x) if (all(is.na(x))) character(0) else x)]
-}
-
-result_after_thai[, clin_rvs := NULL] # as is
-result_after_thai[, pat_ageday := as.integer(ageday)] # as is
-result_after_thai[, ageday := NULL]
-
-result_after_thai[, clin_pdx := as.character(clin_pdx)]
-result_after_thai[, clin_pdx_code := as.integer(pdx_code)]
-result_after_thai[, pdx_code := NULL]
-
-result_after_thai[, thai_drg := as.character(thai_drg)]
-result_after_thai[, thai_rw := as.numeric(thai_rw)]
-result_after_thai[, thai_wtlos := as.numeric(thai_wtlos)]
-result_after_thai[, thai_ot := as.integer(thai_ot)]
-result_after_thai[, thai_adjrw := as.numeric(thai_adjrw)]
-result_after_thai[, thai_err := as.integer(thai_err)]
-result_after_thai[, thai_warn := as.integer(thai_warn)]
-result_after_thai[, thai_los := as.integer(thai_los)]
-
-result_after_thai[, py_pdc := as.character(py_pdc)]
-result_after_thai[, py_pccl := as.numeric(py_pccl)]
-result_after_thai[, py_drg := as.character(py_drg)]
-result_after_thai[, py_warn := py_warn] # as is
-result_after_thai[, py_err := py_err] # as is
-
-# Reorder the columns in the result data.table to match the schema
-setcolorder(result_after_thai, c(
-  # "caseid",
-  "id_year",
-  "id_series",
-  "id_pin",
-  "id_hci",
-  "id_hcp",
-  "date_adm",
-  "time_adm",
-  "date_dis",
-  "time_dis",
-  "date_rec",
-  "date_ref",
-  "date_check",
-  "date_ext",
-  "pat_type",
-  "pat_rel",
-  "pat_bdate",
-  "pat_age",
-  "pat_ageday",
-  "pat_sex",
-  "pat_bwt",
-  "pat_memcat_parent",
-  "pat_memcat_child",
-  "claim_status",
-  "claim_payout",
-  "claim_charge",
-  "clin_discharge",
-  "clin_outpatient",
-  "clin_emergency",
-  "clin_acc",
-  "clin_c1",
-  "clin_c2",
-  "clin_sdx",
-  "clin_proc",
-  "clin_pdx",
-  "clin_pdx_code",
-  "thai_drg",
-  "thai_rw",
-  "thai_wtlos",
-  "thai_ot",
-  "thai_adjrw",
-  "thai_err",
-  "thai_warn",
-  "thai_los",
-  "py_drg",
-  "py_pdc",
-  "py_pccl",
-  "py_warn",
-  "py_err"
+setcolorder(result, c(
+  "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm", "time_adm", "date_dis", "time_dis",
+  "date_rec", "date_ref", "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
+  "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent", "pat_memcat_child", "claim_status", "claim_payout",
+  "claim_charge", "clin_discharge", "clin_outpatient", "clin_emergency", "clin_acc", "clin_c1", "clin_c2",
+  "clin_sdx", "clin_proc", "clin_pdx", "clin_pdx_source"
 ))
 
-result_after_thai[, icd9_list := NULL]
-result_after_thai[, pat_age_orig := NULL]
+# Apply format_id function to each column in parallel or sequentially
+columns_to_format <- c("id_series", "id_pin", "id_hci")
 
-result_after_thai[, c1_orig := NULL]
-result_after_thai[, c2_orig := NULL]
-result_after_thai[, c1 := NULL]
-result_after_thai[, c2 := NULL]
+# Define the format_id function
+format_id <- function(x) {
+  x <- as.character(x)
+  integer_x <- suppressWarnings(as.integer(x))
+  x <- trimws(formatC(integer_x, format = "f", digits = 0))
+  x[x == "NA" | is.na(integer_x)] <- NA_character_
+  x
+}
+
+# Apply format_id to each column safely
+if (is_unix) {
+  # Make a copy of the columns to avoid directly accessing the data.table object in parallel
+  formatted_cols <- mclapply(columns_to_format, function(col) {
+    column_data <- result[[col]] # Extract column data outside the parallel loop
+    return(format_id(column_data))
+  }, mc.cores = parallel::detectCores())
+} else {
+  formatted_cols <- lapply(columns_to_format, function(col) {
+    column_data <- result[[col]] # Extract column data
+    return(format_id(column_data))
+  })
+}
+
+# Assign the formatted results back to the respective columns
+for (i in seq_along(columns_to_format)) {
+  result[[columns_to_format[i]]] <- formatted_cols[[i]]
+}
+
+saveRDS(result, here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")), compress = FALSE)
 
 
-# str(result_after_thai)
-print(result_after_thai[grepl("e", id_series)])
-print(result_after_thai[grepl("e", id_pin)])
-print(result_after_thai[grepl("e", id_hci)])
+# str(result_after_cleaning)
+print(result[grepl("e", id_series)])
+print(result[grepl("e", id_pin)])
+print(result[grepl("e", id_hci)])
 
 
-if (nrow(result_after_thai) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")
+# str(result)
+# fwrite(result, "test.csv")
+# Search for rows where any element in clin_sdx is "A"
+result[, if (any(sapply(clin_sdx, function(row) "A" %in% row))) print(.SD), by = 1:nrow(result)]
+
+
+if (nrow(result) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")
 
 # Check if the table should be dropped and replaced
 if (to_drop_bq) {
@@ -1857,7 +1328,7 @@ tryCatch(
   {
     bq_table_create(
       bq_table(gcp_proj, bq_dataset, bq_table),
-      fields = fromJSON(here("data-cleaning/r_scripts", "bq_schema.json"), simplifyDataFrame = FALSE)
+      fields = fromJSON(here("data-cleaning/r_scripts", "bq_schema_cleaning.json"), simplifyDataFrame = FALSE)
     )
     skip_bq_upload <<- FALSE
     message("Table created successfully.\n")
@@ -1880,7 +1351,7 @@ if (to_bq && !skip_bq_upload) {
     {
       bq_table_upload(
         bq_table(gcp_proj, bq_dataset, bq_table),
-        values = result_after_thai,
+        values = result,
         write_disposition = "WRITE_EMPTY"
       )
       message("Data uploaded successfully with WRITE_EMPTY.\n")
@@ -1896,6 +1367,9 @@ if (to_bq && !skip_bq_upload) {
     }
   )
 }
+
+
+str(result)
 
 
 # Print time estimates along with estimate for full claims file

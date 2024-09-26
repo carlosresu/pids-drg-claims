@@ -1492,7 +1492,6 @@ apply_find_pdx <- function(c1, c2, clin_icd, acc_pdx) {
   return(list(pdx = datatable$pdx, pdx_code = datatable$pdx_code))
 }
 
-# Function to generate date of birth (DOB) vectorized
 generate_dob <- function(bdays, ages, date_adms) {
   #' @title Generate Date of Birth Vectorized
   #'
@@ -1505,61 +1504,48 @@ generate_dob <- function(bdays, ages, date_adms) {
   #'
   #' @return character. A vector of dates of birth in "dd/mm/yyyy" format.
 
-  set.seed(global_seed)
-
+  set.seed(global_seed) # Ensure reproducibility
   require(lubridate)
 
   # Ensure ages are numeric
   ages <- as.numeric(ages)
 
+  # Initialize DOB vector with NA
   dob <- rep(NA_character_, length(ages))
 
-  # Use provided birthdates where available
+  # 1. Use provided birthdates where available
   valid_bdays_indices <- !is.na(bdays) & bdays != ""
   dob[valid_bdays_indices] <- format(
-    ymd(bdays[valid_bdays_indices]),
+    ymd(bdays[valid_bdays_indices]), # Convert valid birthdates
     "%d/%m/%Y"
   )
 
-  # Identify indices where birthdates are missing
+  # 2. Handle cases where birthdates are missing
   missing_bday_indices <- which(is.na(bdays) | bdays == "")
-  ref_dates <- ymd(date_adms[missing_bday_indices])
+  ref_dates <- ymd(date_adms[missing_bday_indices]) # Admission dates
 
-  # Handle cases where ages are zero:
-  # For age 0, generate a random date within the past 27 days
-  # from the admission date.
+  # 3. Handle age == 0
   zero_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] == 0
   )
-  dob[missing_bday_indices[zero_age_indices]] <- format(
-    ref_dates[zero_age_indices] - days(
-      sample(
-        1:27, length(zero_age_indices),
-        replace = TRUE
-      )
-    ), "%d/%m/%Y"
-  )
+  if (length(zero_age_indices) > 0) {
+    dob[missing_bday_indices[zero_age_indices]] <- format(
+      ref_dates[zero_age_indices] - days(
+        sample(1:27, length(zero_age_indices), replace = TRUE) # Random days within the past month
+      ), "%d/%m/%Y"
+    )
+  }
 
-  # Handle cases where ages are positive:
-  # For positive ages, subtract the truncated age in years and a random
-  # number of days (up to 170) from the admission date.
+  # 4. Handle positive ages (no random days)
   positive_age_indices <- which(
     !is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0
   )
-  truncated_ages <- floor(
-    ages[missing_bday_indices][positive_age_indices]
-  )
-  dob[missing_bday_indices[positive_age_indices]] <- format(
-    ref_dates[positive_age_indices] - years(truncated_ages) - days(
-      sample(1:170, length(positive_age_indices), replace = TRUE)
-    ), "%d/%m/%Y"
-  )
-
-  # # Check that all years for dates are above 1900
-  # years <- year(ymd(dob))
-  # if (any(years < 1900)) {
-  #   stop("Generated dates have years below 1900")
-  # }
+  if (length(positive_age_indices) > 0) {
+    truncated_ages <- floor(ages[missing_bday_indices][positive_age_indices]) # Truncate ages
+    dob[missing_bday_indices[positive_age_indices]] <- format(
+      ref_dates[positive_age_indices] - years(truncated_ages), "%d/%m/%Y" # Subtract exact age in years
+    )
+  }
 
   return(dob)
 }
@@ -2622,6 +2608,80 @@ read_appropriate_file <- function(read_part, to_sample) {
   )
 }
 
+# export_for_grouper <- function(dt, output_txt_file) {
+#   #' @title Export Data for Batch Grouper
+#   #'
+#   #' @description This function exports data for batch grouper,
+#   #' generating necessary columns and formatting them accordingly.
+#   #'
+#   #' @param dt data.table. The input data table.
+#   #' @param output_txt_file character. The path to the output text file.
+#   #'
+#   #' @return NULL.
+
+#   output_dt <- data.table()
+#   output_dt[, CASEID := dt$id_series]
+#   # Format Date of Birth (DOB) and Age
+#   output_dt[, DOB := format(ymd(dt$pat_bdate), "%d/%m/%Y")]
+
+#   # Format Sex
+#   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
+
+#   # Format Admission Date and Time
+#   output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
+#   output_dt[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
+
+#   # Format Discharge Date and Time
+#   output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
+#   output_dt[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
+
+#   # Discharge Type
+#   output_dt[, DischT := dt$clin_discharge]
+#   # Admission Weight
+#   output_dt[, AdmWt := dt$pat_bwt]
+#   # Principal Diagnosis Code
+#   output_dt[, PDx := dt$clin_pdx]
+
+#   # Secondary Diagnosis Codes (SDx1 to SDx12)
+#   icd_codes_list <- lapply(dt$clin_sdx, function(icd_str) {
+#     codes <- unlist(icd_str)
+#     length(codes) <- 12
+#     codes
+#   })
+#   icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
+#   icd_cols <- paste0("SDx", 1:12)
+#   output_dt[, (icd_cols) := icd_codes]
+
+#   # Procedure Codes (Proc1 to Proc20)
+#   rvs_codes_list <- lapply(dt$clin_rvs, function(rvs_str) {
+#     codes <- unlist(rvs_str)
+#     length(codes) <- 20
+#     codes
+#   })
+#   rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
+#   proc_cols <- paste0("Proc", 1:20)
+#   output_dt[, (proc_cols) := rvs_codes]
+
+#   # Replace NA values with '--'
+#   output_dt[is.na(output_dt)] <- "--"
+#   output_dt[is.null(output_dt)] <- "--"
+#   # # Convert list columns to comma-separated strings
+#   # for (col in names(output_dt)) {
+#   #   if (is.list(output_dt[[col]])) {
+#   #     output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
+#   #   }
+#   # }
+#   # Write the data.table to a file with vertical bar (|) as delimiter
+
+#   str(output_dt)
+
+#   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
+
+#   if (to_debug) {
+#     return(NULL)
+#   }
+# }
+
 export_for_grouper <- function(dt, output_txt_file) {
   #' @title Export Data for Batch Grouper
   #'
@@ -2633,63 +2693,61 @@ export_for_grouper <- function(dt, output_txt_file) {
   #'
   #' @return NULL.
 
-  output_dt <- data.table()
-  output_dt[, CASEID := dt$id_series]
+  output_dt_thai <- data.table()
+
+  # CASEID
+  output_dt_thai[, CASEID := dt$id_series]
+
   # Format Date of Birth (DOB) and Age
-  output_dt[, DOB := format(ymd(dt$pat_bdate), "%d/%m/%Y")]
+  output_dt_thai[, DOB := format(dt$pat_bdate, "%d/%m/%Y")]
 
   # Format Sex
-  output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
+  output_dt_thai[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
 
   # Format Admission Date and Time
-  output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
-  output_dt[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
+  output_dt_thai[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
+  output_dt_thai[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
 
   # Format Discharge Date and Time
-  output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
-  output_dt[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
+  output_dt_thai[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
+  output_dt_thai[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
 
   # Discharge Type
-  output_dt[, DischT := dt$clin_discharge]
+  output_dt_thai[, DischT := dt$clin_discharge]
+
   # Admission Weight
-  output_dt[, AdmWt := dt$pat_bwt]
+  output_dt_thai[, AdmWt := dt$pat_bwt]
+
   # Principal Diagnosis Code
-  output_dt[, PDx := dt$clin_pdx]
+  output_dt_thai[, PDx := dt$clin_pdx]
 
   # Secondary Diagnosis Codes (SDx1 to SDx12)
   icd_codes_list <- lapply(dt$clin_sdx, function(icd_str) {
     codes <- unlist(icd_str)
-    length(codes) <- 12
+    length(codes) <- 12 # Ensure there are 12 elements
     codes
   })
   icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
   icd_cols <- paste0("SDx", 1:12)
-  output_dt[, (icd_cols) := icd_codes]
+  output_dt_thai[, (icd_cols) := icd_codes]
 
   # Procedure Codes (Proc1 to Proc20)
-  rvs_codes_list <- lapply(dt$clin_rvs, function(rvs_str) {
-    codes <- unlist(rvs_str)
-    length(codes) <- 20
+  proc_codes_list <- lapply(dt$clin_proc, function(proc_str) {
+    codes <- unlist(proc_str)
+    length(codes) <- 20 # Ensure there are 20 elements
     codes
   })
-  rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
+  proc_codes <- as.data.table(do.call(rbind, proc_codes_list))
   proc_cols <- paste0("Proc", 1:20)
-  output_dt[, (proc_cols) := rvs_codes]
+  output_dt_thai[, (proc_cols) := proc_codes]
 
   # Replace NA values with '--'
-  output_dt[is.na(output_dt)] <- "--"
-  output_dt[is.null(output_dt)] <- "--"
-  # # Convert list columns to comma-separated strings
-  # for (col in names(output_dt)) {
-  #   if (is.list(output_dt[[col]])) {
-  #     output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
-  #   }
-  # }
+  output_dt_thai[is.na(output_dt_thai)] <- "--"
+
+  str(output_dt_thai)
+
   # Write the data.table to a file with vertical bar (|) as delimiter
-
-  str(output_dt)
-
-  fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
+  fwrite(output_dt_thai, output_txt_file, sep = "|", col.names = TRUE)
 
   if (to_debug) {
     return(NULL)
