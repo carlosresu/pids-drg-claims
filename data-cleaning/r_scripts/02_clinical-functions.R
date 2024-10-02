@@ -100,7 +100,7 @@ remap_memcat_parent_desc <- function(pat_memcat_parent){
 }
 
 remap_memcat_child_desc <- function(pat_memcat_child) {
-  ## Remap the member category column
+  ## Remap the member category column to the main membership types
 
   # remap the column
   remapped_memcat_child <- fcase(
@@ -413,12 +413,10 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
   # clin_icd: column with all the ICD-10 codes
   # col: column with the possible extra ICD-10 codes
   
+  # I dont get how this works
   clin_icd <- lapply(clin_icd, function(x) if (is.null(x)) character() else x)
   col_first <- lapply(col, function(x) x[1])
-
-  clin_icd <- mapply(function(icd, c1) {
-    c(icd, c1[-1])
-  }, clin_icd, col, SIMPLIFY = FALSE)
+  clin_icd <- mapply(function(icd, c1) {c(icd, c1[-1])}, clin_icd, col, SIMPLIFY = FALSE)
 
   return(list(clin_icd = clin_icd, col_first = col_first))
 }
@@ -586,6 +584,7 @@ split_rvs_codes <- function(rvs_icd9) {
   return(list(with_drg = with_drg, without_drg = without_drg))
 }
 
+
 create_rvs_map_lists <- function(with_drg) {
   ## Create two lists for mapping RVS codes to ICD-9-CM codes: one for solo mappings and one for multi-mappings.
   # with_drg: table of RVS codes with corresponding DRG, ordered by `rvs` and `is_drg`.
@@ -600,6 +599,7 @@ create_rvs_map_lists <- function(with_drg) {
 
   return(list(rvs_map_list = rvs_map_list, rvs_map_solo = rvs_map_solo))
 }
+
 
 get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
   ## Maps a column containing RVS codes to ICD-9-CM
@@ -640,10 +640,7 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
 
   # what does this do? 
   datatable[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-  datatable[, valid_matches := lapply(
-    matches,
-    function(x) x[x %in% valid_rvs_codes]
-  )]
+  datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes)]
   
   # what does this do?
   datatable[, clin_rvs := mapply(
@@ -680,15 +677,19 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
   # matches: list of matched codes to be checked for validity
   # valid_rvs_codes: vector of valid RVS codes
   
+  # what does this do?
   valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in valid_rvs_codes) {
     assign(code, TRUE, envir = valid_rvs_env)
   }
 
+  # what does this do?
   invalid_matches <- lapply(
     matches,
     function(x) x[!vapply(x, exists, logical(1), envir = valid_rvs_env)]
   )
+  
+  # what does this do?
   discarded_codes <- unlist(invalid_matches)
   if (length(discarded_codes) > 0) {
     discarded_table <- data.table(
@@ -702,15 +703,11 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
 }
 
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
-  #' @title Append and Remove RVS Codes
-  #' @description This function appends valid RVS codes to clinical data and removes any invalid 5-digit codes.
-  #'
-  #' @param clin_rvs A list of clinical RVS codes.
-  #' @param col A character vector of codes to be processed.
-  #' @param rvs_icd9 A data table of valid RVS codes.
-  #'
-  #' @return A list containing the modified `clin_rvs`, `col`, and a data table of `discarded_rvs`.
-
+  ## Appends RVS codes from a column to the main RVS column
+  # clin_rvs: list of RVS codes
+  # col: column of codes to be processed
+  # rvs_icd9: table mapping RVS to ICD-9-CM
+  
   datatable <- data.table(clin_rvs = clin_rvs, col = col)
   valid_rvs_codes <- rvs_icd9$rvs
 
@@ -757,15 +754,18 @@ find_pdx <- function(c1, c2, clin_icd, acc_pdx_env) {
     return(list(pdx = pdxs[1], pdx_code = 3))
   }
 
-  # If there are multiple eligible PDx, check c1 and c2
+  # If there are multiple eligible PDx, check c1 and c2 first
   for (cr in c(c1, c2)) {
     if (!is.na(cr)) {
       if (exists(cr, acc_pdx_env)) {
+        # what does this do?
         starting_letter <- substr(cr, 1, 1)
         starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
         if (length(starting_codes) == 1) {
+          # what does this do?
           return(list(pdx = starting_codes[1], pdx_code = 4))
         } else if (length(starting_codes) > 1) {
+          # what does this do?
           starting_codes <- starting_codes[
             order(sapply(starting_codes, function(x) check_similarity(cr, x)),
               decreasing = TRUE
