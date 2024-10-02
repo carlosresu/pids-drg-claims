@@ -6,7 +6,7 @@ Kindly take note of these general principles moving forward - these are essentia
 
 - [PARAMETRIZATION] There are multiple functions doing very similar things for different objects. This (a) makes the code bloated with repetition, and (b) opens up more room for error since modifications applied to one function may not be carried out to all the others that are doing something of the same. Lump these into unique functions, with parameters that can vary based on the use case.
 
-- [COMPARTMENTALIZATION] Avoid any functions that overwrite the entire data table. At most, these functions must output columns/vectors that are then placed in the dt. Overwriting the dt across multiple steps (a) opens up more room for error since the entire dt is open to modification within the function (no matter how carefully you write the function to deal with only certain columns.. you are still a human capable of error), and (b) consumes significant amounts of memory and runtime.
+- [COMPARTMENTALIZATION] Avoid any functions that overwrite the entire data table. At most, these functions must output columns/vectors that are then placed in the dt. Overwriting the dt across multiple steps (a) opens up more room for error since the entire dt is open to modification within the function (no matter how carefully you write the function to deal with only certain columns.. we are still people capable of error), and (b) consumes significant amounts of memory and runtime.
 
 - [COMMUNICATION] For any issues, please bring them up to me in this format: [A. DETAILED LAY DESCRIPTION OF THE PROBLEM] --> [B. WHERE YOU THINK IT CAME FROM] --> [C. PROPOSED SOLUTION (IF ANY)]. You have a tendency to communicate in terse language and technical jargon, which is confusing for me and leads to several follow-up questions. Before raising anything to any of your teammates, kindly take a step back and try to ELI5 ("explain it like I'm 5") as much as possible. Take as many words as you need; overcommunicating is always better than under. 
 
@@ -14,6 +14,8 @@ NOTE:
 a. I only checked 01_cleaning-functions.R and 02_clinical_functions.R but I trust you'll apply the same feedback to the others. Let's have further discussions on how to save the results of the checks/summaries to BQ also.
 
 b. I tried revising the docstrings and added code comments where I could but some parts of the code were too incomprehensible for me. Kindly go through all the docstrings and code comments and revise or correct as you see fit.
+
+c. Let's clean up drg-cleaning.ipynb and drg-grouping.ipynb together on Wednesday.
 
 
 
