@@ -1,0 +1,74 @@
+=== GENERAL FEEDBACK ===
+
+Kindly take note of these general principles moving forward - these are essential to your growth as a data scientist/programmer. Most of my feedback moving forward are based on these.
+
+- [DOCUMENTATION] There was sparse documentation throughout the scripts, which made them difficult to review and understand, and which also makes you liable for remembering every line and detail (and we don't want that). Docstrings are necessary for a general understanding of the function but must be accompanied by more specific code comments throughout to make the code itself comprehensible. These must be placed as the code is written (not after-the-fact!), just in case you forget or the code needs to be reviewed by someone else.
+
+- [PARAMETRIZATION] There are multiple functions doing very similar things for different objects. This (a) makes the code bloated with repetition, and (b) opens up more room for error since modifications applied to one function may not be carried out to all the others that are doing something of the same. Lump these into unique functions, with parameters that can vary based on the use case.
+
+- [COMPARTMENTALIZATION] Avoid any functions that overwrite the entire data table. At most, these functions must output columns/vectors that are then placed in the dt. Overwriting the dt across multiple steps (a) opens up more room for error since the entire dt is open to modification within the function (no matter how carefully you write the function to deal with only certain columns.. you are still a human capable of error), and (b) consumes significant amounts of memory and runtime.
+
+- [COMMUNICATION] For any issues, please bring them up to me in this format: [A. DETAILED LAY DESCRIPTION OF THE PROBLEM] --> [B. WHERE YOU THINK IT CAME FROM] --> [C. PROPOSED SOLUTION (IF ANY)]. You have a tendency to communicate in terse language and technical jargon, which is confusing for me and leads to several follow-up questions. Before raising anything to any of your teammates, kindly take a step back and try to ELI5 ("explain it like I'm 5") as much as possible. Take as many words as you need; overcommunicating is always better than under. 
+
+NOTE: 
+a. I only checked 01_cleaning-functions.R and 02_clinical_functions.R but I trust you'll apply the same feedback to the others. Let's have further discussions on how to save the results of the checks/summaries to BQ also.
+
+b. I tried revising the docstrings and added code comments where I could but some parts of the code were too incomprehensible for me. Kindly go through all the docstrings and code comments and revise or correct as you see fit.
+
+
+
+=== 01_cleaning-functions.R ===
+
+CHANGES I MADE:
+- I deleted `deduplicate_icd_codes` -- duplicated ICD codes brings up warnings in the grouping process, which we need to see.
+
+- I placed `clean_clinical_columns` after `transfer_icd_codes`, for readability
+
+- I renamed `transfer_icd_codes` to `transfer_cr_icd` for clarity (since you're moving case rates to the ICD)
+
+
+SUGGESTIONS:
+[ ] The NA cleaning step in `collapse_columns` is redundant to `clean_column` - consider rewriting `collapse_columns` so that it simply concatenates only non-NA entries
+
+[ ] `replace_empty_with_na` and `replace_empty_with_none` can be the same function, just add NA/None as one of the inputs
+	- I couldn't understand the code, please document along this
+
+[ ] `split_to_vector_single` and `split_to_vector` can also be the same function, just indicate "|" or "||" as one of the function arguments
+
+[ ] Rewrite `replace_empty_with_na`,  `collapse_and_clean_icd_rvs`, `transfer_cr_icd`, `clean_clinical_columns` to output columns/vectors instead of the whole table (as it is, these functions overwrite the previous `dt` object)
+
+[ ] For `transfer_cr_icd` and `clean_clinical_columns`: rewrite these so that it becomes one function that for-loops through "c1" and "c2", with a single code block going through the needed process for either. The output must also be in the form of columns/vectors
+
+[ ] There are subfunctions not in this script: `transfer_extra_icd10s_to_clin_icd` and `append_and_remove_rvs` -- these should ideally be placed in this script also, so that there's no need to bounce to other .R scripts to check if they're correct
+
+
+=== 02_clinical-functions.R ===
+
+CHANGES I MADE:
+- Refactored the `remap_*` functions so that mapping and checks are in separate code blocks
+
+- Corrected the mapping for pat_memcat_child by adding an "OFW" type
+
+
+SUGGESTIONS:
+[ ] Rewrite `remap_patient_type`, `remap_claim_status`, `remap_memcat_parent_desc`, `remap_memcat_child_desc`, and `remap_disposition` into a single function named `remap_categorical` that takes the column and a list of mappings as inputs and runs the same steps (the known types to be inferred from the list of mappings). Consider using the `car::recode` function instead of `fcase`, and include the checks for unmapped categories --> once this is implemented, rewrite the `remap_patient_data` function to just apply `remap_categorical` to each column that needs to be remapped and that also catches any unmapped categories.
+
+[ ] Rewrite `remove_lumped_rvs_codes` and `remove_lumped_icd9_codes` so that theyre one function that just takes (a) the column of interest, and (b) the number of chars (4 or 5) as the input 
+
+[ ] `transfer_extra_icd10s_to_clin_icd` looks very similar to the `transfer_cr_icd` function in `01_cleaning-functions.R`, can these be written into just one function also?
+
+[ ] For `generate_icd10_mapping`, the step where digits are trimmed should come before the one where a "9" is added. Also, consider rewriting this to just take one code at a time and returns the match, to be used within an `apply` function -- this would greatly simplify the function as it is no longer modifying a list inside.
+
+[ ] For `apply_icd10_mapping_to_columns`: Rename this to `map_icd10` for brevity. Rewrite this so that it's input is a subset of the dt to which it applies the mapping (i.e. dt[c('c1','c2','icdcode1')]), then the output should replace only those columns in the dt
+
+[ ] Swap the steps so that the ICD-10 mapping and `find_pdx` are done before the codes are compiled into `clin_icd`, just to make the steps in either process easier
+
+[ ] The `find_pdx_vectorized` inside of `apply_find_pdx` is (a) too long to be a subfunction and (b) entirely redundant to `find_pdx`. Rewrite `find_pdx` so that it works on one row, then `apply_find_pdx` should be as simple as feeding `find_pdx` into an `apply` on a subset of the dt with the case rates and ICD codes
+
+[ ] Delete `ensure_unique_icd_codes` and see that it is not being used elsewhere, since we need to see where ICD-10 codes might have been duplicated after being matched
+
+[ ] `create_rvs_map_lists` is unnecessary when the mapping table exists and can be applied directly within the logic to map the RVS to ICD-9-CM. Rewrite the code so that this function is obsolete.
+
+[ ] `find_and_append_valid_rvs` and `append_and_remove_rvs` can be a single function: rewrite a single function that can be run through an `apply`, which checks if an RVS code is valid and adds it to `clin_rvs`
+
+[ ] Delete `generate_dob` and make sure it's not used elsewhere; we don't need it anymore now that we have birthdate in the dataset
