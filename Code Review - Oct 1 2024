@@ -8,14 +8,15 @@ Kindly take note of these general principles moving forward - these are essentia
 
 - [COMPARTMENTALIZATION] Avoid any functions that overwrite the entire data table. At most, these functions must output columns/vectors that are then placed in the dt. Overwriting the dt across multiple steps (a) opens up more room for error since the entire dt is open to modification within the function (no matter how carefully you write the function to deal with only certain columns.. we are still people capable of error), and (b) consumes significant amounts of memory and runtime.
 
-- [COMMUNICATION] For any issues, please bring them up to me in this format: [A. DETAILED LAY DESCRIPTION OF THE PROBLEM] --> [B. WHERE YOU THINK IT CAME FROM] --> [C. PROPOSED SOLUTION (IF ANY)]. You have a tendency to communicate in terse language and technical jargon, which is confusing for me and leads to several follow-up questions. Before raising anything to any of your teammates, kindly take a step back and try to ELI5 ("explain it like I'm 5") as much as possible. Take as many words as you need; overcommunicating is always better than under. 
+- [COMPREHENSIVENESS] This more for the documentation - steps like the deduplication of ICD-10 codes should have shown up on there also. Rather than writing up each step in the code then creating the write-up from there, I suggest you take a step back and list own the *broader* steps you've had to go through before proceeding. Kindly refer back to my previous write-ups as a writing sample.
+
 
 NOTE: 
-a. I only checked 01_cleaning-functions.R and 02_clinical_functions.R but I trust you'll apply the same feedback to the others. Let's have further discussions on how to save the results of the checks/summaries to BQ also.
+a. I only checked 01_cleaning-functions.R and 02_clinical_functions.R but I trust you'll apply the same feedback to the others. Let's have further discussions on how to save the results of all the checks/summaries to BQ also.
 
 b. I tried revising the docstrings and added code comments where I could but some parts of the code were too incomprehensible for me. Kindly go through all the docstrings and code comments and revise or correct as you see fit.
 
-c. Let's clean up drg-cleaning.ipynb and drg-grouping.ipynb together on Wednesday.
+c. On Wednesday let's : (a) clean up the documentation for drg-cleaning.ipynb and drg-grouping.ipynb together, and (b) discuss how to also upload the results of the checks and summaries to BQ (lets have a separate dataset for this)
 
 
 
@@ -74,3 +75,16 @@ SUGGESTIONS:
 [ ] `find_and_append_valid_rvs` and `append_and_remove_rvs` can be a single function: rewrite a single function that can be run through an `apply`, which checks if an RVS code is valid and adds it to `clin_rvs`
 
 [ ] Delete `generate_dob` and make sure it's not used elsewhere; we don't need it anymore now that we have birthdate in the dataset
+
+
+=== OTHER TASKS ===
+
+Placing your other pending to-do's here also so they dont get lost:
+
+[ ] Split the output tables into three BQ uploads: `claims_` for the cleaned claims, `thai_` for the TDRG outputs, and `py_` for the python outputs
+
+[ ] Null the birthdate, date of admission, or date of discharge if with the year 1900 or before. (Make sure this also has a check that outputs the number of rows affected)
+
+[ ] Null patient ages that are above 124 even after any recomputations (and also count the number of rows affected)
+
+[ ] Update the write-up with all data cleaning steps and recomputations in lay language
