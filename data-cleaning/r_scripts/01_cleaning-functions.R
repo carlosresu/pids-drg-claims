@@ -1,55 +1,44 @@
+### Helper functions for general data cleaning and processing
+
+
+##NOTE: Consider renaming this to clean_string_column
 clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
-  #' @title Clean a column
-  #'
-  #' @description This function cleans a column by converting it to UTF-8,
-  #' making it uppercase, removing specific characters, and replacing
-  #' NA-like strings with NA. It also restores slashes for codes
-  #' matching patterns in a reference data table.
-  #'
-  #' @param column_to_clean character. The column to be cleaned.
-  #' @param na_like_strings character. A vector of strings considered as NA.
-  #' @param neoplasms_dt data.table. A table containing substrings where slashes should be preserved.
-  #'
-  #' @return character. The cleaned column with slashes restored as needed.
-
-  # Step 1: Clean the column
+  ## runs basic data cleaning steps on a string column
+  # column_to_clean: name of column to be cleaned.
+  # na_like_strings: vector of strings considered as NA.
+  # neoplasms_dt: data.table of substrings where slashes should be preserved
+  
+  # convert to UTF-8
   column_to_clean <- as.character(column_to_clean)
-
-  # Use `stri_trans_general` for faster UTF-8 conversion
   cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
   cleaned_col <- toupper(cleaned_col)
 
-  # Combine regex operations for efficiency
+  # remove non-letter and non-digit characters
   cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d]+", "")
 
-  # Use fast vectorized NA replacement
+  # replace NA-like strings with NA
   cleaned_col[cleaned_col %in% na_like_strings] <- NA_character_
 
-  # Step 2: Prepare the neoplasms_dt lookup table
-  # Create a named vector directly for lookup
-  lookup <- setNames(neoplasms_dt$icd10, gsub("/", "", neoplasms_dt$icd10))
-
-  # Step 3: Restore slashes in the cleaned column using vectorization
-  matched_indices <- match(cleaned_col, names(lookup))
-  cleaned_col[!is.na(matched_indices)] <- lookup[matched_indices[!is.na(matched_indices)]]
+  # restore slashes to codes that may pertain to neoplasms
+  neopl <- setNames(neoplasms_dt$icd10, gsub("/", "", neoplasms_dt$icd10))
+  matched_indices <- match(cleaned_col, names(neopl))
+  cleaned_col[!is.na(matched_indices)] <- neopl[matched_indices[!is.na(matched_indices)]]
 
   return(cleaned_col)
 }
 
+
 collapse_columns <- function(cols_to_process, na_like_strings) {
-  #' @title Collapse multiple columns into a single column
-  #'
-  #' @description This function collapses multiple columns into a single
-  #' column by concatenating their values, cleaning them, and replacing
-  #' NA-like strings with NA.
-  #'
-  #' @param cols_to_process list. A list of columns to be collapsed.
-  #' @param na_like_strings character. A vector of strings considered as NA.
-  #'
-  #' @return character. The collapsed and cleaned column.
+  ## concatenate entries from multiple string columns into a single one
+  # cols_to_process: list of columns to be collapsed
+  # na_like_strings: vector of strings considered as NA
+  
+  # apply the string column cleaning function
   cleaned_columns <- lapply(cols_to_process, function(col) {
     clean_column(col, na_like_strings, neoplasms_dt)
   })
+  
+  # exclude NA-like strings
   collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
   collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
@@ -58,23 +47,16 @@ collapse_columns <- function(cols_to_process, na_like_strings) {
   collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
     NA_character_, collapsed_column
   )
+  
+  # return column with the results
   return(collapsed_column)
 }
 
-replace_empty_with_na_python <- function(dt, to_view_checks) {
-  #' @title Replace empty strings with NA
-  #'
-  #' @description This function replaces empty strings, "NA", and "character(0)"
-  #' with NA in character, factor, and list columns of the data table.
-  #' Optionally provides a summary of replacements.
-  #'
-  #' @param dt data.table. The data table to be processed.
-  #' @param to_view_checks logical. Whether to provide a
-  #' summary of replacements.
-  #'
-  #' @return list. A list containing the processed data table
-  #' and the replacement summary.
 
+replace_empty_with_na_python <- function(dt, to_view_checks) {
+  ## replace empty strings with NA across a whole data.table,
+  ## depending on the data type (i.e. character, factor, list)
+  
   char_factor_cols <- names(dt)[sapply(
     dt,
     function(col) is.character(col) || is.factor(col) || is.list(col)
@@ -139,20 +121,13 @@ replace_empty_with_na_python <- function(dt, to_view_checks) {
   )
 }
 
-replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
-  #' @title Replace empty strings with NA
-  #'
-  #' @description This function replaces empty strings, "NA", and "character(0)"
-  #' with NA in character, factor, and list columns of the data table.
-  #' Optionally provides a summary of replacements.
-  #'
-  #' @param dt data.table. The data table to be processed.
-  #' @param to_view_checks logical. Whether to provide a
-  #' summary of replacements.
-  #'
-  #' @return list. A list containing the processed data table
-  #' and the replacement summary.
 
+
+replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
+  ## Replace empty strings in a table with NA (used for data tables in R)
+  # dt: table for which empties will be replaced
+  # to_view_checks: bool, for viewing summary of replacements
+  
   char_factor_cols <- names(dt)[sapply(
     dt,
     function(col) is.character(col) || is.factor(col) || is.list(col)
@@ -217,18 +192,11 @@ replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
   )
 }
 
+
 replace_empty_with_none <- function(dt, to_view_checks = FALSE) {
-  #' @title Replace empty strings, NA, and "character(0)" with "None"
-  #'
-  #' @description This function replaces empty strings, "NA", and "character(0)"
-  #' with "None" in character, factor, and list columns of the data table.
-  #' Optionally provides a summary of replacements.
-  #'
-  #' @param dt data.table. The data table to be processed.
-  #' @param to_view_checks logical. Whether to provide a summary of replacements.
-  #'
-  #' @return list. A list containing the processed data table
-  #' and the replacement summary.
+  ## Replace empty with None in a table (used in reformatting the data for Python)
+  # dt: table for which empties will be replaced
+  # to_view_checks: bool, for viewing summary of replacements
 
   char_factor_cols <- names(dt)[sapply(
     dt,
@@ -295,33 +263,28 @@ replace_empty_with_none <- function(dt, to_view_checks = FALSE) {
 }
 
 split_to_vector_single <- function(column) {
-  #' @title Split a column into a vector
-  #'
-  #' @description This function splits the elements of a column by "|"
-  #' and returns a list of vectors.
-  #'
-  #' @param column character. The column to be split.
-  #'
-  #' @return list. A list of vectors obtained by splitting the column.
+  ## Splits the elements of a column by "|" and returns a list of vectors
+  # column: column to be split
+  
   result <- lapply(column, function(x) {
+    # if the entry is null, leave it as is 
     if (is.na(x)) {
       return(NA_character_)
     } else {
+      
+    # split into vector
       return(unlist(strsplit(x, "|", fixed = TRUE)))
     }
   })
+  
+  # return a list of vectors obtained by splitting the columm
   return(result)
 }
 
 split_to_vector <- function(column) {
-  #' @title Split a column into a vector
-  #'
-  #' @description This function splits the elements of a column by "||"
-  #' and returns a list of vectors.
-  #'
-  #' @param column character. The column to be split.
-  #'
-  #' @return list. A list of vectors obtained by splitting the column.
+  ## Split the elements of a column by "||" and returns a list of vectors
+  # column: column to be split
+  
   result <- lapply(column, function(x) {
     if (is.na(x)) {
       return(NA_character_)
@@ -329,27 +292,31 @@ split_to_vector <- function(column) {
       return(unlist(strsplit(x, "||", fixed = TRUE)))
     }
   })
+  
+  # returns a list of vectors obtained by splitting the columm
   return(result)
 }
 
 collapse_and_clean_icd_rvs <- function(dt) {
-  #' @title Collapse and clean ICD and RVS columns
-  #' @description This function collapses and cleans the ICD
-  #' and RVS columns in the data.table.
-  #' @param dt data.table. The data table to be processed.
-  #' @return data.table. The processed data table.
-  dt[, clin_icd := collapse_columns(
-    mget(paste0("clin_icd", 1:12)), na_like_strings
-  )]
+  ## Collapse and reformat the ICD and RVS columns in a table
+  # dt: table for which ICD and RVS columns are cleaned 
+  
+  # collapse the ICD and RVS codes into clin_icd and clin_rvs, respectively
+  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
   dt[, paste0("clin_icd", 1:12) := NULL]
-  dt[, clin_rvs := collapse_columns(
-    mget(paste0("clin_rvs", 1:20)), na_like_strings
-  )]
+  
+  dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
   dt[, paste0("clin_rvs", 1:20) := NULL]
+  
+  # split up any lumped ICD codes
   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+  
+  # convert to vectors
   dt[, clin_icd := split_to_vector(clin_icd)]
   # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
+  
+  # return the data table
   return(dt)
 }
 
@@ -359,10 +326,10 @@ clean_clinical_columns <- function(dt) {
   #' in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-
-  dt <- transfer_icd_codes(dt)
+  
+  dt <- transfer_cr_icd(dt)
   dt <- deduplicate_icd_codes(dt)
-
+  
   c1_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$c1, rvs_icd9
   )
@@ -370,19 +337,17 @@ clean_clinical_columns <- function(dt) {
   dt[, c1 := c1_rvs_results$col]
   c1_discarded_rvs <- c1_rvs_results$discarded_rvs
 
-  # cat(c1_discarded_rvs)
-
   c2_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$c2, rvs_icd9
   )
   dt[, clin_rvs := c2_rvs_results$clin_rvs]
   dt[, c2 := c2_rvs_results$col]
   c2_discarded_rvs <- c2_rvs_results$discarded_rvs
-
+  
   # cat(c2_discarded_rvs)
-
+  
   dt[, clin_rvs := lapply(clin_rvs, unique)]
-
+  
   return(
     list(
       # dt to return
@@ -394,12 +359,10 @@ clean_clinical_columns <- function(dt) {
   )
 }
 
-transfer_icd_codes <- function(dt) {
-  #' @title Transfer ICD codes
-  #' @description This function transfers extra ICD-10 codes
-  #' to clinical ICD in the data.table.
-  #' @param dt data.table. The data table to be processed.
-  #' @return data.table. The processed data table.
+transfer_cr_icd <- function(dt) {
+  ## Transfer ICD-10 codes in either case rate 1 or 2 to the case's ICD-10 list
+  # dt: table for which the case rates will be transferred
+
   dt[, c1 := split_to_vector(c1)]
   c1_result <- transfer_extra_icd10s_to_clin_icd(
     dt$clin_icd, dt$c1
