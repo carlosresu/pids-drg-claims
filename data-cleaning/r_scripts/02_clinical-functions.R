@@ -560,7 +560,6 @@ ensure_unique_icd_codes <- function(c1, c2, clin_icd) {
   # datatable[, c1 := Map(function(c1, c2) {
   #   setdiff(c1, c2)
   # }, c1, c2)]
-
   # # Remove entries in c2 that are in c1
   # datatable[, c2 := Map(function(c1, c2) {
   #   setdiff(c2, c1)
