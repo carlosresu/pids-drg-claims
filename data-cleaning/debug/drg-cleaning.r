@@ -28,8 +28,8 @@ bq_dataset <- "phic" # bq dataset
 bq_table <- "temp_claims" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 
 # Input:
-to_sample <- FALSE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
-sample_size_divisor <- 25 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
+to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
+sample_size_divisor <- 625 # Sample size divisor: Formula for sample size is total_rows / split_parts / sample_size_divisor. Choose between 5, 25, 125, and 625
 
 # Output:
 to_write <- TRUE # Whether to write out checkpoint_1 files (everything up until converting for grouper export)
@@ -37,11 +37,9 @@ to_combine <- TRUE # Whether to combine checkpoint 1 files into one data.table
 to_group <- TRUE # Whether to export for the batch grouper or not
 to_gcs <- TRUE # Whether to push to GCS or nt (Thai Grouper Input/Output)
 to_bq <- TRUE # Whether to push to BQ or not
-to_drop_bq <- TRUE # Whether to drop the existing bq table and recreate it
+to_drop_bq <- TRUE # Whether to overwrite the existing BQ table
 
-# Manual Tweaks:
-manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD codes to replace
-manual_code_replacements <- c("O800", "O80", "O809") # ICD code replacements
+# Columns to drop
 drop_cols <- c( # Which columns to drop
   paste0("ICDCODE", 13:14), # Start
   "ICCODED15", # note that ICDCODE15 is misspelled as ICCODED15 in all claims
@@ -62,6 +60,11 @@ ram_size <- 64 # Input virtual or physical machine's RAM size here
 
 # Print GCP project
 message(paste("GCP Project:", gcp_proj, "\n"))
+
+
+# other parameters for manual adjustments
+manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD codes to replace
+manual_code_replacements <- c("O800", "O80", "O809") # ICD code replacements
 
 
 # Debug Parameters:
@@ -1028,12 +1031,20 @@ result[, clin_icd := NULL]
 
 result[, c("c1", "c2", "clin_rvs") := NULL]
 gc()
-# Process date columns
 date_cols <- c("date_adm", "date_dis", "date_rec", "date_ref", "date_check", "pat_bdate", "date_ext")
+
+# Function to convert and replace dates before 1900-01-01 with NA
+convert_and_filter_dates <- function(x) {
+  converted_dates <- as.Date(x, format = "%m/%d/%Y")
+  # Replace dates before 1900-01-01 with NA
+  converted_dates[converted_dates < as.Date("1900-01-01")] <- NA_Date_
+  return(converted_dates)
+}
+
 if (is_unix) {
-  result[, (date_cols) := mclapply(.SD, function(x) as.Date(x, format = "%m/%d/%Y"), mc.cores = parallel::detectCores()), .SDcols = date_cols]
+  result[, (date_cols) := mclapply(.SD, convert_and_filter_dates, mc.cores = parallel::detectCores()), .SDcols = date_cols]
 } else {
-  result[, (date_cols) := lapply(.SD, function(x) as.Date(x, format = "%m/%d/%Y")), .SDcols = date_cols]
+  result[, (date_cols) := lapply(.SD, convert_and_filter_dates), .SDcols = date_cols]
 }
 
 # Process time columns
@@ -1302,6 +1313,34 @@ print(result[grepl("e", id_hci)])
 result[, if (any(sapply(clin_sdx, function(row) "A" %in% row))) print(.SD), by = 1:nrow(result)]
 
 
+result <- readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")))
+
+
+# date_cols <- c("date_adm", "date_dis", "date_rec", "date_ref", "date_check", "pat_bdate", "date_ext")
+
+# # Function to convert and replace dates before 1900-01-01 with NA
+# convert_and_filter_dates <- function(x) {
+#   # Replace dates before 1900-01-01 with NA
+#   x[x < as.Date("1900-01-01")] <- NA_Date_
+#   return(x)
+# }
+
+# if (is_unix) {
+#   result[, (date_cols) := mclapply(.SD, convert_and_filter_dates, mc.cores = parallel::detectCores()), .SDcols = date_cols]
+# } else {
+#   result[, (date_cols) := lapply(.SD, convert_and_filter_dates), .SDcols = date_cols]
+# }
+
+
+date_cols <- c("date_adm", "date_dis", "date_rec", "date_ref", "date_check", "pat_bdate", "date_ext")
+
+# Find rows where any date column has a date before 1900-01-01
+rows_with_old_dates <- result[Reduce(`|`, lapply(.SD, function(x) x < as.Date("1900-01-01"))), .SDcols = date_cols]
+
+# Print the resulting rows
+print(rows_with_old_dates)
+
+
 if (nrow(result) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")
 
 # Check if the table should be dropped and replaced
@@ -1347,29 +1386,45 @@ tryCatch(
 
 # Upload to BQ only if table is empty
 if (to_bq && !skip_bq_upload) {
-  tryCatch(
-    {
-      bq_table_upload(
-        bq_table(gcp_proj, bq_dataset, bq_table),
-        values = result,
-        write_disposition = "WRITE_EMPTY"
-      )
-      message("Data uploaded successfully with WRITE_EMPTY.\n")
-    },
-    error = function(e) {
-      if (grepl("already exists", e, ignore.case = TRUE)) {
-        # Handle the specific "already exists" error
-        message("Upload skipped: table already exists and is not empty.")
-      } else {
-        # Handle all other errors
-        message("Error during upload: ", e)
-      }
-    }
-  )
+  # tryCatch(
+  #   {
+  #     bq_table_upload(
+  #       bq_table(gcp_proj, bq_dataset, bq_table),
+  #       values = result,
+  #       write_disposition = "WRITE_EMPTY"
+  #     )
+  #     message("Data uploaded successfully with WRITE_EMPTY.\n")
+  #   },
+  #   error = function(e) {
+  #     if (grepl("already exists", e, ignore.case = TRUE)) {
+  #       # Handle the specific "already exists" error
+  #       message("Upload skipped: table already exists and is not empty.")
+  #     } else {
+  #       # Handle all other errors
+  #       message("Error during upload: ", e)
+  #     }
+  #   }
+  # )
+  chunk_size <- 1000000 # Adjust the chunk size based on memory availability
+  num_chunks <- ceiling(nrow(result) / chunk_size)
+
+  for (i in seq_len(num_chunks)) {
+    chunk <- result[((i - 1) * chunk_size + 1):min(i * chunk_size, nrow(result)), ]
+
+    bq_table_upload(
+      bq_table(gcp_proj, bq_dataset, bq_table),
+      values = chunk,
+      write_disposition = if (i == 1) "WRITE_EMPTY" else "WRITE_APPEND"
+    )
+  }
+  # gcs_auth(email = gcs_email)
+  # gcs_upload(
+  #   file = here(checkpoint_4_path, paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
+  #   bucket = gcs_bucket,
+  #   name = paste0(gcs_pre_fpath, "/", paste0(checkpoint_4_prefix, year_to_load, suffix, ".txt")),
+  #   predefinedAcl = "bucketLevel"
+  # )
 }
-
-
-str(result)
 
 
 # Print time estimates along with estimate for full claims file

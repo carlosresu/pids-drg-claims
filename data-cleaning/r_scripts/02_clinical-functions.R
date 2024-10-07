@@ -4,7 +4,7 @@
 remap_patient_type <- function(pat_type) {
   ## Abbreviate patient types to M (member) and D (dependent)
   # pat_type: column for the patient type
-  
+
   # remap the column
   remapped_pat_type <- fcase(
     pat_type == "MEMBER", "M",
@@ -14,7 +14,7 @@ remap_patient_type <- function(pat_type) {
   # Check for any unmapped entries and print a warning
   known_types <- c("MEMBER", "DEPENDENT")
   unknown_types <- setdiff(pat_type[!is.na(pat_type)], known_types)
-  
+
   if (length(unknown_types) > 0) {
     warning(sprintf(
       "Unmapped Patient Types: %s",
@@ -34,9 +34,9 @@ remap_patient_type <- function(pat_type) {
 }
 
 remap_claim_status <- function(claim_status) {
-  ## Abbreviate the claim status column 
+  ## Abbreviate the claim status column
   # claim_status: column with the claim payment status
-  
+
   # remap the column
   remapped_claim_status <- fcase(
     claim_status == "DENIED", "D",
@@ -49,7 +49,7 @@ remap_claim_status <- function(claim_status) {
   # check for unmapped claim statuses and print a warning
   known_types <- c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT")
   unknown_types <- setdiff(claim_status[!is.na(claim_status)], known_types)
-  
+
   if (length(unknown_types) > 0) {
     warning(sprintf(
       "Unmapped Claim Statuses: %s",
@@ -68,19 +68,19 @@ remap_claim_status <- function(claim_status) {
   )
 }
 
-remap_memcat_parent_desc <- function(pat_memcat_parent){
+remap_memcat_parent_desc <- function(pat_memcat_parent) {
   ## Abbreviate the member category column
-  
+
   # remap the column
   remapped_memcat_parent <- fcase(
     pat_memcat_parent == "DIRECT CONTRIBUTOR", "D",
     pat_memcat_parent == "INDIRECT CONTRIBUTOR", "I"
   )
-  
+
   # Check for unmapped parent descriptions and print a warning
   known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
   unknown_parents <- setdiff(pat_memcat_parent[!is.na(pat_memcat_parent)], known_parents)
-  
+
   if (length(unknown_parents) > 0) {
     warning(sprintf(
       "Unmapped Memcat Parent Descriptions: %s",
@@ -119,7 +119,7 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "OFW",
     pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
     pat_memcat_child == "FAMILY DRIVER", "FORMAL",
-    # added the following 
+    # added the following
     pat_memcat_child == "FORMAL ECONOMY", "FORMAL",
     pat_memcat_child == "DIRECT CONTRIBUTOR", "FORMAL",
     pat_memcat_child == "PROFESSIONAL PRACTITIONER", "INFORMAL"
@@ -134,12 +134,12 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
     "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY",
     "PROFESSIONAL PRACTITIONER", "DIRECT CONTRIBUTOR"
   )
-  
+
   unknown_children <- setdiff(
     pat_memcat_child[!is.na(pat_memcat_child)],
     known_children
   )
-  
+
   if (length(unknown_children) > 0) {
     warning(sprintf(
       "Unmapped Memcat Child Descriptions: %s",
@@ -161,7 +161,7 @@ remap_memcat_child_desc <- function(pat_memcat_child) {
 remap_disposition <- function(clin_discharge) {
   ## Abbreviate the disposition upon discharge
   # clin_discharge: column for the patient type
-  
+
   remapped_discharge <- fcase(
     clin_discharge == "IMPROVED", 1L,
     clin_discharge == "RECOVERED", 1L,
@@ -177,12 +177,12 @@ remap_disposition <- function(clin_discharge) {
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
     "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED"
   )
-  
+
   unknown_dispositions <- setdiff(
     clin_discharge[!is.na(clin_discharge)],
     known_dispositions
   )
-  
+
   if (length(unknown_dispositions) > 0) {
     warning(sprintf(
       "Unmapped Discharge Dispositions: %s",
@@ -323,12 +323,12 @@ remap_patient_data <- function(dt, to_view_checks) {
 remove_lumped_icd_codes <- function(column) {
   ## Takes a column and separates out ICD-10 codes using "||"
   ## been lumped into a single string
-  
+
   modified_column <- stri_replace_all_regex(
     column, "(?<=\\d)(?=[A-Za-z])", "||",
     opts_regex = stri_opts_regex()
   )
-  
+
   return(modified_column)
 }
 
@@ -401,8 +401,9 @@ remove_lumped_icd9_codes <- function(column) {
   }
 
   # Apply the helper function to each element in the column
-  modified_column <- sapply(as.character(column), split_rvs_codes_helper_icd9, 
-                            USE.NAMES = FALSE)
+  modified_column <- sapply(as.character(column), split_rvs_codes_helper_icd9,
+    USE.NAMES = FALSE
+  )
 
   return(modified_column)
 }
@@ -412,11 +413,13 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
   ## Transfer extra ICD-10 codes from a column to the compilation of ICD-10 codes for the case
   # clin_icd: column with all the ICD-10 codes
   # col: column with the possible extra ICD-10 codes
-  
+
   # I dont get how this works
   clin_icd <- lapply(clin_icd, function(x) if (is.null(x)) character() else x)
   col_first <- lapply(col, function(x) x[1])
-  clin_icd <- mapply(function(icd, c1) {c(icd, c1[-1])}, clin_icd, col, SIMPLIFY = FALSE)
+  clin_icd <- mapply(function(icd, c1) {
+    c(icd, c1[-1])
+  }, clin_icd, col, SIMPLIFY = FALSE)
 
   return(list(clin_icd = clin_icd, col_first = col_first))
 }
@@ -445,14 +448,14 @@ find_direct_icd_matches <- function(icds, thai_icd10_env) {
   ## Identify ICD-10 codes with exact matches in the Thai ICD-10 library
   # icds: list of ICD-10 codes to be cross-checked
   # thai_icd10_env: environment of Thai ICD-10 codes
-  
+
   # what does this do?
   direct_matches <- mget(
     icds, thai_icd10_env,
     ifnotfound = as.list(rep(FALSE, length(icds)))
   )
-  
-  # what does this do? 
+
+  # what does this do?
   direct_match_codes <- names(
     unlist(direct_matches[unlist(direct_matches) == TRUE])
   )
@@ -468,22 +471,20 @@ generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
 
   icd_mapping <- list()
   modified_count <- 0
-  
+
   # loop through the codes in icds
   for (d in icds) {
     d <- str_trim(d)
-    
+
     # if it has an exact match, then map directly
     if (exists(d, thai_icd10_env)) {
       icd_mapping[[d]] <- d
     } else if (!exists(d, neoplasms_env) && grepl("[A-Za-z]", d) && grepl("[0-9]", d)) {
-      
       # if the code is not for a neoplasm, try adding 9 and see if there is a match
       if (nchar(d) == 3 && exists(paste0(d, "9"), thai_icd10_env)) {
         icd_mapping[[d]] <- paste0(d, "9")
         modified_count <- modified_count + 1
       } else if (nchar(d) >= 4) {
-        
         # otherwise, try trimming by a digit until there is a match
         for (i in seq_len(nchar(d) - 3)) {
           new_d <- substr(d, 1, nchar(d) - i)
@@ -505,7 +506,7 @@ apply_icd10_mapping_to_columns <- function(c1, c2, clin_icd, icd10_env) {
   # c1: column for case rate 1
   # c2: column for case rate 2
   # icd10_env: environment with ICD-10 codes
-  
+
   # what does this do?
   map_icd10_helper <- function(codes) {
     mapped <- mget(codes, icd10_env, ifnotfound = as.list(codes))
@@ -547,9 +548,9 @@ ensure_unique_icd_codes <- function(c1, c2, clin_icd) {
   )
 
   # Deduplicate each column
-  datatable[, c1 := lapply(c1, unique)]
-  datatable[, c2 := lapply(c2, unique)]
-  datatable[, clin_icd := lapply(clin_icd, unique)]
+  # datatable[, c1 := lapply(c1, unique)]
+  # datatable[, c2 := lapply(c2, unique)]
+  # datatable[, clin_icd := lapply(clin_icd, unique)]
 
   # Remove entries in clin_icd that are in c1 or c2
   datatable[, clin_icd := Map(function(c1, c2, icd) {
@@ -604,17 +605,16 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
   ## Maps a column containing RVS codes to ICD-9-CM
   # clin_rvs: list of clinical RVS codes.
   # rvs_map_solo_env: environment containing mappings from RVS codes to ICD-9 codes.
-  
+
   # loop through each of the rows of clin_rvs
   lapply(clin_rvs, function(x) {
     codes <- unlist(x)
-    
+
     # map all codes with ICD-9-CM equivalents
     mappable <- codes[
       !is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))
     ]
     if (length(mappable) > 0) {
-      
       # for those without any, leave as is
       unique(unlist(mget(mappable, envir = rvs_map_solo_env)))
     } else {
@@ -627,20 +627,20 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
   ## Identify valid RVS codes in a data table and append them to existing clinical RVS codes
   # datatable: table containing `clin_rvs` and `col` columns
   # valid_rvs_codes: vector of valid RVS codes to be used for matching
-  
+
   # what does this do?
   regex_5_digit <- "\\b\\d{5}\\b"
   valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
-  
+
   # what does this do?
   for (code in valid_rvs_codes) {
     assign(code, TRUE, envir = valid_rvs_env)
   }
 
-  # what does this do? 
+  # what does this do?
   datatable[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-  datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes)]
-  
+  datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
+
   # what does this do?
   datatable[, clin_rvs := mapply(
     function(rvs, matches) unique(c(rvs, matches)),
@@ -651,7 +651,7 @@ find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
 
 
 remove_5_digit_codes <- function(col) {
-  ## remove 5-digit codes from a given column 
+  ## remove 5-digit codes from a given column
   # col: column with codes
 
   # Ensure input is a character vector
@@ -675,7 +675,7 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
   ## Triggers warnings for invalid RVS codes
   # matches: list of matched codes to be checked for validity
   # valid_rvs_codes: vector of valid RVS codes
-  
+
   # what does this do?
   valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
   for (code in valid_rvs_codes) {
@@ -687,7 +687,7 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
     matches,
     function(x) x[!vapply(x, exists, logical(1), envir = valid_rvs_env)]
   )
-  
+
   # what does this do?
   discarded_codes <- unlist(invalid_matches)
   if (length(discarded_codes) > 0) {
@@ -706,7 +706,7 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   # clin_rvs: list of RVS codes
   # col: column of codes to be processed
   # rvs_icd9: table mapping RVS to ICD-9-CM
-  
+
   datatable <- data.table(clin_rvs = clin_rvs, col = col)
   valid_rvs_codes <- rvs_icd9$rvs
 

@@ -1,4 +1,4 @@
-## Install and load required packages
+## Required packages
 required_packages <- c(
   "data.table",
   "here",
@@ -22,7 +22,7 @@ required_packages <- c(
   "jsonlite",
   "googleCloudStorageR"
 )
-
+## Install required packages
 lapply(required_packages, function(package) {
   if (!require(package, character.only = TRUE)) {
     install.packages(package, dependencies = TRUE)
@@ -30,6 +30,7 @@ lapply(required_packages, function(package) {
   }
 })
 
+# Load required packages
 suppressPackageStartupMessages({
   lapply(required_packages, library, character.only = TRUE)
 })
