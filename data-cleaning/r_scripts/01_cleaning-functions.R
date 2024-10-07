@@ -297,7 +297,9 @@ split_to_vector <- function(column) {
   return(result)
 }
 
-collapse_and_clean_icd_rvs <- function(dt) {
+collapse_and_clean_icd_rvs <- function(dt) {  
+  # collapse the ICD and RVS codes into clin_icd and clin_rvs, respectively
+  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
   ## Collapse and reformat the ICD and RVS columns in a table
   # dt: table for which ICD and RVS columns are cleaned 
   
@@ -315,10 +317,10 @@ collapse_and_clean_icd_rvs <- function(dt) {
   dt[, clin_icd := split_to_vector(clin_icd)]
   # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
-  
-  # return the data table
   return(dt)
+  
 }
+
 
 clean_clinical_columns <- function(dt) {
   #' @title Clean clinical columns
@@ -326,7 +328,6 @@ clean_clinical_columns <- function(dt) {
   #' in the data.table.
   #' @param dt data.table. The data table to be processed.
   #' @return data.table. The processed data table.
-  
   dt <- transfer_cr_icd(dt)
   dt <- deduplicate_icd_codes(dt)
   
