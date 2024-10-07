@@ -318,7 +318,6 @@ collapse_and_clean_icd_rvs <- function(dt) {
   # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
   dt[, clin_rvs := split_to_vector(clin_rvs)]
   return(dt)
-  
 }
 
 
