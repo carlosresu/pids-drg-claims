@@ -357,6 +357,7 @@ clean_clinical_columns <- function(dt) {
   # Deduplicate the ICD codes
   dt <- apply_add_c1_c2_to_clin_icd(dt)
 
+  # TODO: append rvs to clin_proc, dont delete from c1 and c2
   # Process case rate 1 RVS codes
   c1_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$c1, rvs_icd9

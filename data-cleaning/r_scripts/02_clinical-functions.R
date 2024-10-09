@@ -519,6 +519,7 @@ add_c1_c2_to_clin_icd <- function(c1, c2, clin_icd) {
   datatable <- data.table(c1 = c1, c2 = c2, clin_icd = clin_icd)
 
   # Map function to concatenate clin_icd with c1 and c2, allowing duplicates
+  # TODO: Don't duplicate it if it's already there
   datatable[, clin_icd := Map(function(c1, c2, icd) {
     c(icd, c1, c2) # Concatenate clin_icd with c1 and c2
   }, c1, c2, clin_icd)]
@@ -784,6 +785,8 @@ generate_dob <- function(bdays, ages, date_adms) {
       ref_dates[zero_age_indices] - days(sample(1:27, length(zero_age_indices), replace = TRUE)), "%d/%m/%Y"
     )
   }
+  # TODO for where birthdate exists impute it as the difference between date admission and birthdate
+  # Otherwise just "3"
 
   ## Step 4: Handle positive ages
   positive_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0)
