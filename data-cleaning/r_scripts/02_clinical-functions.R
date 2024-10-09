@@ -571,7 +571,7 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
     codes <- unlist(x) # Unlist the RVS codes in each row
 
     # Map all codes to ICD-9-CM equivalents using the rvs_map_solo_env environment
-    mappable <- codes[!is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA))]
+    mappable <- codes[!is.na(mget(codes, envir = rvs_map_solo_env, ifnotfound = NA_character_))]
 
     if (length(mappable) > 0) {
       # Return the unique set of mapped ICD-9 codes
@@ -583,43 +583,24 @@ get_icd9_codes <- function(clin_rvs, rvs_map_solo_env) {
 }
 
 find_and_append_valid_rvs <- function(datatable, valid_rvs_codes) {
-  ## Identify valid RVS codes in a data table and append them to existing clinical RVS codes
+  datatable[, matches := lapply(col, function(x) {
+    # Find valid RVS codes within each vector of 'col'
+    valid_codes <- x[x %in% valid_rvs_codes]
+    return(unique(valid_codes))
+  })]
 
-  # Define a regular expression to match exactly 5-digit RVS codes
-  regex_5_digit <- "\\b\\d{5}\\b"
-
-  # Create a new environment to store valid RVS codes
-  valid_rvs_env <- new.env(hash = TRUE, parent = emptyenv())
-
-  # Populate the environment with valid RVS codes
-  for (code in valid_rvs_codes) {
-    assign(code, TRUE, envir = valid_rvs_env)
-  }
-
-  # Extract all 5-digit sequences from the `col` column
-  datatable[, matches := regmatches(col, gregexpr(regex_5_digit, col))]
-
-  # Filter the extracted matches to include only valid RVS codes
-  datatable[, valid_matches := lapply(matches, function(x) x[x %in% valid_rvs_codes])]
-
-  # Append valid matches to the existing `clin_rvs` column
-  datatable[, clin_rvs := mapply(function(rvs, matches) unique(c(rvs, matches)), clin_rvs, valid_matches, SIMPLIFY = FALSE)]
+  # Append valid matches to the existing 'clin_rvs' vector
+  datatable[, clin_rvs := mapply(function(rvs, matches) unique(c(rvs, matches)), clin_rvs, matches, SIMPLIFY = FALSE)]
 }
 
 remove_5_digit_codes <- function(col) {
-  ## Remove 5-digit codes from a given column
-
-  # Ensure input is a character vector
-  col <- as.character(col)
-
-  # Define regex pattern for 5-digit codes
-  regex_5_digit <- "\\b\\d{5}\\b"
-
-  # Use stringi to remove 5-digit codes from the column
-  modified_col <- stri_replace_all_regex(col, regex_5_digit, "", vectorize_all = FALSE)
-
-  # Return the modified column
-  return(modified_col)
+  # Handle the column as a list of vectors
+  return(lapply(col, function(x) {
+    if (is.na(x)) {
+      return(NA_character_)
+    }
+    stri_replace_all_regex(x, "\\b\\d{5}\\b", "")
+  }))
 }
 
 warn_invalid_rvs <- function(matches, valid_rvs_codes) {
@@ -653,24 +634,30 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
 
 
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
-  ## Appends valid RVS codes from a column to the main RVS column and removes invalid codes
-
-  # Create a data table to store clin_rvs and col
+  ## Ensure both clin_rvs and col are lists of vectors
   datatable <- data.table(clin_rvs = clin_rvs, col = col)
 
-  # Extract valid RVS codes from the rvs_icd9 table
   valid_rvs_codes <- rvs_icd9$rvs
 
-  # Append valid RVS codes to clin_rvs
+  # Append valid RVS codes to clin_rvs (handling each element of the vectors)
   find_and_append_valid_rvs(datatable, valid_rvs_codes)
 
-  # Remove 5-digit codes from the col column
-  datatable[, col := remove_5_digit_codes(col)]
+  # Modify the column by removing 5-digit codes from each vector and recursively unlisting
+  datatable[, col := lapply(col, function(x) {
+    # Optimize by checking if x is already a character vector
+    cleaned_col <- if (is.character(x)) {
+      remove_5_digit_codes(x) # Directly modify the character vector
+    } else {
+      # Recursively unlist and clean the elements
+      remove_5_digit_codes(as.character(x))
+    }
+    return(unlist(cleaned_col))
+  })]
 
-  # Trigger warnings for invalid RVS codes and return them
+  # Trigger warnings for invalid RVS codes
   discarded_rvs <- warn_invalid_rvs(datatable$matches, valid_rvs_codes)
 
-  # Return updated clin_rvs, cleaned col, and table of invalid codes
+  # Return updated clin_rvs, cleaned col, and invalid codes
   return(list(clin_rvs = datatable$clin_rvs, col = datatable$col, discarded_rvs = discarded_rvs))
 }
 

@@ -23,7 +23,7 @@ c. On Wednesday let's : (a) clean up the documentation for drg-cleaning.ipynb an
 === 01_cleaning-functions.R ===
 
 CHANGES I MADE:
-- I deleted `deduplicate_icd_codes` -- duplicated ICD codes brings up warnings in the grouping process, which we need to see.
+- I deleted `add_c1_c2_to_clin_icd` -- duplicated ICD codes brings up warnings in the grouping process, which we need to see.
 
 - I placed `clean_clinical_columns` after `transfer_icd_codes`, for readability
 
