@@ -8,7 +8,7 @@ clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
   # na_like_strings: vector of strings considered as NA.
   # neoplasms_dt: data.table of substrings where slashes should be preserved
 
-  # convert to UTF-8
+  # convert to uppercase UTF-8 strings
   column_to_clean <- as.character(column_to_clean)
   cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
   cleaned_col <- toupper(cleaned_col)
@@ -380,14 +380,11 @@ transfer_cr_icd <- function(dt) {
 }
 
 deduplicate_icd_codes <- function(dt) {
-  #' @title Deduplicate ICD codes
-  #' @description This function ensures unique ICD codes
-  #' within and across clinical columns in the data.table.
-  #' @param dt data.table. The data table to be processed.
-  #' @return data.table. The processed data table.
-  dedup_result <- ensure_unique_icd_codes(dt$c1, dt$c2, dt$clin_icd)
-  dt[, c1 := dedup_result$c1]
-  dt[, c2 := dedup_result$c2]
+  # deduplicates icd codes in clin_icd if it's already in c1 or c2.
+  dedup_result <- add_c1_c2_to_clin_icd(dt$c1, dt$c2, dt$clin_icd)
+  # dt[, c1 := dedup_result$c1] # unneeded for now, since we want duplicates within c1 or c2 to show
+  # dt[, c2 := dedup_result$c2] # unneeded for now, since we want duplicates within c1 or c2 to show
+  # saves result back to dt, then returns the dt
   dt[, clin_icd := dedup_result$clin_icd]
   return(dt)
 }

@@ -2107,3 +2107,166 @@
 #   bq_field("pccl", "FLOAT64", mode = "NULLABLE"),
 #   bq_field("py_drg", "STRING", mode = "NULLABLE")
 # )
+
+# find_pdx <- function(c1, c2, clin_icd, acc_pdx_env) {
+#   ## Function to find the primary diagnosis (PDX) based on the provided logic
+#   set.seed(global_seed)
+
+#   # Function to check similarity between two strings
+#   check_similarity <- function(x, y) {
+#     score <- 0
+#     min_len <- min(nchar(x), nchar(y))
+#     for (i in 1:min_len) {
+#       if (substr(x, i, i) == substr(y, i, i)) {
+#         score <- score + 1
+#       }
+#     }
+#     return(score)
+#   }
+
+#   # Step 1: Split c1 and c2 if necessary, using '|' as the delimiter
+#   c1 <- unlist(strsplit(c1, "\\|"))
+#   c2 <- unlist(strsplit(c2, "\\|"))
+
+#   # Step 2: Check if any element in c1 or c2 is an acceptable PDx
+#   for (cr_list in list(c1, c2)) {
+#     for (cr in cr_list) {
+#       if (!is.na(cr) && exists(cr, acc_pdx_env)) {
+#         # Return immediately if any element in c1 or c2 is an accepted PDx
+#         return(list(pdx = cr, pdx_code = ifelse(cr %in% c1, 1, 2)))
+#       }
+#     }
+#   }
+
+#   # Step 3: Unlist clin_icd properly by splitting if necessary
+#   clin_icd <- unlist(strsplit(clin_icd, "\\|")) # Split by '|' if needed
+
+#   # Step 4: Get a list of all ICDs that are acceptable as PDx from clin_icd
+#   pdxs <- unique(clin_icd)
+#   pdxs <- pdxs[sapply(pdxs, function(x) exists(x, acc_pdx_env))] # Keep only those that exist in acc_pdx_env
+
+#   # Step 5: Handle cases where there are no or only one acceptable PDx
+#   if (length(pdxs) == 0) {
+#     return(list(pdx = NA_character_, pdx_code = 99)) # No PDx found
+#   } else if (length(pdxs) == 1) {
+#     return(list(pdx = pdxs[1], pdx_code = 3)) # Only one PDx found in secondary diagnoses
+#   }
+
+#   # Step 6: If there are multiple eligible PDx, check c1 and c2 for starting letters
+#   for (cr_list in list(c1, c2)) {
+#     for (cr in cr_list) {
+#       if (!is.na(cr)) { # Ensure c1/c2 is not NA
+#         # Get the starting letter of c1/c2
+#         starting_letter <- substr(cr, 1, 1)
+
+#         # Filter PDx codes that start with the same letter
+#         starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
+
+#         if (length(starting_codes) == 1) {
+#           # Return the PDx that matches the starting letter
+#           return(list(pdx = starting_codes[1], pdx_code = 4))
+#         } else if (length(starting_codes) > 1) {
+#           # Sort PDx codes by similarity to c1/c2 and return the most similar one
+#           starting_codes <- starting_codes[
+#             order(sapply(starting_codes, function(x) check_similarity(cr, x)), decreasing = TRUE)
+#           ]
+#           return(list(pdx = starting_codes[1], pdx_code = 5))
+#         }
+#       }
+#     }
+#   }
+
+#   # Step 7: If no match based on starting letters, choose one randomly from PDx
+#   if (length(pdxs) > 0) {
+#     return(list(pdx = sample(pdxs, 1), pdx_code = 6))
+#   }
+
+#   # Step 8: If no PDx found, return NA and code 99
+#   return(list(pdx = NA_character_, pdx_code = 99))
+# }
+
+# apply_find_pdx <- function(c1, c2, clin_icd, acc_pdx) {
+#   ## Function to apply the find_pdx logic to a data.table
+#   # c1: first column of potential PDX codes
+#   # c2: second column of potential PDX codes
+#   # clin_icd: clinical ICD codes list
+#   # acc_pdx: accepted PDX codes
+
+#   # Step 1: Create a new environment to store accepted PDX codes for fast lookup.
+#   acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
+
+#   # Step 2: Populate the environment with accepted PDX codes, assigning TRUE to each.
+#   # This allows quick existence checks later.
+#   for (code in acc_pdx) {
+#     assign(code, TRUE, envir = acc_pdx_env)
+#   }
+
+#   # Step 3: Create a data.table from the inputs c1, c2, and clin_icd.
+#   # This will hold the columns that are passed in for processing.
+#   datatable <- data.table(
+#     c1 = c1,
+#     c2 = c2,
+#     clin_icd = clin_icd
+#   )
+
+#   # Step 4: Define a helper function that applies the PDX finding logic in a vectorized manner.
+#   # This function checks c1, c2, and clin_icd to determine the appropriate PDX for each row.
+#   find_pdx_vectorized <- function(c1, c2, clin_icd) {
+#     # Convert NULL values in c1 to NA_character_ and keep the rest as is.
+#     c1_char <- sapply(c1, function(x) if (is.null(x)) NA_character_ else x)
+
+#     # Similarly, convert NULL values in c2 to NA_character_.
+#     c2_char <- sapply(c2, function(x) if (is.null(x)) NA_character_ else x)
+
+#     # Combine all clinical ICD codes into a single string, separated by '|'.
+#     clin_icd_char <- sapply(clin_icd, function(x) paste(x, collapse = "|"))
+
+#     # Initialize vectors to store the PDX and the PDX code results.
+#     pdx <- rep(NA_character_, length(c1)) # Default to NA for PDX
+#     pdx_code <- rep(NA_integer_, length(c1)) # Default to NA for PDX code
+
+#     # Step 5: Check if c1 values exist in the acc_pdx_env environment.
+#     # This returns TRUE for values that match accepted PDX codes.
+#     c1_check <- sapply(c1_char, function(x) exists(x, acc_pdx_env))
+
+#     # Step 6: Similarly, check if c2 values exist in the acc_pdx_env environment.
+#     c2_check <- sapply(c2_char, function(x) exists(x, acc_pdx_env))
+
+#     # Step 7: Assign the PDX to c1 values where c1 is a valid PDX.
+#     pdx[c1_check] <- c1_char[c1_check]
+#     pdx_code[c1_check] <- 1 # Assign PDX code 1 for c1
+
+#     # Step 8: For rows where c1 is not valid but c2 is, assign PDX from c2.
+#     c2_only_check <- !c1_check & c2_check
+#     pdx[c2_only_check] <- c2_char[c2_only_check]
+#     pdx_code[c2_only_check] <- 2 # Assign PDX code 2 for c2
+
+#     # Step 9: For remaining rows where neither c1 nor c2 is valid, apply the `find_pdx` function.
+#     remaining_indices <- which(is.na(pdx)) # Indices where PDX is still NA
+#     for (i in remaining_indices) {
+#       # Call the `find_pdx` function, passing c1, c2, and clin_icd, and get the result.
+#       result <- find_pdx(
+#         c1_char[i], c2_char[i], clin_icd_char[i], acc_pdx_env
+#       )
+#       pdx[i] <- result$pdx # Store the PDX result
+#       pdx_code[i] <- result$pdx_code # Store the corresponding PDX code
+#     }
+
+#     # Step 10: Return the vectors containing the PDX values and PDX codes.
+#     return(list(pdx = pdx, pdx_code = pdx_code))
+#   }
+
+#   # Step 11: Apply the vectorized PDX finding logic to the entire data.table.
+#   pdx_results <- find_pdx_vectorized(
+#     datatable$c1, # c1 column from data.table
+#     datatable$c2, # c2 column from data.table
+#     datatable$clin_icd # clin_icd column from data.table
+#   )
+
+#   # Step 12: Assign the PDX results to new columns in the data.table.
+#   datatable[, pdx := pdx_results$pdx] # Add the PDX values
+#   datatable[, pdx_code := pdx_results$pdx_code] # Add the PDX codes
+
+#   # Step 13: Return the updated PDX values and PDX codes from the data.table as a list.
+#   return(list(pdx = datatable$pdx, pdx_code = datatable$pdx_code))
+# }
