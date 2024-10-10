@@ -9,22 +9,25 @@ Run this code in Google Cloud Platform Cloud Shell:
 
 ```
 gcloud compute instances create drg-data-pipeline \
-  --project=drg-pipeline \
-  --zone=us-central1-a \
-  --machine-type=e2-highmem-8 \
-  --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-  --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'sudo\ apt-get\ update\ -y$'\n'sudo\ apt-get\ upgrade\ -y$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ -u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE \
-  --maintenance-policy=MIGRATE \
-  --provisioning-model=STANDARD \
-  --service-account=271591364028-compute@developer.gserviceaccount.com \
-  --scopes=https://www.googleapis.com/auth/cloud-platform \
-  --tags=http-server,https-server,lb-health-check \
-  --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20240809,mode=rw,size=200,type=pd-ssd \
-  --shielded-secure-boot \
-  --shielded-vtpm \
-  --shielded-integrity-monitoring \
-  --labels=goog-ec-src=vm_add-gcloud \
-  --reservation-affinity=any
+    --project=drg-pipeline \
+    --zone=us-central1-a \
+    --machine-type=e2-highmem-8 \
+    --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
+    --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
+-u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE \
+    --maintenance-policy=MIGRATE \
+    --provisioning-model=STANDARD \
+    --service-account=271591364028-compute@developer.gserviceaccount.com \
+    --scopes=https://www.googleapis.com/auth/cloud-platform \
+    --enable-display-device \
+    --tags=http-server,https-server,lb-health-check \
+    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=200,type=pd-ssd \
+    --shielded-secure-boot \
+    --shielded-vtpm \
+    --shielded-integrity-monitoring \
+    --labels=goog-ec-src=vm_add-gcloud \
+    --reservation-affinity=any \
+    --deletion-protection
 ```
 
 Run the below code in GCP Cloud Shell. This enables the Patch service to work with the VM.
@@ -245,3 +248,12 @@ Steps to run the data-cleaning code end-to-end:
     1.  It will write a csv containing said differences (or an empty csv if there are none), 
     2.  It will write to `~/drg-pipeline/data/checkpoints/checkpoint_9_grouper_differences` as `checkpoint_9_grouper_differences_*.csv`
 7.  It will then push to BQ as `drg-pipeline.phic.claims_20XX1231`
+
+# Maintenace
+1. Enable scheduled shutdown
+   1. (<https://console.cloud.google.com/compute/instances/instanceSchedules?project=drg-pipeline&tab=instanceSchedules>)
+   2. Create a scheduler job, set it to Iowa, Philippine time, start empty, and stop at 8:30 PM. Name it stop-vm-eod.
+   3. Add the VM instance to it, you'll need the following permissions:
+      `Compute Engine System service account service-271591364028@compute-system.iam.gserviceaccount.com needs to have [compute.instances.stop] permissions applied in order to perform this operation.`
+2. Enable patch job for updates
+   `echo $'{\n  \"name\": \"projects/271591364028/patchDeployments/update-vm\",\n  \"instanceFilter\": {\n    \"zones\": [\"us-central1-a\"],\n    \"instanceNamePrefixes\": [\"drg\"]\n  },\n  \"patchConfig\": {\n    \"rebootConfig\": \"DEFAULT\",\n    \"apt\": {\n      \"type\": \"DIST\"\n    },\n    \"yum\": {\n    },\n    \"zypper\": {\n    },\n    \"windowsUpdate\": {\n    }\n  },\n  \"duration\": \"3600s\",\n  \"recurringSchedule\": {\n    \"timeZone\": {\n      \"id\": \"Asia/Manila\"\n    },\n    \"timeOfDay\": {\n      \"hours\": 19,\n      \"minutes\": 30\n    },\n    \"frequency\": \"DAILY\"\n  },\n  \"rollout\": {\n    \"mode\": \"ZONE_BY_ZONE\",\n    \"disruptionBudget\": {\n      \"percent\": 100\n    }\n  }\n}' > patch_deployment_37c05921-7554-4870-8e91-e5dec7950ae5.json && gcloud compute os-config patch-deployments update update-vm --file=patch_deployment_37c05921-7554-4870-8e91-e5dec7950ae5.json`
