@@ -766,7 +766,7 @@ apply_add_c1_c2_to_clin_icd <- function(dt) {
   return(dt)
 }
 ### Helper functions for remapping/reformatting key columns in the claims
-remap_columns <- function(dt, column_name, to_view_checks = TRUE, known_values, remap_logic) {
+remap_columns <- function(dt, column_name, to_view_checks = TRUE, known_values, remap_logic = remapped_column) {
   ## Function to remap different categorical columns in the claims dataset
   # dt: data.table
   # column_name: name of the column to remap
@@ -777,8 +777,8 @@ remap_columns <- function(dt, column_name, to_view_checks = TRUE, known_values, 
   # First, initialize the column with the original values to ensure no row count mismatch
   original_values <- dt[[column_name]]
 
-  # Evaluate the fcase remap_logic
-  dt[[column_name]] <- eval(remap_logic)
+  # Use `set` to modify the data.table by reference to avoid copying
+  set(dt, j = column_name, value = eval(remap_logic))
 
   # Check for unmapped entries
   unknown_values <- setdiff(original_values[!is.na(original_values)], known_values[[column_name]])
