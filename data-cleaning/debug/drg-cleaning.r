@@ -30,7 +30,7 @@ gcs_bucket <- "phic-claims-checkpoints" # Name of GCS bucket
 gcs_pre_fpath <- "pre-tdrg" # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_post_fpath <- "post-tdrg" # Name of folder path prefix in GCS bucket for thai grouper output
 bq_dataset <- "phic" # bq dataset
-bq_table <- "temp_claims" # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
+bq_table <- paste0("temp_claims_", year_to_load) # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 
 # Input:
 to_sample <- TRUE # Whether to sample each split_part by sample_size_divisor (useful when iterating through code runs in quick succession)
@@ -80,7 +80,7 @@ to_debug <- FALSE # whether to print debug statements
 to_profvis <- FALSE # Conduct runtime duration analysis via profvis or not
 to_view_checks <- TRUE # Whether to view checks and print statements
 to_view_checks_parallel <- FALSE # Whether to view intermediate per split_part/chunk checks and print statements (not consolidated) when parallelized
-to_parallel <- FALSE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
+to_parallel <- TRUE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
 to_split_read <- FALSE # WARNING: TRUE uses a lot of memory!!
 to_dec_mem_usage <- TRUE # Whether to run rm() and gc() at every possible step
 tmp_nrow <- Inf # Per split_part/chunk end_nrow (leave at Inf)
