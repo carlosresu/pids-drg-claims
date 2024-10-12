@@ -13,11 +13,14 @@ clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt = neopla
   cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
   cleaned_col <- toupper(cleaned_col)
 
-  # Remove non-letter and non-digit characters from the string
-  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d]+", "")
+  # Remove non-letter and non-digit characters from the string (except delimiters like commas and pipes)
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d,|]+", "")
 
   # Replace any NA-like strings (as defined) with actual NA values
   cleaned_col[cleaned_col %in% na_like_strings] <- NA_character_
+
+  # Replace any COVID-related codes within the string with "COVID" (even if they are part of other codes)
+  cleaned_col <- stri_replace_all_regex(cleaned_col, covid_rvs_pattern, "COVID")
 
   # Restore slashes for certain neoplasm ICD-10 codes, where slashes are important
   neopl <- setNames(neoplasms_dt$icd10, gsub("/", "", neoplasms_dt$icd10))
@@ -27,7 +30,6 @@ clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt = neopla
   # Return the cleaned column
   return(cleaned_col)
 }
-
 
 # collapse_columns <- function(cols_to_process, na_like_strings) {
 #   ## Combines multiple string columns into one and cleans the result

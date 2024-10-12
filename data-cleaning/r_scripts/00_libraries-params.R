@@ -205,3 +205,6 @@ covid_rvs <- c(
   "C19PP3", "C19PP4", "MP01", "IMP02", "C19CI", "C19H1", "C19VIH",
   "C19VID"
 )
+
+## Convert the COVID codes into a regular expression pattern (without word boundaries)
+covid_rvs_pattern <- paste(covid_rvs, collapse = "|")

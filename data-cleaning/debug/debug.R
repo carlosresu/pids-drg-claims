@@ -51,37 +51,151 @@ na_like_strings <- c(
   "\u2029", "\u202F", "\u205F", "\u3000"
 )
 
-## Column formats
-integer_cols <- c("OUT_PATIENT", "EMERGENCY")
+# Mapping of column names (including clin_icd and clin_rvs)
+column_mappings <- list(
+  # Admission and discharge information
+  "ADMISSION_YEAR" = "id_year",
+  "SRC_YR" = "id_year",
+  "ADMISSION_DATE" = "date_adm",
+  "DATE_ADM" = "date_adm",
+  "ADMISSION_TIME" = "time_adm",
+  "TIME_ADM" = "time_adm",
+  "DISCHARGE_DATE" = "date_dis",
+  "DATE_DIS" = "date_dis",
+  "DISCHARGE_TIME" = "time_dis",
+  "TIME_DIS" = "time_dis",
 
-factor_cols <- c(
-  "PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", "MEMCAT_PARENT_DESC",
-  "MEMCAT_CHILD_DESC", "DISPOSITION", "CLAIMS_STATUS"
-)
-numeric_cols <- c(
-  "PATAGE", "PAT_BWT_KG", "CLAIMS_PAID_AMT",
-  "ACR_AMOUNT_ACTUAL"
+  # Claim and patient identifiers
+  "CLAIM_SERIES_ID" = "id_series",
+  "PSEUDO_CLAIMSERIES" = "id_series",
+  "PIN" = "id_pin",
+  "PSEUDO_MEM_PIN" = "id_pin",
+
+  # Date information
+  "RECEIVE_DATE" = "date_rec",
+  "DATE_REC" = "date_rec",
+  "REFILE_DATE" = "date_ref",
+  "DATE_REF" = "date_ref",
+  "CHECK_DATE" = "date_check",
+  "CHKDT" = "date_check",
+  "EXTRACTION_DATE" = "date_ext",
+
+  # Health care provider and institution
+  "HCI_PMCC_NO" = "id_hci",
+  "HCP_NO_LIST" = "id_hcp",
+
+  # Patient information
+  "PATIENT_TYPE" = "pat_type",
+  "PATIENT_RELATIONSHIP" = "pat_rel",
+  "DEP_REL" = "pat_rel",
+  "PATIENT_SEX" = "pat_sex",
+  "PATSEX" = "pat_sex",
+  "PATIENT_AGE" = "pat_age",
+  "PATAGE" = "pat_age",
+  "PAT_BDAY" = "pat_bdate",
+  "PAT_BWT_KG" = "pat_bwt",
+  "MEMCAT_PARENT_DESC" = "pat_memcat_parent",
+  "MEMCAT_CHILD_DESC" = "pat_memcat_child",
+
+  # Clinical information
+  "IS_ADMISSION_OPD" = "clin_outpatient",
+  "IS_EMERGENCY_CASE" = "clin_emergency",
+  "OUT_PATIENT" = "clin_outpatient",
+  "EMERGENCY" = "clin_emergency",
+  "ROOM_TYPE" = "clin_acc",
+  "PATIENT_DISPOSITION" = "clin_discharge",
+  "DISPOSITION" = "clin_discharge",
+  "PRIMARY_ILLNESS" = "clin_c1",
+  "SECONDARY_ILLNESS" = "clin_c2",
+  "ICDCODES_ITEM7" = "clin_icd1", # We'll dynamically handle clin_icd and clin_rvs
+  "RVSCODES_ITEM7" = "clin_rvs1",
+
+  # Claim status and amounts
+  "CLAIM_STATUS" = "claim_status",
+  "CLAIMS_STATUS" = "claim_status",
+  "CLAIM_PAID_AMOUNT" = "claim_payout",
+  "CLAIMS_PAID_AMT" = "claim_payout",
+  "CLAIM_AMOUNT_ACTUAL" = "claim_charge",
+  "ACR_AMOUNT_ACTUAL" = "claim_charge"
 )
 
-character_cols <- c(
-  "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "HCI_PMCC_NO", "HCP_NO_LIST",
-  "PRIMARY_ILLNESS", "SECONDARY_ILLNESS", paste0("ICDCODE", c(1:12)),
-  paste0("RVSCODE", 1:20), "DATE_ADM", "TIME_ADM",
-  "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", "CHKDT",
-  "PAT_BDAY", "EXTRACTION_DATE"
-)
+# Add dynamically generated clin_icd1 through clin_icd12 and clin_rvs1 through clin_rvs20
+for (i in 1:12) {
+  column_mappings[[paste0("ICDCODE", i)]] <- paste0("clin_icd", i)
+}
+for (i in 1:20) {
+  column_mappings[[paste0("RVSCODE", i)]] <- paste0("clin_rvs", i)
+}
 
-## Define column classes
-col_classes <- c(
-  rep("character", length(character_cols)),
-  rep("integer", length(integer_cols)),
-  rep("factor", length(factor_cols)),
-  rep("numeric", length(numeric_cols))
-)
+expected_types <- list(
+  # Character columns (identifiers and date/time information)
+  "character" = c(
+    "CLAIM_SERIES_ID",
+    "PSEUDO_CLAIMSERIES",
+    "PIN",
+    "PSEUDO_MEM_PIN",
+    "HCI_PMCC_NO",
+    "HCP_NO_LIST",
+    "ADMISSION_DATE",
+    "DATE_ADM",
+    "ADMISSION_TIME",
+    "TIME_ADM",
+    "DISCHARGE_DATE",
+    "DATE_DIS",
+    "DISCHARGE_TIME",
+    "TIME_DIS",
+    "RECEIVE_DATE",
+    "DATE_REC",
+    "REFILE_DATE",
+    "DATE_REF",
+    "CHECK_DATE",
+    "CHKDT",
+    "EXTRACTION_DATE",
+    "PRIMARY_ILLNESS",
+    "SECONDARY_ILLNESS",
+    "PAT_BDAY",
+    "ICDCODES_ITEM7",
+    "RVSCODES_ITEM7",
+    paste0("ICDCODE", 1:12),
+    paste0("RVSCODE", 1:20)
+  ),
 
-names(col_classes) <- c(
-  character_cols, integer_cols,
-  factor_cols, numeric_cols
+  # Integer columns (year, clinical, and patient data)
+  "integer" = c(
+    "ADMISSION_YEAR",
+    "SRC_YR",
+    "IS_ADMISSION_OPD",
+    "IS_EMERGENCY_CASE",
+    "OUT_PATIENT",
+    "EMERGENCY",
+    "PATIENT_AGE",
+    "PATAGE"
+  ),
+
+  # Factor columns (categorical patient and claim information)
+  "factor" = c(
+    "PATIENT_TYPE",
+    "PATIENT_RELATIONSHIP",
+    "DEP_REL",
+    "PATIENT_SEX",
+    "PATSEX",
+    "MEMCAT_PARENT_DESC",
+    "MEMCAT_CHILD_DESC",
+    "CLAIM_STATUS",
+    "CLAIMS_STATUS",
+    "PATIENT_DISPOSITION",
+    "DISPOSITION",
+    "ROOM_TYPE"
+  ),
+
+  # Numeric columns (claim amounts and patient weight)
+  "numeric" = c(
+    "CLAIM_PAID_AMOUNT",
+    "CLAIMS_PAID_AMT",
+    "CLAIM_AMOUNT_ACTUAL",
+    "ACR_AMOUNT_ACTUAL",
+    "PAT_BWT_KG"
+  )
 )
 
 ## COVID codes (for exclusion later)
@@ -92,32 +206,13 @@ covid_rvs <- c(
   "C19VID"
 )
 
-## Mapping of column names
-old_colnames <- c(
-  "SRC_YR", "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "DATE_ADM", "TIME_ADM",
-  "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", "CHKDT", "EXTRACTION_DATE",
-  "HCI_PMCC_NO", "HCP_NO_LIST", "PATIENT_TYPE", "DEP_REL", "PATSEX", "PATAGE",
-  "PAT_BDAY", "PAT_BWT_KG", "MEMCAT_PARENT_DESC", "MEMCAT_CHILD_DESC",
-  "OUT_PATIENT", "EMERGENCY", "ROOM_TYPE",
-  "DISPOSITION", "PRIMARY_ILLNESS", "SECONDARY_ILLNESS",
-  paste0("ICDCODE", 1:12), paste0("RVSCODE", 1:20),
-  "CLAIMS_STATUS", "ACR_AMOUNT_ACTUAL", "CLAIMS_PAID_AMT"
-)
-
-new_colnames <- c(
-  "id_year", "id_series", "id_pin", "date_adm", "time_adm",
-  "date_dis", "time_dis", "date_rec", "date_ref", "date_check", "date_ext",
-  "id_hci", "id_hcp", "pat_type", "pat_rel", "pat_sex", "pat_age",
-  "pat_bdate", "pat_bwt", "pat_memcat_parent", "pat_memcat_child",
-  "clin_outpatient", "clin_emergency", "clin_acc",
-  "clin_discharge", "clin_c1", "clin_c2", paste0("clin_icd", 1:12),
-  paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
-)
+## Convert the COVID codes into a regular expression pattern (without word boundaries)
+covid_rvs_pattern <- paste(covid_rvs, collapse = "|")
 ### Helper functions for general data cleaning and processing
 
 
 ## NOTE: Consider renaming this to clean_string_column
-clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
+clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt = neoplasms_dt_actual) {
   ## Cleans a string column by performing basic string operations
   # column_to_clean: the column to clean.
   # na_like_strings: strings to treat as NA.
@@ -128,11 +223,14 @@ clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
   cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
   cleaned_col <- toupper(cleaned_col)
 
-  # Remove non-letter and non-digit characters from the string
-  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d]+", "")
+  # Remove non-letter and non-digit characters from the string (except delimiters like commas and pipes)
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d,|]+", "")
 
   # Replace any NA-like strings (as defined) with actual NA values
   cleaned_col[cleaned_col %in% na_like_strings] <- NA_character_
+
+  # Replace any COVID-related codes within the string with "COVID" (even if they are part of other codes)
+  cleaned_col <- stri_replace_all_regex(cleaned_col, covid_rvs_pattern, "COVID")
 
   # Restore slashes for certain neoplasm ICD-10 codes, where slashes are important
   neopl <- setNames(neoplasms_dt$icd10, gsub("/", "", neoplasms_dt$icd10))
@@ -143,35 +241,78 @@ clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
   return(cleaned_col)
 }
 
+# collapse_columns <- function(cols_to_process, na_like_strings) {
+#   ## Combines multiple string columns into one and cleans the result
+#   # cols_to_process: a list of columns to concatenate.
+#   # na_like_strings: strings considered as NA.
 
-collapse_columns <- function(cols_to_process, na_like_strings) {
-  ## Combines multiple string columns into one and cleans the result
+#   # Clean each column in cols_to_process by applying clean_column
+#   cleaned_columns <- lapply(cols_to_process, function(col) {
+#     clean_column(col, na_like_strings, neoplasms_dt)
+#   })
+
+#   # Collapse the cleaned columns into a single column, separated by "||"
+#   collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+
+#   # Remove any occurrences of "||NA" or "NA||" or empty "||" from the collapsed string
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "^\\|\\|", "")
+
+#   # If the collapsed string is still NA-like, replace it with NA
+#   collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
+#     NA_character_, collapsed_column
+#   )
+
+#   # Return the collapsed and cleaned column
+#   return(collapsed_column)
+# }
+
+# Clean and collapse columns
+collapse_columns <- function(
+    cols_to_process,
+    na_like_strings,
+    neoplasms_dt = neoplasms_dt_actual) {
+  ## Combines multiple string columns into one and cleans the result using clean_column.
   # cols_to_process: a list of columns to concatenate.
   # na_like_strings: strings considered as NA.
+  # neoplasms_dt: data.table for neoplasm codes where slashes should be preserved.
 
-  # Clean each column in cols_to_process by applying clean_column
+  # Function to clean and split the column by different delimiters
+  clean_and_split <- function(col, na_like_strings, neoplasms_dt) {
+    # Clean the column using the clean_column function
+    cleaned_col <- clean_column(col, na_like_strings, neoplasms_dt)
+
+    # Split by multiple delimiters (comma, single pipe, or double pipe) while handling spaces
+    split_col <- strsplit(cleaned_col, "\\s*,\\s*|\\|\\||\\|")
+
+    # Return the split column
+    return(split_col)
+  }
+
+  # Clean and split each column in cols_to_process
   cleaned_columns <- lapply(cols_to_process, function(col) {
-    clean_column(col, na_like_strings, neoplasms_dt)
+    clean_and_split(col, na_like_strings, neoplasms_dt)
   })
 
-  # Collapse the cleaned columns into a single column, separated by "||"
-  collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+  # Collapse the cleaned columns into a single column, combining them with "||"
+  collapsed_column <- sapply(seq_along(cleaned_columns[[1]]), function(i) {
+    # Combine corresponding rows from all columns and remove empty strings or NA-like values
+    combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
+    combined <- combined[!combined %in% na_like_strings & combined != ""]
 
-  # Remove any occurrences of "||NA" or "NA||" or empty "||" from the collapsed string
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "^\\|\\|", "")
-
-  # If the collapsed string is still NA-like, replace it with NA
-  collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
-    NA_character_, collapsed_column
-  )
+    # Collapse the cleaned and combined values using "||" as the final separator
+    if (length(combined) > 0) {
+      return(paste(combined, collapse = "||"))
+    } else {
+      return(NA_character_)
+    }
+  })
 
   # Return the collapsed and cleaned column
   return(collapsed_column)
 }
-
 
 replace_empty_with_na_python <- function(dt, to_view_checks) {
   ## Replaces empty strings in a data.table with NA.
@@ -438,30 +579,68 @@ split_to_vector <- function(column) {
   return(result)
 }
 
+# collapse_and_clean_icd_rvs <- function(dt) {
+#   ## Collapses and cleans ICD and RVS columns in a data.table
+#   # dt: input data.table containing ICD and RVS columns
+
+#   # Collapse the ICD codes from multiple columns into a single "clin_icd" column
+#   dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
+#   dt[, paste0("clin_icd", 1:12) := NULL] # Remove the individual columns
+
+#   # Collapse the RVS codes from multiple columns into a single "clin_rvs" column
+#   dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
+#   dt[, paste0("clin_rvs", 1:20) := NULL] # Remove the individual columns
+
+#   # Handle any lumped ICD codes by splitting them
+#   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+
+#   # Convert the cleaned columns into vectors
+#   dt[, clin_icd := split_to_vector(clin_icd)]
+#   # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
+#   dt[, clin_rvs := split_to_vector(clin_rvs)]
+
+#   # Return the cleaned data.table
+#   return(dt)
+# }
+
+
 collapse_and_clean_icd_rvs <- function(dt) {
   ## Collapses and cleans ICD and RVS columns in a data.table
   # dt: input data.table containing ICD and RVS columns
+  available_columns <- colnames(dt)
 
-  # Collapse the ICD codes from multiple columns into a single "clin_icd" column
-  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
-  dt[, paste0("clin_icd", 1:12) := NULL] # Remove the individual columns
+  # Dynamically detect which clin_icd columns exist
+  icd_cols <- grep("^clin_icd\\d+$", available_columns, value = TRUE)
+  if (length(icd_cols) > 0) {
+    # Collapse the ICD codes, whether from multiple columns or a single column
+    dt[, clin_icd := collapse_columns(mget(icd_cols), na_like_strings)]
+    dt[, (icd_cols) := NULL] # Remove the individual columns after collapsing
+  }
 
-  # Collapse the RVS codes from multiple columns into a single "clin_rvs" column
-  dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
-  dt[, paste0("clin_rvs", 1:20) := NULL] # Remove the individual columns
+  # Dynamically detect which clin_rvs columns exist
+  rvs_cols <- grep("^clin_rvs\\d+$", available_columns, value = TRUE)
+  if (length(rvs_cols) > 0) {
+    # Collapse the RVS codes, whether from multiple columns or a single column
+    dt[, clin_rvs := collapse_columns(mget(rvs_cols), na_like_strings)]
+    dt[, (rvs_cols) := NULL] # Remove the individual columns after collapsing
+  }
 
-  # Handle any lumped ICD codes by splitting them
-  dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+  # Handle any lumped ICD codes by splitting them if clin_icd exists
+  if ("clin_icd" %in% available_columns) {
+    dt[, clin_icd := remove_lumped_icd_codes(clin_icd)] # Apply cleaning for lumped codes
+    dt[, clin_icd := split_to_vector(clin_icd)] # Convert cleaned string to vector
+  }
 
-  # Convert the cleaned columns into vectors
-  dt[, clin_icd := split_to_vector(clin_icd)]
-  # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
-  dt[, clin_rvs := split_to_vector(clin_rvs)]
+  # Handle any lumped RVS codes by splitting them if clin_rvs exists
+  if ("clin_rvs" %in% available_columns) {
+    # Assuming there is a `remove_lumped_rvs_codes` function, apply it here.
+    # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)] #TODO: why is this commented out?
+    dt[, clin_rvs := split_to_vector(clin_rvs)] # Convert cleaned string to vector
+  }
 
   # Return the cleaned data.table
   return(dt)
 }
-
 
 clean_clinical_columns <- function(dt) {
   ## Cleans and processes the clinical columns in a data.table
@@ -472,6 +651,7 @@ clean_clinical_columns <- function(dt) {
   # Deduplicate the ICD codes
   dt <- apply_add_c1_c2_to_clin_icd(dt)
 
+  # TODO: append rvs to clin_proc, dont delete from c1 and c2
   # Process case rate 1 RVS codes
   c1_rvs_results <- append_and_remove_rvs(
     dt$clin_rvs, dt$c1, rvs_icd9
@@ -489,7 +669,7 @@ clean_clinical_columns <- function(dt) {
   c2_discarded_rvs <- c2_rvs_results$discarded_rvs
 
   # Ensure uniqueness of RVS codes in the final result
-  dt[, clin_rvs := lapply(clin_rvs, unique)]
+  # dt[, clin_rvs := lapply(clin_rvs, unique)]
   return(
     list(
       # Return the cleaned data.table
@@ -549,11 +729,13 @@ remap_patient_type <- function(pat_type) {
   # remap the column
   remapped_pat_type <- fcase(
     pat_type == "MEMBER", "M",
-    pat_type == "DEPENDENT", "D"
+    pat_type == "DEPENDENT", "D",
+    pat_type == "MM", "M",
+    pat_type == "DD", "D"
   )
 
   # Check for any unmapped entries and print a warning
-  known_types <- c("MEMBER", "DEPENDENT")
+  known_types <- c("MEMBER", "MM", "DEPENDENT", "DD")
   unknown_types <- setdiff(pat_type[!is.na(pat_type)], known_types)
 
   if (length(unknown_types) > 0) {
@@ -710,13 +892,20 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge == "ABSCONDED", 3L,
     clin_discharge == "TRANSFERRED/REFERRED", 4L,
     clin_discharge == "EXPIRED", 9L,
+    clin_discharge == "I", 1L,
+    clin_discharge == "R", 1L,
+    clin_discharge == "H", 2L,
+    clin_discharge == "A", 3L,
+    clin_discharge == "T", 4L,
+    clin_discharge == "E", 9L,
     clin_discharge == "UNDEFINED", NA_integer_
   )
 
   # Check for unmapped discharge dispositions and print a warning
   known_dispositions <- c(
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
-    "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED"
+    "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED", "I",
+    "R", "H", "A", "T", "E"
   )
 
   unknown_dispositions <- setdiff(
@@ -1060,6 +1249,7 @@ add_c1_c2_to_clin_icd <- function(c1, c2, clin_icd) {
   datatable <- data.table(c1 = c1, c2 = c2, clin_icd = clin_icd)
 
   # Map function to concatenate clin_icd with c1 and c2, allowing duplicates
+  # TODO: Don't duplicate it if it's already there
   datatable[, clin_icd := Map(function(c1, c2, icd) {
     c(icd, c1, c2) # Concatenate clin_icd with c1 and c2
   }, c1, c2, clin_icd)]
@@ -1325,6 +1515,8 @@ generate_dob <- function(bdays, ages, date_adms) {
       ref_dates[zero_age_indices] - days(sample(1:27, length(zero_age_indices), replace = TRUE)), "%d/%m/%Y"
     )
   }
+  # TODO for where birthdate exists impute it as the difference between date admission and birthdate
+  # Otherwise just "3"
 
   ## Step 4: Handle positive ages
   positive_age_indices <- which(!is.na(ages[missing_bday_indices]) & ages[missing_bday_indices] > 0)
@@ -2279,32 +2471,6 @@ combine_parts_summaries <- function(combined_summary, end_nrow) {
 
   return(final_combined_summaries)
 }
-# ensure_partial_files_exist <- function(partial_part) {
-#   #' @title Ensure Partial Files Exist
-#   #' @description This function checks if partial files exist for a
-#   #' given partial_part and creates them if they don't.
-#   #' @param partial_part integer. The partial_part number to process.
-#   #' @return NULL. Creates partial files as a side effect if they do not exist.
-#   chunk_file <- partial_claims_file
-#   if (!file.exists(chunk_file)) {
-#     rows_per_part <- ceiling(total_rows / split_parts)
-#     start_row <- (partial_part - 1) * rows_per_part + 1
-#     end_row <- min(partial_part * rows_per_part, total_rows)
-#     dt <- fread(
-#       file = full_claims_file,
-#       skip = start_row,
-#       nrows = end_row - start_row + 1,
-#       na.strings = na_values,
-#       colClasses = "character",
-#       header = FALSE,
-#       encoding = encode,
-#       sep = sep
-#     )
-#     setnames(dt, colnames(full_header))
-#     fwrite(dt, chunk_file, quote = TRUE)
-#   }
-# }
-
 ensure_sample_files_exist <- function(sample_part) {
   #' @title Ensure Sample Files Exist
   #' @description This function checks if sample files exist for a given sample_part and creates them if they don't.
@@ -2345,18 +2511,43 @@ read_appropriate_file <- function(read_part, to_sample) {
 
   dt <- readRDS(chunk_file)
 
+  available_columns <- colnames(dt)
+
   if (to_debug) print(head(dt), 2) # debug
 
   # Drop columns
-  if (any(drop_cols %in% colnames(dt))) {
+  if (any(drop_cols %in% available_columns)) {
     dt <- dt[, (drop_cols) := NULL]
   }
+
+  if (any(drop_cols_manual %in% available_columns)) {
+    dt <- dt[, (drop_cols_manual) := NULL]
+  }
+
 
   replace_result <- replace_empty_with_na(dt = dt, to_view_checks)
   dt <- replace_result$return_data
   replacement_summary <- replace_result$return_replacement_summary
 
   if (to_debug) print(head(dt), 2) # debug
+
+  ## Apply column classes only to the columns that exist in the data
+  col_classes <- sapply(available_columns, function(col) {
+    if (col %in% unlist(expected_types["character"])) {
+      return("character")
+    }
+    if (col %in% unlist(expected_types["integer"])) {
+      return("integer")
+    }
+    if (col %in% unlist(expected_types["factor"])) {
+      return("factor")
+    }
+    if (col %in% unlist(expected_types["numeric"])) {
+      return("numeric")
+    }
+  })
+
+  if (to_debug) print(col_classes)
 
   # Cast column types with checks
   for (col in names(col_classes)) {
@@ -2374,7 +2565,7 @@ read_appropriate_file <- function(read_part, to_sample) {
       "numeric" = {
         suppressWarnings(as.numeric(dt[[col]]))
       },
-      dt[[col]]
+      dt[[col]] # Default case: no conversion if unrecognized type
     )
 
     # Check for NA coercion
@@ -2391,6 +2582,12 @@ read_appropriate_file <- function(read_part, to_sample) {
 
   nrow_start[[read_part]] <<- nrow(dt)
 
+  if (to_debug) print(paste0("Available Columns: ", available_columns))
+
+  # # Inspect a few rows before and after conversion
+  if (to_debug) print(head(dt$ADMISSION_TIME))
+  if (to_debug) print(head(dt$DISCHARGE_TIME))
+
   return(
     list(
       read_result_dt = dt,
@@ -2398,80 +2595,6 @@ read_appropriate_file <- function(read_part, to_sample) {
     )
   )
 }
-
-# export_for_grouper <- function(dt, output_txt_file) {
-#   #' @title Export Data for Batch Grouper
-#   #'
-#   #' @description This function exports data for batch grouper,
-#   #' generating necessary columns and formatting them accordingly.
-#   #'
-#   #' @param dt data.table. The input data table.
-#   #' @param output_txt_file character. The path to the output text file.
-#   #'
-#   #' @return NULL.
-
-#   output_dt <- data.table()
-#   output_dt[, CASEID := dt$id_series]
-#   # Format Date of Birth (DOB) and Age
-#   output_dt[, DOB := format(ymd(dt$pat_bdate), "%d/%m/%Y")]
-
-#   # Format Sex
-#   output_dt[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
-
-#   # Format Admission Date and Time
-#   output_dt[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
-#   output_dt[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
-
-#   # Format Discharge Date and Time
-#   output_dt[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
-#   output_dt[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
-
-#   # Discharge Type
-#   output_dt[, DischT := dt$clin_discharge]
-#   # Admission Weight
-#   output_dt[, AdmWt := dt$pat_bwt]
-#   # Principal Diagnosis Code
-#   output_dt[, PDx := dt$clin_pdx]
-
-#   # Secondary Diagnosis Codes (SDx1 to SDx12)
-#   icd_codes_list <- lapply(dt$clin_sdx, function(icd_str) {
-#     codes <- unlist(icd_str)
-#     length(codes) <- 12
-#     codes
-#   })
-#   icd_codes <- as.data.table(do.call(rbind, icd_codes_list))
-#   icd_cols <- paste0("SDx", 1:12)
-#   output_dt[, (icd_cols) := icd_codes]
-
-#   # Procedure Codes (Proc1 to Proc20)
-#   rvs_codes_list <- lapply(dt$clin_rvs, function(rvs_str) {
-#     codes <- unlist(rvs_str)
-#     length(codes) <- 20
-#     codes
-#   })
-#   rvs_codes <- as.data.table(do.call(rbind, rvs_codes_list))
-#   proc_cols <- paste0("Proc", 1:20)
-#   output_dt[, (proc_cols) := rvs_codes]
-
-#   # Replace NA values with '--'
-#   output_dt[is.na(output_dt)] <- "--"
-#   output_dt[is.null(output_dt)] <- "--"
-#   # # Convert list columns to comma-separated strings
-#   # for (col in names(output_dt)) {
-#   #   if (is.list(output_dt[[col]])) {
-#   #     output_dt[[col]] <- sapply(output_dt[[col]], paste, collapse = ",")
-#   #   }
-#   # }
-#   # Write the data.table to a file with vertical bar (|) as delimiter
-
-#   str(output_dt)
-
-#   fwrite(output_dt, output_txt_file, sep = "|", col.names = TRUE)
-
-#   if (to_debug) {
-#     return(NULL)
-#   }
-# }
 
 export_for_grouper <- function(dt, output_txt_file) {
   #' @title Export Data for Batch Grouper

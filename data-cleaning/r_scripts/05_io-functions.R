@@ -109,6 +109,12 @@ read_appropriate_file <- function(read_part, to_sample) {
 
   nrow_start[[read_part]] <<- nrow(dt)
 
+  if (to_debug) print(paste0("Available Columns: ", available_columns))
+
+  # # Inspect a few rows before and after conversion
+  if (to_debug) print(head(dt$ADMISSION_TIME))
+  if (to_debug) print(head(dt$DISCHARGE_TIME))
+
   return(
     list(
       read_result_dt = dt,
