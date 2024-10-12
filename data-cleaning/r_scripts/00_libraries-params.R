@@ -210,6 +210,7 @@ covid_rvs <- c(
 covid_rvs_pattern <- paste(covid_rvs, collapse = "|")
 
 # Initialize known values for each type of remapping
+# Define known values for each column
 known_values <- list(
   pat_type = c("MEMBER", "MM", "DEPENDENT", "DD"),
   claim_status = c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT"),
@@ -227,35 +228,29 @@ known_values <- list(
   )
 )
 
-# Define the big fcase that handles remapping for all columns
-remapped_column <- fcase(
-  column_name == "pat_type" & dt[[column_name]] %in% c("MEMBER", "MM"), "M",
-  column_name == "pat_type" & dt[[column_name]] %in% c("DEPENDENT", "DD"), "D",
-  column_name == "claim_status" & dt[[column_name]] == "DENIED", "D",
-  column_name == "claim_status" & dt[[column_name]] == "IN-PROCESS", "I",
-  column_name == "claim_status" & dt[[column_name]] %in% c("PAID", "APRV4PAYMENT"), "G",
-  column_name == "claim_status" & dt[[column_name]] == "RTH", "R",
-  column_name == "pat_memcat_parent" & dt[[column_name]] == "DIRECT CONTRIBUTOR", "D",
-  column_name == "pat_memcat_parent" & dt[[column_name]] == "INDIRECT CONTRIBUTOR", "I",
-  column_name == "pat_memcat_child" & dt[[column_name]] == "EMPLOYED PRIVATE", "FORMAL",
-  column_name == "pat_memcat_child" & dt[[column_name]] == "SELF-EARNING INDIVIDUAL", "INFORMAL",
-  column_name == "pat_memcat_child" & dt[[column_name]] == "SENIOR CITIZEN", "SENIOR",
-  column_name == "pat_memcat_child" & dt[[column_name]] == "INDIGENT", "INDIGENT",
-  column_name == "pat_memcat_child" & dt[[column_name]] == "LIFETIME MEMBER", "LIFETIME",
-  column_name == "pat_memcat_child" & dt[[column_name]] == "SPONSORED", "SPONSORED",
-  column_name == "pat_memcat_child" & dt[[column_name]] %in% c(
-    "MIGRANT WORKER", "FOREIGN NATIONAL",
-    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD"
-  ), "OFW",
-  column_name == "pat_memcat_child" & dt[[column_name]] %in% c(
-    "EMPLOYED GOVERNMENT", "HOUSEHOLD HELP/KASAMBAHAY",
-    "FAMILY DRIVER", "FORMAL ECONOMY", "DIRECT CONTRIBUTOR"
-  ), "FORMAL",
-  column_name == "pat_memcat_child" & dt[[column_name]] == "PROFESSIONAL PRACTITIONER", "INFORMAL",
-  column_name == "clin_discharge" & dt[[column_name]] %in% c("IMPROVED", "RECOVERED", "I", "R"), 1L,
-  column_name == "clin_discharge" & dt[[column_name]] %in% c("HOME/DISCHARGED AGAINST MEDICAL ADVICE", "H"), 2L,
-  column_name == "clin_discharge" & dt[[column_name]] %in% c("ABSCONDED", "A"), 3L,
-  column_name == "clin_discharge" & dt[[column_name]] %in% c("TRANSFERRED/REFERRED", "T"), 4L,
-  column_name == "clin_discharge" & dt[[column_name]] %in% c("EXPIRED", "E"), 9L,
-  column_name == "clin_discharge" & dt[[column_name]] == "UNDEFINED", NA_integer_
-)
+# Define the fcase logic for remapping
+remapped_column <- quote(fcase(
+  dt[[column_name]] %in% c("MEMBER", "MM"), "M",
+  dt[[column_name]] %in% c("DEPENDENT", "DD"), "D",
+  dt[[column_name]] == "DENIED", "D",
+  dt[[column_name]] == "IN-PROCESS", "I",
+  dt[[column_name]] %in% c("PAID", "APRV4PAYMENT"), "G",
+  dt[[column_name]] == "RTH", "R",
+  dt[[column_name]] == "DIRECT CONTRIBUTOR", "D",
+  dt[[column_name]] == "INDIRECT CONTRIBUTOR", "I",
+  dt[[column_name]] == "EMPLOYED PRIVATE", "FORMAL",
+  dt[[column_name]] == "SELF-EARNING INDIVIDUAL", "INFORMAL",
+  dt[[column_name]] == "SENIOR CITIZEN", "SENIOR",
+  dt[[column_name]] == "INDIGENT", "INDIGENT",
+  dt[[column_name]] == "LIFETIME MEMBER", "LIFETIME",
+  dt[[column_name]] == "SPONSORED", "SPONSORED",
+  dt[[column_name]] %in% c("MIGRANT WORKER", "FOREIGN NATIONAL", "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD"), "OFW",
+  dt[[column_name]] %in% c("EMPLOYED GOVERNMENT", "HOUSEHOLD HELP/KASAMBAHAY", "FAMILY DRIVER", "FORMAL ECONOMY", "DIRECT CONTRIBUTOR"), "FORMAL",
+  dt[[column_name]] == "PROFESSIONAL PRACTITIONER", "INFORMAL",
+  dt[[column_name]] %in% c("IMPROVED", "RECOVERED", "I", "R"), "1", # Convert to string
+  dt[[column_name]] %in% c("HOME/DISCHARGED AGAINST MEDICAL ADVICE", "H"), "2", # Convert to string
+  dt[[column_name]] %in% c("ABSCONDED", "A"), "3", # Convert to string
+  dt[[column_name]] %in% c("TRANSFERRED/REFERRED", "T"), "4", # Convert to string
+  dt[[column_name]] %in% c("EXPIRED", "E"), "9", # Convert to string
+  dt[[column_name]] == "UNDEFINED", NA_character_ # Ensure consistent type for missing values
+))

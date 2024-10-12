@@ -19,7 +19,7 @@ thai_prompt <- TRUE # Whether to prompt for thai grouper even if bypassing all o
 # IMPORTANT PARAMETERS:
 full_claims_prefix <- "claims_extract_CLAIMS " # Include spaces if there are any
 # Assign the correct file extension based on the year
-year_to_load <- "2022" # Which claims year to load
+year_to_load <- "2023" # Which claims year to load
 file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 gcs_email <- "271591364028-compute@developer.gserviceaccount.com" # Service Account to use
 gcp_proj <- system("gcloud config get-value project", intern = TRUE) # get current GCP Project
@@ -77,7 +77,7 @@ to_debug <- FALSE # whether to print debug statements
 to_profvis <- FALSE # Conduct runtime duration analysis via profvis or not
 to_view_checks <- TRUE # Whether to view checks and print statements
 to_view_checks_parallel <- FALSE # Whether to view intermediate per split_part/chunk checks and print statements (not consolidated) when parallelized
-to_parallel <- TRUE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
+to_parallel <- FALSE # Whether to parallelize each split_parts split_part into availableCores() chunks. Cuts down processing time from 120min to 15min.
 to_split_read <- FALSE # WARNING: TRUE uses a lot of memory!!
 to_dec_mem_usage <- TRUE # Whether to run rm() and gc() at every possible step
 tmp_nrow <- Inf # Per split_part/chunk end_nrow (leave at Inf)
@@ -424,14 +424,14 @@ clean_data <- function(dt) {
 
   # Convert time_adm and time_dis for 2022-2023 format
 
-  # Strip fractional seconds and handle AM/PM conversion properly
+  # Strip fractional seconds and handle AM/PM conversion properly using as.POSIXct()
   dt[, time_adm := ifelse(grepl("AM|PM", time_adm),
-    format(strptime(sub("\\.\\d+ ", " ", time_adm), "%m/%d/%Y %I:%M:%S %p"), "%H:%M"),
+    format(as.POSIXct(sub("\\.\\d+ ", " ", time_adm), format = "%m/%d/%Y %I:%M:%S %p"), "%H:%M"),
     time_adm
   )]
 
   dt[, time_dis := ifelse(grepl("AM|PM", time_dis),
-    format(strptime(sub("\\.\\d+ ", " ", time_dis), "%m/%d/%Y %I:%M:%S %p"), "%H:%M"),
+    format(as.POSIXct(sub("\\.\\d+ ", " ", time_dis), format = "%m/%d/%Y %I:%M:%S %p"), "%H:%M"),
     time_dis
   )]
 
