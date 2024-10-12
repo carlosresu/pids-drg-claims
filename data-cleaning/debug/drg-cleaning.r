@@ -1342,16 +1342,22 @@ process_data <- function(data) {
 }
 result <- process_data(result)
 
-# Convert string columns to arrays
+# Convert string columns to arrays, handling different delimiters: comma, comma with space, single pipe, and double pipe
 array_columns <- c("id_hcp")
+split_pattern <- "\\s*,\\s*|\\|\\||\\|" # Regex pattern to handle commas, single pipes, and double pipes
+
 if (is_unix) {
   result[, (array_columns) := mclapply(.SD, function(x) {
-    x <- strsplit(x, "\\|\\|")
+    # Split based on the specified pattern (comma, comma with space, single pipe, or double pipe)
+    x <- strsplit(x, split_pattern)
+    # Handle empty or NA entries
     lapply(x, function(y) if (length(y) == 0L || all(is.na(y))) character(0) else y)
   }, mc.cores = parallel::detectCores()), .SDcols = array_columns]
 } else {
   result[, (array_columns) := lapply(.SD, function(x) {
-    x <- strsplit(x, "\\|\\|")
+    # Split based on the specified pattern (comma, comma with space, single pipe, or double pipe)
+    x <- strsplit(x, split_pattern)
+    # Handle empty or NA entries
     lapply(x, function(y) if (length(y) == 0L || all(is.na(y))) character(0) else y)
   }), .SDcols = array_columns]
 }
@@ -1380,29 +1386,6 @@ setcolorder(result, c(
 
 # Apply format_id function to each column in parallel or sequentially
 columns_to_format <- c("id_series", "id_pin", "id_hci")
-
-# # Define the format_id function
-# format_id <- function(x) {
-#   x <- as.character(x)
-#   integer_x <- suppressWarnings(as.integer(x))
-#   x <- trimws(formatC(integer_x, format = "f", digits = 0))
-#   x[x == "NA" | is.na(integer_x)] <- NA_character_
-#   x
-# }
-
-# # Apply format_id to each column safely
-# if (is_unix) {
-#   # Make a copy of the columns to avoid directly accessing the data.table object in parallel
-#   formatted_cols <- mclapply(columns_to_format, function(col) {
-#     column_data <- result[[col]] # Extract column data outside the parallel loop
-#     return(format_id(column_data))
-#   }, mc.cores = parallel::detectCores())
-# } else {
-#   formatted_cols <- lapply(columns_to_format, function(col) {
-#     column_data <- result[[col]] # Extract column data
-#     return(format_id(column_data))
-#   })
-# }
 
 # Define the format_id function that handles both numerical and alphanumeric formats
 format_id <- function(x) {

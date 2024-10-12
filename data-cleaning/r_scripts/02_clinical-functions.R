@@ -408,9 +408,12 @@ transfer_extra_icd10s_to_clin_icd <- function(clin_icd, col) {
   # Extract the first element of col (typically case rate c1 or c2) to keep separately
   col_first <- lapply(col, function(x) x[1])
 
-  # Append the remaining elements of col to clin_icd for each row, allowing duplicates
+  # Append the remaining elements of col to clin_icd for each row, only if not already in clin_icd
   clin_icd <- mapply(function(icd, c1) {
-    c(icd, c1[-1]) # Concatenate clin_icd with all elements of col except the first
+    extra_icds <- c1[-1] # Take all elements from c1 except the first
+    # Only append elements that are not already in clin_icd
+    new_icds <- extra_icds[!extra_icds %in% icd]
+    c(icd, new_icds) # Concatenate clin_icd with the filtered new elements
   }, clin_icd, col, SIMPLIFY = FALSE)
 
   # Return the updated clin_icd and the first element of col
