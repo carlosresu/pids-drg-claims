@@ -19,8 +19,11 @@ thai_prompt <- TRUE # Whether to prompt for thai grouper even if bypassing all o
 # IMPORTANT PARAMETERS:
 full_claims_prefix <- "claims_extract_CLAIMS " # Include spaces if there are any
 # Assign the correct file extension based on the year
-year_to_load <- "2023" # Which claims year to load
+# Read the contents of year_to_load.txt as a string
+year_to_load <- fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
+print(year_to_load)
 file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
+print(file_type)
 gcs_email <- "271591364028-compute@developer.gserviceaccount.com" # Service Account to use
 gcp_proj <- system("gcloud config get-value project", intern = TRUE) # get current GCP Project
 gcs_bucket <- "phic-claims-checkpoints" # Name of GCS bucket
@@ -833,7 +836,7 @@ main_logic_func <- function() {
   full_header <<- fread(
     file = full_claims_file,
     nrows = 1, colClasses = "character",
-    header = TRUE, encoding = encode, sep = separator
+    header = TRUE, encoding = encode # , sep = separator
   )
 
   # Step 2: Check if the split part file already exists. If not, read the full claims file.
@@ -846,7 +849,7 @@ main_logic_func <- function() {
 
     full_file <<- fread(
       file = full_claims_file, colClasses = "character",
-      header = TRUE, encoding = encode, sep = separator
+      header = TRUE, encoding = encode # , sep = separator
     )
   }
 
@@ -1386,6 +1389,15 @@ setcolorder(result, c(
   "clin_sdx", "clin_proc", "clin_pdx", "clin_pdx_source"
 ))
 
+
+# Use a temporary column to avoid self-reference
+result[, temp_clin_discharge := as.integer(clin_discharge)]
+
+# Assign the temp column back to clin_discharge
+result[, clin_discharge := temp_clin_discharge]
+
+# Remove the temporary column
+result[, temp_clin_discharge := NULL]
 # Apply format_id function to each column in parallel or sequentially
 columns_to_format <- c("id_series", "id_pin", "id_hci")
 
@@ -1484,7 +1496,9 @@ rows_with_old_dates <- result[Reduce(`|`, lapply(.SD, function(x) x < as.Date("1
 print(rows_with_old_dates)
 
 
-print(head(result, 100))
+# print(head(result, 100))
+# Print unique values of the 'clin_discharge' column
+# print(unique(result$clin_discharge))
 
 
 if (nrow(result) == total_rows) bq_table <- paste0("claims_", year_to_load, "1231")

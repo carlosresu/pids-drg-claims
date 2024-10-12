@@ -35,22 +35,9 @@ remap_columns <- function(dt, column_name, to_view_checks = TRUE, known_values, 
 remap_patient_data <- function(dt, to_view_checks = TRUE) {
   ## Remap the categorical columns in the inpatient data
 
-  # Load necessary library
-  library(data.table)
-
-  # Initialize lists for unmapped variables for each category (patient type, member category, etc.)
-  pat_unmap <- NULL
-  parent_unmap <- NULL
-  child_unmap <- NULL
-  discharge_unmap <- NULL
-  claim_status_unmap <- NULL
-
-  # Initialize data tables for mapped variables (used to store original vs remapped values)
-  pat_mapped <- data.table(Original = character(), Mapped = character())
-  parent_mapped <- data.table(Original = character(), Mapped = character())
-  child_mapped <- data.table(Original = character(), Mapped = character())
-  discharge_mapped <- data.table(Original = character(), Mapped = character())
-  claim_status_mapped <- data.table(Original = character(), Mapped = character())
+  # Initialize unmapped variables and mapped data tables
+  pat_unmap <- parent_unmap <- child_unmap <- discharge_unmap <- claim_status_unmap <- NULL
+  pat_mapped <- parent_mapped <- child_mapped <- discharge_mapped <- claim_status_mapped <- NULL
 
   # Define the columns that need remapping
   columns_to_remap <- list(
@@ -65,35 +52,25 @@ remap_patient_data <- function(dt, to_view_checks = TRUE) {
   for (col_name in names(columns_to_remap)) {
     result <- remap_columns(dt, columns_to_remap[[col_name]], to_view_checks, known_values, remapped_column)
 
-    # Update the original column with remapped values
-    dt[[columns_to_remap[[col_name]]]] <- result$remapped
+    # Update the original column using `set`
+    set(dt, j = columns_to_remap[[col_name]], value = result$remapped)
 
-    # Capture mapped values and unmapped values based on the column
+    # Capture mapped and unmapped values
     if (col_name == "pat_type") {
-      pat_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
-      if (length(result$unmapped) > 0 && to_view_checks) {
-        pat_unmap <- result$unmapped
-      }
+      pat_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) pat_unmap <- result$unmapped
     } else if (col_name == "pat_memcat_parent") {
-      parent_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
-      if (length(result$unmapped) > 0 && to_view_checks) {
-        parent_unmap <- result$unmapped
-      }
+      parent_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) parent_unmap <- result$unmapped
     } else if (col_name == "pat_memcat_child") {
-      child_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
-      if (length(result$unmapped) > 0 && to_view_checks) {
-        child_unmap <- result$unmapped
-      }
+      child_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) child_unmap <- result$unmapped
     } else if (col_name == "clin_discharge") {
-      discharge_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
-      if (length(result$unmapped) > 0 && to_view_checks) {
-        discharge_unmap <- result$unmapped
-      }
+      discharge_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) discharge_unmap <- result$unmapped
     } else if (col_name == "claim_status") {
-      claim_status_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
-      if (length(result$unmapped) > 0 && to_view_checks) {
-        claim_status_unmap <- result$unmapped
-      }
+      claim_status_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) claim_status_unmap <- result$unmapped
     }
   }
 

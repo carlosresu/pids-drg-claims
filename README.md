@@ -51,7 +51,7 @@ Update the package list, install jupyter, python, and build tools, then upgrade 
 sudo apt update
 
 # Install Jupyter:
-sudo apt install jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip
+sudo apt install jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip pipx
 
 # upgrade packages
 sudo apt upgrade
