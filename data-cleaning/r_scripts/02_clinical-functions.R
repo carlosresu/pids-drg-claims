@@ -8,11 +8,13 @@ remap_patient_type <- function(pat_type) {
   # remap the column
   remapped_pat_type <- fcase(
     pat_type == "MEMBER", "M",
-    pat_type == "DEPENDENT", "D"
+    pat_type == "DEPENDENT", "D",
+    pat_type == "MM", "M",
+    pat_type == "DD", "D"
   )
 
   # Check for any unmapped entries and print a warning
-  known_types <- c("MEMBER", "DEPENDENT")
+  known_types <- c("MEMBER", "MM", "DEPENDENT", "DD")
   unknown_types <- setdiff(pat_type[!is.na(pat_type)], known_types)
 
   if (length(unknown_types) > 0) {
@@ -169,13 +171,20 @@ remap_disposition <- function(clin_discharge) {
     clin_discharge == "ABSCONDED", 3L,
     clin_discharge == "TRANSFERRED/REFERRED", 4L,
     clin_discharge == "EXPIRED", 9L,
+    clin_discharge == "I", 1L,
+    clin_discharge == "R", 1L,
+    clin_discharge == "H", 2L,
+    clin_discharge == "A", 3L,
+    clin_discharge == "T", 4L,
+    clin_discharge == "E", 9L,
     clin_discharge == "UNDEFINED", NA_integer_
   )
 
   # Check for unmapped discharge dispositions and print a warning
   known_dispositions <- c(
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
-    "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED"
+    "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED", "I",
+    "R", "H", "A", "T", "E"
   )
 
   unknown_dispositions <- setdiff(

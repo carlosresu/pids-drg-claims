@@ -51,37 +51,151 @@ na_like_strings <- c(
   "\u2029", "\u202F", "\u205F", "\u3000"
 )
 
-## Column formats
-integer_cols <- c("OUT_PATIENT", "EMERGENCY")
+# Mapping of column names (including clin_icd and clin_rvs)
+column_mappings <- list(
+  # Admission and discharge information
+  "ADMISSION_YEAR" = "id_year",
+  "SRC_YR" = "id_year",
+  "ADMISSION_DATE" = "date_adm",
+  "DATE_ADM" = "date_adm",
+  "ADMISSION_TIME" = "time_adm",
+  "TIME_ADM" = "time_adm",
+  "DISCHARGE_DATE" = "date_dis",
+  "DATE_DIS" = "date_dis",
+  "DISCHARGE_TIME" = "time_dis",
+  "TIME_DIS" = "time_dis",
 
-factor_cols <- c(
-  "PATIENT_TYPE", "ROOM_TYPE", "DEP_REL", "PATSEX", "MEMCAT_PARENT_DESC",
-  "MEMCAT_CHILD_DESC", "DISPOSITION", "CLAIMS_STATUS"
-)
-numeric_cols <- c(
-  "PATAGE", "PAT_BWT_KG", "CLAIMS_PAID_AMT",
-  "ACR_AMOUNT_ACTUAL"
+  # Claim and patient identifiers
+  "CLAIM_SERIES_ID" = "id_series",
+  "PSEUDO_CLAIMSERIES" = "id_series",
+  "PIN" = "id_pin",
+  "PSEUDO_MEM_PIN" = "id_pin",
+
+  # Date information
+  "RECEIVE_DATE" = "date_rec",
+  "DATE_REC" = "date_rec",
+  "REFILE_DATE" = "date_ref",
+  "DATE_REF" = "date_ref",
+  "CHECK_DATE" = "date_check",
+  "CHKDT" = "date_check",
+  "EXTRACTION_DATE" = "date_ext",
+
+  # Health care provider and institution
+  "HCI_PMCC_NO" = "id_hci",
+  "HCP_NO_LIST" = "id_hcp",
+
+  # Patient information
+  "PATIENT_TYPE" = "pat_type",
+  "PATIENT_RELATIONSHIP" = "pat_rel",
+  "DEP_REL" = "pat_rel",
+  "PATIENT_SEX" = "pat_sex",
+  "PATSEX" = "pat_sex",
+  "PATIENT_AGE" = "pat_age",
+  "PATAGE" = "pat_age",
+  "PAT_BDAY" = "pat_bdate",
+  "PAT_BWT_KG" = "pat_bwt",
+  "MEMCAT_PARENT_DESC" = "pat_memcat_parent",
+  "MEMCAT_CHILD_DESC" = "pat_memcat_child",
+
+  # Clinical information
+  "IS_ADMISSION_OPD" = "clin_outpatient",
+  "IS_EMERGENCY_CASE" = "clin_emergency",
+  "OUT_PATIENT" = "clin_outpatient",
+  "EMERGENCY" = "clin_emergency",
+  "ROOM_TYPE" = "clin_acc",
+  "PATIENT_DISPOSITION" = "clin_discharge",
+  "DISPOSITION" = "clin_discharge",
+  "PRIMARY_ILLNESS" = "clin_c1",
+  "SECONDARY_ILLNESS" = "clin_c2",
+  "ICDCODES_ITEM7" = "clin_icd1", # We'll dynamically handle clin_icd and clin_rvs
+  "RVSCODES_ITEM7" = "clin_rvs1",
+
+  # Claim status and amounts
+  "CLAIM_STATUS" = "claim_status",
+  "CLAIMS_STATUS" = "claim_status",
+  "CLAIM_PAID_AMOUNT" = "claim_payout",
+  "CLAIMS_PAID_AMT" = "claim_payout",
+  "CLAIM_AMOUNT_ACTUAL" = "claim_charge",
+  "ACR_AMOUNT_ACTUAL" = "claim_charge"
 )
 
-character_cols <- c(
-  "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "HCI_PMCC_NO", "HCP_NO_LIST",
-  "PRIMARY_ILLNESS", "SECONDARY_ILLNESS", paste0("ICDCODE", c(1:12)),
-  paste0("RVSCODE", 1:20), "DATE_ADM", "TIME_ADM",
-  "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", "CHKDT",
-  "PAT_BDAY", "EXTRACTION_DATE"
-)
+# Add dynamically generated clin_icd1 through clin_icd12 and clin_rvs1 through clin_rvs20
+for (i in 1:12) {
+  column_mappings[[paste0("ICDCODE", i)]] <- paste0("clin_icd", i)
+}
+for (i in 1:20) {
+  column_mappings[[paste0("RVSCODE", i)]] <- paste0("clin_rvs", i)
+}
 
-## Define column classes
-col_classes <- c(
-  rep("character", length(character_cols)),
-  rep("integer", length(integer_cols)),
-  rep("factor", length(factor_cols)),
-  rep("numeric", length(numeric_cols))
-)
+expected_types <- list(
+  # Character columns (identifiers and date/time information)
+  "character" = c(
+    "CLAIM_SERIES_ID",
+    "PSEUDO_CLAIMSERIES",
+    "PIN",
+    "PSEUDO_MEM_PIN",
+    "HCI_PMCC_NO",
+    "HCP_NO_LIST",
+    "ADMISSION_DATE",
+    "DATE_ADM",
+    "ADMISSION_TIME",
+    "TIME_ADM",
+    "DISCHARGE_DATE",
+    "DATE_DIS",
+    "DISCHARGE_TIME",
+    "TIME_DIS",
+    "RECEIVE_DATE",
+    "DATE_REC",
+    "REFILE_DATE",
+    "DATE_REF",
+    "CHECK_DATE",
+    "CHKDT",
+    "EXTRACTION_DATE",
+    "PRIMARY_ILLNESS",
+    "SECONDARY_ILLNESS",
+    "PAT_BDAY",
+    "ICDCODES_ITEM7",
+    "RVSCODES_ITEM7",
+    paste0("ICDCODE", 1:12),
+    paste0("RVSCODE", 1:20)
+  ),
 
-names(col_classes) <- c(
-  character_cols, integer_cols,
-  factor_cols, numeric_cols
+  # Integer columns (year, clinical, and patient data)
+  "integer" = c(
+    "ADMISSION_YEAR",
+    "SRC_YR",
+    "IS_ADMISSION_OPD",
+    "IS_EMERGENCY_CASE",
+    "OUT_PATIENT",
+    "EMERGENCY",
+    "PATIENT_AGE",
+    "PATAGE"
+  ),
+
+  # Factor columns (categorical patient and claim information)
+  "factor" = c(
+    "PATIENT_TYPE",
+    "PATIENT_RELATIONSHIP",
+    "DEP_REL",
+    "PATIENT_SEX",
+    "PATSEX",
+    "MEMCAT_PARENT_DESC",
+    "MEMCAT_CHILD_DESC",
+    "CLAIM_STATUS",
+    "CLAIMS_STATUS",
+    "PATIENT_DISPOSITION",
+    "DISPOSITION",
+    "ROOM_TYPE"
+  ),
+
+  # Numeric columns (claim amounts and patient weight)
+  "numeric" = c(
+    "CLAIM_PAID_AMOUNT",
+    "CLAIMS_PAID_AMT",
+    "CLAIM_AMOUNT_ACTUAL",
+    "ACR_AMOUNT_ACTUAL",
+    "PAT_BWT_KG"
+  )
 )
 
 ## COVID codes (for exclusion later)
@@ -90,26 +204,4 @@ covid_rvs <- c(
   "C19IP1", "C19IP2", "C19IP3", "C19IP4", "C19PP1", "C19PP2",
   "C19PP3", "C19PP4", "MP01", "IMP02", "C19CI", "C19H1", "C19VIH",
   "C19VID"
-)
-
-## Mapping of column names
-old_colnames <- c(
-  "SRC_YR", "PSEUDO_CLAIMSERIES", "PSEUDO_MEM_PIN", "DATE_ADM", "TIME_ADM",
-  "DATE_DIS", "TIME_DIS", "DATE_REC", "DATE_REF", "CHKDT", "EXTRACTION_DATE",
-  "HCI_PMCC_NO", "HCP_NO_LIST", "PATIENT_TYPE", "DEP_REL", "PATSEX", "PATAGE",
-  "PAT_BDAY", "PAT_BWT_KG", "MEMCAT_PARENT_DESC", "MEMCAT_CHILD_DESC",
-  "OUT_PATIENT", "EMERGENCY", "ROOM_TYPE",
-  "DISPOSITION", "PRIMARY_ILLNESS", "SECONDARY_ILLNESS",
-  paste0("ICDCODE", 1:12), paste0("RVSCODE", 1:20),
-  "CLAIMS_STATUS", "ACR_AMOUNT_ACTUAL", "CLAIMS_PAID_AMT"
-)
-
-new_colnames <- c(
-  "id_year", "id_series", "id_pin", "date_adm", "time_adm",
-  "date_dis", "time_dis", "date_rec", "date_ref", "date_check", "date_ext",
-  "id_hci", "id_hcp", "pat_type", "pat_rel", "pat_sex", "pat_age",
-  "pat_bdate", "pat_bwt", "pat_memcat_parent", "pat_memcat_child",
-  "clin_outpatient", "clin_emergency", "clin_acc",
-  "clin_discharge", "clin_c1", "clin_c2", paste0("clin_icd", 1:12),
-  paste0("clin_rvs", 1:20), "claim_status", "claim_charge", "claim_payout"
 )

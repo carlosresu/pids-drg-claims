@@ -38,18 +38,43 @@ read_appropriate_file <- function(read_part, to_sample) {
 
   dt <- readRDS(chunk_file)
 
+  available_columns <- colnames(dt)
+
   if (to_debug) print(head(dt), 2) # debug
 
   # Drop columns
-  if (any(drop_cols %in% colnames(dt))) {
+  if (any(drop_cols %in% available_columns)) {
     dt <- dt[, (drop_cols) := NULL]
   }
+
+  if (any(drop_cols_manual %in% available_columns)) {
+    dt <- dt[, (drop_cols_manual) := NULL]
+  }
+
 
   replace_result <- replace_empty_with_na(dt = dt, to_view_checks)
   dt <- replace_result$return_data
   replacement_summary <- replace_result$return_replacement_summary
 
   if (to_debug) print(head(dt), 2) # debug
+
+  ## Apply column classes only to the columns that exist in the data
+  col_classes <- sapply(available_columns, function(col) {
+    if (col %in% unlist(expected_types["character"])) {
+      return("character")
+    }
+    if (col %in% unlist(expected_types["integer"])) {
+      return("integer")
+    }
+    if (col %in% unlist(expected_types["factor"])) {
+      return("factor")
+    }
+    if (col %in% unlist(expected_types["numeric"])) {
+      return("numeric")
+    }
+  })
+
+  if (to_debug) print(col_classes)
 
   # Cast column types with checks
   for (col in names(col_classes)) {
@@ -67,7 +92,7 @@ read_appropriate_file <- function(read_part, to_sample) {
       "numeric" = {
         suppressWarnings(as.numeric(dt[[col]]))
       },
-      dt[[col]]
+      dt[[col]] # Default case: no conversion if unrecognized type
     )
 
     # Check for NA coercion

@@ -2,7 +2,7 @@
 
 
 ## NOTE: Consider renaming this to clean_string_column
-clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
+clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt = neoplasms_dt_actual) {
   ## Cleans a string column by performing basic string operations
   # column_to_clean: the column to clean.
   # na_like_strings: strings to treat as NA.
@@ -29,34 +29,78 @@ clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt) {
 }
 
 
-collapse_columns <- function(cols_to_process, na_like_strings) {
-  ## Combines multiple string columns into one and cleans the result
+# collapse_columns <- function(cols_to_process, na_like_strings) {
+#   ## Combines multiple string columns into one and cleans the result
+#   # cols_to_process: a list of columns to concatenate.
+#   # na_like_strings: strings considered as NA.
+
+#   # Clean each column in cols_to_process by applying clean_column
+#   cleaned_columns <- lapply(cols_to_process, function(col) {
+#     clean_column(col, na_like_strings, neoplasms_dt)
+#   })
+
+#   # Collapse the cleaned columns into a single column, separated by "||"
+#   collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+
+#   # Remove any occurrences of "||NA" or "NA||" or empty "||" from the collapsed string
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "^\\|\\|", "")
+
+#   # If the collapsed string is still NA-like, replace it with NA
+#   collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
+#     NA_character_, collapsed_column
+#   )
+
+#   # Return the collapsed and cleaned column
+#   return(collapsed_column)
+# }
+
+# Clean and collapse columns
+collapse_columns <- function(
+    cols_to_process,
+    na_like_strings,
+    neoplasms_dt = neoplasms_dt_actual) {
+  ## Combines multiple string columns into one and cleans the result using clean_column.
   # cols_to_process: a list of columns to concatenate.
   # na_like_strings: strings considered as NA.
+  # neoplasms_dt: data.table for neoplasm codes where slashes should be preserved.
 
-  # Clean each column in cols_to_process by applying clean_column
+  # Function to clean and split the column by different delimiters
+  clean_and_split <- function(col, na_like_strings, neoplasms_dt) {
+    # Clean the column using the clean_column function
+    cleaned_col <- clean_column(col, na_like_strings, neoplasms_dt)
+
+    # Split by multiple delimiters (comma, single pipe, or double pipe) while handling spaces
+    split_col <- strsplit(cleaned_col, "\\s*,\\s*|\\|\\||\\|")
+
+    # Return the split column
+    return(split_col)
+  }
+
+  # Clean and split each column in cols_to_process
   cleaned_columns <- lapply(cols_to_process, function(col) {
-    clean_column(col, na_like_strings, neoplasms_dt)
+    clean_and_split(col, na_like_strings, neoplasms_dt)
   })
 
-  # Collapse the cleaned columns into a single column, separated by "||"
-  collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+  # Collapse the cleaned columns into a single column, combining them with "||"
+  collapsed_column <- sapply(seq_along(cleaned_columns[[1]]), function(i) {
+    # Combine corresponding rows from all columns and remove empty strings or NA-like values
+    combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
+    combined <- combined[!combined %in% na_like_strings & combined != ""]
 
-  # Remove any occurrences of "||NA" or "NA||" or empty "||" from the collapsed string
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
-  collapsed_column <- stri_replace_all_regex(collapsed_column, "^\\|\\|", "")
-
-  # If the collapsed string is still NA-like, replace it with NA
-  collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
-    NA_character_, collapsed_column
-  )
+    # Collapse the cleaned and combined values using "||" as the final separator
+    if (length(combined) > 0) {
+      return(paste(combined, collapse = "||"))
+    } else {
+      return(NA_character_)
+    }
+  })
 
   # Return the collapsed and cleaned column
   return(collapsed_column)
 }
-
 
 replace_empty_with_na_python <- function(dt, to_view_checks) {
   ## Replaces empty strings in a data.table with NA.
@@ -323,30 +367,68 @@ split_to_vector <- function(column) {
   return(result)
 }
 
+# collapse_and_clean_icd_rvs <- function(dt) {
+#   ## Collapses and cleans ICD and RVS columns in a data.table
+#   # dt: input data.table containing ICD and RVS columns
+
+#   # Collapse the ICD codes from multiple columns into a single "clin_icd" column
+#   dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
+#   dt[, paste0("clin_icd", 1:12) := NULL] # Remove the individual columns
+
+#   # Collapse the RVS codes from multiple columns into a single "clin_rvs" column
+#   dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
+#   dt[, paste0("clin_rvs", 1:20) := NULL] # Remove the individual columns
+
+#   # Handle any lumped ICD codes by splitting them
+#   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+
+#   # Convert the cleaned columns into vectors
+#   dt[, clin_icd := split_to_vector(clin_icd)]
+#   # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
+#   dt[, clin_rvs := split_to_vector(clin_rvs)]
+
+#   # Return the cleaned data.table
+#   return(dt)
+# }
+
+
 collapse_and_clean_icd_rvs <- function(dt) {
   ## Collapses and cleans ICD and RVS columns in a data.table
   # dt: input data.table containing ICD and RVS columns
+  available_columns <- colnames(dt)
 
-  # Collapse the ICD codes from multiple columns into a single "clin_icd" column
-  dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
-  dt[, paste0("clin_icd", 1:12) := NULL] # Remove the individual columns
+  # Dynamically detect which clin_icd columns exist
+  icd_cols <- grep("^clin_icd\\d+$", available_columns, value = TRUE)
+  if (length(icd_cols) > 0) {
+    # Collapse the ICD codes, whether from multiple columns or a single column
+    dt[, clin_icd := collapse_columns(mget(icd_cols), na_like_strings)]
+    dt[, (icd_cols) := NULL] # Remove the individual columns after collapsing
+  }
 
-  # Collapse the RVS codes from multiple columns into a single "clin_rvs" column
-  dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
-  dt[, paste0("clin_rvs", 1:20) := NULL] # Remove the individual columns
+  # Dynamically detect which clin_rvs columns exist
+  rvs_cols <- grep("^clin_rvs\\d+$", available_columns, value = TRUE)
+  if (length(rvs_cols) > 0) {
+    # Collapse the RVS codes, whether from multiple columns or a single column
+    dt[, clin_rvs := collapse_columns(mget(rvs_cols), na_like_strings)]
+    dt[, (rvs_cols) := NULL] # Remove the individual columns after collapsing
+  }
 
-  # Handle any lumped ICD codes by splitting them
-  dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+  # Handle any lumped ICD codes by splitting them if clin_icd exists
+  if ("clin_icd" %in% available_columns) {
+    dt[, clin_icd := remove_lumped_icd_codes(clin_icd)] # Apply cleaning for lumped codes
+    dt[, clin_icd := split_to_vector(clin_icd)] # Convert cleaned string to vector
+  }
 
-  # Convert the cleaned columns into vectors
-  dt[, clin_icd := split_to_vector(clin_icd)]
-  # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
-  dt[, clin_rvs := split_to_vector(clin_rvs)]
+  # Handle any lumped RVS codes by splitting them if clin_rvs exists
+  if ("clin_rvs" %in% available_columns) {
+    # Assuming there is a `remove_lumped_rvs_codes` function, apply it here.
+    # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)] #TODO: why is this commented out?
+    dt[, clin_rvs := split_to_vector(clin_rvs)] # Convert cleaned string to vector
+  }
 
   # Return the cleaned data.table
   return(dt)
 }
-
 
 clean_clinical_columns <- function(dt) {
   ## Cleans and processes the clinical columns in a data.table
@@ -375,7 +457,7 @@ clean_clinical_columns <- function(dt) {
   c2_discarded_rvs <- c2_rvs_results$discarded_rvs
 
   # Ensure uniqueness of RVS codes in the final result
-  dt[, clin_rvs := lapply(clin_rvs, unique)]
+  # dt[, clin_rvs := lapply(clin_rvs, unique)]
   return(
     list(
       # Return the cleaned data.table
