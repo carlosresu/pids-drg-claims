@@ -208,3 +208,54 @@ covid_rvs <- c(
 
 ## Convert the COVID codes into a regular expression pattern (without word boundaries)
 covid_rvs_pattern <- paste(covid_rvs, collapse = "|")
+
+# Initialize known values for each type of remapping
+known_values <- list(
+  pat_type = c("MEMBER", "MM", "DEPENDENT", "DD"),
+  claim_status = c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT"),
+  pat_memcat_parent = c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR"),
+  pat_memcat_child = c(
+    "EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "SENIOR CITIZEN", "INDIGENT",
+    "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
+    "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
+    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD", "SELF EARNING INDIVIDUAL",
+    "FAMILY DRIVER", "FORMAL ECONOMY", "DIRECT CONTRIBUTOR", "PROFESSIONAL PRACTITIONER"
+  ),
+  clin_discharge = c(
+    "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE", "ABSCONDED",
+    "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED", "I", "R", "H", "A", "T", "E"
+  )
+)
+
+# Define the big fcase that handles remapping for all columns
+remapped_column <- fcase(
+  column_name == "pat_type" & dt[[column_name]] %in% c("MEMBER", "MM"), "M",
+  column_name == "pat_type" & dt[[column_name]] %in% c("DEPENDENT", "DD"), "D",
+  column_name == "claim_status" & dt[[column_name]] == "DENIED", "D",
+  column_name == "claim_status" & dt[[column_name]] == "IN-PROCESS", "I",
+  column_name == "claim_status" & dt[[column_name]] %in% c("PAID", "APRV4PAYMENT"), "G",
+  column_name == "claim_status" & dt[[column_name]] == "RTH", "R",
+  column_name == "pat_memcat_parent" & dt[[column_name]] == "DIRECT CONTRIBUTOR", "D",
+  column_name == "pat_memcat_parent" & dt[[column_name]] == "INDIRECT CONTRIBUTOR", "I",
+  column_name == "pat_memcat_child" & dt[[column_name]] == "EMPLOYED PRIVATE", "FORMAL",
+  column_name == "pat_memcat_child" & dt[[column_name]] == "SELF-EARNING INDIVIDUAL", "INFORMAL",
+  column_name == "pat_memcat_child" & dt[[column_name]] == "SENIOR CITIZEN", "SENIOR",
+  column_name == "pat_memcat_child" & dt[[column_name]] == "INDIGENT", "INDIGENT",
+  column_name == "pat_memcat_child" & dt[[column_name]] == "LIFETIME MEMBER", "LIFETIME",
+  column_name == "pat_memcat_child" & dt[[column_name]] == "SPONSORED", "SPONSORED",
+  column_name == "pat_memcat_child" & dt[[column_name]] %in% c(
+    "MIGRANT WORKER", "FOREIGN NATIONAL",
+    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD"
+  ), "OFW",
+  column_name == "pat_memcat_child" & dt[[column_name]] %in% c(
+    "EMPLOYED GOVERNMENT", "HOUSEHOLD HELP/KASAMBAHAY",
+    "FAMILY DRIVER", "FORMAL ECONOMY", "DIRECT CONTRIBUTOR"
+  ), "FORMAL",
+  column_name == "pat_memcat_child" & dt[[column_name]] == "PROFESSIONAL PRACTITIONER", "INFORMAL",
+  column_name == "clin_discharge" & dt[[column_name]] %in% c("IMPROVED", "RECOVERED", "I", "R"), 1L,
+  column_name == "clin_discharge" & dt[[column_name]] %in% c("HOME/DISCHARGED AGAINST MEDICAL ADVICE", "H"), 2L,
+  column_name == "clin_discharge" & dt[[column_name]] %in% c("ABSCONDED", "A"), 3L,
+  column_name == "clin_discharge" & dt[[column_name]] %in% c("TRANSFERRED/REFERRED", "T"), 4L,
+  column_name == "clin_discharge" & dt[[column_name]] %in% c("EXPIRED", "E"), 9L,
+  column_name == "clin_discharge" & dt[[column_name]] == "UNDEFINED", NA_integer_
+)

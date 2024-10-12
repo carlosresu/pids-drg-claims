@@ -1,216 +1,35 @@
 ### Helper functions for remapping/reformatting key columns in the claims
+remap_columns <- function(dt, column_name, to_view_checks = TRUE, known_values, remapped_column) {
+  ## Function to remap different categorical columns in the claims dataset
+  # dt: data.table
+  # column_name: name of the column to remap
+  # to_view_checks: boolean flag to enable check and capture of unmapped values
 
+  library(data.table)
 
-remap_patient_type <- function(pat_type) {
-  ## Abbreviate patient types to M (member) and D (dependent)
-  # pat_type: column for the patient type
+  # Remap the column
+  dt[[column_name]] <- remapped_column
 
-  # remap the column
-  remapped_pat_type <- fcase(
-    pat_type == "MEMBER", "M",
-    pat_type == "DEPENDENT", "D",
-    pat_type == "MM", "M",
-    pat_type == "DD", "D"
-  )
+  # Check for unmapped entries
+  unknown_values <- setdiff(dt[[column_name]][!is.na(dt[[column_name]])], known_values[[column_name]])
 
-  # Check for any unmapped entries and print a warning
-  known_types <- c("MEMBER", "MM", "DEPENDENT", "DD")
-  unknown_types <- setdiff(pat_type[!is.na(pat_type)], known_types)
-
-  if (length(unknown_types) > 0) {
+  if (length(unknown_values) > 0 && to_view_checks) {
     warning(sprintf(
-      "Unmapped Patient Types: %s",
-      paste(unknown_types, collapse = ", ")
+      "Unmapped values in column '%s': %s",
+      column_name, paste(unknown_values, collapse = ", ")
     ))
-    # cat("Unmapped Patient Types:\n")
-    # print(unknown_types)
   }
 
-  list(
-    # main return variable to be saved back to dt
-    remapped = remapped_pat_type,
-    # other return variables for checks and outputs
-    original = pat_type,
-    unmapped = unknown_types
+  return(
+    list(
+      data = dt,
+      remapped = dt[[column_name]],
+      unmapped = unknown_values
+    )
   )
 }
 
-remap_claim_status <- function(claim_status) {
-  ## Abbreviate the claim status column
-  # claim_status: column with the claim payment status
-
-  # remap the column
-  remapped_claim_status <- fcase(
-    claim_status == "DENIED", "D",
-    claim_status == "IN-PROCESS", "I",
-    claim_status == "PAID", "G",
-    claim_status == "RTH", "R",
-    claim_status == "APRV4PAYMENT", "G"
-  )
-
-  # check for unmapped claim statuses and print a warning
-  known_types <- c("DENIED", "IN-PROCESS", "PAID", "RTH", "APRV4PAYMENT")
-  unknown_types <- setdiff(claim_status[!is.na(claim_status)], known_types)
-
-  if (length(unknown_types) > 0) {
-    warning(sprintf(
-      "Unmapped Claim Statuses: %s",
-      paste(unknown_types, collapse = ", ")
-    ))
-    # cat("Unmapped Claim Statuses:\n")
-    # print(unknown_types)
-  }
-
-  list(
-    # main return variable to be saved back to dt
-    remapped = remapped_claim_status,
-    # other return variables for checks and outputs
-    original = claim_status,
-    unmapped = unknown_types
-  )
-}
-
-remap_memcat_parent_desc <- function(pat_memcat_parent) {
-  ## Abbreviate the member category column
-
-  # remap the column
-  remapped_memcat_parent <- fcase(
-    pat_memcat_parent == "DIRECT CONTRIBUTOR", "D",
-    pat_memcat_parent == "INDIRECT CONTRIBUTOR", "I"
-  )
-
-  # Check for unmapped parent descriptions and print a warning
-  known_parents <- c("DIRECT CONTRIBUTOR", "INDIRECT CONTRIBUTOR")
-  unknown_parents <- setdiff(pat_memcat_parent[!is.na(pat_memcat_parent)], known_parents)
-
-  if (length(unknown_parents) > 0) {
-    warning(sprintf(
-      "Unmapped Memcat Parent Descriptions: %s",
-      paste(unknown_parents, collapse = ", ")
-    ))
-    # cat("Unmapped Memcat Parent Descriptions:\n")
-    # print(unknown_parents)
-  }
-
-  list(
-    # main return variable to be saved back to dt
-    remapped = remapped_memcat_parent,
-    # other return variables for checks and outputs
-    original = pat_memcat_parent,
-    unmapped = unknown_parents
-  )
-}
-
-remap_memcat_child_desc <- function(pat_memcat_child) {
-  ## Remap the member category column to the main membership types
-
-  # remap the column
-  remapped_memcat_child <- fcase(
-    pat_memcat_child == "EMPLOYED PRIVATE", "FORMAL",
-    pat_memcat_child == "SELF-EARNING INDIVIDUAL", "INFORMAL",
-    pat_memcat_child == "SENIOR CITIZEN", "SENIOR",
-    pat_memcat_child == "INDIGENT", "INDIGENT",
-    pat_memcat_child == "LIFETIME MEMBER", "LIFETIME",
-    pat_memcat_child == "SPONSORED", "SPONSORED",
-    pat_memcat_child == "MIGRANT WORKER", "OFW",
-    pat_memcat_child == "EMPLOYED GOVERNMENT", "FORMAL",
-    pat_memcat_child == "INFORMAL ECONOMY", "INFORMAL",
-    pat_memcat_child == "HOUSEHOLD HELP/KASAMBAHAY", "FORMAL",
-    pat_memcat_child == "FOREIGN NATIONAL", "OFW",
-    pat_memcat_child == "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
-    "OFW",
-    pat_memcat_child == "SELF EARNING INDIVIDUAL", "INFORMAL",
-    pat_memcat_child == "FAMILY DRIVER", "FORMAL",
-    # added the following
-    pat_memcat_child == "FORMAL ECONOMY", "FORMAL",
-    pat_memcat_child == "DIRECT CONTRIBUTOR", "FORMAL",
-    pat_memcat_child == "PROFESSIONAL PRACTITIONER", "INFORMAL"
-  )
-
-  # Check for unmapped child descriptions and print a warning
-  known_children <- c(
-    "EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "SENIOR CITIZEN", "INDIGENT",
-    "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
-    "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
-    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
-    "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY",
-    "PROFESSIONAL PRACTITIONER", "DIRECT CONTRIBUTOR"
-  )
-
-  unknown_children <- setdiff(
-    pat_memcat_child[!is.na(pat_memcat_child)],
-    known_children
-  )
-
-  if (length(unknown_children) > 0) {
-    warning(sprintf(
-      "Unmapped Memcat Child Descriptions: %s",
-      paste(unknown_children, collapse = ", ")
-    ))
-    # cat("Unmapped Memcat Child Descriptions:\n")
-    # print(unknown_children)
-  }
-
-  list(
-    # main return variable to be saved back to dt
-    remapped = remapped_memcat_child,
-    # other return variables for checks and outputs
-    original = pat_memcat_child,
-    unmapped = unknown_children
-  )
-}
-
-remap_disposition <- function(clin_discharge) {
-  ## Abbreviate the disposition upon discharge
-  # clin_discharge: column for the patient type
-
-  remapped_discharge <- fcase(
-    clin_discharge == "IMPROVED", 1L,
-    clin_discharge == "RECOVERED", 1L,
-    clin_discharge == "HOME/DISCHARGED AGAINST MEDICAL ADVICE", 2L,
-    clin_discharge == "ABSCONDED", 3L,
-    clin_discharge == "TRANSFERRED/REFERRED", 4L,
-    clin_discharge == "EXPIRED", 9L,
-    clin_discharge == "I", 1L,
-    clin_discharge == "R", 1L,
-    clin_discharge == "H", 2L,
-    clin_discharge == "A", 3L,
-    clin_discharge == "T", 4L,
-    clin_discharge == "E", 9L,
-    clin_discharge == "UNDEFINED", NA_integer_
-  )
-
-  # Check for unmapped discharge dispositions and print a warning
-  known_dispositions <- c(
-    "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
-    "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED", "I",
-    "R", "H", "A", "T", "E"
-  )
-
-  unknown_dispositions <- setdiff(
-    clin_discharge[!is.na(clin_discharge)],
-    known_dispositions
-  )
-
-  if (length(unknown_dispositions) > 0) {
-    warning(sprintf(
-      "Unmapped Discharge Dispositions: %s",
-      paste(unknown_dispositions, collapse = ", ")
-    ))
-    # cat("Unmapped Discharge Dispositions:\n")
-    # print(unknown_dispositions)
-  }
-
-  list(
-    # main return variable to be saved back to dt
-    remapped = remapped_discharge,
-    # other return variables for checks and outputs
-    original = clin_discharge,
-    unmapped = unknown_dispositions
-  )
-}
-
-remap_patient_data <- function(dt, to_view_checks) {
+remap_patient_data <- function(dt, to_view_checks = TRUE) {
   ## Remap the categorical columns in the inpatient data
 
   # Load necessary library
@@ -230,64 +49,49 @@ remap_patient_data <- function(dt, to_view_checks) {
   discharge_mapped <- data.table(Original = character(), Mapped = character())
   claim_status_mapped <- data.table(Original = character(), Mapped = character())
 
-  # Remap patient type column using the helper function remap_patient_type
-  result <- remap_patient_type(dt$pat_type)
-  dt$pat_type <- result$remapped
+  # Define the columns that need remapping
+  columns_to_remap <- list(
+    pat_type = "pat_type",
+    pat_memcat_parent = "pat_memcat_parent",
+    pat_memcat_child = "pat_memcat_child",
+    clin_discharge = "clin_discharge",
+    claim_status = "claim_status"
+  )
 
-  # Store original and remapped patient types in pat_mapped table
-  pat_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
+  # Apply remapping for each column
+  for (col_name in names(columns_to_remap)) {
+    result <- remap_columns(dt, columns_to_remap[[col_name]], to_view_checks, known_values, remapped_column)
 
-  # If any unmapped values are found and view checks are enabled, store unmapped values
-  if (length(result$unmapped) > 0 && to_view_checks) {
-    pat_unmap <- result$unmapped
-  }
+    # Update the original column with remapped values
+    dt[[columns_to_remap[[col_name]]]] <- result$remapped
 
-  # Remap member category parent using remap_memcat_parent_desc
-  result <- remap_memcat_parent_desc(dt$pat_memcat_parent)
-  dt$pat_memcat_parent <- result$remapped
-
-  # Store original and remapped parent categories in parent_mapped table
-  parent_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
-
-  # Capture unmapped parent categories if view checks are enabled
-  if (length(result$unmapped) > 0 && to_view_checks) {
-    parent_unmap <- result$unmapped
-  }
-
-  # Remap member category child descriptions
-  result <- remap_memcat_child_desc(dt$pat_memcat_child)
-  dt$pat_memcat_child <- result$remapped
-
-  # Store original and remapped child categories
-  child_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
-
-  # Capture unmapped child descriptions if view checks are enabled
-  if (length(result$unmapped) > 0 && to_view_checks) {
-    child_unmap <- result$unmapped
-  }
-
-  # Remap discharge disposition using remap_disposition function
-  result <- remap_disposition(dt$clin_discharge)
-  dt$clin_discharge <- result$remapped
-
-  # Store original and remapped discharge descriptions
-  discharge_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
-
-  # Capture unmapped discharge descriptions if view checks are enabled
-  if (length(result$unmapped) > 0 && to_view_checks) {
-    discharge_unmap <- result$unmapped
-  }
-
-  # Remap claim status using remap_claim_status function
-  result <- remap_claim_status(dt$claim_status)
-  dt$claim_status <- result$remapped
-
-  # Store original and remapped claim statuses
-  claim_status_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
-
-  # Capture unmapped claim statuses if view checks are enabled
-  if (length(result$unmapped) > 0 && to_view_checks) {
-    claim_status_unmap <- result$unmapped
+    # Capture mapped values and unmapped values based on the column
+    if (col_name == "pat_type") {
+      pat_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) {
+        pat_unmap <- result$unmapped
+      }
+    } else if (col_name == "pat_memcat_parent") {
+      parent_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) {
+        parent_unmap <- result$unmapped
+      }
+    } else if (col_name == "pat_memcat_child") {
+      child_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) {
+        child_unmap <- result$unmapped
+      }
+    } else if (col_name == "clin_discharge") {
+      discharge_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) {
+        discharge_unmap <- result$unmapped
+      }
+    } else if (col_name == "claim_status") {
+      claim_status_mapped <- unique(data.table(Original = dt[[columns_to_remap[[col_name]]]], Mapped = result$remapped))
+      if (length(result$unmapped) > 0 && to_view_checks) {
+        claim_status_unmap <- result$unmapped
+      }
+    }
   }
 
   # Return the remapped data and all mapping/unmapped data
@@ -611,8 +415,10 @@ remove_5_digit_codes <- function(col) {
   return(lapply(col, function(x) {
     if (is.na(x)) {
       return(NA_character_)
+    } else {
+      return(x)
     }
-    stri_replace_all_regex(x, "\\b\\d{5}\\b", "")
+    # stri_replace_all_regex(x, "\\b\\d{5}\\b", "") # Don't delete rvs codes from c1 and c2
   }))
 }
 

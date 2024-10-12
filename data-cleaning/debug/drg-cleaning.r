@@ -1098,7 +1098,7 @@ if (to_profvis) {
 }
 
 
-str(readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds"))))
+# str(readRDS(here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds"))))
 
 
 if (exists("master_dt")) {
@@ -1243,6 +1243,8 @@ result[, pat_ageday := NA_integer_]
 # Process pat_ageday for patients younger than 1 year
 invalid_ageday_before <- result[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), .N]
 invalid_ageday_ids_before <- result[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), id_series]
+
+result[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), pat_ageday := 3]
 
 result[
   !is.na(pat_age) & pat_age >= 0 & pat_age < 1 & !is.na(date_adm) & !is.na(pat_bdate),
@@ -1421,6 +1423,23 @@ if (is_unix) {
 for (i in seq_along(columns_to_format)) {
   result[[columns_to_format[i]]] <- formatted_cols[[i]]
 }
+
+bw_dist <- c(
+  runif(2, 0.5, 0.9), # Random birthweight between 0.5 and 0.9 for 2 newborns
+  runif(8, 1.1, 1.4), # Random birthweight between 1.1 and 1.4 for 8 newborns
+  runif(19, 1.6, 1.9), # Random birthweight between 1.6 and 1.9 for 19 newborns
+  runif(95, 2.1, 2.4), # Random birthweight between 2.1 and 2.4 for 95 newborns
+  runif(381, 2.6, 2.9), # Random birthweight between 2.6 and 2.9 for 381 newborns
+  runif(375, 3.1, 3.4), # Random birthweight between 3.1 and 3.4 for 375 newborns
+  runif(115, 3.5, 4.0), # Random birthweight between 3.5 and 4.0 for 115 newborns
+  runif(6, 0.5, 4.0) # Random birthweight between 0.5 and 4.0 for 6 newborns
+)
+
+# Create the zero_mask condition where pat_age is between 0 and 1 (newborns)
+zero_mask <- result[, pat_age >= 0 & pat_age < 1]
+
+# Apply birthweight only if pat_bwt is NA and zero_mask is TRUE
+result[(pat_bwt < 0 | is.na(pat_bwt)) & zero_mask, pat_bwt := sapply(.SD$pat_bwt, function(x) sample(bw_dist, 1)), .SDcols = "pat_bwt"]
 
 saveRDS(result, here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")), compress = FALSE)
 
