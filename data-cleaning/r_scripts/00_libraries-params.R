@@ -20,7 +20,8 @@ required_packages <- c(
   "reticulate",
   "bigrquery",
   "jsonlite",
-  "googleCloudStorageR"
+  "googleCloudStorageR",
+  "haven"
 )
 ## Install required packages
 lapply(required_packages, function(package) {
@@ -228,7 +229,7 @@ known_values <- list(
   )
 )
 
-# Define the fcase logic for remapping
+# Define the fcase logic for remapping the membership categories
 remapped_column <- quote(fcase(
   dt[[column_name]] %in% c("MEMBER", "MM"), "M",
   dt[[column_name]] %in% c("DEPENDENT", "DD"), "D",
@@ -236,17 +237,17 @@ remapped_column <- quote(fcase(
   dt[[column_name]] == "IN-PROCESS", "I",
   dt[[column_name]] %in% c("PAID", "APRV4PAYMENT"), "G",
   dt[[column_name]] == "RTH", "R",
-  dt[[column_name]] == "DIRECT CONTRIBUTOR", "D",
-  dt[[column_name]] == "INDIRECT CONTRIBUTOR", "I",
-  dt[[column_name]] == "EMPLOYED PRIVATE", "FORMAL",
-  dt[[column_name]] == "SELF-EARNING INDIVIDUAL", "INFORMAL",
-  dt[[column_name]] == "SENIOR CITIZEN", "SENIOR",
-  dt[[column_name]] == "INDIGENT", "INDIGENT",
-  dt[[column_name]] == "LIFETIME MEMBER", "LIFETIME",
-  dt[[column_name]] == "SPONSORED", "SPONSORED",
-  dt[[column_name]] %in% c("MIGRANT WORKER", "FOREIGN NATIONAL", "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD"), "OFW",
-  dt[[column_name]] %in% c("EMPLOYED GOVERNMENT", "HOUSEHOLD HELP/KASAMBAHAY", "FAMILY DRIVER", "FORMAL ECONOMY", "DIRECT CONTRIBUTOR"), "FORMAL",
-  dt[[column_name]] == "PROFESSIONAL PRACTITIONER", "INFORMAL",
+  dt[[column_name]] == "DIRECT CONTRIBUTOR", "1", # Formal
+  dt[[column_name]] == "EMPLOYED PRIVATE", "1", # Formal
+  dt[[column_name]] == "EMPLOYED GOVERNMENT", "1", # Formal
+  dt[[column_name]] %in% c("HOUSEHOLD HELP/KASAMBAHAY", "FAMILY DRIVER", "FORMAL ECONOMY"), "1", # Formal
+  dt[[column_name]] == "SELF-EARNING INDIVIDUAL", "2", # Informal
+  dt[[column_name]] == "PROFESSIONAL PRACTITIONER", "2", # Informal
+  dt[[column_name]] == "INDIGENT", "4", # Indigent
+  dt[[column_name]] == "LIFETIME MEMBER", "3", # Lifetime
+  dt[[column_name]] == "SPONSORED", "5", # Sponsored
+  dt[[column_name]] == "SENIOR CITIZEN", "6", # Senior Citizen
+  dt[[column_name]] %in% c("MIGRANT WORKER", "FOREIGN NATIONAL", "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD"), "2",
   dt[[column_name]] %in% c("IMPROVED", "RECOVERED", "I", "R"), "1", # Convert to string
   dt[[column_name]] %in% c("HOME/DISCHARGED AGAINST MEDICAL ADVICE", "H"), "2", # Convert to string
   dt[[column_name]] %in% c("ABSCONDED", "A"), "3", # Convert to string
