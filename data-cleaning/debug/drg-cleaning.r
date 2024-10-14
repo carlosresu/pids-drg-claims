@@ -875,7 +875,7 @@ main_logic_func <- function() {
       if (to_debug) print(head(chunk_dt), 2)
 
       # Save the chunk as an RDS file
-      saveRDS(chunk_dt, chunk_file, compress = FALSE)
+      saveRDS(chunk_dt, chunk_file, compress = TRUE)
 
       # Optionally reduce memory usage
       if (to_dec_mem_usage) rm(chunk_dt)
@@ -1009,7 +1009,7 @@ main_logic_func <- function() {
           checkpoint_1_prefix, year_to_load, suffix,
           "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
         )),
-        compress = FALSE
+        compress = TRUE
       )
     }
 
@@ -1061,7 +1061,7 @@ main_logic_func <- function() {
     if (to_write) {
       saveRDS(master_dt, here(checkpoint_2_path, paste0(
         checkpoint_2_prefix, year_to_load, suffix, ".rds"
-      )), compress = FALSE)
+      )), compress = TRUE)
     }
   }
 
@@ -1453,7 +1453,7 @@ zero_mask <- result[, pat_age >= 0 & pat_age < 1]
 # Apply birthweight only if pat_bwt is NA and zero_mask is TRUE
 result[(pat_bwt < 0 | is.na(pat_bwt)) & zero_mask, pat_bwt := sapply(.SD$pat_bwt, function(x) sample(bw_dist, 1)), .SDcols = "pat_bwt"]
 
-saveRDS(result, here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")), compress = FALSE)
+saveRDS(result, here(checkpoint_2_path, paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")), compress = TRUE)
 
 
 # str(result_after_cleaning)
