@@ -222,20 +222,68 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     cat("\nNo modified ICD-10 codes found.\n\n")
   }
 
-  if (nrow(summary$final_unmatched_sources) > 0) {
-    print(
-      kable(
-        head(
-          summary$final_unmatched_sources,
-          end_nrow
-        ),
-        format = "markdown",
-        caption = "Invalid ICD-10 Codes Not Found in Thai Library"
+  # if (nrow(summary$final_unmatched_sources) > 0) {
+  #   print(
+  #     kable(
+  #       head(
+  #         summary$final_unmatched_sources,
+  #         end_nrow
+  #       ),
+  #       format = "markdown",
+  #       caption = "Invalid ICD-10 Codes Not Found in Thai Library"
+  #     )
+  #   )
+  # } else {
+  #   cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
+  # }
+  
+  icd10_mapping_result <- implement_icd10_mapping(
+    master_dt$c1, master_dt$c2, master_dt$clin_icd, tdrg_icd10
+  )
+
+  icd_mapping <- icd10_mapping_result$icd_mapping_res
+  # Function to check and display unmatched ICD codes
+  check_unmatched_icd_codes <- function(master_dt, icd_mapping, end_nrow = 10) {
+    # Create an empty list to store unmatched codes
+    unmatched_list <- list()
+
+    # Define the columns to check
+    columns_to_check <- c("c1", "c2", "clin_icd")
+
+    # Loop through each column and check for unmatched codes
+    for (col in columns_to_check) {
+      unmatched_codes <- master_dt[[col]][!master_dt[[col]] %in% names(icd_mapping)]
+
+      # If there are unmatched codes, store them with the column name
+      if (length(unmatched_codes) > 0) {
+        unmatched_list[[col]] <- data.table(
+          column = col,
+          code = unmatched_codes
+        )
+      }
+    }
+
+    # Combine all unmatched codes from different columns into one data table
+    if (length(unmatched_list) > 0) {
+      final_unmatched_sources <- rbindlist(unmatched_list, fill = TRUE)
+
+      # Print the result using kable
+      print(
+        kable(
+          head(final_unmatched_sources, end_nrow),
+          format = "markdown",
+          caption = "Invalid ICD-10 Codes Not Found in Thai Library"
+        )
       )
-    )
-  } else {
-    cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
+    } else {
+      # If no unmatched codes are found, print the success message
+      cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
+    }
   }
+
+  # Usage
+  check_unmatched_icd_codes(master_dt, icd_mapping)
+
 
   cat(
     "\nAll PDx's are in list of acceptable PDx's:\n",

@@ -225,6 +225,7 @@ get_unique_icd_codes <- function(c1, c2, clin_icd) {
 
   # Concatenate all elements from c1, c2, and clin_icd and remove duplicates using unique
   icds <- unique(c(unlist(c1), unlist(c2), unlist(clin_icd)))
+  # icds <- c(unlist(c1), unlist(c2), unlist(clin_icd))
 
   # Remove any NA values from the list of ICD codes
   icds <- icds[!is.na(icds)]
@@ -340,7 +341,7 @@ generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env, covid_rv
   }
 
   # Return the mapping and count of modified codes
-  return(list(icd_mapping = icd_mapping, modified_count = modified_count))
+  return(list(icd_mapping_res = icd_mapping, modified_count = modified_count))
 }
 
 apply_icd10_mapping_to_columns <- function(c1, c2, clin_icd, icd10_env) {
