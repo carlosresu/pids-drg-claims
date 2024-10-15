@@ -242,6 +242,7 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   )
 
   icd_mapping <- icd10_mapping_result$icd_mapping_res
+
   # Function to check and display unmatched ICD codes
   check_unmatched_icd_codes <- function(master_dt, icd_mapping, end_nrow) {
     # Create an empty list to store unmatched codes
@@ -252,7 +253,14 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
 
     # Loop through each column and check for unmatched codes
     for (col in columns_to_check) {
-      unmatched_codes <- master_dt[[col]][!master_dt[[col]] %in% names(icd_mapping)]
+      # Flatten the list column and unlist it for vectorized operations
+      flattened_column <- unlist(master_dt[[col]], recursive = TRUE, use.names = FALSE)
+
+      # Remove both NA values and the literal "NA" strings
+      flattened_column <- flattened_column[!is.na(flattened_column) & flattened_column != "NA"]
+
+      # Find unmatched codes by checking if each element is not in icd_mapping
+      unmatched_codes <- flattened_column[!flattened_column %in% names(icd_mapping)]
 
       # If there are unmatched codes, store them with the column name
       if (length(unmatched_codes) > 0) {
@@ -267,7 +275,10 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
     if (length(unmatched_list) > 0) {
       final_unmatched_sources <- rbindlist(unmatched_list, fill = TRUE)
 
-      # Print the result using kable
+      # Group by column and code, calculate the count, and sort by count in decreasing order
+      final_unmatched_sources <- final_unmatched_sources[, .(count = .N), by = .(column, code)][order(-count)]
+
+      # Print the result using kable, showing up to end_nrow rows
       print(
         kable(
           head(final_unmatched_sources, end_nrow),
@@ -280,6 +291,7 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
       cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
     }
   }
+
 
   # Usage
   check_unmatched_icd_codes(master_dt, icd_mapping, end_nrow)
