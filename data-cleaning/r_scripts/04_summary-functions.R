@@ -236,14 +236,14 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   # } else {
   #   cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
   # }
-  
+
   icd10_mapping_result <- implement_icd10_mapping(
     master_dt$c1, master_dt$c2, master_dt$clin_icd, tdrg_icd10
   )
 
   icd_mapping <- icd10_mapping_result$icd_mapping_res
   # Function to check and display unmatched ICD codes
-  check_unmatched_icd_codes <- function(master_dt, icd_mapping, end_nrow = 10) {
+  check_unmatched_icd_codes <- function(master_dt, icd_mapping, end_nrow) {
     # Create an empty list to store unmatched codes
     unmatched_list <- list()
 
@@ -282,8 +282,7 @@ print_summary_tables <- function(final_combined_summaries, end_nrow) {
   }
 
   # Usage
-  check_unmatched_icd_codes(master_dt, icd_mapping)
-
+  check_unmatched_icd_codes(master_dt, icd_mapping, end_nrow)
 
   cat(
     "\nAll PDx's are in list of acceptable PDx's:\n",

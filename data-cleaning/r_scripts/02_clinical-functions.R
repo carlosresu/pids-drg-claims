@@ -313,7 +313,6 @@ generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env, covid_rv
 
     # Skip COVID-related codes
     if (d %in% covid_rvs) {
-      icd_mapping[[d]] <- d
       next # Move to the next code, no further processing for COVID codes
     }
 
