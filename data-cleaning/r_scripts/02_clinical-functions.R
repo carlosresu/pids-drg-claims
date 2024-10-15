@@ -113,7 +113,7 @@ remove_lumped_icd_codes <- function(column) {
 
   # Use regex to add "||" between letters and digits in the ICD codes (e.g., A123B456 -> A123||B456)
   modified_column <- stri_replace_all_regex(
-    column, "(?<=\\d{1,4})(?=[A-Z]{1}\\d{2,4})", "||",
+    column, "(?<=\\d)(?=[A-Z]\\d{2,4})", "||",
     opts_regex = stri_opts_regex() # Specify regex options for the replacement
   )
 
