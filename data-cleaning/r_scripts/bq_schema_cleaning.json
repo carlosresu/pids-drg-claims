@@ -110,6 +110,11 @@
     "mode": "NULLABLE"
   },
   {
+    "name": "is_covid",
+    "type": "BOOL",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "claim_status",
     "type": "STRING",
     "mode": "NULLABLE"

@@ -104,9 +104,9 @@ collapse_columns <- function(
   # Function to clean and split the column by different delimiters
   clean_and_split <- function(col, na_like_strings, neoplasms_dt) {
     # Clean the column using the clean_column function
-    cleaned_col <- clean_column(col, na_like_strings, neoplasms_dt)
-    is_covid <- cleaned_col$is_covid
-    cleaned_col <- cleaned_col$cleaned_col
+    result <- clean_column(col, na_like_strings, neoplasms_dt)
+    is_covid <- result$is_covid
+    cleaned_col <- result$cleaned_col
 
     # Split by multiple delimiters (comma, single pipe, or double pipe) while handling spaces
     split_col <- strsplit(cleaned_col, "\\s*,\\s*|\\|\\||\\|")
