@@ -237,21 +237,26 @@ remapped_column <- quote(fcase(
   dt[[column_name]] == "IN-PROCESS", "I",
   dt[[column_name]] %in% c("PAID", "APRV4PAYMENT"), "G",
   dt[[column_name]] == "RTH", "R",
-  dt[[column_name]] == "DIRECT CONTRIBUTOR", "1", # Formal
-  dt[[column_name]] == "EMPLOYED PRIVATE", "1", # Formal
-  dt[[column_name]] == "EMPLOYED GOVERNMENT", "1", # Formal
-  dt[[column_name]] %in% c("HOUSEHOLD HELP/KASAMBAHAY", "FAMILY DRIVER", "FORMAL ECONOMY"), "1", # Formal
-  dt[[column_name]] == "SELF-EARNING INDIVIDUAL", "2", # Informal
-  dt[[column_name]] == "PROFESSIONAL PRACTITIONER", "2", # Informal
-  dt[[column_name]] == "INDIGENT", "4", # Indigent
+  dt[[column_name]] == "DIRECT CONTRIBUTOR", "D", # DIRECT
+  dt[[column_name]] == "INDIRECT CONTRIBUTOR", "I", # INDIRECT
+  dt[[column_name]] %in% c(
+    "EMPLOYED PRIVATE", "EMPLOYED GOVERNMENT", "HOUSEHOLD HELP/KASAMBAHAY",
+    "FAMILY DRIVER", "FORMAL ECONOMY"
+  ), "1", # Formal
+  dt[[column_name]] %in% c(
+    "SELF-EARNING INDIVIDUAL", "SELF EARNING INDIVIDUAL", "INFORMAL ECONOMY",
+    "MIGRANT WORKER", "FOREIGN NATIONAL",
+    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
+    "PROFESSIONAL PRACTITIONER"
+  ), "2", # Informal
   dt[[column_name]] == "LIFETIME MEMBER", "3", # Lifetime
+  dt[[column_name]] == "INDIGENT", "4", # Indigent
   dt[[column_name]] == "SPONSORED", "5", # Sponsored
   dt[[column_name]] == "SENIOR CITIZEN", "6", # Senior Citizen
-  dt[[column_name]] %in% c("MIGRANT WORKER", "FOREIGN NATIONAL", "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD"), "2",
-  dt[[column_name]] %in% c("IMPROVED", "RECOVERED", "I", "R"), "1", # Convert to string
-  dt[[column_name]] %in% c("HOME/DISCHARGED AGAINST MEDICAL ADVICE", "H"), "2", # Convert to string
-  dt[[column_name]] %in% c("ABSCONDED", "A"), "3", # Convert to string
-  dt[[column_name]] %in% c("TRANSFERRED/REFERRED", "T"), "4", # Convert to string
-  dt[[column_name]] %in% c("EXPIRED", "E"), "9", # Convert to string
-  dt[[column_name]] == "UNDEFINED", NA_character_ # Ensure consistent type for missing values
+  dt[[column_name]] %in% c("IMPROVED", "RECOVERED", "I", "R"), "1",
+  dt[[column_name]] %in% c("HOME/DISCHARGED AGAINST MEDICAL ADVICE", "H"), "2",
+  dt[[column_name]] %in% c("ABSCONDED", "A"), "3",
+  dt[[column_name]] %in% c("TRANSFERRED/REFERRED", "T"), "4",
+  dt[[column_name]] %in% c("EXPIRED", "E"), "9",
+  dt[[column_name]] == "UNDEFINED", NA_character_
 ))

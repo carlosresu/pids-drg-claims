@@ -26,7 +26,7 @@
   },
   {
     "name": "date_adm",
-    "type": "TIMESTAMP",
+    "type": "DATETIME",
     "mode": "NULLABLE"
   },
   {
@@ -36,7 +36,7 @@
   },
   {
     "name": "date_dis",
-    "type": "TIMESTAMP",
+    "type": "DATETIME",
     "mode": "NULLABLE"
   },
   {

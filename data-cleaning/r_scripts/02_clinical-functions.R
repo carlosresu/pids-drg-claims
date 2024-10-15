@@ -26,6 +26,7 @@ remap_columns <- function(dt, column_name, to_view_checks = TRUE, known_values, 
   return(
     list(
       data = dt,
+      original = original_values,
       remapped = dt[[column_name]],
       unmapped = unknown_values
     )
@@ -57,19 +58,19 @@ remap_patient_data <- function(dt, to_view_checks = TRUE) {
 
     # Capture mapped and unmapped values
     if (col_name == "pat_type") {
-      pat_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      pat_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
       if (length(result$unmapped) > 0 && to_view_checks) pat_unmap <- result$unmapped
     } else if (col_name == "pat_memcat_parent") {
-      parent_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      parent_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
       if (length(result$unmapped) > 0 && to_view_checks) parent_unmap <- result$unmapped
     } else if (col_name == "pat_memcat_child") {
-      child_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      child_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
       if (length(result$unmapped) > 0 && to_view_checks) child_unmap <- result$unmapped
     } else if (col_name == "clin_discharge") {
-      discharge_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      discharge_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
       if (length(result$unmapped) > 0 && to_view_checks) discharge_unmap <- result$unmapped
     } else if (col_name == "claim_status") {
-      claim_status_mapped <- unique(data.table(Original = result$remapped, Mapped = result$remapped))
+      claim_status_mapped <- unique(data.table(Original = result$original, Mapped = result$remapped))
       if (length(result$unmapped) > 0 && to_view_checks) claim_status_unmap <- result$unmapped
     }
   }
@@ -92,13 +93,27 @@ remap_patient_data <- function(dt, to_view_checks = TRUE) {
   )
 }
 
+# remove_lumped_icd_codes <- function(column) {
+#   ## Takes a column and separates out ICD-10 codes using "||"
+#   ## been lumped into a single string
+
+#   # Use regex to add "||" between letters and digits in the ICD codes (e.g., A123B456 -> A123||B456)
+#   modified_column <- stri_replace_all_regex(
+#     column, "(?<=\\d)(?=[A-Za-z])", "||",
+#     opts_regex = stri_opts_regex() # Specify regex options for the replacement
+#   )
+
+#   # Return the modified column with ICD codes split
+#   return(modified_column)
+# }
+
 remove_lumped_icd_codes <- function(column) {
   ## Takes a column and separates out ICD-10 codes using "||"
   ## been lumped into a single string
 
   # Use regex to add "||" between letters and digits in the ICD codes (e.g., A123B456 -> A123||B456)
   modified_column <- stri_replace_all_regex(
-    column, "(?<=\\d)(?=[A-Za-z])", "||",
+    column, "(?<=\\d{1,4})(?=[A-Za-z]\\d{2,4})", "||",
     opts_regex = stri_opts_regex() # Specify regex options for the replacement
   )
 
@@ -431,7 +446,6 @@ warn_invalid_rvs <- function(matches, valid_rvs_codes) {
   return(discarded_table)
 }
 
-
 append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   ## Ensure both clin_rvs and col are lists of vectors
   datatable <- data.table(clin_rvs = clin_rvs, col = col)
@@ -460,90 +474,90 @@ append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
   return(list(clin_rvs = datatable$clin_rvs, col = datatable$col, discarded_rvs = discarded_rvs))
 }
 
+# Function to check similarity between two strings
+check_similarity <- function(x, y) {
+  score <- 0
+  min_len <- min(nchar(x), nchar(y))
+  for (i in 1:min_len) {
+    if (substr(x, i, i) == substr(y, i, i)) {
+      score <- score + 1
+    }
+  }
+  return(score)
+}
+
+# Define helper function to find PDX for each row
+find_pdx_for_row <- function(c1, c2, clin_icd) {
+  # Split c1 and c2 by '|' if necessary
+  c1 <- unlist(strsplit(c1, "\\|"))
+  c2 <- unlist(strsplit(c2, "\\|"))
+
+  # Step 1: Check if any element in c1 or c2 is an acceptable PDx
+  for (cr_list in list(c1, c2)) {
+    for (cr in cr_list) {
+      if (!is.na(cr) && exists(cr, envir = acc_pdx_env)) {
+        return(list(pdx = cr, pdx_code = ifelse(cr %in% c1, 1, 2)))
+      }
+    }
+  }
+
+  # Step 2: Unlist clin_icd by splitting if necessary
+  clin_icd <- unlist(strsplit(clin_icd, "\\|"))
+
+  # Step 3: Get a list of acceptable PDx from clin_icd
+  pdxs <- unique(clin_icd)
+  pdxs <- pdxs[sapply(pdxs, function(x) exists(x, envir = acc_pdx_env))]
+
+  # Step 4: Handle cases with no or only one acceptable PDx
+  if (length(pdxs) == 0) {
+    return(list(pdx = NA_character_, pdx_code = 99))
+  } else if (length(pdxs) == 1) {
+    return(list(pdx = pdxs[1], pdx_code = 3))
+  }
+
+  # Step 5: Check c1 and c2 for matching starting letters
+  for (cr_list in list(c1, c2)) {
+    for (cr in cr_list) {
+      if (!is.na(cr)) {
+        starting_letter <- substr(cr, 1, 1)
+        starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
+
+        if (length(starting_codes) == 1) {
+          return(list(pdx = starting_codes[1], pdx_code = 4))
+        } else if (length(starting_codes) > 1) {
+          starting_codes <- starting_codes[
+            order(sapply(starting_codes, function(x) check_similarity(cr, x)), decreasing = TRUE)
+          ]
+          return(list(pdx = starting_codes[1], pdx_code = 5))
+        }
+      }
+    }
+  }
+
+  # Step 6: If no matching starting letter, pick a random PDx
+  if (length(pdxs) > 0) {
+    return(list(pdx = sample(pdxs, 1), pdx_code = 6))
+  }
+
+  # Step 7: Return NA and code 99 if no PDx is found
+  return(list(pdx = NA_character_, pdx_code = 99))
+}
+
 apply_find_pdx <- function(c1, c2, clin_icd, acc_pdx) {
   ## Function to apply the PDX finding logic in a vectorized manner
 
   # Step 1: Create a new environment for accepted PDX codes
-  acc_pdx_env <- new.env(hash = TRUE, parent = emptyenv())
+  acc_pdx_env <<- new.env(hash = TRUE, parent = emptyenv())
 
   # Step 2: Populate the environment with accepted PDX codes
   for (code in acc_pdx) {
     assign(code, TRUE, envir = acc_pdx_env)
   }
 
-  # Step 3: Define helper function to find PDX for each row
-  find_pdx_for_row <- function(c1, c2, clin_icd) {
-    # Function to check similarity between two strings
-    check_similarity <- function(x, y) {
-      score <- 0
-      min_len <- min(nchar(x), nchar(y))
-      for (i in 1:min_len) {
-        if (substr(x, i, i) == substr(y, i, i)) {
-          score <- score + 1
-        }
-      }
-      return(score)
-    }
-
-    # Split c1 and c2 by '|' if necessary
-    c1 <- unlist(strsplit(c1, "\\|"))
-    c2 <- unlist(strsplit(c2, "\\|"))
-
-    # Step 1: Check if any element in c1 or c2 is an acceptable PDx
-    for (cr_list in list(c1, c2)) {
-      for (cr in cr_list) {
-        if (!is.na(cr) && exists(cr, envir = acc_pdx_env)) {
-          return(list(pdx = cr, pdx_code = ifelse(cr %in% c1, 1, 2)))
-        }
-      }
-    }
-
-    # Step 2: Unlist clin_icd by splitting if necessary
-    clin_icd <- unlist(strsplit(clin_icd, "\\|"))
-
-    # Step 3: Get a list of acceptable PDx from clin_icd
-    pdxs <- unique(clin_icd)
-    pdxs <- pdxs[sapply(pdxs, function(x) exists(x, envir = acc_pdx_env))]
-
-    # Step 4: Handle cases with no or only one acceptable PDx
-    if (length(pdxs) == 0) {
-      return(list(pdx = NA_character_, pdx_code = 99))
-    } else if (length(pdxs) == 1) {
-      return(list(pdx = pdxs[1], pdx_code = 3))
-    }
-
-    # Step 5: Check c1 and c2 for matching starting letters
-    for (cr_list in list(c1, c2)) {
-      for (cr in cr_list) {
-        if (!is.na(cr)) {
-          starting_letter <- substr(cr, 1, 1)
-          starting_codes <- pdxs[substr(pdxs, 1, 1) == starting_letter]
-
-          if (length(starting_codes) == 1) {
-            return(list(pdx = starting_codes[1], pdx_code = 4))
-          } else if (length(starting_codes) > 1) {
-            starting_codes <- starting_codes[
-              order(sapply(starting_codes, function(x) check_similarity(cr, x)), decreasing = TRUE)
-            ]
-            return(list(pdx = starting_codes[1], pdx_code = 5))
-          }
-        }
-      }
-    }
-
-    # Step 6: If no matching starting letter, pick a random PDx
-    if (length(pdxs) > 0) {
-      return(list(pdx = sample(pdxs, 1), pdx_code = 6))
-    }
-
-    # Step 7: Return NA and code 99 if no PDx is found
-    return(list(pdx = NA_character_, pdx_code = 99))
-  }
-
-  # Step 4: Apply find_pdx_for_row function to all rows
+  # Step 3: Apply find_pdx_for_row function to all rows
   result <- mapply(find_pdx_for_row, c1, c2, clin_icd, SIMPLIFY = FALSE)
 
-  # Step 5: Extract PDX and PDX codes into vectors
+  # Step 4: Extract PDX and PDX codes into vectors
   pdx <- sapply(result, function(x) x$pdx)
   pdx_code <- sapply(result, function(x) x$pdx_code)
 
