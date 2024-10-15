@@ -7,7 +7,7 @@ input_notebook <- file.path(home_dir, "drg-pipeline", "data-cleaning", "drg-clea
 output_rscript <- file.path(home_dir, "drg-pipeline", "data-cleaning", "debug", "drg-cleaning.r")
 
 # Loop over the years 2018 to 2023
-for (year in 2022:2023) {
+for (year in 2018:2023) {
   # Write the year_to_load to the year_to_load.txt file
   write(as.character(year), year_to_load_path)
 
