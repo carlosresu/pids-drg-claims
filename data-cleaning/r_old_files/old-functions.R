@@ -2782,3 +2782,172 @@
 #     )
 #   )
 # }
+# # Apply format_id function to each column in parallel or sequentially
+# columns_to_format <- c("id_series", "id_pin", "id_hci")
+# # Define the format_id function that handles both numerical and alphanumeric formats
+# format_id <- function(x) {
+#   x <- as.character(x) # Ensure the data is in character format
+#   numeric_x <- suppressWarnings(as.numeric(x)) # Try to convert to numeric
+#   # Handle numeric values
+#   is_numeric <- !is.na(numeric_x) # Identify numeric values
+#   x[is_numeric] <- trimws(formatC(numeric_x[is_numeric], format = "f", digits = 0)) # Format numeric values without decimals
+#   # Handle non-numeric values (leave as they are)
+#   x[!is_numeric] <- trimws(x[!is_numeric])
+#   # Return the cleaned-up values
+#   return(x)
+# }
+# # Apply format_id function to each column safely, either in parallel (for Unix) or sequentially (for non-Unix)
+# if (is_unix) {
+#   # Make a copy of the columns to avoid directly accessing the data.table object in parallel
+#   formatted_cols <- mclapply(columns_to_format, function(col) {
+#     column_data <- result[[col]] # Extract column data outside the parallel loop
+#     return(format_id(column_data)) # Apply format_id to the column
+#   }, mc.cores = parallel::detectCores())
+# } else {
+#   formatted_cols <- lapply(columns_to_format, function(col) {
+#     column_data <- result[[col]] # Extract column data
+#     return(format_id(column_data)) # Apply format_id to the column
+#   })
+# }
+# # Assign the formatted results back to the respective columns
+# for (i in seq_along(columns_to_format)) {
+#   result[[columns_to_format[i]]] <- formatted_cols[[i]]
+# }
+# ## NOTE: Consider renaming this to clean_string_column
+# clean_column <- function(column_to_clean, na_like_strings, neoplasms_dt = neoplasms_dt_actual) {
+#   ## Cleans a string column by performing basic string operations
+#   # column_to_clean: the column to clean.
+#   # na_like_strings: strings to treat as NA.
+#   # neoplasms_dt: data.table for neoplasm codes where slashes should be preserved.
+
+#   # Convert the column to uppercase and ASCII format
+#   column_to_clean <- as.character(column_to_clean)
+#   cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
+#   cleaned_col <- toupper(cleaned_col)
+
+#   # Remove non-letter and non-digit characters from the string (except delimiters like commas and pipes)
+#   cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d,|]+", "")
+
+#   # Replace any NA-like strings (as defined) with actual NA values
+#   cleaned_col[cleaned_col %in% na_like_strings] <- NA_character_
+
+#   # Replace any COVID-related codes within the string with "COVID" (even if they are part of other codes)
+#   cleaned_col <- stri_replace_all_regex(cleaned_col, covid_rvs_pattern, "COVID")
+
+#   # Restore slashes for certain neoplasm ICD-10 codes, where slashes are important
+#   neopl <- setNames(neoplasms_dt$icd10, gsub("/", "", neoplasms_dt$icd10))
+#   matched_indices <- match(cleaned_col, names(neopl))
+#   cleaned_col[!is.na(matched_indices)] <- neopl[matched_indices[!is.na(matched_indices)]]
+
+#   # Return the cleaned column
+#   return(cleaned_col)
+# }
+# collapse_columns <- function(cols_to_process, na_like_strings) {
+#   ## Combines multiple string columns into one and cleans the result
+#   # cols_to_process: a list of columns to concatenate.
+#   # na_like_strings: strings considered as NA.
+
+#   # Clean each column in cols_to_process by applying clean_column
+#   cleaned_columns <- lapply(cols_to_process, function(col) {
+#     clean_column(col, na_like_strings, neoplasms_dt)
+#   })
+
+#   # Collapse the cleaned columns into a single column, separated by "||"
+#   collapsed_column <- do.call(paste, c(cleaned_columns, sep = "||"))
+
+#   # Remove any occurrences of "||NA" or "NA||" or empty "||" from the collapsed string
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|NA", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "NA\\|\\|", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "\\|\\|$", "")
+#   collapsed_column <- stri_replace_all_regex(collapsed_column, "^\\|\\|", "")
+
+#   # If the collapsed string is still NA-like, replace it with NA
+#   collapsed_column <- ifelse(collapsed_column %in% na_like_strings,
+#     NA_character_, collapsed_column
+#   )
+
+#   # Return the collapsed and cleaned column
+#   return(collapsed_column)
+# }
+# collapse_and_clean_icd_rvs <- function(dt) {
+#   ## Collapses and cleans ICD and RVS columns in a data.table
+#   # dt: input data.table containing ICD and RVS columns
+
+#   # Collapse the ICD codes from multiple columns into a single "clin_icd" column
+#   dt[, clin_icd := collapse_columns(mget(paste0("clin_icd", 1:12)), na_like_strings)]
+#   dt[, paste0("clin_icd", 1:12) := NULL] # Remove the individual columns
+
+#   # Collapse the RVS codes from multiple columns into a single "clin_rvs" column
+#   dt[, clin_rvs := collapse_columns(mget(paste0("clin_rvs", 1:20)), na_like_strings)]
+#   dt[, paste0("clin_rvs", 1:20) := NULL] # Remove the individual columns
+
+#   # Handle any lumped ICD codes by splitting them
+#   dt[, clin_icd := remove_lumped_icd_codes(clin_icd)]
+
+#   # Convert the cleaned columns into vectors
+#   dt[, clin_icd := split_to_vector(clin_icd)]
+#   # dt[, clin_rvs := remove_lumped_rvs_codes(clin_rvs)]
+#   dt[, clin_rvs := split_to_vector(clin_rvs)]
+
+#   # Return the cleaned data.table
+#   return(dt)
+# }
+# transfer_cr_icd <- function(dt) {
+#   ## Transfers ICD-10 codes in case rates 1 and 2 to the clinical ICD list
+#   # dt: input data.table with case rates and clinical ICD codes
+
+#   # Split case rate 1 into vectors and transfer extra ICD-10 codes to clin_icd
+#   # dt[, c1 := split_to_vector(c1)]
+#   # c1_result <- transfer_extra_icd10s_to_clin_icd(
+#   #   dt$clin_icd, dt$c1
+#   # )
+#   # dt[, clin_icd := c1_result$clin_icd]
+#   # dt[, c1 := c1_result$col_first]
+
+#   # Split case rate 2 into vectors and transfer extra ICD-10 codes to clin_icd
+#   # dt[, c2 := split_to_vector(c2)]
+#   # c2_result <- transfer_extra_icd10s_to_clin_icd(
+#   #   dt$clin_icd, dt$c2
+#   # )
+#   # dt[, clin_icd := c2_result$clin_icd]
+#   # dt[, c2 := c2_result$col_first]
+
+#   # Return the updated data.table
+#   return(dt)
+# }
+# generate_icd10_mapping <- function(icds, thai_icd10_env, neoplasms_env) {
+#   ## Map ICD-10 codes to their closest equivalents in the Thai ICD-10 library
+
+#   icd_mapping <- list() # Initialize an empty list to store mappings
+#   modified_count <- 0 # Initialize counter for modified codes
+
+#   # Loop through each ICD-10 code to generate mappings
+#   for (d in icds) {
+#     d <- str_trim(d) # Trim whitespace from the code
+
+#     # If the code has an exact match, map it directly
+#     if (exists(d, thai_icd10_env)) {
+#       icd_mapping[[d]] <- d
+#     } else if (!exists(d, neoplasms_env) && grepl("[A-Za-z]", d) && grepl("[0-9]", d)) {
+#       # If it's not a neoplasm and contains both letters and numbers, modify it
+#       if (nchar(d) == 3 && exists(paste0(d, "9"), thai_icd10_env)) {
+#         # If the code is 3 characters long, try appending "9"
+#         icd_mapping[[d]] <- paste0(d, "9")
+#         modified_count <- modified_count + 1
+#       } else if (nchar(d) >= 4) {
+#         # Try trimming digits from the end to find a match
+#         for (i in seq_len(nchar(d) - 3)) {
+#           new_d <- substr(d, 1, nchar(d) - i)
+#           if (exists(new_d, thai_icd10_env)) {
+#             icd_mapping[[d]] <- new_d
+#             modified_count <- modified_count + 1
+#             break
+#           }
+#         }
+#       }
+#     }
+#   }
+
+#   # Return the mapping and count of modified codes
+#   return(list(icd_mapping = icd_mapping, modified_count = modified_count))
+# }
