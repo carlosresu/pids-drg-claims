@@ -136,21 +136,56 @@ export_for_grouper <- function(dt, output_txt_file) {
 
   output_dt_thai <- data.table()
 
-  # CASEID
-  output_dt_thai[, CASEID := dt$id_series]
+  # Create CASEID column
+  output_dt_thai[, CASEID := as.character(1:nrow(dt))]
 
-  # Format Date of Birth (DOB) and Age
-  output_dt_thai[, DOB := format(dt$pat_bdate, "%d/%m/%Y")]
+  # Format Date of Birth (DOB)
+  output_dt_thai[, DOB := as.character(format(as.Date(dt$pat_bdate), "%d/%m/%Y"))]
 
+  # Ensure both data.tables have the correct keys for joining
+  setkey(output_dt_thai, CASEID)
+  setkey(pat_bdate_recomputed, id_series)
+
+  # Step 1: Capture rows where DOB is NA and will be filled with recomputed DOB (before updating)
+  recomputed_dob_rows_before <- output_dt_thai[
+    is.na(DOB) & CASEID %in% pat_bdate_recomputed$id_series,
+    .(CASEID, DOB_before = DOB)
+  ]
+
+  # Print rows before the DOB update
+  cat("Rows where DOB will be updated from recomputed values (Before):\n")
+  print(recomputed_dob_rows_before)
+
+  # Step 2: Join recomputed DOB values
+  output_dt_thai <- merge(output_dt_thai, pat_bdate_recomputed, by.x = "CASEID", by.y = "id_series", all.x = TRUE, all.y = FALSE)
+
+  # Step 3: Update DOB with recomputed DOB where applicable
+  output_dt_thai[
+    is.na(DOB) & !is.na(pat_bdate_recomputed),
+    DOB := as.character(format(as.Date(pat_bdate_recomputed), "%d/%m/%Y"))
+  ]
+
+  # Step 4: Capture rows after the DOB update (only the updated ones)
+  recomputed_dob_rows_after <- output_dt_thai[
+    CASEID %in% recomputed_dob_rows_before$CASEID,
+    .(CASEID, DOB_after = DOB)
+  ]
+
+  # Print rows after the DOB update
+  cat("Rows where DOB was updated from recomputed values (After):\n")
+  print(recomputed_dob_rows_after)
+
+  # Format DOB
+  output_dt_thai[, pat_bdate_recomputed := NULL]
   # Format Sex
   output_dt_thai[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
 
   # Format Admission Date and Time
-  output_dt_thai[, DateAdm := format(ymd(dt$date_adm), "%d/%m/%Y")]
+  output_dt_thai[, DateAdm := format(as.Date(dt$date_adm), "%d/%m/%Y")]
   output_dt_thai[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
 
   # Format Discharge Date and Time
-  output_dt_thai[, DateDsc := format(ymd(dt$date_dis), "%d/%m/%Y")]
+  output_dt_thai[, DateDsc := format(as.Date(dt$date_dis), "%d/%m/%Y")]
   output_dt_thai[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
 
   # Discharge Type
