@@ -3,7 +3,7 @@ tic("Time spent (total)               ")
 
 year_to_load <- fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
 file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
-
+separator <- if (file_type == ".tsv") "\t" else ","
 to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
 to_split <- TRUE # TODO: Deprecated, only used when to_sample is TRUE # Whether to split into split_parts parts (i.e. to fit in 32gb RAM).
 
@@ -361,3 +361,11 @@ remapped_column <- quote(fcase(
   dt[[column_name]] %in% c("EXPIRED", "E"), "9",
   dt[[column_name]] == "UNDEFINED", NA_character_
 ))
+
+# Initialize Variables
+all_parts_summaries <- master_dt_list <- icd_mapping_list <- list() # initialize lists
+dim_dt <- vector() # initialize vector for dt dimensions
+processing_times <- split_processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
+master_dt <- data.table() # initialize data.tables
+nthreads <- parallelly::availableCores() # detect available threads
+message(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))

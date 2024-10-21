@@ -154,8 +154,6 @@ replace_empty_with_na_python <- function(dt, to_view_checks) {
   )
 }
 
-
-
 replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
   ## Replaces empty strings with NA across an entire data.table.
   # dt: input data.table

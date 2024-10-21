@@ -141,7 +141,6 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
       flush.console()
     }
   }
-  
 }
 
 concatenate_r_files <- function(input_path, output_file) {
