@@ -2951,3 +2951,25 @@
 #   # Return the mapping and count of modified codes
 #   return(list(icd_mapping = icd_mapping, modified_count = modified_count))
 # }
+# # Helper function to clean and compare clinical columns
+# clean_clinical_column <- function(col_name) {
+#   dt[, (paste0(col_name, "_orig")) := dt[[col_name]]]
+#   dt[, (col_name) := clean_column(
+#     dt[[col_name]], na_like_strings, neoplasms_dt_actual
+#   )]
+#   dt[, (paste0(col_name, "_orig")) := sapply(
+#     get(paste0(col_name, "_orig")), toString
+#   )]
+#   dt[, (col_name) := sapply(get(col_name), toString)]
+
+#   # Compare cleaning results
+#   dt[
+#     !is.na(get(paste0(col_name, "_orig"))) & get(col_name) !=
+#       get(paste0(col_name, "_orig")),
+#     .(
+#       old_code = get(paste0(col_name, "_orig")),
+#       new_code = get(col_name), count = .N
+#     ),
+#     by = .(get(paste0(col_name, "_orig")), get(col_name))
+#   ]
+# }
