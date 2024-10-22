@@ -19,7 +19,7 @@ combine_discarded_rvs_tables <- function(
 
   combined_discarded <- combined_discarded[, .(count = sum(count)), by = CODE]
   combined_discarded <- combined_discarded[order(-count)]
-  combined_discarded <- head(combined_discarded, Inf)
+  combined_discarded <- combined_discarded
 
   return(combined_discarded)
 }

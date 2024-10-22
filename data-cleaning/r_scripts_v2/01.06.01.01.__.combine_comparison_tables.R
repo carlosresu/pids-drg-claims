@@ -40,7 +40,7 @@ combine_comparison_tables <- function(
 
   # Order by the absolute character difference and limit the number of rows
   unique_combinations <- unique_combinations[order(-diff_chars)]
-  unique_combinations <- head(unique_combinations, Inf)
+  unique_combinations <- unique_combinations
 
   return(unique_combinations)
 }

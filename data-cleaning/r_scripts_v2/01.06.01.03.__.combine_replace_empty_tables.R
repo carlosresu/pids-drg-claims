@@ -30,10 +30,7 @@ combine_replace_empty_tables <- function(
   combined_replace_empty <- combined_replace_empty[
     order(-Empty_Replaced, -NA_Replaced, -Character0_Replaced)
   ]
-  combined_replace_empty <- head(
-    combined_replace_empty,
-    Inf
-  )
+  combined_replace_empty <- combined_replace_empty
 
   return(combined_replace_empty)
 }

@@ -1,4 +1,4 @@
-print_summary_tables <- function(final_combined_summaries, end_nrow) {
+print_summary_tables <- function(final_combined_summaries, end_nrow = Inf) {
   #' @title Print Summary Tables
   #'
   #' @description This function prints summary tables for a given dataset.
