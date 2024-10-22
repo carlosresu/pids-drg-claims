@@ -1,59 +1,59 @@
-params_fpaths.R
-query_bq_to_dt.R
-split_and_save_part.R
-  print_status_update.R
-    convert_to_hms.R
-    format_time.R
-ensure_sample_files_exist.R
-read_appropriate_file.R
-  replace_empty_with_na.R
-process_chunk.R
-  clean_data.R
-    collapse_and_clean_icd_rvs.R
-      collapse_columns.R
-        clean_and_split.R
-          clean_column.R
-      remove_lumped_icd_codes.R
-      split_to_vector.R
-    clean_clinical_column.R
-    replace_multiple_patterns.R
-    split_to_vector.R
-    clean_clinical_columns.R
-      apply_add_c1_c2_to_clin_icd.R
-        add_c1_c2_to_clin_icd.R
-      append_and_remove_rvs.R
-        find_and_append_valid_rvs.R
-        remove_5_digit_codes.R
-        warn_invalid_rvs.R
-    replace_empty_with_na.R
-    remap_patient_data.R
-      remap_columns.R
-  map_rvs_icd  R
-    split_rvs_codes.R
-    create_rvs_map_lists.R
-    get_icd9_codes.R
-  implement_icd1_mapping.R
-    get_unique_icd_codes.R
-    create_thai_icd1_environment.R
-    find_direct_icd_matches.R
-    generate_icd1_mapping.R
-    apply_icd1_mapping_to_columns.R
-  replace_empty_with_na.R
-  remove_whitespace.R
-  apply_find_pdx.R
-    find_pdx_per_row.R
-      check_similarity.R
-  remove_pdx_from_list.R
-combine_chunk_summaries.R
-  combine_summaries.R
-    combine_comparison_tables.R
-    combine_discarded_rvs_tables.R
-    combine_replace_empty_tables.R
-    combine_unmatched_icd1_codes.R
-print_summary_tables.R
-  display_unique_mappings.R
-  process_final_icd1_map.R
-  check_unmatched_icd_codes.R
-combine_parts_summaries.R
-  final_combine_replace_empty_tables.R
-replace_empty_with_na.R
+params_fpaths
+query_bq_to_dt
+split_and_save_part
+  print_status_update
+    convert_to_hms
+    format_time
+ensure_sample_files_exist
+read_appropriate_file
+  replace_empty_with_na
+process_chunk
+  clean_data
+    collapse_and_clean_icd_rvs
+      collapse_columns
+        clean_and_split
+          clean_column
+      remove_lumped_icd_codes
+      split_to_vector
+    clean_clinical_column
+    replace_multiple_patterns
+    split_to_vector
+    clean_clinical_columns
+      apply_add_c1_c2_to_clin_icd
+        add_c1_c2_to_clin_icd
+      append_and_remove_rvs
+        find_and_append_valid_rvs
+        remove_5_digit_codes
+        warn_invalid_rvs
+    replace_empty_with_na
+    remap_patient_data
+      remap_columns
+  map_rvs_icd10
+    split_rvs_codes
+    create_rvs_map_lists
+    get_icd9_codes
+  implement_icd1_mapping
+    get_unique_icd_codes
+    create_thai_icd1_environment
+    find_direct_icd_matches
+    generate_icd1_mapping
+    apply_icd1_mapping_to_columns
+  replace_empty_with_na
+  remove_whitespace
+  apply_find_pdx
+    find_pdx_per_row
+      check_similarity
+  remove_pdx_from_list
+combine_chunk_summaries
+  combine_summaries
+    combine_comparison_tables
+    combine_discarded_rvs_tables
+    combine_replace_empty_tables
+    combine_unmatched_icd1_codes
+print_summary_tables
+  display_unique_mappings
+  process_final_icd1_map
+  check_unmatched_icd_codes
+combine_parts_summaries
+  final_combine_replace_empty_tables
+replace_empty_with_na
