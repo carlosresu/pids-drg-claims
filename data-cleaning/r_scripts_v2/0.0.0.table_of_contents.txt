@@ -17,7 +17,7 @@ process_chunk
       split_to_vector
     clean_clinical_column
     replace_multiple_patterns
-    split_to_vector
+    (split_to_vector)
     clean_clinical_columns
       apply_add_c1_c2_to_clin_icd
         add_c1_c2_to_clin_icd
@@ -25,20 +25,20 @@ process_chunk
         find_and_append_valid_rvs
         remove_5_digit_codes
         warn_invalid_rvs
-    replace_empty_with_na
+    (replace_empty_with_na)
     remap_patient_data
       remap_columns
-  map_rvs_icd10
+  map_rvs_icd9
     split_rvs_codes
     create_rvs_map_lists
     get_icd9_codes
-  implement_icd1_mapping
+  implement_icd10_mapping
     get_unique_icd_codes
-    create_thai_icd1_environment
+    create_thai_icd10_environment
     find_direct_icd_matches
-    generate_icd1_mapping
-    apply_icd1_mapping_to_columns
-  replace_empty_with_na
+    generate_icd10_mapping
+    apply_icd10_mapping_to_columns
+  (replace_empty_with_na)
   remove_whitespace
   apply_find_pdx
     find_pdx_per_row
@@ -49,11 +49,11 @@ combine_chunk_summaries
     combine_comparison_tables
     combine_discarded_rvs_tables
     combine_replace_empty_tables
-    combine_unmatched_icd1_codes
+    combine_unmatched_icd10_codes
 print_summary_tables
   display_unique_mappings
-  process_final_icd1_map
+  process_final_icd10_map
   check_unmatched_icd_codes
 combine_parts_summaries
   final_combine_replace_empty_tables
-replace_empty_with_na
+(replace_empty_with_na)
