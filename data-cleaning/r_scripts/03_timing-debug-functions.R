@@ -76,15 +76,15 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
   estimated_remaining_time <- estimated_total_time - elapsed_time
 
   # Convert time to period (using lubridate)
-  convert_to_hr_min_sec <- function(seconds) {
+  convert_to_hms <- function(seconds) {
     # Round seconds to the nearest whole number
     period <- seconds_to_period(round(seconds))
     return(period)
   }
 
   # Calculate elapsed and remaining time
-  elapsed <- convert_to_hr_min_sec(elapsed_time)
-  remaining <- convert_to_hr_min_sec(estimated_remaining_time)
+  elapsed <- convert_to_hms(elapsed_time)
+  remaining <- convert_to_hms(estimated_remaining_time)
 
   # Format period to string
   format_time <- function(period) {

@@ -7,6 +7,7 @@ separator <- if (file_type == ".tsv") "\t" else ","
 to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
 to_split <- TRUE # TODO: Deprecated, only used when to_sample is TRUE # Whether to split into split_parts parts (i.e. to fit in 32gb RAM).
 
+split_parts <- 15
 # Sample size divisor: Formula for sample size is
 # (total_rows ÷ split_parts) ÷ sample_size_divisor.
 # Choose between 5, 25, 125, and 625
@@ -22,6 +23,10 @@ drop_cols <- c( # Which columns to drop
 drop_cols_manual <- c(
   "MEMCAT_SUBCHILD_DESC" # Drop as per Cel's suggestion
 )
+
+# other parameters for manual adjustments
+manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD codes to replace
+manual_code_replacements <- c("O800", "O80", "O809") # ICD code replacements
 
 # Control random behavior for reproducibility
 # Choose a number as seed
@@ -50,6 +55,9 @@ bq_table <- paste0("temp_claims_", year_to_load)
 
 
 # Folder Path Prefixes:
+# Include spaces if there are any
+full_claims_prefix <- "claims_extract_CLAIMS "
+full_claims_bq_prefix <- str_replace_all(full_claims_prefix, " ", "\\\\ ")
 clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
 claims_prefix <- file.path(data_prefix, "claims")
