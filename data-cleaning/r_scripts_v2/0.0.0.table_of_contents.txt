@@ -1,4 +1,3 @@
-table_of_contents.txt
 params_fpaths.R
 query_bq_to_dt.R
 split_and_save_part.R
