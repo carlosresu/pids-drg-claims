@@ -367,5 +367,4 @@ all_parts_summaries <- master_dt_list <- icd_mapping_list <- list() # initialize
 dim_dt <- vector() # initialize vector for dt dimensions
 processing_times <- split_processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
 master_dt <- data.table() # initialize data.tables
-nthreads <- parallelly::availableCores() # detect available threads
 message(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
