@@ -40,7 +40,7 @@ process_chunk
     apply_icd10_mapping_to_columns
   (replace_empty_with_na)
   remove_whitespace
-  apply_find_pdx
+  find_pdx
     find_pdx_per_row
       check_similarity
   remove_pdx_from_list

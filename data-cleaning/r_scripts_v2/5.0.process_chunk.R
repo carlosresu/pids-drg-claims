@@ -145,7 +145,7 @@ process_chunk <- function(chunk,
   # Step 7:
   # Perform ICD10 mapping using the extracted columns
   # and 'thai_icd10' mapping data
-  icd10_mapping_result <- implement_icd10_mapping(
+  icd10_mapping_result <- map_icd10(
     c1, c2, clin_icd
   )
 
@@ -177,7 +177,7 @@ process_chunk <- function(chunk,
 
   # Step 12: Apply a function to find the primary
   # diagnosis (pdx) based on 'c1', 'c2', and 'clin_icd'
-  pdx_result <- apply_find_pdx(
+  pdx_result <- find_pdx(
     chunk$c1, chunk$c2, chunk$clin_icd
   )
 

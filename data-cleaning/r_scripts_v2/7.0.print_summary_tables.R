@@ -171,7 +171,7 @@ print_summary_tables <- function(final_combined_summaries) {
     cat("\nNo modified ICD-10 codes found.\n\n")
   }
 
-  icd10_mapping_result <- implement_icd10_mapping(
+  icd10_mapping_result <- map_icd10(
     master_dt$c1, master_dt$c2, master_dt$clin_icd
   )
 
