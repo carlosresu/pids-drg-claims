@@ -22,7 +22,7 @@ collapse_columns <- function(cols_to_process) {
       return(NA_character_)
     }
   })
-  
+
   # Return the collapsed and cleaned column
   return(collapsed_column)
 }

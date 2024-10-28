@@ -10,7 +10,7 @@ apply_find_pdx <- function(c1, c2, clin_icd, accpdx = acc_pdx) {
   }
 
   # Step 3: Apply find_pdx_for_row function to all rows
-  # See function(s) above
+
   result <- mapply(find_pdx_for_row, c1, c2, clin_icd, SIMPLIFY = FALSE)
 
   # Step 4: Extract PDX and PDX codes into vectors

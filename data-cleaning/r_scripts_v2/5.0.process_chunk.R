@@ -1,25 +1,136 @@
-# Define process_chunk (not to be confused with process_part)
-# that processes each part in nthreads chunks
 process_chunk <- function(chunk,
-                          to_view_checks = to_view_checks,
-                          rvs_icd9 = rvs_icd9,
-                          tdrg_icd10 = tdrg_icd10,
-                          acc_pdx = acc_pdx) {
-  # Step 1: Define main clean data function,
-  # which does majority of the data cleaning on the claims file
+                          yr_to_load = year_to_load,
+                          col_maps = column_mappings,
+                          manual_patterns_to_repl = manual_patterns_to_replace,
+                          manual_code_repl = manual_code_replacements,
+                          known_vals = known_values,
+                          rvsicd9 = rvs_icd9,
+                          thai_icd10 = tdrg_icd10,
+                          accpdx = acc_pdx,
+                          remap_cols = remapped_column) {
+  # Step 1: Perform data cleaning and transformation on the chunk
 
-  # Step 2: Clean the data in the 'chunk'
-  # See function(s) above
-  clean_result <- clean_data(chunk)
-  chunk <- clean_result$return_data # Update chunk with cleaned data
+  available_columns <- colnames(chunk)
+
+  # Convert source year to integer if needed
+  if (!"ADMISSION_YEAR" %in% available_columns) {
+    chunk[, SRC_YR := as.integer(yr_to_load)]
+  }
+
+  # Rename columns based on col_maps
+  old_names <- available_columns[available_columns %in% names(col_maps)]
+  new_names <- sapply(old_names, function(col) col_maps[[col]])
+  setnames(chunk, old = old_names, new = new_names)
+  rename_success <- all(new_names %in% colnames(chunk))
+
+  chunk[, id_series := trimws(id_series)]
+  chunk[, id_pin := trimws(id_pin)]
+  chunk[, c1 := clin_c1]
+  chunk[, c2 := clin_c2]
+
+  # Convert time columns
+  chunk[, time_adm := ifelse(
+    grepl("AM|PM", time_adm),
+    format(as.POSIXct(sub("\\.\\d+ ", " ", time_adm), format = "%m/%d/%Y %I:%M:%S %p"), "%H:%M"),
+    time_adm
+  )]
+  chunk[, time_dis := ifelse(
+    grepl("AM|PM", time_dis),
+    format(as.POSIXct(sub("\\.\\d+ ", " ", time_dis), format = "%m/%d/%Y %I:%M:%S %p"), "%H:%M"),
+    time_dis
+  )]
+
+  # Identify ICD and RVS columns
+  icd_col_names <- grep("^clin_icd\\d+$", names(chunk), value = TRUE)
+  rvs_col_names <- grep("^clin_rvs\\d+$", names(chunk), value = TRUE)
+  clin_icd_cols <- lapply(icd_col_names, function(col_name) chunk[[col_name]])
+  clin_rvs_cols <- lapply(rvs_col_names, function(col_name) chunk[[col_name]])
+
+  # Collapse and clean ICD and RVS columns
+  col_list <- collapse_and_clean_icd_rvs_cols(clin_icd_cols, clin_rvs_cols)
+  chunk[, clin_icd := col_list$clin_icd]
+  chunk[, clin_rvs := col_list$clin_rvs]
+  chunk[, (icd_col_names) := NULL]
+  chunk[, (rvs_col_names) := NULL]
+
+  # Clean and compare c1 and c2 columns
+  c1_result <- clean_column(chunk$c1)
+  chunk[, c1_orig := c1]
+  chunk[, c1 := c1_result$cleaned_col]
+  is_covid_c1 <- c1_result$is_covid
+
+  c1_cleaning_comparison <- data.table(
+    old_code = sapply(chunk$c1_orig, toString),
+    new_code = sapply(chunk$c1, toString)
+  )[old_code != new_code, .(old_code, new_code, count = .N), by = .(old_code, new_code)]
+
+  c2_result <- clean_column(chunk$c2)
+  chunk[, c2_orig := c2]
+  chunk[, c2 := c2_result$cleaned_col]
+  is_covid_c2 <- c2_result$is_covid
+
+  c2_cleaning_comparison <- data.table(
+    old_code = sapply(chunk$c2_orig, toString),
+    new_code = sapply(chunk$c2, toString)
+  )[old_code != new_code, .(old_code, new_code, count = .N), by = .(old_code, new_code)]
+
+  # Update the is_covid flag
+  chunk[, is_covid := is_covid_c1 | is_covid_c2]
+
+  # Apply manual replacements
+  manual_replacement <- function(text) {
+    stri_replace_all_regex(text, manual_patterns_to_repl, manual_code_repl, vectorize_all = FALSE)
+  }
+  chunk[, clin_icd := lapply(clin_icd, manual_replacement)]
+  chunk[, c1 := lapply(c1, manual_replacement)]
+  chunk[, c2 := lapply(c2, manual_replacement)]
+
+  chunk[, c1 := split_to_vector(remove_lumped_icd_codes(c1))]
+  chunk[, c2 := split_to_vector(remove_lumped_icd_codes(c2))]
+
+  # Concatenate clin_icd with c1 and c2
+  chunk[, clin_icd := lapply(seq_len(.N), function(i) c(clin_icd[[i]], c1[[i]], c2[[i]]))]
+
+  # Process RVS codes
+  c1_results <- append_and_remove_rvs(chunk$clin_rvs, chunk$c1, rvsicd9)
+  chunk[, clin_rvs := c1_results$clin_rvs]
+  chunk[, c1 := c1_results$col]
+  c1_discarded_rvs <- c1_results$discarded_rvs
+
+  c2_results <- append_and_remove_rvs(chunk$clin_rvs, chunk$c2, rvsicd9)
+  chunk[, clin_rvs := c2_results$clin_rvs]
+  chunk[, c2 := c2_results$col]
+  c2_discarded_rvs <- c2_results$discarded_rvs
+
+  # Replace empty strings with NA and remap patient data
+  replace_result <- replace_empty_with_na(chunk)
+  chunk <- replace_result$return_data
+  empty_strings_replaced_1 <- replace_result$return_replacement_summary
+
+  # Call the remap_patient_data function
+  remap_res <- remap_patient_data(
+    pat_type = chunk$pat_type,
+    pat_memcat_parent = chunk$pat_memcat_parent,
+    pat_memcat_child = chunk$pat_memcat_child,
+    clin_discharge = chunk$clin_discharge,
+    claim_status = chunk$claim_status,
+    known_values = known_vals,
+    remapped_column = remap_cols
+  )
+
+  # Assign the remapped columns back to chunk
+  chunk[, pat_type := remap_res$remapped$pat_type]
+  chunk[, pat_memcat_parent := remap_res$remapped$pat_memcat_parent]
+  chunk[, pat_memcat_child := remap_res$remapped$pat_memcat_child]
+  chunk[, clin_discharge := remap_res$remapped$clin_discharge]
+  chunk[, claim_status := remap_res$remapped$claim_status]
 
   # Step 3: DEPRECATED
 
   # Define function to map RVS codes to ICD9 codes
 
   # Step 4:
-  # Map clinical RVS (Relative Value Scale) codes to ICD9 using 'rvs_icd9'
-  # See function(s) above
+  # Map clinical RVS (Relative Value Scale) codes to ICD9 using 'rvsicd9'
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs)
   # Store the mapped ICD9 list into the chunk
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
@@ -33,8 +144,7 @@ process_chunk <- function(chunk,
 
   # Step 7:
   # Perform ICD10 mapping using the extracted columns
-  # and 'tdrg_icd10' mapping data
-  # See function(s) above
+  # and 'thai_icd10' mapping data
   icd10_mapping_result <- implement_icd10_mapping(
     c1, c2, clin_icd
   )
@@ -59,7 +169,6 @@ process_chunk <- function(chunk,
   # Step 10:
   # Apply the remove_whitespace function to the
   # list columns 'c1', 'c2', and 'clin_icd'
-  # See function(s) above
   chunk[, c1 := lapply(c1, remove_whitespace)]
   chunk[, c2 := lapply(c2, remove_whitespace)]
   chunk[, clin_icd := lapply(clin_icd, remove_whitespace)]
@@ -68,7 +177,6 @@ process_chunk <- function(chunk,
 
   # Step 12: Apply a function to find the primary
   # diagnosis (pdx) based on 'c1', 'c2', and 'clin_icd'
-  # See function(s) above
   pdx_result <- apply_find_pdx(
     chunk$c1, chunk$c2, chunk$clin_icd
   )
@@ -97,20 +205,44 @@ process_chunk <- function(chunk,
 
   # Step 16: Create a summary by combining clean
   # results and ICD10 mapping information
-  chunk_summary <- modifyList(
-    clean_result$return_summary,
-    list(
-      unique_icds = icd10_mapping_result$unique_icds,
-      direct_matches = icd10_mapping_result$direct_matches,
-      unmatched = icd10_mapping_result$unmatched,
-      unmatched_sources = icd10_mapping_result$unmatched_sources,
-      icd10_map_dt = icd10_mapping_result$icd10_map_dt,
-      rvss = rvs_mapping_result$rvss,
-      mappable_rvs = rvs_mapping_result$mappable_rvs,
-      unmappable_rvs = rvs_mapping_result$unmappable_rvs,
-      multi_mapped_rvs = rvs_mapping_result$multi_mapped_rvs,
-      without_drg = rvs_mapping_result$without_drg
-    )
+  chunk_summary <- list(
+    # Summary from the column renaming and cleaning steps
+    rename_success = rename_success,
+    ICD_replacements_1 = c1_cleaning_comparison,
+    ICD_replacements_2 = c2_cleaning_comparison,
+
+    # Mapped values from remapping
+    pat_type_mapped = remap_res$pat_type_mapped,
+    pat_memcat_parent_mapped = remap_res$pat_memcat_parent_mapped,
+    pat_memcat_child_mapped = remap_res$pat_memcat_child_mapped,
+    clin_discharge_mapped = remap_res$clin_discharge_mapped,
+    claim_status_mapped = remap_res$claim_status_mapped,
+
+    # Unmapped values from remapping
+    pat_type_unmapped = remap_res$pat_type_unmapped,
+    memcat_parent_unmapped = remap_res$memcat_parent_unmapped,
+    memcat_child_unmapped = remap_res$memcat_child_unmapped,
+    discharge_unmapped = remap_res$discharge_unmapped,
+    claim_status_unmapped = remap_res$claim_status_unmapped,
+
+    # Discarded RVS data
+    discard_rvs_one = c1_discarded_rvs,
+    discard_rvs_two = c2_discarded_rvs,
+    empty_strings_replaced_1 = empty_strings_replaced_1,
+
+    # ICD10 mapping results
+    unique_icds = icd10_mapping_result$unique_icds,
+    direct_matches = icd10_mapping_result$direct_matches,
+    unmatched = icd10_mapping_result$unmatched,
+    unmatched_sources = icd10_mapping_result$unmatched_sources,
+    icd10_map_dt = icd10_mapping_result$icd10_map_dt,
+
+    # RVS mapping results
+    rvss = rvs_mapping_result$rvss,
+    mappable_rvs = rvs_mapping_result$mappable_rvs,
+    unmappable_rvs = rvs_mapping_result$unmappable_rvs,
+    multi_mapped_rvs = rvs_mapping_result$multi_mapped_rvs,
+    without_drg = rvs_mapping_result$without_drg
   )
 
   # Track invalid age corrections
@@ -171,14 +303,11 @@ process_chunk <- function(chunk,
   chunk[, (time_cols) := lapply(
     .SD,
     function(x) {
+      # Ensure valid times with "HH:MM:00" format
       x <- ifelse(is.na(x), "00:00:00", paste0(x, ":00"))
-      as.ITime(x)
+      as.character(x) # No need to convert to ITime if output is HH:MM:SS
     }
   ), .SDcols = time_cols]
-
-  # Convert ITime object to character in HH:MM:SS format
-  chunk[, time_adm := strftime(time_adm, format = "%H:%M:%S")]
-  chunk[, time_dis := strftime(time_dis, format = "%H:%M:%S")]
 
   # Convert date_adm and date_dis from Asia/Manila to UTC
   chunk[, date_adm := as.POSIXct(
@@ -195,7 +324,7 @@ process_chunk <- function(chunk,
   chunk[, clin_emergency := as.logical(as.integer(clin_emergency))]
 
   # Process numeric columns
-  if (!"pat_bwt" %in% colnames(dt)) {
+  if (!"pat_bwt" %in% colnames(chunk)) {
     chunk[, pat_bwt := NA_real_]
   }
   num_cols <- c(
@@ -249,7 +378,7 @@ process_chunk <- function(chunk,
   recalculated_rows <- chunk[
     !is.na(pat_bdate) & !is.na(pat_age) &
       pat_age != floor(as.numeric(
-        seconds(as.Date(date_adm) - pat_bdate)
+        as.Date(date_adm) - pat_bdate
       ) / 365.25)
   ]
 
@@ -262,10 +391,10 @@ process_chunk <- function(chunk,
   chunk[
     !is.na(pat_bdate) & !is.na(pat_age) &
       pat_age != floor(as.numeric(
-        seconds(as.Date(date_adm) - pat_bdate)
+        as.Date(date_adm) - pat_bdate
       ) / 365.25),
     pat_age_recalculated := floor(as.numeric(
-      seconds(as.Date(date_adm) - pat_bdate)
+      as.Date(date_adm) - pat_bdate
     ) / 365.25)
   ]
 
@@ -299,32 +428,24 @@ process_chunk <- function(chunk,
 
   # Print messages for invalid ages corrected
   invalid_ages_after_correction <- chunk[pat_age < 0 | pat_age > 124, .N]
-#   message(
-#     "Number of invalid ages corrected: ",
-#     invalid_ages_before_correction - invalid_ages_after_correction,
-#     ". Invalid ages are those with a value less than 0 or greater than 124,
-# which were reset to NA or corrected."
-#   )
+  #   message(
+  #     "Number of invalid ages corrected: ",
+  #     invalid_ages_before_correction - invalid_ages_after_correction,
+  #     ". Invalid ages are those with a value less than 0 or greater than 124,
+  # which were reset to NA or corrected."
+  #   )
   # END OF AGE AND BDAY CORRECTION
 
-  # Assuming acc_icd_env is an environment containing acc_icd codes
-  acc_icd_env <- new.env(hash = TRUE, parent = emptyenv())
-  for (code in acc_icd) {
-    assign(code, TRUE, envir = acc_icd_env)
-  }
+  # # Assuming acc_icd_env is an environment containing acc_icd codes
+  # acc_icd_env <- new.env(hash = TRUE, parent = emptyenv())
+  # for (code in acc_icd) {
+  #   assign(code, TRUE, envir = acc_icd_env)
+  # }
 
   # Modify the data.table operation to use mget with the acc_icd_env
-  chunk[, clin_sdx := lapply(clin_sdx, function(row) {
-    codes <- unlist(row)
-    valid_codes <- codes[
-      !is.na(
-        mget(
-          codes,
-          envir = acc_icd_env,
-          ifnotfound = NA_character_
-        )
-      )
-    ]
+  acc_icd_set <- unique(acc_icd) # Ensure acc_icd is a unique vector
+  chunk[, clin_sdx := lapply(clin_sdx, function(codes) {
+    valid_codes <- codes[codes %in% acc_icd_set]
     if (length(valid_codes) > 0) {
       return(valid_codes)
     } else {
@@ -333,7 +454,10 @@ process_chunk <- function(chunk,
   })]
 
   # Optionally unlist each element of clin_sdx
-  chunk[, clin_sdx := lapply(clin_sdx, unlist)]
+  chunk[, clin_sdx := lapply(
+    clin_sdx,
+    function(x) if (is.null(x)) character(0) else unlist(x)
+  )]
 
   na_replaced_result <- replace_empty_with_na(chunk)
 
@@ -423,25 +547,16 @@ process_chunk <- function(chunk,
     "clin_rvs", "clin_pdx", "clin_pdx_source"
   ))
 
-  # Use a temporary column to avoid self-reference
-  chunk[, temp_clin_discharge := as.integer(clin_discharge)]
-
-  # Assign the temp column back to clin_discharge
-  chunk[, clin_discharge := temp_clin_discharge]
-
-  # Remove the temporary column
-  chunk[, temp_clin_discharge := NULL]
+  chunk[, clin_discharge := as.integer(clin_discharge)]
 
   # Step 17: Optionally trigger garbage collection to reduce memory usage
   gc()
 
   # Step 18: Return the processed chunk and summary information
-  return(
-    list(
-      # Return the processed chunk data
-      return_chunk = chunk,
-      # Return the summary for checks and outputs
-      return_summary = chunk_summary
-    )
-  )
+
+  # Step N: Return the final chunk and summary
+  return(list(
+    return_chunk = chunk,
+    return_summary = chunk_summary
+  ))
 }

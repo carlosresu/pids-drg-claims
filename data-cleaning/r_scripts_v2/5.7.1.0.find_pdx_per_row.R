@@ -38,7 +38,6 @@ find_pdx_for_row <- function(c1, c2, clin_icd) {
           return(list(pdx = starting_codes[1], pdx_code = 4))
         } else if (length(starting_codes) > 1) {
           starting_codes <- starting_codes[
-            # See function(s) above
             order(sapply(
               starting_codes,
               function(x) check_similarity(cr, x)
