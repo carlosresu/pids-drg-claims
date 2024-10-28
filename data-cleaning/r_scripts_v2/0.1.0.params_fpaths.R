@@ -115,7 +115,7 @@ if (length(created_dirs) == 0) {
 }
 
 # Commonly Used File Paths:
-full_claims_file <- here(
+full_claims_file <<- here(
   raw_claims_path,
   paste0(full_claims_prefix, year_to_load, file_type) # Use the file_type variable here
 )
@@ -125,7 +125,7 @@ ram_limit <- (1 - 0.10) * 64 * (1024^3)
 # Allowing each future_lapply session to use more memory
 options(future.globals.maxSize = ram_limit)
 
-total_rows_file <- here(
+total_rows_file <<- here(
   cache_path,
   paste0("total_rows_", year_to_load, ".rds")
 )

@@ -4,11 +4,11 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
   } else {
     here(raw_claims_parts_path, paste0(
       full_claims_prefix, year_to_load,
-      "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
+      "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".fst"
     ))
   }
 
-  dt <- readRDS(chunk_file)
+  dt <- read_fst(chunk_file, as.data.table = TRUE)
 
   available_columns <- colnames(dt)
 
