@@ -104,7 +104,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
     cat("\nNo modified ICD-10 codes found.\n\n")
   }
 
-  print(unique_icd10_map)
+  # print(unique_icd10_map)
 
   check_unmatched_icd_codes <- function(masterdt, icd_mapping) {
     unmatched_list <- list()
