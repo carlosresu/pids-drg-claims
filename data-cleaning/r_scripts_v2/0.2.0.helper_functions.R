@@ -4,27 +4,33 @@ remove_lumped_icd_codes <- function(column) {
 
   # Use regex to add "||" between letters and digits
   # in the ICD codes (e.g., A123B456 -> A123||B456)
-  modified_column <- stri_replace_all_regex(
+  stri_replace_all_regex(
     column, "(?<=\\d)(?=[A-Z]\\d{2,4})", "||",
     # Specify regex options for the replacement
     opts_regex = stri_opts_regex()
   )
-
-  # Return the modified column with ICD codes split
-  return(modified_column)
 }
 
-split_to_vector <- function(column) {
-  ## Splits a column of strings into vectors using "||" as the delimiter
-  # column: the column to split
+split_to_vector <- function(column, covidrvspattern = covid_rvs_pattern) {
+  ## Splits a column of strings in two passes:
+  # 1. Split on COVID RVS codes
+  # 2. Split on "||" delimiter
 
   result <- lapply(column, function(x) {
     # If the entry is NA, leave it as is
     if (is.na(x)) {
       return(NA_character_)
     } else {
-      # Split the string into a vector using "||"
-      return(unlist(strsplit(x, "||", fixed = TRUE)))
+      # First pass: Split on COVID RVS codes to handle lumped codes
+      first_split <- unlist(strsplit(x, covidrvspattern, perl = TRUE))
+
+      # Second pass: Split on "||" within each split chunk
+      final_split <- unlist(strsplit(first_split, "||", fixed = TRUE))
+
+      # Remove empty strings or NA-like values
+      final_split <- final_split[final_split != "" & !is.na(final_split)]
+
+      return(final_split)
     }
   })
 
@@ -107,7 +113,8 @@ clean_column <- function(col) {
   cleaned_col <- toupper(cleaned_col)
 
   # Remove non-letter and non-digit characters (except delimiters like commas and pipes)
-  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d,|]+", "")
+  # cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d,|]+", "")
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d]+", "")
 
   # Replace any NA-like strings with actual NA values
   cleaned_col[cleaned_col %in% na_like_strings] <- NA_character_

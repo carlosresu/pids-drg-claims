@@ -1,0 +1,32 @@
+[
+  {
+    "name": "id_series",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "py_drg",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "py_pdc",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "py_pccl",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "py_warn",
+    "type": "STRING",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "py_err",
+    "type": "STRING",
+    "mode": "REPEATED"
+  }
+]

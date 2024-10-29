@@ -39,7 +39,6 @@ process_chunk <- function(chunk,
 
   chunk[, c1 := clin_c1]
   chunk[, c2 := clin_c2]
-
   # Step 5: Convert 'time_adm' and 'time_dis' columns to proper time format
 
   chunk[, time_adm := ifelse(
@@ -70,6 +69,9 @@ process_chunk <- function(chunk,
 
   # Update 'clin_icd' and 'clin_rvs' columns in the chunk with the cleaned data
   chunk[, clin_icd := col_list$clin_icd]
+
+  print(chunk[all(!is.na(clin_icd)),clin_icd])
+
   chunk[, clin_rvs := col_list$clin_rvs]
 
   # Remove the original individual ICD and RVS columns from the chunk
@@ -172,6 +174,7 @@ process_chunk <- function(chunk,
 
   # Step 15: Map ICD codes to ICD10 codes using 'map_icd10' function
 
+  # Extract columns from chunk
   c1 <- chunk$c1
   c2 <- chunk$c2
   clin_icd <- chunk$clin_icd

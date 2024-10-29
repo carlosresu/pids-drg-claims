@@ -80,7 +80,7 @@ map_icd10 <- function(c1, c2, clin_icd, thai_icd10 = tdrg_icd10, covidrvs = covi
   }))
   unmatched_sources <- unmatched_sources[code %in% unmatched_icds, ][order(-count)]
 
-  str(icd_mapping)
+  # str(icd_mapping)
 
   # Step 10: Create data.table for ICD10 mapping
   icd10_map <- data.table(phl_icd10 = names(icd_mapping), thai_icd10 = unlist(icd_mapping))

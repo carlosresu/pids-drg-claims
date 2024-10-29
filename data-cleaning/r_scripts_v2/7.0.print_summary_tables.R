@@ -98,7 +98,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
     # Use escape = FALSE to prevent escaping the | symbol
     print(knitr::kable(unique_icd10_map,
       format = "markdown",
-      caption = "Modified ICD-10 Codes", escape = FALSE
+      caption = "Modified ICD-10 Codes"
     ))
   } else {
     cat("\nNo modified ICD-10 codes found.\n\n")
