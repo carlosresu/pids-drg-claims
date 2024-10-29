@@ -1,108 +1,250 @@
-map_icd10 <- function(c1, c2, clin_icd, thai_icd10 = tdrg_icd10, covidrvs = covid_rvs) {
-  # Helper: Create named lists for environments
-  create_named_list <- function(codes) {
-    if (length(codes) > 0) {
-      setNames(as.list(rep(TRUE, length(codes))), codes)
-    } else {
-      list()
-    }
+# map_icd10 <- function(c1, c2, clin_icd, thai_icd10 = tdrg_icd10, covidrvs = covid_rvs) {
+#   # Helper: Create named lists for environments
+#   create_named_list <- function(codes) {
+#     if (length(codes) > 0) {
+#       setNames(as.list(rep(TRUE, length(codes))), codes)
+#     } else {
+#       list()
+#     }
+#   }
+
+#   # Step 1: Create environments for Thai codes and neoplasm codes
+#   thai_env <- new.env(hash = TRUE)
+#   neoplasm_env <- new.env(hash = TRUE)
+
+#   # Step 2: Populate environments with named lists
+#   list2env(create_named_list(thai_icd10$CODE), envir = thai_env)
+#   neoplasm_codes <- thai_icd10[grepl("/", thai_icd10$CODE), "CODE"]
+#   list2env(create_named_list(neoplasm_codes), envir = neoplasm_env)
+
+#   # Step 3: Helper to get unique ICD codes
+#   get_unique_icd_codes <- function(...) {
+#     unique(unlist(list(...), use.names = FALSE))
+#   }
+
+#   # Step 4: Generate ICD10 mapping using environment lookups with batch processing
+#   generate_icd10_mapping <- function(icds, covidrvs) {
+#     icd_mapping <- new.env(hash = TRUE)
+#     modified_count <- 0
+
+#     # Filter out invalid and COVID-related codes
+#     valid_icds <- setdiff(icds[!is.na(icds) & icds != ""], covidrvs)
+
+#     # Batch lookup using mget for faster performance
+#     thai_matches <- mget(valid_icds, envir = thai_env, ifnotfound = list(NULL))
+#     neoplasm_matches <- mget(valid_icds, envir = neoplasm_env, ifnotfound = list(NULL))
+
+#     for (d in valid_icds) {
+#       d <- str_trim(d)
+#       if (d %in% covidrvs) {
+#         next # Skip COVID codes
+#       }
+#       if (!is.null(thai_matches[[d]])) {
+#         icd_mapping[[d]] <- d
+#       } else if (is.null(neoplasm_matches[[d]]) && grepl("[A-Za-z]", d) && grepl("[0-9]", d)) {
+#         if (nchar(d) == 3 && !is.null(thai_matches[[paste0(d, "9")]])) {
+#           icd_mapping[[d]] <- paste0(d, "9")
+#           modified_count <- modified_count + 1
+#         } else if (nchar(d) >= 4) {
+#           # Substring search for longer codes
+#           for (i in seq_len(nchar(d) - 3)) {
+#             new_d <- substr(d, 1, nchar(d) - i)
+#             if (!is.null(thai_matches[[new_d]])) {
+#               icd_mapping[[d]] <- new_d
+#               modified_count <- modified_count + 1
+#               break
+#             }
+#           }
+#         }
+#       }
+#     }
+#     list(icd_mapping_res = as.list(icd_mapping), modified_count = modified_count)
+#   }
+
+#   # Step 5: Apply mappings using vectorization
+#   apply_icd10_mapping <- function(codes, icd_mapping) {
+#     vapply(codes, function(code) icd_mapping[[code]] %||% code, character(1))
+#   }
+
+#   # Step 6: Get unique ICD codes
+#   icds <- get_unique_icd_codes(c1, c2, clin_icd)
+#   # print(icds)
+#   # Step 7: Generate ICD10 mapping
+#   icd_mapping_info <- generate_icd10_mapping(icds, covidrvs)
+#   icd_mapping <- icd_mapping_info$icd_mapping_res
+
+#   # Step 8: Identify unmatched ICD codes
+#   unmatched_icds <- setdiff(icds, names(icd_mapping))
+
+#   # Step 9: Create data.table for unmatched codes
+#   unmatched_sources <- rbindlist(lapply(c("c1", "c2", "clin_icd"), function(col_name) {
+#     col_values <- get(col_name)
+#     data.table(code = unlist(col_values), source = col_name)[, .(count = .N), by = .(code, source)]
+#   }))
+#   unmatched_sources <- unmatched_sources[code %in% unmatched_icds, ][order(-count)]
+
+#   # str(icd_mapping)
+
+#   # Step 10: Create data.table for ICD10 mapping
+#   icd10_map <- data.table(phl_icd10 = names(icd_mapping), thai_icd10 = unlist(icd_mapping))
+
+#   # Step 11: Apply ICD10 mapping to input columns
+#   c1_mapped <- lapply(c1, apply_icd10_mapping, icd_mapping)
+#   c2_mapped <- lapply(c2, apply_icd10_mapping, icd_mapping)
+#   clin_icd_mapped <- lapply(clin_icd, apply_icd10_mapping, icd_mapping)
+
+#   # Step 12: Return results
+#   list(
+#     c1 = c1_mapped,
+#     c2 = c2_mapped,
+#     clin_icd = clin_icd_mapped,
+#     icd10_map_dt = icd10_map,
+#     unique_icds = icds,
+#     direct_matches = names(icd_mapping),
+#     unmatched = unmatched_icds,
+#     unmatched_sources = unmatched_sources,
+#     icd_mapping_res = icd_mapping
+#   )
+# }
+
+map_icd10 <- function(c1, c2, clin_icd,
+                      thai_icd10 = tdrg_icd10,
+                      covidrvs = covid_rvs,
+                      neoplasmsdtactual = neoplasms_dt_actual,
+                      acrrvs = acr_rvs) {
+  # Helper: Trim numeric suffixes (e.g., J1892 -> J189)
+  trim_code <- function(code) {
+    sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
   }
 
-  # Step 1: Create environments for Thai codes and neoplasm codes
-  thai_env <- new.env(hash = TRUE)
-  neoplasm_env <- new.env(hash = TRUE)
-
-  # Step 2: Populate environments with named lists
-  list2env(create_named_list(thai_icd10$CODE), envir = thai_env)
-  neoplasm_codes <- thai_icd10[grepl("/", thai_icd10$CODE), "CODE"]
-  list2env(create_named_list(neoplasm_codes), envir = neoplasm_env)
-
-  # Step 3: Helper to get unique ICD codes
-  get_unique_icd_codes <- function(...) {
-    unique(unlist(list(...), use.names = FALSE))
+  # Helper: Check if a code exists in a valid set
+  code_exists <- function(code, valid_set) {
+    code %in% valid_set
   }
 
-  # Step 4: Generate ICD10 mapping using environment lookups with batch processing
-  generate_icd10_mapping <- function(icds, covidrvs) {
-    icd_mapping <- new.env(hash = TRUE)
+  # Prepare sets of valid codes from datasets
+  valid_codes <- unique(trimws(thai_icd10$CODE))
+  neoplasm_codes <- unique(neoplasmsdtactual$icd10)
+  rvs_codes <- unique(acrrvs$rvs)
+
+  generate_icd10_mapping <- function(filtered_icds) {
+    icd_mapping <- list()
     modified_count <- 0
+    direct_match_count <- 0
 
-    # Filter out invalid and COVID-related codes
-    valid_icds <- setdiff(icds[!is.na(icds) & icds != ""], covidrvs)
+    for (code in filtered_icds) {
+      code <- trimws(code)
 
-    # Batch lookup using mget for faster performance
-    thai_matches <- mget(valid_icds, envir = thai_env, ifnotfound = list(NULL))
-    neoplasm_matches <- mget(valid_icds, envir = neoplasm_env, ifnotfound = list(NULL))
+      # 1. **Exact match check**
+      if (code_exists(code, valid_codes)) {
+        icd_mapping[[code]] <- list(match_type = "Exact", original = code, mapped = code)
+        direct_match_count <- direct_match_count + 1
+        next
+      }
 
-    for (d in valid_icds) {
-      d <- str_trim(d)
-      if (!is.null(thai_matches[[d]])) {
-        icd_mapping[[d]] <- d
-      } else if (is.null(neoplasm_matches[[d]]) && grepl("[A-Za-z]", d) && grepl("[0-9]", d)) {
-        if (nchar(d) == 3 && !is.null(thai_matches[[paste0(d, "9")]])) {
-          icd_mapping[[d]] <- paste0(d, "9")
+      # 2. **Attempt adding '9' for 3-character codes**
+      if (nchar(code) == 3) {
+        modified_code <- paste0(code, "9")
+        if (code_exists(modified_code, valid_codes)) {
+          icd_mapping[[code]] <- list(match_type = "Modified (Added 9)", original = code, mapped = modified_code)
           modified_count <- modified_count + 1
-        } else if (nchar(d) >= 4) {
-          # Substring search for longer codes
-          for (i in seq_len(nchar(d) - 3)) {
-            new_d <- substr(d, 1, nchar(d) - i)
-            if (!is.null(thai_matches[[new_d]])) {
-              icd_mapping[[d]] <- new_d
-              modified_count <- modified_count + 1
-              break
-            }
-          }
+          next
         }
       }
+
+      # 3. **Trim and progressively shorten the code**
+      trimmed_code <- trim_code(code)
+      match_found <- FALSE
+
+      for (i in 0:(nchar(trimmed_code) - 3)) {
+        partial_code <- substr(trimmed_code, 1, nchar(trimmed_code) - i)
+        if (nchar(partial_code) >= 3 && code_exists(partial_code, valid_codes)) {
+          icd_mapping[[code]] <- list(match_type = "Modified (Trimmed)", original = code, mapped = partial_code)
+          modified_count <- modified_count + 1
+          match_found <- TRUE
+          break
+        }
+      }
+
+      # 4. **Mark as unmatched if no match found**
+      if (!match_found) {
+        icd_mapping[[code]] <- list(match_type = "Unmatched", original = code, mapped = NA)
+      }
     }
-    list(icd_mapping_res = as.list(icd_mapping), modified_count = modified_count)
+
+    list(mapping = icd_mapping, modified_count = modified_count, direct_match_count = direct_match_count)
   }
 
-  # Step 5: Apply mappings using vectorization
-  apply_icd10_mapping <- function(codes, icd_mapping) {
-    vapply(codes, function(code) icd_mapping[[code]] %||% code, character(1))
-  }
+  # Collect and pre-filter unique ICD codes, excluding COVID-related ones and applying all filtering criteria
+  icds <- unique(unlist(c(c1, c2, clin_icd)))
+  filtered_icds <- icds[!is.na(icds) &
+    !grepl("^[0-9]", icds) &
+    !grepl("^[A-Z]{2}", icds) &
+    !grepl("/", icds) &
+    !(icds %in% neoplasm_codes) &
+    !(icds %in% rvs_codes) &
+    !(icds %in% covidrvs)]
 
-  # Step 6: Get unique ICD codes
-  icds <- get_unique_icd_codes(c1, c2, clin_icd)
+  # Debugging: Check direct matches manually if needed
+  # print(icds[icds %in% valid_codes])
 
-  # Step 7: Generate ICD10 mapping
-  icd_mapping_info <- generate_icd10_mapping(icds, covidrvs)
-  icd_mapping <- icd_mapping_info$icd_mapping_res
+  # Generate the ICD-10 mapping
+  mapping_info <- generate_icd10_mapping(filtered_icds)
+  icd_mapping <- mapping_info$mapping
 
-  # Step 8: Identify unmatched ICD codes
-  unmatched_icds <- setdiff(icds, names(icd_mapping))
+  # Identify unmatched codes
+  unmatched_codes <- names(Filter(function(x) x$match_type == "Unmatched", icd_mapping))
 
-  # Step 9: Create data.table for unmatched codes
+  # Create a data.table of unmatched codes by source
   unmatched_sources <- rbindlist(lapply(c("c1", "c2", "clin_icd"), function(col_name) {
     col_values <- get(col_name)
     data.table(code = unlist(col_values), source = col_name)[, .(count = .N), by = .(code, source)]
   }))
-  unmatched_sources <- unmatched_sources[code %in% unmatched_icds, ][order(-count)]
+  unmatched_sources <- unmatched_sources[code %in% unmatched_codes]
 
-  # str(icd_mapping)
+  # Create ICD-10 mapping data.table
+  icd10_map <- data.table(
+    phl_icd10 = names(icd_mapping),
+    thai_icd10 = sapply(icd_mapping, `[[`, "mapped"),
+    match_type = sapply(icd_mapping, `[[`, "match_type")
+  )
 
-  # Step 10: Create data.table for ICD10 mapping
-  icd10_map <- data.table(phl_icd10 = names(icd_mapping), thai_icd10 = unlist(icd_mapping))
+  # Apply the mapping to input columns
+  apply_icd10_mapping <- function(codes) {
+    sapply(codes, function(code) {
+      if (!is.null(icd_mapping[[code]]) && !is.null(icd_mapping[[code]]$mapped)) {
+        icd_mapping[[code]]$mapped
+      } else {
+        code
+      }
+    })
+  }
 
-  # Step 11: Apply ICD10 mapping to input columns
-  c1_mapped <- lapply(c1, apply_icd10_mapping, icd_mapping)
-  c2_mapped <- lapply(c2, apply_icd10_mapping, icd_mapping)
-  clin_icd_mapped <- lapply(clin_icd, apply_icd10_mapping, icd_mapping)
+  # Apply mappings
+  c1_mapped <- lapply(c1, apply_icd10_mapping)
+  c2_mapped <- lapply(c2, apply_icd10_mapping)
+  clin_icd_mapped <- lapply(clin_icd, apply_icd10_mapping)
 
-  # Step 12: Return results
+  # Return the results
   list(
     c1 = c1_mapped,
     c2 = c2_mapped,
     clin_icd = clin_icd_mapped,
     icd10_map_dt = icd10_map,
     unique_icds = icds,
-    direct_matches = names(icd_mapping),
-    unmatched = unmatched_icds,
+    unmatched_codes = unmatched_codes,
     unmatched_sources = unmatched_sources,
-    icd_mapping_res = icd_mapping
+    icd_mapping_res = icd_mapping,
+    modified_count = mapping_info$modified_count,
+    direct_match_count = mapping_info$direct_match_count,
+    valid_codes = valid_codes,
+    rvs_codes = rvs_codes,
+    neoplasm_codes = neoplasm_codes,
+    covid_rvs = covidrvs,
+    thai_icd10 = thai_icd10
   )
 }
+
 
 # get_unique_icd_codes <- function(c1, c2, clin_icd) {
 #   ## Obtains list of all unique ICD-10 codes across all cases and columns

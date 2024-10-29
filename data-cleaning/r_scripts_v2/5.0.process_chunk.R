@@ -70,7 +70,7 @@ process_chunk <- function(chunk,
   # Update 'clin_icd' and 'clin_rvs' columns in the chunk with the cleaned data
   chunk[, clin_icd := col_list$clin_icd]
 
-  print(chunk[all(!is.na(clin_icd)),clin_icd])
+  # print(chunk[all(!is.na(clin_icd)),clin_icd])
 
   chunk[, clin_rvs := col_list$clin_rvs]
 
@@ -86,11 +86,18 @@ process_chunk <- function(chunk,
   chunk[, c1 := c1_result$cleaned_col]
   is_covid_c1 <- c1_result$is_covid
 
+  # Helper function to remove periods for comparison
+  remove_periods <- function(x) gsub("\\.", "", x)
+
   # Create a comparison table for 'c1' cleaning
   c1_cleaning_comparison <- data.table(
     old_code = sapply(chunk$c1_orig, toString),
     new_code = sapply(chunk$c1, toString)
-  )[old_code != new_code, .(old_code, new_code, count = .N), by = .(old_code, new_code)]
+  )[
+    remove_periods(old_code) != remove_periods(new_code), # Exclude changes due to periods
+    .(old_code, new_code, count = .N),
+    by = .(old_code, new_code)
+  ]
 
   # Clean 'c2' column using 'clean_column' function
   c2_result <- clean_column(chunk$c2)
@@ -102,7 +109,11 @@ process_chunk <- function(chunk,
   c2_cleaning_comparison <- data.table(
     old_code = sapply(chunk$c2_orig, toString),
     new_code = sapply(chunk$c2, toString)
-  )[old_code != new_code, .(old_code, new_code, count = .N), by = .(old_code, new_code)]
+  )[
+    remove_periods(old_code) != remove_periods(new_code), # Exclude changes due to periods
+    .(old_code, new_code, count = .N),
+    by = .(old_code, new_code)
+  ]
 
   # Update 'is_covid' flag based on 'c1' and 'c2'
   chunk[, is_covid := is_covid_c1 | is_covid_c2]
