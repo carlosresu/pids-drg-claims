@@ -9,7 +9,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
   ))
 
   if (nrow(final_icd_replacements) > 0) {
-    print(kable(final_icd_replacements,
+    print(knitr::kable(final_icd_replacements,
       format = "markdown",
       caption = "ICD Normalized Text for clin c1 & c2 Before Splitting"
     ))
@@ -23,7 +23,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
       stop("Data must contain 'Original' and 'Mapped' columns.")
     }
     unique_mappings <- unique(mapped_data)
-    print(kable(unique_mappings,
+    print(knitr::kable(unique_mappings,
       format = "markdown",
       caption = sprintf("Unique Mappings for %s", mapping_name)
     ))
@@ -41,7 +41,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
   )[, .(count = sum(count)), by = CODE][order(-count)]
 
   if (nrow(final_discard_rvs) > 0) {
-    print(kable(final_discard_rvs,
+    print(knitr::kable(final_discard_rvs,
       format = "markdown",
       caption = "Discarded RVS Codes"
     ))
@@ -51,7 +51,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
 
   display_empty_string_replacements <- function(data, set_name) {
     if (nrow(data) > 0) {
-      print(kable(data, format = "markdown", caption = paste0("Empty Strings Replaced (", set_name, " Set)")))
+      print(knitr::kable(data, format = "markdown", caption = paste0("Empty Strings Replaced (", set_name, " Set)")))
     } else {
       cat(paste0("\nNo empty strings replaced in the ", set_name, " set.\n\n"))
     }
@@ -95,10 +95,16 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
   if (nrow(unique_icd10_map) > 0) {
     unique_icd10_map[, char_diff := abs(nchar(phl_icd10) - nchar(thai_icd10))]
     unique_icd10_map <- unique_icd10_map[order(-char_diff)]
-    print(kable(unique_icd10_map, format = "markdown", caption = "Modified ICD-10 Codes"))
+    # Use escape = FALSE to prevent escaping the | symbol
+    print(knitr::kable(unique_icd10_map,
+      format = "markdown",
+      caption = "Modified ICD-10 Codes", escape = FALSE
+    ))
   } else {
     cat("\nNo modified ICD-10 codes found.\n\n")
   }
+
+  print(unique_icd10_map)
 
   check_unmatched_icd_codes <- function(masterdt, icd_mapping) {
     unmatched_list <- list()
@@ -116,7 +122,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
 
     if (length(unmatched_list) > 0) {
       final_unmatched_sources <- rbindlist(unmatched_list, fill = TRUE)[, .(count = .N), by = .(column, code)][order(-count)]
-      print(kable(final_unmatched_sources, format = "markdown", caption = "Invalid ICD-10 Codes"))
+      print(knitr::kable(final_unmatched_sources, format = "markdown", caption = "Invalid ICD-10 Codes"))
     } else {
       cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
     }

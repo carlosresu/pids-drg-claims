@@ -5,7 +5,7 @@ split_and_save_part <- function(split_loop_part) {
   chunk_file <- here(raw_claims_parts_path, paste0(
     full_claims_prefix, year_to_load,
     "_part_", sprintf("%02d", split_loop_part),
-    "_of_", split_parts, ".fst"
+    "_of_", split_parts, ".rds"
   ))
 
   # Only process if the part does not already exist
@@ -18,7 +18,7 @@ split_and_save_part <- function(split_loop_part) {
     chunk_dt <- full_file[start_row:end_row]
 
     # Save the chunk as an RDS file
-    write_fst(chunk_dt, chunk_file, compress = 100)
+    saveRDS(chunk_dt, chunk_file, compress = TRUE)
     rm(chunk_dt)
     gc()
 

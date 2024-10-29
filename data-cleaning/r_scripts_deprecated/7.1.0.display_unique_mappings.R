@@ -11,7 +11,7 @@ display_unique_mappings <- function(mapped_data, mapping_name) {
   unique_mappings <- unique(mapped_data)
 
   # Print the mappings using kable
-  print(kable(unique_mappings,
+  print(knitr::kable(unique_mappings,
     format = "markdown",
     caption = sprintf("Unique Before and After Mappings for %s", mapping_name)
   ))

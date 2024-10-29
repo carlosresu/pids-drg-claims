@@ -47,7 +47,7 @@ check_unmatched_icd_codes <- function(master_dt, icd_mapping) {
 
     # Print the result using kable, showing up to end_nrow rows
     print(
-      kable(
+      knitr::kable(
         final_unmatched_sources,
         format = "markdown",
         caption = "Invalid ICD-10 Codes Not Found in Thai Library"
