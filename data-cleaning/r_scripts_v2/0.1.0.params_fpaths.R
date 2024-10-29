@@ -371,7 +371,7 @@ remapped_column <- quote(fcase(
 ))
 
 # Initialize Variables
-all_parts_summaries <- master_dt_list <- icd_mapping_list <- list() # initialize lists
+all_parts_summaries <- master_dt_list <- combined_chunk_summary <- pdx_success_list <- replacement_summary_list <- icd_mapping_list <- list() # initialize lists
 dim_dt <- vector() # initialize vector for dt dimensions
 processing_times <- split_processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
 master_dt <- data.table() # initialize data.tables

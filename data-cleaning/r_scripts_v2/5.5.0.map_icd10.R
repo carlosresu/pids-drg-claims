@@ -20,8 +20,8 @@ map_icd10 <- function(c1, c2, clin_icd,
 
   generate_icd10_mapping <- function(filtered_icds) {
     icd_mapping <- list()
-    modified_count <- 0
     direct_matches <- character() # Store all directly matched codes
+    modifiedmatches <- list(modified_matches = character(), modified_match = character()) # Store original-modified pairs
 
     for (code in filtered_icds) {
       code <- trimws(code)
@@ -29,7 +29,7 @@ map_icd10 <- function(c1, c2, clin_icd,
       # 1. **Exact match check**
       if (code_exists(code, valid_codes)) {
         icd_mapping[[code]] <- list(match_type = "Exact", original = code, mapped = code)
-        direct_matches <- c(direct_matches, code) # Add to direct matches
+        direct_matches <- c(direct_matches, code)
         next
       }
 
@@ -38,7 +38,8 @@ map_icd10 <- function(c1, c2, clin_icd,
         modified_code <- paste0(code, "9")
         if (code_exists(modified_code, valid_codes)) {
           icd_mapping[[code]] <- list(match_type = "Modified (Added 9)", original = code, mapped = modified_code)
-          modified_count <- modified_count + 1
+          modifiedmatches$modified_matches <- c(modifiedmatches$modified_matches, code)
+          modifiedmatches$modified_match <- c(modifiedmatches$modified_match, modified_code)
           next
         }
       }
@@ -51,7 +52,8 @@ map_icd10 <- function(c1, c2, clin_icd,
         partial_code <- substr(trimmed_code, 1, nchar(trimmed_code) - i)
         if (nchar(partial_code) >= 3 && code_exists(partial_code, valid_codes)) {
           icd_mapping[[code]] <- list(match_type = "Modified (Trimmed)", original = code, mapped = partial_code)
-          modified_count <- modified_count + 1
+          modifiedmatches$modified_matches <- c(modifiedmatches$modified_matches, code)
+          modifiedmatches$modified_match <- c(modifiedmatches$modified_match, partial_code)
           match_found <- TRUE
           break
         }
@@ -63,7 +65,7 @@ map_icd10 <- function(c1, c2, clin_icd,
       }
     }
 
-    list(mapping = icd_mapping, modified_count = modified_count, direct_matches = direct_matches)
+    list(mapping = icd_mapping, modified_matches = modifiedmatches, direct_matches = direct_matches)
   }
 
   # Collect and pre-filter unique ICD codes, excluding COVID-related ones and applying all filtering criteria
@@ -96,10 +98,8 @@ map_icd10 <- function(c1, c2, clin_icd,
       if (to_debug) print(valid_codes)
 
       if (length(valid_codes) > 0) {
-        # Create a data.table with valid codes and source
         data.table(code = valid_codes, source = col_name)[, .(count = .N), by = .(code, source)]
       } else {
-        # Return an empty data.table if no valid data is found
         data.table(code = character(), source = character(), count = integer())
       }
     }),
@@ -131,7 +131,7 @@ map_icd10 <- function(c1, c2, clin_icd,
   c1_mapped <- lapply(c1, apply_icd10_mapping)
   c2_mapped <- lapply(c2, apply_icd10_mapping)
   clin_icd_mapped <- lapply(clin_icd, apply_icd10_mapping)
-
+  # str(mapping_info$modified_matches)
   # Return the results
   list(
     c1 = c1_mapped,
@@ -142,8 +142,8 @@ map_icd10 <- function(c1, c2, clin_icd,
     unmatched_codes = unmatched_codes,
     unmatched_sources = unmatchedsources,
     icd_mapping_res = icd_mapping,
-    modified_count = mapping_info$modified_count,
-    direct_matches = mapping_info$direct_matches, # Return the actual matches
+    modified_matches = mapping_info$modified_matches,
+    direct_matches = mapping_info$direct_matches,
     valid_codes = valid_codes,
     rvs_codes = rvs_codes,
     neoplasm_codes = neoplasm_codes,

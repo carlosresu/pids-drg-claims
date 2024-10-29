@@ -15,6 +15,7 @@ combine_parts_summaries <- function(combined_summary) {
     final_empty_strings_replaced_2 = final_combine_replace_empty_tables(combined_summary, "empty_strings_replaced_2"),
     final_unique_icds = length(safe_unlist(lapply(combined_summary, `[[`, "unique_icds_count"))),
     final_direct_matches = length(safe_unlist(lapply(combined_summary, `[[`, "direct_matches"))),
+    final_modified_matches <- combine_modified_matches(combined_summary, "modified_matches"),
     final_unmatched_codes = unique(safe_unlist(lapply(combined_summary, `[[`, "unmatched_codes"))),
     final_unmatched_sources = combine_unmatched_icd10_codes(combined_summary, "unmatched_sources"),
     final_rvss = length(safe_unlist(lapply(combined_summary, `[[`, "rvss"))),

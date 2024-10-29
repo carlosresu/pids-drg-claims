@@ -105,17 +105,28 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
   )
 
   # Print Modified ICD-10 Codes
-  unique_icd10_map <- summary$final_icd10_map_dt[phl_icd10 != thai_icd10]
-  if (nrow(unique_icd10_map) > 0) {
-    unique_icd10_map[, char_diff := abs(nchar(phl_icd10) - nchar(thai_icd10))]
-    unique_icd10_map <- unique_icd10_map[order(-char_diff)]
-    print(knitr::kable(unique_icd10_map,
-      format = "markdown",
-      caption = "Modified ICD-10 Codes"
-    ))
-  } else {
-    cat("\nNo modified ICD-10 codes found.\n\n")
+  print_modified_icd10_codes <- function(summary) {
+    unique_icd10_map <- summary$final_modified_matches
+
+    if (nrow(unique_icd10_map) > 0) {
+      # Order the data.table by char_diff
+      unique_icd10_map <- unique_icd10_map[order(-char_diff)]
+
+      # Print as markdown table
+      print(knitr::kable(unique_icd10_map,
+        format = "markdown",
+        caption = "Modified ICD-10 Codes"
+      ))
+
+      # Print the number of rows
+      cat("nrow Modified ICD-10 Codes: ", nrow(unique_icd10_map), "\n")
+    } else {
+      cat("\nNo modified ICD-10 codes found.\n\n")
+    }
   }
+
+  # Example usage to print the modified codes
+  print_modified_icd10_codes(list(final_modified_matches = final_modified_matches))
 
   if (length(summary$final_unmatched_codes) > 0) {
     # Convert the unmatched codes into a data.table with counts
@@ -128,7 +139,7 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
       format = "markdown",
       caption = "Invalid ICD-10 Codes"
     ))
-    print(paste("nrow invalid ICD-10 codes:", nrow(final_unmatched_codes)))
+    cat("\nnrow invalid ICD-10 codes: ", nrow(final_unmatched_codes), "\n")
   } else {
     cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
   }
