@@ -27,7 +27,7 @@ process_chunk <- function(chunk,
   # Rename the columns in the chunk
   setnames(chunk, old = old_names, new = new_names)
   # Check if all new names are successfully renamed
-  rename_success <- all(new_names %in% colnames(chunk))
+  renamesuccess <- all(new_names %in% colnames(chunk))
 
   # Step 3: Trim whitespace in certain columns
 
@@ -79,6 +79,12 @@ process_chunk <- function(chunk,
   chunk[, (rvs_col_names) := NULL]
 
   # Step 7: Clean 'c1' and 'c2' columns
+  # Helper function to remove periods for comparison
+  remove_periods_and_whitespaces <- function(x) {
+    x <- gsub("\\.", "", x)
+    x <- gsub("\\s", "", x)
+    return(x)
+  }
 
   # Clean 'c1' column using 'clean_column' function
   c1_result <- clean_column(chunk$c1)
@@ -86,15 +92,12 @@ process_chunk <- function(chunk,
   chunk[, c1 := c1_result$cleaned_col]
   is_covid_c1 <- c1_result$is_covid
 
-  # Helper function to remove periods for comparison
-  remove_periods <- function(x) gsub("\\.", "", x)
-
   # Create a comparison table for 'c1' cleaning
   c1_cleaning_comparison <- data.table(
     old_code = sapply(chunk$c1_orig, toString),
     new_code = sapply(chunk$c1, toString)
   )[
-    remove_periods(old_code) != remove_periods(new_code), # Exclude changes due to periods
+    remove_periods_and_whitespaces(old_code) != remove_periods_and_whitespaces(new_code), # Exclude changes due to periods and whitespace
     .(old_code, new_code, count = .N),
     by = .(old_code, new_code)
   ]
@@ -110,7 +113,7 @@ process_chunk <- function(chunk,
     old_code = sapply(chunk$c2_orig, toString),
     new_code = sapply(chunk$c2, toString)
   )[
-    remove_periods(old_code) != remove_periods(new_code), # Exclude changes due to periods
+    remove_periods_and_whitespaces(old_code) != remove_periods_and_whitespaces(new_code), # Exclude changes due to periods and whitespace
     .(old_code, new_code, count = .N),
     by = .(old_code, new_code)
   ]
@@ -245,9 +248,65 @@ process_chunk <- function(chunk,
   })]
 
   # Step 20: Create a summary of the processing steps
+  if (to_debug) {
+    cat("rename_success: ")
+    str(renamesuccess)
+    cat("c1_cleaning_comparison: ")
+    str(c1_cleaning_comparison)
+    cat("c2_cleaning_comparison: ")
+    str(c2_cleaning_comparison)
+    cat("remap_res$pat_type_mapped: ")
+    str(remap_res$pat_type_mapped)
+    cat("remap_res$pat_memcat_parent_mapped: ")
+    str(remap_res$pat_memcat_parent_mapped)
+    cat("remap_res$pat_memcat_child_mapped: ")
+    str(remap_res$pat_memcat_child_mapped)
+    cat("remap_res$clin_discharge_mapped: ")
+    str(remap_res$clin_discharge_mapped)
+    cat("remap_res$claim_status_mapped: ")
+    str(remap_res$claim_status_mapped)
+    cat("remap_res$pat_type_unmapped: ")
+    str(remap_res$pat_type_unmapped)
+    cat("remap_res$memcat_parent_unmapped: ")
+    str(remap_res$memcat_parent_unmapped)
+    cat("remap_res$memcat_child_unmapped: ")
+    str(remap_res$memcat_child_unmapped)
+    cat("remap_res$discharge_unmapped: ")
+    str(remap_res$discharge_unmapped)
+    cat("remap_res$claim_status_unmapped: ")
+    str(remap_res$claim_status_unmapped)
+    cat("c1_discarded_rvs: ")
+    str(c1_discarded_rvs)
+    cat("c2_discarded_rvs: ")
+    str(c2_discarded_rvs)
+    cat("empty_strings_replaced_1: ")
+    str(empty_strings_replaced_1)
+    cat("empty_strings_replaced_2: ")
+    str(empty_strings_replaced_2)
+    cat("icd10_mapping_result$unique_icds: ")
+    str(icd10_mapping_result$unique_icds)
+    cat("icd10_mapping_result$direct_match_count: ")
+    str(icd10_mapping_result$direct_match_count)
+    cat("icd10_mapping_result$unmatched_codes: ")
+    str(icd10_mapping_result$unmatched_codes)
+    cat("icd10_mapping_result$unmatched_sources: ")
+    str(icd10_mapping_result$unmatched_sources)
+    cat("icd10_mapping_result$icd10_map_dt: ")
+    str(icd10_mapping_result$icd10_map_dt)
+    cat("rvs_mapping_result$rvss: ")
+    str(rvs_mapping_result$rvss)
+    cat("rvs_mapping_result$mappable_rvs: ")
+    str(rvs_mapping_result$mappable_rvs)
+    cat("rvs_mapping_result$unmappable_rvs: ")
+    str(rvs_mapping_result$unmappable_rvs)
+    cat("rvs_mapping_result$multi_mapped_rvs: ")
+    str(rvs_mapping_result$multi_mapped_rvs)
+    cat("rvs_mapping_result$without_drg: ")
+    str(rvs_mapping_result$without_drg)
+  }
 
   chunk_summary <- list(
-    rename_success = rename_success,
+    rename_success = renamesuccess,
     ICD_replacements_1 = c1_cleaning_comparison,
     ICD_replacements_2 = c2_cleaning_comparison,
     pat_type_mapped = remap_res$pat_type_mapped,
@@ -263,9 +322,10 @@ process_chunk <- function(chunk,
     discard_rvs_one = c1_discarded_rvs,
     discard_rvs_two = c2_discarded_rvs,
     empty_strings_replaced_1 = empty_strings_replaced_1,
+    empty_strings_replaced_2 = empty_strings_replaced_2,
     unique_icds = icd10_mapping_result$unique_icds,
     direct_matches = icd10_mapping_result$direct_matches,
-    unmatched = icd10_mapping_result$unmatched,
+    unmatched_codes = icd10_mapping_result$unmatched_codes,
     unmatched_sources = icd10_mapping_result$unmatched_sources,
     icd10_map_dt = icd10_mapping_result$icd10_map_dt,
     rvss = rvs_mapping_result$rvss,

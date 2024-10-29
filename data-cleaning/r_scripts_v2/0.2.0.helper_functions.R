@@ -199,22 +199,62 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
   }
 }
 
-
 safe_unlist <- function(x) unique(na.omit(unlist(x)))
 
+# combine_comparison_tables <- function(summaries, field) {
+#   comparison_list <- lapply(summaries, function(summary) summary[[field]])
+#   combined <- rbindlist(comparison_list, fill = TRUE)
+
+#   if (nrow(combined) == 0) {
+#     return(data.table(old_code = character(), new_code = character(), diff_chars = integer()))
+#   }
+
+#   combined[, `:=`(
+#     old_code = gsub("\\s", "", iconv(old_code, to = "UTF-8")),
+#     new_code = gsub("\\s", "", iconv(new_code, to = "UTF-8"))
+#   )]
+#   combined[, diff_chars := abs(nchar(old_code) - nchar(new_code))]
+#   return(unique(combined[order(-diff_chars)]))
+# }
+
 combine_comparison_tables <- function(summaries, field) {
-  comparison_list <- lapply(summaries, function(summary) summary[[field]])
+  # Extract the relevant comparison tables from summaries
+  comparison_list <- lapply(summaries, function(summary) {
+    if (is.null(summary[[field]])) {
+      # Return an empty data.table if the field is missing
+      return(data.table(old_code = character(), new_code = character(), diff_chars = integer()))
+    } else {
+      # Return the existing data.table if available
+      return(summary[[field]])
+    }
+  })
+
+  # Combine all comparison tables into one
   combined <- rbindlist(comparison_list, fill = TRUE)
 
+  # Handle case where the combined table is empty
   if (nrow(combined) == 0) {
     return(data.table(old_code = character(), new_code = character(), diff_chars = integer()))
   }
 
+  # Debug: Check column names before renaming
+  if (to_debug) cat("Column names in combined table:\n")
+  if (to_debug) print(names(combined))
+
+  # Ensure only the first four relevant columns are kept and renamed
+  relevant_cols <- c("old_code", "new_code")
+  combined <- combined[, ..relevant_cols]
+
+  # Clean and normalize the old_code and new_code columns
   combined[, `:=`(
     old_code = gsub("\\s", "", iconv(old_code, to = "UTF-8")),
     new_code = gsub("\\s", "", iconv(new_code, to = "UTF-8"))
   )]
+
+  # Calculate the difference in character length between old_code and new_code
   combined[, diff_chars := abs(nchar(old_code) - nchar(new_code))]
+
+  # Remove duplicates and return the unique rows, ordered by diff_chars
   return(unique(combined[order(-diff_chars)]))
 }
 
@@ -281,6 +321,39 @@ final_combine_replace_empty_tables <- function(summaries, field) {
 }
 
 combine_unmatched_icd10_codes <- function(summaries, field) {
-  combined <- rbindlist(lapply(summaries, function(summary) summary[[field]]), fill = TRUE)
-  return(combined[, .(count = sum(count)), by = .(code, source)][order(-count)])
+  # Extract the relevant data from each summary
+  combined_list <- lapply(summaries, function(s) s[[field]])
+
+  # Filter out NULL or empty elements
+  combined_list <- Filter(function(x) !is.null(x) && nrow(x) > 0, combined_list)
+
+  # Debugging: Check if the list contains valid data
+  if (length(combined_list) == 0) {
+    cat("No valid data found for field:", field, "\n")
+    return(data.table(code = character(), source = character(), count = integer()))
+  }
+
+  # Combine the extracted data into a single data.table
+  combined <- rbindlist(combined_list, fill = TRUE)
+
+  # Debugging: Check the structure of the combined data
+  if (to_debug) cat("Combined data structure:\n")
+  if (to_debug) str(combined)
+
+  # Ensure 'code' and 'source' columns exist
+  if (!all(c("code", "source") %in% colnames(combined))) {
+    stop("Missing 'code' or 'source' columns in unmatched sources data.")
+  }
+
+  # Remove NA or empty codes to avoid invalid groupings
+  combined <- combined[!is.na(code) & code != ""]
+
+  # Group by 'code' and 'source', then sum the counts
+  result <- combined[, .(count = sum(count)), by = .(code, source)][order(-count)]
+
+  # Debugging: Check the structure of the final result
+  if (to_debug) cat("Final result structure:\n")
+  if (to_debug) str(result)
+
+  return(result)
 }
