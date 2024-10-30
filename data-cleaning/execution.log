@@ -1,0 +1,792 @@
+numpy has been upgraded to the latest version.
+
+pandas has been upgraded to the latest version.
+
+streamlit has been upgraded to the latest version.
+
+Using virtual environment 'r-reticulate' ...
++ /home/resurreccion_cmc_gmail_com/.virtualenvs/r-reticulate/bin/python -m pip install --upgrade --no-user python_dateutil
+
+python_dateutil has been installed.
+
+tabulate has been upgraded to the latest version.
+
+swifter has been upgraded to the latest version.
+
+rpy2 has been upgraded to the latest version.
+
+pyreadr has been upgraded to the latest version.
+
+papermill has been upgraded to the latest version.
+
+nbformat has been upgraded to the latest version.
+
+IProgress has been upgraded to the latest version.
+
+jupyter has been upgraded to the latest version.
+
+ipywidgets has been upgraded to the latest version.
+
+All specified packages are installed or upgraded.
+
+here() starts at /home/resurreccion_cmc_gmail_com/drg-pipeline
+
+
+Attaching package: ‘tictoc’
+
+
+The following object is masked from ‘package:data.table’:
+
+    shift
+
+
+
+Attaching package: ‘lubridate’
+
+
+The following objects are masked from ‘package:data.table’:
+
+    hour, isoweek, mday, minute, month, quarter, second, wday, week,
+    yday, year
+
+
+The following objects are masked from ‘package:base’:
+
+    date, intersect, setdiff, union
+
+
+hash-2.2.6.3 provided by Decision Patterns
+
+
+
+Attaching package: ‘hash’
+
+
+The following object is masked from ‘package:tictoc’:
+
+    clear
+
+
+The following object is masked from ‘package:data.table’:
+
+    copy
+
+
+2024-10-30 07:03:17.613135 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/0.1.0.params_fpaths.R
+
+All directories exist.
+
+
+Total Rows via cached object: 12757064
+
+Utilizing 4 cores (8 threads)
+
+
+2024-10-30 07:03:18.1455 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/0.2.0.process_helper_functions.R
+
+2024-10-30 07:03:18.147204 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/0.3.0.summary_helper_functions.R
+
+2024-10-30 07:03:18.148921 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/1.0.query_bq_to_dt.R
+
+2024-10-30 07:03:18.150236 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/2.0.split_and_save_part.R
+
+2024-10-30 07:03:18.151557 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/3.0.ensure_sample_files_exist.R
+
+2024-10-30 07:03:18.152833 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/4.0.read_appropriate_file.R
+
+2024-10-30 07:03:18.154211 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/5.0.process_chunk.R
+
+2024-10-30 07:03:18.156248 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/5.1.0.collapse_and_clean_icd_rvs_cols.R
+
+2024-10-30 07:03:18.157605 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/5.2.0.append_and_remove_rvs.R
+
+2024-10-30 07:03:18.158952 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/5.3.0.remap_patient_data.R
+
+2024-10-30 07:03:18.160342 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/5.4.0.map_rvs_icd9.R
+
+2024-10-30 07:03:18.161717 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/5.5.0.map_icd10.R
+
+2024-10-30 07:03:18.163266 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/5.6.0.find_pdx.R
+
+2024-10-30 07:03:18.164706 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/6.0.aggregate_all_summaries.R
+
+2024-10-30 07:03:18.166172 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/6.1.0.combine_summaries.R
+
+2024-10-30 07:03:18.167607 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/7.0.print_summary_tables.R
+
+File claims_extract_CLAIMS 2018.csv already exists in the target directory. Skipping download.
+
+
+File claims_extract_CLAIMS 2019.csv already exists in the target directory. Skipping download.
+
+
+File claims_extract_CLAIMS 2020.csv already exists in the target directory. Skipping download.
+
+
+File claims_extract_CLAIMS 2021.csv already exists in the target directory. Skipping download.
+
+
+File claims_extract_CLAIMS 2022.tsv already exists in the target directory. Skipping download.
+
+
+File claims_extract_CLAIMS 2023.tsv already exists in the target directory. Skipping download.
+
+
+Querying and loading `grouper_v5.proc`...
+
+Querying and loading `phic.acr_rvs_map`...
+
+Processing `phic.acr_rvs_map`...
+
+Merging `rvs_icd9` with `grouper_v5.proc`...
+
+Querying and loading `phic.acr_procedure`...
+
+Querying and loading `grouper_v5.i10`...
+
+Extracting ACCPDX codes from `grouper_v5.i10`...
+
+Querying and loading `icd.phl_icd10`...
+
+Processing neoplasm ICD-10 codes...
+
+Querying and loading `grouper_v5.i10vx`...
+
+Querying and loading `hci.temp_hci`...
+
+Finished cleaning 5 of 15 parts in 8s (ETA 15s)       Finished cleaning 10 of 15 parts in 15s (ETA 8s)       Finished cleaning 15 of 15 parts in 23s (ETA 0s)       
+Row Counts Match for All Parts
+
+
+
+Rename Success:
+ TRUE 
+
+
+Table: ICD Normalized Text for clin c1 & c2 Before Splitting
+(Note: differences of only one period symbol are ignored)
+
+|old_code      |new_code | count|
+|:-------------|:--------|-----:|
+|J91*          |J91      |     1|
+|D63.8*        |D638     |     1|
+|E14.2+ N08.3* |E142N083 |     1|
+|c19t1         |C19T1    |     1|
+|J18.99, Y95   |J1899Y95 |     1|
+|I67.9+G46.8*  |I679G468 |     1|
+|D63.0*        |D630     |     2|
+|D63.8*        |D638     |     2|
+|E11.2+ N08.3* |E112N083 |     1|
+|c19t2         |C19T2    |     1|
+|D63.0*        |D630     |     1|
+|I63.9+G46.7*  |I639G467 |     1|
+
+
+Table: Unique Mappings for Patient Type
+
+|Original |Mapped |
+|:--------|:------|
+|DD       |D      |
+|MM       |M      |
+
+
+Table: Unique Mappings for Memcat Parent
+
+|Original             |Mapped |
+|:--------------------|:------|
+|INDIRECT CONTRIBUTOR |I      |
+|DIRECT CONTRIBUTOR   |D      |
+
+
+Table: Unique Mappings for Memcat Child
+
+|Original                                        |Mapped |
+|:-----------------------------------------------|:------|
+|SPONSORED                                       |5      |
+|INDIGENT                                        |4      |
+|EMPLOYED PRIVATE                                |1      |
+|SELF-EARNING INDIVIDUAL                         |2      |
+|SELF EARNING INDIVIDUAL                         |2      |
+|LIFETIME MEMBER                                 |3      |
+|SENIOR CITIZEN                                  |6      |
+|EMPLOYED GOVERNMENT                             |1      |
+|MIGRANT WORKER                                  |2      |
+|HOUSEHOLD HELP/KASAMBAHAY                       |1      |
+|FOREIGN NATIONAL                                |2      |
+|FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD |2      |
+|PROFESSIONAL PRACTITIONER                       |2      |
+
+
+Table: Unique Mappings for Discharge
+
+|Original |Mapped |
+|:--------|:------|
+|I        |1      |
+|R        |1      |
+|E        |9      |
+|H        |2      |
+|NA       |NA     |
+|T        |4      |
+|A        |3      |
+
+
+Table: Unique Mappings for Claim Status
+
+|Original   |Mapped |
+|:----------|:------|
+|PAID       |G      |
+|DENIED     |D      |
+|RTH        |R      |
+|IN-PROCESS |I      |
+
+No RVS codes discarded.
+
+
+
+Table: Empty Strings Replaced (Zeroth Set)
+
+|Column               |Empty_Replaced_Percentage |NA_Replaced_Percentage |Character0_Replaced_Percentage |
+|:--------------------|:-------------------------|:----------------------|:------------------------------|
+|SECONDARY_ILLNESS    |51.57%                    |0.00%                  |0.00%                          |
+|REFILE_DATE          |49.41%                    |0.00%                  |0.00%                          |
+|PATIENT_RELATIONSHIP |39.54%                    |0.00%                  |0.00%                          |
+|RVSCODES_ITEM7       |10.78%                    |0.00%                  |0.00%                          |
+|CHECK_DATE           |2.51%                     |0.00%                  |0.00%                          |
+|ICDCODES_ITEM7       |1.14%                     |0.02%                  |0.00%                          |
+|ROOM_TYPE            |0.25%                     |0.00%                  |0.00%                          |
+|PRIMARY_ILLNESS      |0.03%                     |0.00%                  |0.00%                          |
+|PATIENT_DISPOSITION  |0.03%                     |0.00%                  |0.00%                          |
+|HCP_NO_LIST          |0.01%                     |0.00%                  |0.00%                          |
+|ADMISSION_TIME       |0.00%                     |0.00%                  |0.00%                          |
+|DISCHARGE_TIME       |0.00%                     |0.00%                  |0.00%                          |
+|IS_ADMISSION_OPD     |0.00%                     |0.00%                  |0.00%                          |
+|IS_EMERGENCY_CASE    |0.00%                     |0.00%                  |0.00%                          |
+
+
+Table: Empty Strings Replaced (First Set)
+
+|Column   |Empty_Replaced_Percentage |NA_Replaced_Percentage |Character0_Replaced_Percentage |
+|:--------|:-------------------------|:----------------------|:------------------------------|
+|clin_rvs |0.00%                     |1.35%                  |1.04%                          |
+
+No empty strings replaced in the Second set.
+
+There are 3323 RVS codes without an ICD-9CM equivalent.
+There are 668 unique RVS codes.
+631 (94.46%) have an ICD-9-CM mapping.
+141 (21.11%) have multiple ICD-9 equivalents.
+
+There are 3094 unique ICD-10 codes.
+ 1889 (61.05%) are directly in the Thai ICD-10 library.
+ Total 2969 codes were mapped to the Thai ICD10 library.
+ 1080 codes were modified to match.
+ 125 codes could not be mapped.
+
+
+Table: Modified ICD-10 Codes
+
+|modified_matches |modified_match | count| char_diff|
+|:----------------|:--------------|-----:|---------:|
+|S0101XAW500      |S010           |     1|         7|
+|I251IJ1893       |I251           |     1|         6|
+|Z03818Z2O8       |Z038           |     1|         6|
+|J4590UO72        |J459           |     1|         5|
+|J1892UO72        |J189           |     1|         5|
+|E142NO83         |E142           |     5|         4|
+|Z5119129         |Z511           |     1|         4|
+|Z3000800         |Z300           |     1|         4|
+|T131UO71         |T131           |     1|         4|
+|Z3700800         |Z370           |     1|         4|
+|H402220          |H402           |     2|         3|
+|H26091           |H260           |     1|         2|
+|S91011           |S910           |     1|         2|
+|N083N1           |N083           |     2|         2|
+|Z01217           |Z012           |     3|         2|
+|Z30017           |Z300           |     5|         2|
+|Z01218           |Z012           |     5|         2|
+|Z01202           |Z012           |     4|         2|
+|L89159           |L891           |     1|         2|
+|Z01216           |Z012           |     2|         2|
+|Z03818           |Z038           |    10|         2|
+|Z01215           |Z012           |     2|         2|
+|Z20828           |Z208           |    12|         2|
+|Z01213           |Z012           |     2|         2|
+|S62301           |S623           |     1|         2|
+|Z01203           |Z012           |     2|         2|
+|Z01201           |Z012           |     2|         2|
+|Z01211           |Z012           |     3|         2|
+|S52601           |S526           |     1|         2|
+|Z01206           |Z012           |     2|         2|
+|S81811           |S818           |     1|         2|
+|Z01214           |Z012           |     3|         2|
+|Z0143C           |Z014           |     1|         2|
+|S01152           |S011           |     1|         2|
+|H25041           |H250           |     1|         2|
+|Z01219           |Z012           |     1|         2|
+|Z01208           |Z012           |     3|         2|
+|H11062           |H110           |     1|         2|
+|C50919           |C509           |     1|         2|
+|S81891           |S818           |     1|         2|
+|S52800           |S528           |     1|         2|
+|Z01207           |Z012           |     2|         2|
+|S52600           |S526           |     1|         2|
+|R1310            |R13            |     1|         2|
+|Z01209           |Z012           |     3|         2|
+|Z01221           |Z012           |     2|         2|
+|S60851           |S608           |     1|         2|
+|Z01222           |Z012           |     1|         2|
+|L8962            |L89            |     1|         2|
+|O24410           |O244           |     1|         2|
+|S52401           |S524           |     1|         2|
+|C50911           |C509           |     1|         2|
+|H35351           |H353           |     1|         2|
+|H11061           |H110           |     2|         2|
+|Z01204           |Z012           |     1|         2|
+|H26090           |H260           |     1|         2|
+|Z01224           |Z012           |     1|         2|
+|Z01212           |Z012           |     2|         2|
+|S52400           |S524           |     1|         2|
+|M87952           |M879           |     1|         2|
+|M65811           |M658           |     1|         2|
+|T141W5           |T141           |     1|         2|
+|H25040           |H250           |     1|         2|
+|J4590            |J459           |    15|         1|
+|J1892            |J189           |    15|         1|
+|I109             |I10            |    15|         1|
+|J4500            |J450           |    11|         1|
+|J1893            |J189           |    15|         1|
+|J1899            |J189           |    12|         1|
+|E861             |E86            |    15|         1|
+|H2591            |H259           |    15|         1|
+|H2609            |H260           |     3|         1|
+|E05              |E059           |     2|         1|
+|O620O            |O620           |     1|         1|
+|C5099            |C509           |     3|         1|
+|O24              |O249           |     2|         1|
+|Z76              |Z769           |     8|         1|
+|H2590            |H259           |    15|         1|
+|C5091            |C509           |     6|         1|
+|K62              |K629           |     1|         1|
+|C50              |C509           |    15|         1|
+|C5090            |C509           |     3|         1|
+|I101             |I10            |    15|         1|
+|G5601            |G560           |     1|         1|
+|H1100            |H110           |     5|         1|
+|N401             |N40            |     6|         1|
+|C53              |C539           |     6|         1|
+|Z34              |Z349           |     1|         1|
+|J1802            |J180           |    15|         1|
+|S0181            |S018           |     1|         1|
+|K300             |K30            |     1|         1|
+|H2501            |H250           |     2|         1|
+|J1891            |J189           |    10|         1|
+|H2521            |H252           |     6|         1|
+|Z3801            |Z380           |     8|         1|
+|O80              |O809           |    13|         1|
+|K35              |K359           |     7|         1|
+|H4020            |H402           |     3|         1|
+|C44              |C449           |     1|         1|
+|O34              |O349           |     1|         1|
+|O342O            |O342           |     1|         1|
+|H2641            |H264           |     3|         1|
+|H3522            |H352           |     2|         1|
+|H5902            |H590           |     1|         1|
+|I84              |I849           |     4|         1|
+|K52              |K529           |     1|         1|
+|S9780            |S978           |     1|         1|
+|H3341            |H334           |     1|         1|
+|H2640            |H264           |     7|         1|
+|E862             |E86            |    15|         1|
+|U04              |U049           |     3|         1|
+|I100             |I10            |     9|         1|
+|B079             |B07            |     1|         1|
+|S6621            |S662           |     1|         1|
+|H0011            |H001           |     2|         1|
+|Z13              |Z139           |    12|         1|
+|E1121            |E112           |     4|         1|
+|O82              |O829           |     7|         1|
+|Z0041            |Z004           |     2|         1|
+|D3160            |D316           |     1|         1|
+|M1990            |M199           |     3|         1|
+|N03              |N039           |     7|         1|
+|Z010A            |Z010           |     1|         1|
+|H2592            |H259           |     2|         1|
+|Z9922            |Z992           |     4|         1|
+|Z30              |Z309           |     3|         1|
+|Z0167            |Z016           |     1|         1|
+|J1293            |J129           |     2|         1|
+|C34              |C349           |     4|         1|
+|Z20              |Z209           |     9|         1|
+|E1450            |E145           |     1|         1|
+|J3801            |J380           |     1|         1|
+|Z0013            |Z001           |     1|         1|
+|J1803            |J180           |     3|         1|
+|D46              |D469           |     1|         1|
+|D32              |D329           |     2|         1|
+|C60              |C609           |     1|         1|
+|E1451            |E145           |     1|         1|
+|H3532            |H353           |     2|         1|
+|D2310            |D231           |     1|         1|
+|K40              |K409           |     4|         1|
+|H4001            |H400           |     1|         1|
+|I11              |I119           |     1|         1|
+|N20              |N209           |     1|         1|
+|H2511            |H251           |     5|         1|
+|J1282            |J128           |     2|         1|
+|E860             |E86            |     4|         1|
+|K81              |K819           |     1|         1|
+|R131             |R13            |     1|         1|
+|H2691            |H269           |     2|         1|
+|Q8781            |Q878           |     1|         1|
+|N00              |N009           |     2|         1|
+|G4420            |G442           |     1|         1|
+|H1101            |H110           |     3|         1|
+|E14              |E149           |     3|         1|
+|S8284            |S828           |     1|         1|
+|C83              |C839           |     1|         1|
+|Z3700            |Z370           |     1|         1|
+|N0185            |N018           |     2|         1|
+|H3340            |H334           |     1|         1|
+|R020             |R02            |     1|         1|
+|K58              |K589           |     1|         1|
+|C11              |C119           |     4|         1|
+|O69              |O699           |     5|         1|
+|Z3042            |Z304           |     2|         1|
+|E11              |E119           |     1|         1|
+|O03              |O039           |     1|         1|
+|H2510            |H251           |     4|         1|
+|H4021            |H402           |     6|         1|
+|D279             |D27            |     2|         1|
+|K2961            |K296           |     1|         1|
+|K4090            |K409           |     2|         1|
+|H714             |H71            |     1|         1|
+|I5000            |I500           |     1|         1|
+|J1593            |J159           |     1|         1|
+|H4011            |H401           |     2|         1|
+|H3330            |H333           |     1|         1|
+|J45              |J459           |     1|         1|
+|M32              |M329           |     1|         1|
+|G70              |G709           |     1|         1|
+|K29              |K299           |     1|         1|
+|T1501            |T150           |     1|         1|
+|J06              |J069           |     1|         1|
+|N2011            |N201           |     1|         1|
+|H1691            |H169           |     1|         1|
+|O42              |O429           |     1|         1|
+|H3301            |H330           |     2|         1|
+|K44              |K449           |     1|         1|
+|S6991            |S699           |     1|         1|
+|J1292            |J129           |     2|         1|
+|M79              |M799           |     1|         1|
+|H4310            |H431           |     1|         1|
+|C5002            |C500           |     1|         1|
+|H3510            |H351           |     1|         1|
+|Z94              |Z949           |     1|         1|
+|R6521            |R652           |     1|         1|
+|N195             |N19            |     1|         1|
+|J132             |J13            |     2|         1|
+|Z0168            |Z016           |     1|         1|
+|B9681            |B968           |     1|         1|
+|K2960            |K296           |     1|         1|
+|C32              |C329           |     1|         1|
+|S0530            |S053           |     1|         1|
+|Z3049            |Z304           |     1|         1|
+|K5730            |K573           |     1|         1|
+|K85              |K859           |     3|         1|
+|A091             |A09            |     1|         1|
+|J221             |J22            |     1|         1|
+|N18              |N189           |     1|         1|
+|Z3800            |Z380           |     3|         1|
+|N17              |N179           |     2|         1|
+|L0310            |L031           |     1|         1|
+|S0110            |S011           |     1|         1|
+|J0390            |J039           |     1|         1|
+|C561             |C56            |     1|         1|
+|O33              |O339           |     2|         1|
+|Z37              |Z379           |     2|         1|
+|T15              |T159           |     1|         1|
+|Z370O            |Z370           |     2|         1|
+|H4000            |H400           |     1|         1|
+|O15              |O159           |     1|         1|
+|H2520            |H252           |     3|         1|
+|E1432            |E143           |     1|         1|
+|J86              |J869           |     1|         1|
+|Z0042            |Z004           |     1|         1|
+|H1102            |H110           |     1|         1|
+|Z0052            |Z005           |     1|         1|
+|A15              |A159           |     1|         1|
+|E10              |E109           |     2|         1|
+|C91              |C919           |     2|         1|
+|E1122            |E112           |     1|         1|
+|T8750            |T875           |     1|         1|
+|I50              |I509           |     1|         1|
+|H4050            |H405           |     2|         1|
+|C08              |C089           |     1|         1|
+|O8096            |O809           |     1|         1|
+|H2580            |H258           |     1|         1|
+|I489             |I48            |     1|         1|
+|T8092            |T809           |     1|         1|
+|I482             |I48            |     1|         1|
+|O134             |O13            |     1|         1|
+|A0100            |A010           |     1|         1|
+|H4091            |H409           |     1|         1|
+|J1812            |J181           |     2|         1|
+|H5002            |H500           |     1|         1|
+|E1430            |E143           |     1|         1|
+|H3521            |H352           |     1|         1|
+|O820Z            |O820           |     1|         1|
+|R329             |R32            |     1|         1|
+|N630             |N63            |     1|         1|
+|T1502            |T150           |     2|         1|
+|R2231            |R223           |     1|         1|
+|S01              |S019           |     1|         1|
+|H1690            |H169           |     1|         1|
+|H40              |H409           |     1|         1|
+|R2230            |R223           |     1|         1|
+|C85              |C859           |     2|         1|
+|D64              |D649           |     1|         1|
+|M5136            |M513           |     1|         1|
+|Z330             |Z33            |     1|         1|
+|K21              |K219           |     1|         1|
+|J4599            |J459           |     3|         1|
+|I12              |I129           |     2|         1|
+|S9101            |S910           |     1|         1|
+|E1423            |E142           |     2|         1|
+|L0241            |L024           |     1|         1|
+|H2700            |H270           |     1|         1|
+|C7981            |C798           |     1|         1|
+|Z3009            |Z300           |     1|         1|
+|C4492            |C449           |     1|         1|
+|I24              |I249           |     1|         1|
+|K30X             |K30            |     1|         1|
+|H0240            |H024           |     1|         1|
+|J3501            |J350           |     1|         1|
+|Z1159            |Z115           |     1|         1|
+|J1592            |J159           |     4|         1|
+|S0033            |S003           |     1|         1|
+|H10              |H109           |     1|         1|
+|O133             |O13            |     1|         1|
+|C22              |C229           |     1|         1|
+|E1030            |E103           |     1|         1|
+|S8100            |S810           |     1|         1|
+|H3480            |H348           |     1|         1|
+|Q66              |Q669           |     1|         1|
+|H35              |H359           |     2|         1|
+|N84              |N849           |     1|         1|
+|M3215            |M321           |     1|         1|
+|C569             |C56            |     2|         1|
+|S9100            |S910           |     1|         1|
+|B17              |B179           |     1|         1|
+|S52              |S529           |     1|         1|
+|K25              |K259           |     1|         1|
+|Q90              |Q909           |     1|         1|
+|H2610            |H261           |     1|         1|
+|D3811            |D381           |     1|         1|
+|N409             |N40            |     1|         1|
+|O00              |O009           |     1|         1|
+|S9131            |S913           |     1|         1|
+|C560             |C56            |     1|         1|
+|N2001            |N200           |     1|         1|
+|E1134            |E113           |     1|         1|
+|S8190            |S819           |     1|         1|
+|H1791            |H179           |     1|         1|
+|I85              |I859           |     1|         1|
+|P0733            |P073           |     1|         1|
+|C25              |C259           |     1|         1|
+|E1221            |E122           |     1|         1|
+|H6040            |H604           |     1|         1|
+|O139             |O13            |     1|         1|
+|J142             |J14            |     1|         1|
+|O70              |O709           |     1|         1|
+|J18              |J189           |     1|         1|
+|T1500            |T150           |     1|         1|
+|K3580            |K358           |     1|         1|
+|E869             |E86            |     2|         1|
+|N93              |N939           |     1|         1|
+|E1043            |E104           |     1|         1|
+|C200             |C20            |     1|         1|
+|R339             |R33            |     1|         1|
+|H3531            |H353           |     1|         1|
+|H4300            |H430           |     1|         1|
+|H3500            |H350           |     1|         1|
+|H3572            |H357           |     1|         1|
+|N403             |N40            |     1|         1|
+|Z0021            |Z002           |     1|         1|
+|C18              |C189           |     1|         1|
+|S9610            |S961           |     1|         1|
+|H0014            |H001           |     1|         1|
+|E1102            |E110           |     1|         1|
+|J1502            |J150           |     1|         1|
+|H2692            |H269           |     1|         1|
+|H1121            |H112           |     1|         1|
+|E79              |E799           |     2|         1|
+|L8911            |L891           |     1|         1|
+|S6360            |S636           |     1|         1|
+|L72              |L729           |     1|         1|
+|R2240            |R224           |     1|         1|
+|J1289            |J128           |     1|         1|
+|K8000            |K800           |     1|         1|
+|N11              |N119           |     1|         1|
+|H3530            |H353           |     1|         1|
+|R0902            |R090           |     1|         1|
+|J1890            |J189           |     1|         1|
+|C81              |C819           |     1|         1|
+|M81              |M819           |     1|         1|
+nrow Modified ICD-10 Codes:  345 
+
+
+Table: Invalid ICD-10 Codes
+
+|code    | count|
+|:-------|-----:|
+|A971    |     1|
+|A970    |     1|
+|U072    |     1|
+|N08     |     1|
+|Y95     |     1|
+|W54     |     1|
+|U071    |     1|
+|Y9369   |     1|
+|Y427    |     1|
+|O09521  |     1|
+|J11     |     1|
+|V8999   |     1|
+|U089    |     1|
+|U05     |     1|
+|Y28     |     1|
+|Z38     |     1|
+|Y2872   |     1|
+|W19     |     1|
+|K80     |     1|
+|W199    |     1|
+|K640    |     1|
+|W55     |     1|
+|V8929   |     1|
+|K648    |     1|
+|W1999   |     1|
+|W540XXA |     1|
+|O60     |     1|
+|M97     |     1|
+|U079    |     1|
+|A972    |     1|
+|Z49     |     1|
+|Y049    |     1|
+|V899    |     1|
+|W5499   |     1|
+|X599    |     1|
+|O760    |     1|
+|A48     |     1|
+|D63     |     1|
+|S614    |     1|
+|V43     |     1|
+|Y841    |     1|
+|V2999   |     1|
+|X46     |     1|
+|Z037    |     1|
+|Z98     |     1|
+|W1701   |     1|
+|W59     |     1|
+|S61212  |     1|
+|H36     |     1|
+|V892    |     1|
+|W4499   |     1|
+|J31     |     1|
+|X9999   |     1|
+|Z322    |     1|
+|V580    |     1|
+|W540    |     1|
+|K749    |     1|
+|Y04     |     1|
+|X0999   |     1|
+|L723    |     1|
+|Y834    |     1|
+|H2909   |     1|
+|Y560    |     1|
+|V878    |     1|
+|W541    |     1|
+|I160    |     1|
+|O144    |     1|
+|K643    |     1|
+|D18     |     1|
+|X588    |     1|
+|Y14     |     1|
+|X58     |     1|
+|K649    |     1|
+|X1999   |     1|
+|T14IW54 |     1|
+|W5599   |     1|
+|W5683   |     1|
+|X080    |     1|
+|V0299   |     1|
+|K64     |     1|
+|X5999   |     1|
+|V224    |     1|
+|C76     |     1|
+|I502    |     1|
+|V0249   |     1|
+|E44     |     1|
+|O779    |     1|
+|K642    |     1|
+|X64     |     1|
+|R10     |     1|
+|K56     |     1|
+|L027    |     1|
+|N493    |     1|
+|W74     |     1|
+|Y453    |     1|
+|Z39     |     1|
+|O096    |     1|
+|V284    |     1|
+|A979    |     1|
+|K641    |     1|
+|W5099   |     1|
+|W1499   |     1|
+|V890    |     1|
+|W2672   |     1|
+|Y2588   |     1|
+|L204    |     1|
+|N186    |     1|
+|Y455    |     1|
+|I873    |     1|
+|W5503   |     1|
+|K278    |     1|
+|K644    |     1|
+|E09     |     1|
+|V04     |     1|
+|U07     |     1|
+|L7634   |     1|
+|V486    |     1|
+|W549    |     1|
+|C21     |     1|
+|V270    |     1|
+|W0199   |     1|
+|V2699   |     1|
+|W1926   |     1|
+|X84     |     1|
+|T837    |     1|
+
+nrow invalid ICD-10 codes:  125 
+
+All PDx's are in the list of acceptable PDx's:
+ TRUE 
+Number of rows where CAT_24 is not in the allowed categories: 4966 
+Number of rows where clin_outpatient is TRUE: 7715 
+Number of rows where claim_status is not 'G': 329 
+Number of duplicated rows based on specified columns: 0 
+Key: <id_hci>
+Empty data.table (0 rows and 41 cols): id_year,id_series,id_pin,id_hci,id_hcp,date_adm...
+Key: <id_hci>
+Empty data.table (0 rows and 41 cols): id_year,id_series,id_pin,id_hci,id_hcp,date_adm...
+Key: <id_hci>
+Empty data.table (0 rows and 41 cols): id_year,id_series,id_pin,id_hci,id_hcp,date_adm...
+Null data.table (0 rows and 0 cols)
+Rows where pat_age is NA in one table but
+not in the other, or where the values differ:
+Key: <id_series>
+Empty data.table (0 rows and 5 cols): id_series,id_series,pat_bdate,pat_age_before,pat_age_after
+Table dropped successfully.
+
+
+Table created successfully.
+
+
