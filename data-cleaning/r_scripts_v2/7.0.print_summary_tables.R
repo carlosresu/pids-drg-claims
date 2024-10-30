@@ -1,29 +1,36 @@
-print_summary_tables <- function(final_combined_summaries, masterdt = master_dt) {
+print_summary_tables <- function(final_combined_summaries) {
   summary <- final_combined_summaries
-  # to_debug <- TRUE
-  # Rename Success
-  cat("\nRename Success:\n", summary$final_rename_success, "\n")
-  if (to_debug) cat("\nfinal_ICD_replacements_1\n")
-  if (to_debug) str(summary$final_ICD_replacements_1)
-  if (to_debug) cat("\nfinal_ICD_replacements_2\n")
-  if (to_debug) str(summary$final_ICD_replacements_2)
 
-  # Combine ICD Replacements
-  final_icd_replacements <- unique(rbind(
-    summary$final_ICD_replacements_1,
-    summary$final_ICD_replacements_2
-  ))
+  # Step 1: Print Rename Success
+  cat("\nRename Success:\n", summary$rename_success, "\n")
 
-  # Print ICD Replacements
-  if (nrow(final_icd_replacements) > 0) {
-    print(knitr::kable(final_icd_replacements,
-      format = "markdown",
-      caption = "ICD Normalized Text for clin c1 & c2 Before Splitting
+  # Step 2: Combine and Print ICD Replacements
+  final_icd_replacements <- rbind(
+    summary$ICD_replacements_1,
+    summary$ICD_replacements_2
+  )
+
+  final_icd_replacements <- unique(final_icd_replacements)
+
+  print_icd_normalized_table <- function(icd_replacements) {
+    # Ensure we only keep one pair of 'old_code' and 'new_code' columns with the 'count'
+    relevant_columns <- c("old_code", "new_code", "count")
+    unique_replacements <- icd_replacements[, ..relevant_columns]
+
+    # Print the table if there are rows
+    if (nrow(unique_replacements) > 0) {
+      print(knitr::kable(
+        unique_replacements,
+        format = "markdown",
+        caption = "ICD Normalized Text for clin c1 & c2 Before Splitting
 (Note: differences of only one period symbol are ignored)"
-    ))
-  } else {
-    cat("\nNo ICD replacements found.\nNote: periods and whitespaces are ignored.\n")
+      ))
+    } else {
+      cat("\nNo ICD replacements found.\nNote: periods and whitespaces are ignored.\n")
+    }
   }
+
+  print_icd_normalized_table(unique(final_icd_replacements))
 
   # Inline Display Function for Unique Mappings
   display_mappings <- function(mapped_data, mapping_name) {
@@ -37,17 +44,19 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
     ))
   }
 
-  # Display Unique Mappings for Different Categories
-  display_mappings(summary$final_pat_type_mapped, "Patient Type")
-  display_mappings(summary$final_pat_memcat_parent_mapped, "Memcat Parent")
-  display_mappings(summary$final_pat_memcat_child_mapped, "Memcat Child")
-  display_mappings(summary$final_clin_discharge_mapped, "Discharge")
-  display_mappings(summary$final_claim_status_mapped, "Claim Status")
+  display_mappings(summary$pat_type_mapped, "Patient Type")
+  display_mappings(summary$pat_memcat_parent_mapped, "Memcat Parent")
+  display_mappings(summary$pat_memcat_child_mapped, "Memcat Child")
+  display_mappings(summary$clin_discharge_mapped, "Discharge")
+  display_mappings(summary$claim_status_mapped, "Claim Status")
 
+  # Step 4: Combine and Display Discarded RVS Codes
+  discarded_rvs_one <- combine_discarded_rvs_tables(list(summary), "discard_rvs_one")
+  discarded_rvs_two <- combine_discarded_rvs_tables(list(summary), "discard_rvs_two")
   # Combine and Display Discarded RVS Codes
   final_discard_rvs <- rbind(
-    summary$final_discard_rvs_one,
-    summary$final_discard_rvs_two
+    discarded_rvs_one,
+    discarded_rvs_two
   )[, .(count = sum(count)), by = CODE][order(-count)]
 
   if (nrow(final_discard_rvs) > 0) {
@@ -59,61 +68,79 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
     cat("\nNo RVS codes discarded.\n\n")
   }
 
-  # Inline Display Function for Empty String Replacements
+  # Convert counts to percentages and print the formatted tables
   display_empty_string_replacements <- function(data, set_name) {
-    if (nrow(data) > 0) {
-      print(knitr::kable(data, format = "markdown", caption = paste0("Empty Strings Replaced (", set_name, " Set)")))
+    formatted_data <- final_combine_replace_empty_tables(data)
+    if (nrow(formatted_data) > 0) {
+      print(knitr::kable(
+        formatted_data,
+        format = "markdown",
+        caption = paste0("Empty Strings Replaced (", set_name, " Set)")
+      ))
     } else {
       cat(paste0("\nNo empty strings replaced in the ", set_name, " set.\n\n"))
     }
   }
 
   # Display Empty String Replacements
-  display_empty_string_replacements(summary$final_empty_strings_replaced_1, "First")
-  display_empty_string_replacements(summary$final_empty_strings_replaced_2, "Second")
+  display_empty_string_replacements(summary$replacement_summary, "Zeroth")
+  display_empty_string_replacements(summary$empty_strings_replaced_1, "First")
+  display_empty_string_replacements(summary$empty_strings_replaced_2, "Second")
 
-  # Print RVS Code Statistics
-  cat(
-    sprintf("There are %d RVS codes without an ICD-9CM equivalent.\n", summary$final_without_drg),
-    sprintf("There are %d unique RVS codes.\n", summary$final_rvss),
-    sprintf(
-      "%d (%.2f%%) have an ICD-9-CM mapping.\n",
-      summary$final_mappable_rvs, (summary$final_mappable_rvs / summary$final_rvss) * 100
-    ),
-    sprintf(
-      "%d (%.2f%%) have multiple ICD-9 equivalents.\n",
-      summary$final_multi_mapped_rvs, (summary$final_multi_mapped_rvs / summary$final_rvss) * 100
-    )
-  )
+  # Step 8: Print RVS Code and ICD-10 Statistics
+  cat(sprintf("There are %d RVS codes without an ICD-9CM equivalent.\n", length(summary$without_drg)))
+  cat(sprintf("There are %d unique RVS codes.\n", length(summary$rvss)))
+  cat(sprintf(
+    "%d (%.2f%%) have an ICD-9-CM mapping.\n",
+    length(summary$mappable_rvs),
+    (length(summary$mappable_rvs) / length(summary$rvss)) * 100
+  ))
+  cat(sprintf(
+    "%d (%.2f%%) have multiple ICD-9 equivalents.\n",
+    length(summary$multi_mapped_rvs),
+    (length(summary$multi_mapped_rvs) / length(summary$rvss)) * 100
+  ))
 
   # Print ICD-10 Mapping Statistics
   cat(
-    sprintf("\nThere are %d unique ICD-10 codes.\n", summary$final_unique_icds),
+    sprintf("\nThere are %d unique ICD-10 codes.\n", length(summary$unique_icds)),
     sprintf(
       "%d (%.2f%%) are directly in the Thai ICD-10 library.\n",
-      summary$final_direct_matches, (summary$final_direct_matches / summary$final_unique_icds) * 100
+      length(summary$direct_matches), (length(summary$direct_matches) / length(summary$unique_icds)) * 100
     ),
     sprintf(
       "Total %d codes were mapped to the Thai ICD10 library.\n",
-      summary$final_unique_icds - length(summary$final_unmatched_codes)
+      length(summary$unique_icds) - length(summary$unmatched_codes)
     ),
     sprintf(
       "%d codes were modified to match.\n",
-      summary$final_unique_icds - length(summary$final_unmatched_codes) - summary$final_direct_matches
+      length(summary$unique_icds) - length(summary$unmatched_codes) - length(summary$direct_matches)
     ),
-    sprintf("%d codes could not be mapped.\n", length(summary$final_unmatched_codes))
+    sprintf("%d codes could not be mapped.\n", length(summary$unmatched_codes))
   )
 
   # Print Modified ICD-10 Codes
   print_modified_icd10_codes <- function(summary) {
-    unique_icd10_map <- summary$final_modified_matches
+    # Extract the modified matches from the summary
+    unique_icd10_map <- summary$modified_matches
+
+    # Ensure the data is in a data.table format
+    if (!is.data.table(unique_icd10_map)) {
+      unique_icd10_map <- as.data.table(unique_icd10_map)
+    }
 
     if (nrow(unique_icd10_map) > 0) {
-      # Order the data.table by char_diff
+      # Add a character difference column if not already present
+      if (!"char_diff" %in% names(unique_icd10_map)) {
+        unique_icd10_map[, char_diff := abs(nchar(modified_matches) - nchar(modified_match))]
+      }
+
+      # Order the data.table by char_diff in descending order
       unique_icd10_map <- unique_icd10_map[order(-char_diff)]
 
-      # Print as markdown table
-      print(knitr::kable(unique_icd10_map,
+      # Print the table as markdown
+      print(knitr::kable(
+        unique_icd10_map,
         format = "markdown",
         caption = "Modified ICD-10 Codes"
       ))
@@ -126,23 +153,24 @@ print_summary_tables <- function(final_combined_summaries, masterdt = master_dt)
   }
 
   # Example usage to print the modified codes
-  print_modified_icd10_codes(list(final_modified_matches = final_modified_matches))
+  print_modified_icd10_codes(summary)
 
-  if (length(summary$final_unmatched_codes) > 0) {
+  if (length(summary$unmatched_codes) > 0) {
     # Convert the unmatched codes into a data.table with counts
-    final_unmatched_codes <- data.table(
-      code = summary$final_unmatched_codes
+    unmatched_codes <- data.table(
+      code = summary$unmatched_codes
     )[, .(count = .N), by = code][order(-count)] # Aggregate by code and order by count
 
     # Print the final unmatched sources as a markdown table
-    print(knitr::kable(final_unmatched_codes,
+    print(knitr::kable(unmatched_codes,
       format = "markdown",
       caption = "Invalid ICD-10 Codes"
     ))
-    cat("\nnrow invalid ICD-10 codes: ", nrow(final_unmatched_codes), "\n")
+    cat("\nnrow invalid ICD-10 codes: ", nrow(unmatched_codes), "\n")
   } else {
     cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
   }
 
-  cat("\nAll PDx's are in the list of acceptable PDx's:\n", summary$final_pdx_success, "")
+  # Step 9: Print PDX Success
+  cat("\nAll PDx's are in the list of acceptable PDx's:\n", summary$pdx_success, "\n")
 }
