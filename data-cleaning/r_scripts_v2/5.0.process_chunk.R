@@ -66,8 +66,37 @@ process_chunk <- function(chunk,
     by = .(old_code, new_code)
   ]
   chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
-  chunk[, c1 := split_to_vector(remove_lumped_icd_codes(lapply(c1, manual_replacement)))]
-  chunk[, c2 := split_to_vector(remove_lumped_icd_codes(lapply(c2, manual_replacement)))]
+  # OLD CODE:
+  # chunk[, c1 := split_to_vector(remove_lumped_icd_codes(lapply(c1, manual_replacement)))]
+  # chunk[, c2 := split_to_vector(remove_lumped_icd_codes(lapply(c2, manual_replacement)))]
+  # REFACTORED CODE:
+  # Apply the correct sequence of operations to the `chunk` data.table
+  chunk[, c1 := lapply(c1, function(text) {
+    # Step 1: Apply manual replacements
+    replaced_text <- manual_replacement(text)
+
+    # Step 2: Collapse the result into a single string with "||" as separator
+    collapsed_text <- collapse_to_string(replaced_text)
+
+    # Step 3: Split the collapsed text using `split_to_vector`
+    split_result <- split_to_vector(collapsed_text)
+
+    # Step 4: Remove any lumped ICD-10 codes
+    remove_lumped_icd_codes(split_result)
+  })]
+  chunk[, c2 := lapply(c2, function(text) {
+    # Step 1: Apply manual replacements
+    replaced_text <- manual_replacement(text)
+
+    # Step 2: Collapse the result into a single string with "||" as separator
+    collapsed_text <- collapse_to_string(replaced_text)
+
+    # Step 3: Split the collapsed text using `split_to_vector`
+    split_result <- split_to_vector(collapsed_text)
+
+    # Step 4: Remove any lumped ICD-10 codes
+    remove_lumped_icd_codes(split_result)
+  })]
   chunk[, clin_icd := lapply(seq_len(.N), function(i) c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]]))]
   c1_results <- append_and_remove_rvs(chunk$clin_rvs, chunk$c1, rvsicd9)
   chunk[, clin_rvs := c1_results$clin_rvs]

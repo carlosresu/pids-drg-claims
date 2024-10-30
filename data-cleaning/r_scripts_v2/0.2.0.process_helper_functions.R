@@ -6,45 +6,105 @@ remove_periods_and_whitespaces <- function(x) {
   gsub("[.\\s]", "", x)
 }
 
-remove_lumped_icd_codes <- function(column) {
-  ## Takes a column and separates out ICD-10 codes using "||"
-  ## been lumped into a single string
+# OLD CODE BEFORE REFACTORING:
+# remove_lumped_icd_codes <- function(column) {
+#   ## Takes a column and separates out ICD-10 codes using "||"
+#   ## been lumped into a single string
 
-  # Use regex to add "||" between letters and digits
-  # in the ICD codes (e.g., A123B456 -> A123||B456)
-  stri_replace_all_regex(
-    column, "(?<=\\d)(?=[A-Z]\\d{2,4})", "||",
-    # Specify regex options for the replacement
-    opts_regex = stri_opts_regex()
-  )
-}
+#   # Use regex to add "||" between letters and digits
+#   # in the ICD codes (e.g., A123B456 -> A123||B456)
+#   stri_replace_all_regex(
+#     column, "(?<=\\d)(?=[A-Z]\\d{2,4})", "||",
+#     # Specify regex options for the replacement
+#     opts_regex = stri_opts_regex()
+#   )
+# }
 
-split_to_vector <- function(column, covidrvspattern = covid_rvs_pattern) {
-  ## Splits a column of strings in two passes:
-  # 1. Split on COVID RVS codes
-  # 2. Split on "||" delimiter
+# split_to_vector <- function(column, covidrvspattern = covid_rvs_pattern) {
+#   ## Splits a column of strings in two passes:
+#   # 1. Split on COVID RVS codes
+#   # 2. Split on "||" delimiter
 
+#   result <- lapply(column, function(x) {
+#     # If the entry is NA, leave it as is
+#     if (is.na(x)) {
+#       return(NA_character_)
+#     } else {
+#       # First pass: Split on COVID RVS codes to handle lumped codes
+#       first_split <- unlist(strsplit(x, covidrvspattern, perl = TRUE))
+
+#       # Second pass: Split on "||" within each split chunk
+#       final_split <- unlist(strsplit(first_split, "||", fixed = TRUE))
+
+#       # Remove empty strings or NA-like values
+#       final_split <- final_split[final_split != "" & !is.na(final_split)]
+
+#       return(final_split)
+#     }
+#   })
+
+#   # Return the list of vectors
+#   return(result)
+# }
+
+# NEW REFACTORED CODE:
+
+### Split to Vector Function ###
+split_to_vector <- function(column) {
+  ## Splits strings into vectors by first handling COVID, RVS, and neoplasm codes
   result <- lapply(column, function(x) {
-    # If the entry is NA, leave it as is
+    # Handle NA values
     if (is.na(x)) {
       return(NA_character_)
-    } else {
-      # First pass: Split on COVID RVS codes to handle lumped codes
-      first_split <- unlist(strsplit(x, covidrvspattern, perl = TRUE))
-
-      # Second pass: Split on "||" within each split chunk
-      final_split <- unlist(strsplit(first_split, "||", fixed = TRUE))
-
-      # Remove empty strings or NA-like values
-      final_split <- final_split[final_split != "" & !is.na(final_split)]
-
-      return(final_split)
     }
+
+    # First pass: Split using combined pattern of COVID, RVS, and neoplasm codes
+    first_split <- unlist(strsplit(x, paste0("(", covid_rvs_neoplasm_pattern, ")"), perl = TRUE))
+
+    # Filter out empty strings
+    first_split <- first_split[first_split != ""]
+
+    # Return the character vector of the split result
+    return(first_split)
   })
 
-  # Return the list of vectors
   return(result)
 }
+
+### Remove Lumped ICD Codes Function ###
+remove_lumped_icd_codes <- function(column) {
+  ## Processes a list column of character vectors, splitting lumped ICD-10 codes
+
+  result <- lapply(column, function(vec) {
+    # Iterate through each element of the vector
+    processed <- unlist(lapply(vec, function(element) {
+      # Check if the element matches COVID, RVS, or neoplasm codes
+      if (element %in% c(covid_codes, rvs_codes, neoplasm_codes)) {
+        return(element) # Keep intact if it's a valid code
+      } else {
+        # Perform regex-based splitting for ICD-10 codes
+        return(unlist(strsplit(element, "(?=[A-Z][0-9]{2,})", perl = TRUE)))
+      }
+    }))
+
+    # Filter out empty strings and return the cleaned vector
+    return(processed[processed != ""])
+  })
+
+  return(result)
+}
+
+# Function to collapse the replaced text with "||" as separator
+collapse_to_string <- function(vec) {
+  # Collapse non-empty elements with "||" as the separator
+  vec <- vec[vec != "" & !is.na(vec)]
+  if (length(vec) > 0) {
+    paste(vec, collapse = "||")
+  } else {
+    NA_character_
+  }
+}
+
 
 replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
   ## Replaces empty strings with NA across an entire data.table.
