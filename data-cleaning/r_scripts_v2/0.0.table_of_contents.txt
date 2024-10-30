@@ -1,17 +1,17 @@
-params_fpaths.R
-process_helper_functions.R
-summary_helper_functions.R
-query_bq_to_dt.R
-split_and_save_part.R
-ensure_sample_files_exist.R
-read_appropriate_file.R
-process_chunk.R
-  collapse_and_clean_icd_rvs_cols.R
-  append_and_remove_rvs.R
-  remap_patient_data.R
-  map_rvs_icd9.R
-  map_icd10.R
-  find_pdx.R
-aggregate_all_summaries.R
-  combine_summaries.R
-print_summary_tables.R
+params_fpaths
+process_helper_functions
+summary_helper_functions
+query_bq_to_dt
+split_and_save_part
+ensure_sample_files_exist
+read_appropriate_file
+process_chunk
+  collapse_and_clean_icd_rvs_cols
+  append_and_remove_rvs
+  remap_patient_data
+  map_rvs_icd9
+  map_icd10
+  find_pdx
+aggregate_all_summaries
+  combine_summaries
+print_summary_tables
