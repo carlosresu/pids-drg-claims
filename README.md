@@ -263,3 +263,78 @@ Steps to run the data-cleaning code end-to-end:
       `Compute Engine System service account service-271591364028@compute-system.iam.gserviceaccount.com needs to have [compute.instances.stop] permissions applied in order to perform this operation.`
 2. Enable patch job for updates
    `echo $'{\n  \"name\": \"projects/271591364028/patchDeployments/update-vm\",\n  \"instanceFilter\": {\n    \"instances\": [\"zones/us-central1-a/instances/drg-data-pipeline\"]\n  },\n  \"patchConfig\": {\n    \"rebootConfig\": \"DEFAULT\",\n    \"apt\": {\n      \"type\": \"DIST\"\n    },\n    \"yum\": {\n    },\n    \"zypper\": {\n    },\n    \"windowsUpdate\": {\n    }\n  },\n  \"duration\": \"3600s\",\n  \"recurringSchedule\": {\n    \"timeZone\": {\n      \"id\": \"Asia/Manila\"\n    },\n    \"timeOfDay\": {\n      \"hours\": 19,\n      \"minutes\": 30\n    },\n    \"frequency\": \"DAILY\"\n  },\n  \"rollout\": {\n    \"mode\": \"CONCURRENT_ZONES\",\n    \"disruptionBudget\": {\n      \"fixed\": 1\n    }\n  }\n}' > patch_deployment_96a2901c-46a5-4ef6-b9a1-d6e4bf6f96c3.json && gcloud compute os-config patch-deployments update update-vm --file=patch_deployment_96a2901c-46a5-4ef6-b9a1-d6e4bf6f96c3.json`
+3. Add the following update-vm-post-patch-script.sh to gs://phic-other/update-vm-post-patch-script.sh
+   ```
+   #!/bin/bash
+
+   # Ensure the script exits if any command fails
+   set -e
+
+   # Define the path to the r-reticulate virtual environment
+   VENV_PATH="/home/resurreccion_cmc_gmail_com/.virtualenvs/r-reticulate"
+
+   # Function to upgrade a virtual environment
+   upgrade_venv() {
+      VENV_BIN="$1/bin/python"
+      if [[ -x "$VENV_BIN" ]]; then
+         echo "Upgrading all packages in virtual environment: $1"
+         "$VENV_BIN" -m pip install --upgrade pip setuptools
+         "$VENV_BIN" -m pip freeze | cut -d '=' -f 1 | xargs -n1 "$VENV_BIN" -m pip install --upgrade || true
+      fi
+   }
+
+   # Activate and upgrade the r-reticulate virtual environment
+   echo "Activating and upgrading r-reticulate..."
+   source "$VENV_PATH/bin/activate"
+   pip install --upgrade pip setuptools
+   pip install --upgrade numpy pandas streamlit python_dateutil tabulate swifter rpy2 pyreadr papermill nbformat IProgress jupyter ipywidgets
+   deactivate
+
+   # Upgrade all Python packages in every detected virtual environment
+   echo "Searching for virtual environments..."
+   find /home -type d -name 'bin' -path '*/.virtualenvs/*/bin' 2>/dev/null | while read -r bin_path; do
+      upgrade_venv "$(dirname "$bin_path")"
+   done
+
+   # Function to upgrade a package using apt or pipx
+   upgrade_package() {
+      PACKAGE=$1
+      echo "Trying to upgrade $PACKAGE via apt..."
+
+      # Attempt to upgrade via apt
+      if sudo apt install -y "python3-$PACKAGE" >/dev/null 2>&1; then
+         echo "$PACKAGE upgraded via apt."
+      else
+         echo "Failed to upgrade $PACKAGE via apt. Trying pipx..."
+
+         # Attempt to install/upgrade via pipx
+         if pipx list | grep -q "$PACKAGE"; then
+               echo "$PACKAGE already managed by pipx. Upgrading..."
+               pipx upgrade "$PACKAGE" || echo "Failed to upgrade $PACKAGE with pipx."
+         else
+               echo "$PACKAGE not found in pipx. Installing..."
+               pipx install "$PACKAGE" || echo "Failed to install $PACKAGE with pipx."
+         fi
+      fi
+   }
+
+   # Upgrade all installed packages for valid system Python versions
+   echo "Searching for valid Python versions..."
+   for python_bin in /usr/bin/python* /usr/local/bin/python*; do
+      if [[ "$python_bin" =~ python[0-9.]+$ ]] && [[ -x "$python_bin" ]]; then
+         echo "Upgrading all packages for $python_bin..."
+         "$python_bin" -m pip install --upgrade pip setuptools --break-system-packages || true
+         installed_packages=$("$python_bin" -m pip freeze | cut -d '=' -f 1)
+
+         # Use apt or pipx for each package if available, otherwise use pip
+         for pkg in $installed_packages; do
+               if ! upgrade_package "$pkg"; then
+                  echo "Upgrading $pkg via pip for $python_bin..."
+                  "$python_bin" -m pip install --upgrade "$pkg" --break-system-packages || true
+               fi
+         done
+      fi
+   done
+
+   echo "All Python packages across the system and virtual environments have been upgraded."
+   ```
