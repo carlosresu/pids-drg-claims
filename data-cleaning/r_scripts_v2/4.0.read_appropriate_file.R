@@ -10,7 +10,7 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 
   dt <- readRDS(chunk_file)
 
-  available_columns <- colnames(dt)
+  available_columns <<- colnames(dt)
 
   # Drop columns
   if (any(drop_cols %in% available_columns)) {

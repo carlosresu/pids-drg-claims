@@ -55,6 +55,12 @@ sudo apt install jupyter jupyter-core jupyter-client build-essential libcurl4-op
 
 # upgrade packages
 sudo apt upgrade
+
+# create a venv and install venv-reliant packages
+python3 -m venv ~/venv
+
+# Activate the virtual environment
+source ~/venv/bin/activate
 ```
 
 Install R

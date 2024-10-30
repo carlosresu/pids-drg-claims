@@ -165,7 +165,6 @@ na_like_strings <- c(
 column_mappings <- list(
   # Admission and discharge information
   "ADMISSION_YEAR" = "id_year",
-  "SRC_YR" = "id_year",
   "ADMISSION_DATE" = "date_adm",
   "DATE_ADM" = "date_adm",
   "ADMISSION_TIME" = "time_adm",

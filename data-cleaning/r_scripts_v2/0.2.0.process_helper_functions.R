@@ -1,3 +1,11 @@
+manual_replacement <- function(text) {
+  stri_replace_all_regex(text, manual_patterns_to_replace, manual_code_replacements, vectorize_all = FALSE)
+}
+
+remove_periods_and_whitespaces <- function(x) {
+  gsub("[.\\s]", "", x)
+}
+
 remove_lumped_icd_codes <- function(column) {
   ## Takes a column and separates out ICD-10 codes using "||"
   ## been lumped into a single string
