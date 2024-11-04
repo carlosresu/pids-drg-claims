@@ -1,4 +1,4 @@
-append_and_remove_rvs <- function(clin_rvs, col, rvs_icd9) {
+append_copy_and_remove_icd_rvs <- function(clin_rvs, col, rvs_icd9) {
   ## Ensure both clin_rvs and col are lists of vectors
   datatable <- data.table(clin_rvs = clin_rvs, col = col)
   valid_rvs_codes <- rvs_icd9$rvs
