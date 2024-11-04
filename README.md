@@ -42,7 +42,7 @@ gcloud compute os-config project-feature-settings describe --project drg-pipelin
 
 ## VM Configuration (System-Wide)
 
-Run all the below code in Terminal (after SSH-ing into the VM via GCP) unless otherwise specified. 
+Run all the below code in Terminal (after SSH-ing into the VM via GCP) unless otherwise specified.
 
 Update the package list, install jupyter, python, and build tools, then upgrade packages.
 
@@ -51,10 +51,14 @@ Update the package list, install jupyter, python, and build tools, then upgrade 
 sudo apt update
 
 # Install Jupyter:
-sudo apt install jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip pipx
+sudo apt install jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip pipx npm
 
 # upgrade packages
 sudo apt upgrade
+
+# Install Microsoft .NET 8.0
+sudo apt-get update && \
+sudo apt-get install -y dotnet-sdk-8.0
 
 # create a venv and install venv-reliant packages
 python3 -m venv ~/venv
@@ -91,7 +95,7 @@ R --version
 
 Make system-wide libraries writable by R, otherwise we'd need to rely on renv which we've been unable to get working.
 
-Here we create a data folder in the home directory where multiple users can store data, accessible to all of their user profile git cloned repositories. 
+Here we create a data folder in the home directory where multiple users can store data, accessible to all of their user profile git cloned repositories.
 
 For example, if I login as resurreccion_cmc_gmail_com, my user profile folder is /home/resurreccion_cmc_gmail_com and in that is my drg-pipeline git cloned repository. Later we will symbolically link the entire 'data' folder to each of our git cloned repository folders, as the code expects the 'data' folder and its contents to be in the data-cleaning folder of the repository, i.e. ~/drg-pipeline/data-cleaning/data.
 
@@ -113,7 +117,8 @@ sudo R
 
 Install necessaary packages, then install the IR kernel system-wide. Note that this takes a while as these packages are compiled from source.
 
-Run the below code in Terminal, *inside of R.*
+Run the below code in Terminal, _inside of R._
+
 ```
 install.packages("languageserver")
 install.packages("jsonlite")
@@ -165,7 +170,7 @@ USER="resurreccion_cmc_gmail_com"
 sudo -u $USER bash -c 'code tunnel'
 ```
 
-This runs code tunnel on VM startup. 
+This runs code tunnel on VM startup.
 
 TODO: make it work with multiple users.
 
@@ -210,18 +215,21 @@ To use Google Cloud Code, press sign in inside the VS Code extension, it'll open
 
 By end-to-end, we mean from GCS pull of raw claims files, to BQ push of claims after cleaning and grouping.
 
-Assuming you've already authorized the VS Code Server Code Tunnel in the VM, simply open your local VS Code install (with the Remote Development Extension from Microsoft), then 
-1. Click the `><` button on the bottom left corner of VS Code, and 
-2. Press `Connect to Tunnel`, then 
-3. Press `GitHub`, then 
+Assuming you've already authorized the VS Code Server Code Tunnel in the VM, simply open your local VS Code install (with the Remote Development Extension from Microsoft), then
+
+1. Click the `><` button on the bottom left corner of VS Code, and
+2. Press `Connect to Tunnel`, then
+3. Press `GitHub`, then
 4. Press `drg-data-pipelineus-`
 
-Once inside, 
+Once inside,
+
 1. Select the `drg-pipeline` folder in your user directory that we created by cloning the `drg-pipeline` repo earlier
 2. Open `data-cleaning/drg-cleaning.ipynb`
 
 Finally,
-1. Go over the parameters under `Primary` and `Secondary Parameters`, as well as `File Paths`, and 
+
+1. Go over the parameters under `Primary` and `Secondary Parameters`, as well as `File Paths`, and
 2. Make sure everything is in order.
 
 **Important 1: Ensure you've symbolically linked `/home/data` to `/home/<username>/drg-pipeline/data-cleaning`**
@@ -229,15 +237,16 @@ Finally,
 **Important 2: Ensure you've symbolically linked `~/drg-pipeline/data-cleaning/grouper/libraries` to `~/drg-pipeline/data-cleaning`**
 
 Steps to run the data-cleaning code end-to-end:
+
 1. Run the notebook via VS Code's Run All button
-2. Wait for the code to clean the data. This should take about an hour. 
-3. Review the summary outputs to see if there are any anomalies that need addressing in the code. 
-   1. If there are none, you don't need to do anything to proceed. 
+2. Wait for the code to clean the data. This should take about an hour.
+3. Review the summary outputs to see if there are any anomalies that need addressing in the code.
+   1. If there are none, you don't need to do anything to proceed.
    2. If there are anomalies, **stop the code now.**
 4. Wait for the code to group the claims via the Python Grouper. It should take quite a few hours.
-5. After it's done, it should then automatically prompt you asking if you've run the Thai Batch Grouper already. 
-   1. If you have, 
-      1. Type `y`. 
+5. After it's done, it should then automatically prompt you asking if you've run the Thai Batch Grouper already.
+   1. If you have,
+      1. Type `y`.
       2. Press `enter`.
    2. If not:
       1. **Don't type anything or press enter just yet. Leave it pending.** **DO NOT CLOSE VS CODE OR DISCONNECT FROM THE CODE TUNNEL INSTANCE**
@@ -250,12 +259,13 @@ Steps to run the data-cleaning code end-to-end:
       8. Return to your VS Code Code Tunnel Instance.
       9. Type `y`.
       10. Press `enter`.
-6.  It should now proceed with the process, first by analyzing and checking for differences between the drg code generated via Python Grouper vs via Thai Batch Grouper.
-    1.  It will write a csv containing said differences (or an empty csv if there are none), 
-    2.  It will write to `~/drg-pipeline/data/checkpoints/checkpoint_9_grouper_differences` as `checkpoint_9_grouper_differences_*.csv`
-7.  It will then push to BQ as `drg-pipeline.phic.claims_20XX1231`
+6. It should now proceed with the process, first by analyzing and checking for differences between the drg code generated via Python Grouper vs via Thai Batch Grouper.
+   1. It will write a csv containing said differences (or an empty csv if there are none),
+   2. It will write to `~/drg-pipeline/data/checkpoints/checkpoint_9_grouper_differences` as `checkpoint_9_grouper_differences_*.csv`
+7. It will then push to BQ as `drg-pipeline.phic.claims_20XX1231`
 
 # Maintenace
+
 1. Enable scheduled shutdown
    1. (<https://console.cloud.google.com/compute/instances/instanceSchedules?project=drg-pipeline&tab=instanceSchedules>)
    2. Create a scheduler job, set it to Iowa, Philippine time, start empty, and stop at 8:30 PM. Name it stop-vm-eod.
@@ -264,6 +274,7 @@ Steps to run the data-cleaning code end-to-end:
 2. Enable patch job for updates
    `echo $'{\n  \"name\": \"projects/271591364028/patchDeployments/update-vm\",\n  \"instanceFilter\": {\n    \"instances\": [\"zones/us-central1-a/instances/drg-data-pipeline\"]\n  },\n  \"patchConfig\": {\n    \"rebootConfig\": \"DEFAULT\",\n    \"apt\": {\n      \"type\": \"DIST\"\n    },\n    \"yum\": {\n    },\n    \"zypper\": {\n    },\n    \"windowsUpdate\": {\n    }\n  },\n  \"duration\": \"3600s\",\n  \"recurringSchedule\": {\n    \"timeZone\": {\n      \"id\": \"Asia/Manila\"\n    },\n    \"timeOfDay\": {\n      \"hours\": 19,\n      \"minutes\": 30\n    },\n    \"frequency\": \"DAILY\"\n  },\n  \"rollout\": {\n    \"mode\": \"CONCURRENT_ZONES\",\n    \"disruptionBudget\": {\n      \"fixed\": 1\n    }\n  }\n}' > patch_deployment_96a2901c-46a5-4ef6-b9a1-d6e4bf6f96c3.json && gcloud compute os-config patch-deployments update update-vm --file=patch_deployment_96a2901c-46a5-4ef6-b9a1-d6e4bf6f96c3.json`
 3. Add the following update-vm-post-patch-script.sh to gs://phic-other/update-vm-post-patch-script.sh
+
    ```
    #!/bin/bash
 
