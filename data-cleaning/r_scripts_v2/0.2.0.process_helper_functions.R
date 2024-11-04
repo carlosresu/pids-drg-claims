@@ -71,7 +71,30 @@ split_to_vector <- function(column) {
   return(result)
 }
 
-### Remove Lumped ICD Codes Function ###
+# ### Remove Lumped ICD Codes Function ###
+# remove_lumped_icd_codes <- function(column) {
+#   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
+
+#   result <- lapply(column, function(vec) {
+#     # Iterate through each element of the vector
+#     processed <- unlist(lapply(vec, function(element) {
+#       # Check if the element matches COVID, RVS, or neoplasm codes
+#       if (element %in% c(covid_codes, rvs_codes, neoplasm_codes)) {
+#         return(element) # Keep intact if it's a valid code
+#       } else {
+#         # Perform regex-based splitting for ICD-10 codes
+#         return(unlist(strsplit(element, "(?=[A-Z][0-9]{2,})", perl = TRUE)))
+#       }
+#     }))
+
+#     # Filter out empty strings and return the cleaned vector
+#     return(processed[processed != ""])
+#   })
+
+#   return(result)
+# }
+
+# New code:
 remove_lumped_icd_codes <- function(column) {
   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
 
@@ -82,8 +105,8 @@ remove_lumped_icd_codes <- function(column) {
       if (element %in% c(covid_codes, rvs_codes, neoplasm_codes)) {
         return(element) # Keep intact if it's a valid code
       } else {
-        # Perform regex-based splitting for ICD-10 codes
-        return(unlist(strsplit(element, "(?=[A-Z][0-9]{2,})", perl = TRUE)))
+        # Perform regex-based splitting for ICD-10 codes using the combined regex
+        return(unlist(strsplit(element, "(?<=\\d)(?=[A-Z][0-9]{2,})", perl = TRUE)))
       }
     }))
 
@@ -216,5 +239,17 @@ remove_whitespace <- function(x) {
     return(NA_character_) # Return NA for NULL or empty lists
   } else {
     return(gsub("\\s+", "", x)) # Remove all whitespace characters
+  }
+}
+
+flatten_and_clean <- function(input) {
+  # Fully flatten all nested lists into a character vector
+  input <- unlist(input, recursive = TRUE)
+
+  # Check if the flattened result is empty or only contains NULL/NA
+  if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
+    return(character(0)) # Return empty character vector if all NULL/NA
+  } else {
+    return(input) # Already a flat character vector
   }
 }

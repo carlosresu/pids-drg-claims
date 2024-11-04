@@ -76,8 +76,11 @@ collapse_and_clean_icd_rvs_cols <- function(clin_icd_cols = NULL, clin_rvs_cols 
     # Step 3: First split using COVID/RVS/neoplasm codes
     split <- split_to_vector(collapsed)
 
-    # Step 4: Further split any remaining lumped ICD-10 codes
-    unlumped <- remove_lumped_icd_codes(split)
+    # str(split)
+
+    if (is_icd) unlumped <- remove_lumped_icd_codes(split) # # Step 4: Further split any remaining lumped ICD-10 codes
+    if (!is_icd) unlumped <- split
+    # str(unlumped)
 
     return(unlumped)
   }
