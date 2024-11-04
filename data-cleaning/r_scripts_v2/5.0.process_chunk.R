@@ -122,7 +122,6 @@ process_chunk <- function(chunk,
   chunk[, c1 := modified_c1]
   chunk[, c2 := modified_c2]
 
-  print(str(chunk))
   c1 <- chunk$c1
   c2 <- chunk$c2
   clin_icd <- chunk$clin_icd
@@ -351,7 +350,7 @@ process_chunk <- function(chunk,
     "clin_rvs", "clin_pdx", "clin_pdx_source"
   ))
   chunk[, clin_discharge := as.integer(clin_discharge)]
-
+  print(str(chunk))
   gc()
   return(list(
     return_chunk = chunk,
