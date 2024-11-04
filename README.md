@@ -71,7 +71,7 @@ Install R
 sudo apt update
 
 ## Install R 4.4.1 dependencies
-sudo apt install -y software-properties-common dirmngr
+sudo apt install -y software-properties-common dirmngr libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev
 
 ## Add CRAN GPG Key
 wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
