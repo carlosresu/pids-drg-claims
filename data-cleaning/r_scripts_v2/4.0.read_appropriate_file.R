@@ -21,7 +21,7 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
     dt <- dt[, (drop_cols_manual) := NULL]
   }
 
-  replace_result <- replace_empty_with_na(dt)
+  replace_result <- replace_na_or_empty(dt = dt, replace_with = "NA_character_")
   dt <- replace_result$return_data
   replacement_summary <- replace_result$return_replacement_summary
 

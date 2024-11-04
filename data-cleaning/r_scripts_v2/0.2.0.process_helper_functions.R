@@ -128,73 +128,161 @@ collapse_to_string <- function(vec) {
   }
 }
 
+# replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
+#   ## Replaces empty strings with NA across an entire data.table.
+#   # dt: input data.table
+#   # to_view_checks: flag to track the replacement count for checks.
+#   # Identify columns that are character, factor, or list
+#   char_factor_cols <- names(dt)[sapply(
+#     dt,
+#     function(col) is.character(col) || is.factor(col) || is.list(col)
+#   )]
 
-replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
-  ## Replaces empty strings with NA across an entire data.table.
-  # dt: input data.table
-  # to_view_checks: flag to track the replacement count for checks.
-  # Identify columns that are character, factor, or list
-  char_factor_cols <- names(dt)[sapply(
-    dt,
-    function(col) is.character(col) || is.factor(col) || is.list(col)
-  )]
+#   # Create a summary table for tracking replacements
+#   replacement_summary <- data.table(
+#     Column = character(),
+#     Empty_Replaced = integer(),
+#     NA_Replaced = integer(),
+#     Character0_Replaced = integer()
+#   )
 
-  # Create a summary table for tracking replacements
+#   # Loop through each identified column
+#   for (col_name in char_factor_cols) {
+#     col <- dt[[col_name]]
+#     if (to_view_checks) {
+#       # Count how many empty, "NA", or "character(0)" entries exist
+#       empty_count <- sum(col == "", na.rm = TRUE)
+#       na_count <- sum(col == "NA", na.rm = TRUE)
+#       char0_count <- sum(col == "character(0)", na.rm = TRUE)
+#     }
+
+#     # Replace all empty, "NA", and "character(0)" values with actual NA
+#     dt[
+#       get(
+#         col_name
+#       ) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
+#       (col_name) := NA_character_
+#     ]
+
+#     # If the column is a factor, ensure that NA is a valid level
+#     if (is.factor(col)) {
+#       set(dt,
+#         j = col_name,
+#         value = factor(dt[[col_name]],
+#           levels = c(levels(col), NA)
+#         )
+#       )
+#     }
+#     # Update the replacement summary
+#     replacement_summary <- rbind(replacement_summary, data.table(
+#       Column = col_name,
+#       Empty_Replaced = empty_count,
+#       NA_Replaced = na_count,
+#       Character0_Replaced = char0_count
+#     ))
+#   }
+#   # Filter out columns where no replacements were made
+#   replacement_summary <- replacement_summary[
+#     Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
+#   ]
+
+#   return(
+#     list(
+#       # Return the modified data.table
+#       return_data = dt,
+#       # Return the summary of replacements
+#       return_replacement_summary = replacement_summary
+#     )
+#   )
+# }
+
+replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additional_columns = NULL) {
+  # Validate `replace_with` argument
+  if (!replace_with %in% c("NA_character_", "character(0)")) {
+    stop("Invalid replace_with argument. Use either 'NA_character_' or 'character(0)'.")
+  }
+
+  # Identify columns based on `replace_with` type
+  cols <- if (replace_with == "NA_character_") {
+    # Apply to character, factor, or list columns
+    names(dt)[sapply(dt, function(col) is.character(col) || is.factor(col) || is.list(col))]
+  } else {
+    # Apply only to list columns if `replace_with` is character(0)
+    names(dt)[sapply(dt, is.list)]
+  }
+
+  # Include any additional columns specified, avoiding duplicates
+  cols <- unique(c(cols, additional_columns))
+
+  # Initialize summary table for tracking replacements
   replacement_summary <- data.table(
     Column = character(),
     Empty_Replaced = integer(),
-    NA_Replaced = integer(),
-    Character0_Replaced = integer()
+    String_NA_Replaced = integer(),
+    Actual_NA_Replaced = integer()
   )
 
-  # Loop through each identified column
-  for (col_name in char_factor_cols) {
+  # Define replacement values based on `replace_with` argument
+  replacement_value <- if (replace_with == "NA_character_") NA_character_ else character(0)
+  label_na_replaced <- if (replace_with == "NA_character_") "String_NA_Replaced" else "Actual_NA_Replaced"
+  label_char0_replaced <- if (replace_with == "NA_character_") "Actual_NA_Replaced" else "String_NA_Replaced"
+
+  # Process each relevant column
+  for (col_name in cols) {
     col <- dt[[col_name]]
-    if (to_view_checks) {
-      # Count how many empty, "NA", or "character(0)" entries exist
-      empty_count <- sum(col == "", na.rm = TRUE)
-      na_count <- sum(col == "NA", na.rm = TRUE)
-      char0_count <- sum(col == "character(0)", na.rm = TRUE)
+    empty_count <- 0
+    string_na_count <- 0
+    actual_na_count <- 0
+
+    # Separate handling for list and non-list columns
+    if (is.list(col)) {
+      if (to_view_checks) {
+        # Count occurrences in list columns
+        empty_count <- sum(sapply(col, function(x) identical(x, "")))
+        string_na_count <- sum(sapply(col, function(x) identical(x, "NA")))
+        actual_na_count <- sum(sapply(col, function(x) all(is.na(x)) || (is.list(x) && length(x) == 0)))
+      }
+      # Replace values with `character(0)` in list columns
+      dt[, (col_name) := lapply(get(col_name), function(x) {
+        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
+      })]
+    } else {
+      # Count and replace for non-list columns if `replace_with` is `NA_character_`
+      if (to_view_checks) {
+        empty_count <- sum(col == "", na.rm = TRUE)
+        string_na_count <- sum(col == "NA", na.rm = TRUE)
+        actual_na_count <- sum(col == "character(0)", na.rm = TRUE)
+      }
+      # Replace values with `NA_character_`
+      dt[
+        get(col_name) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
+        (col_name) := NA_character_
+      ]
+      # Ensure NA is a level if the column is a factor
+      if (is.factor(col)) {
+        set(dt, j = col_name, value = factor(dt[[col_name]], levels = c(levels(col), NA)))
+      }
     }
 
-    # Replace all empty, "NA", and "character(0)" values with actual NA
-    dt[
-      get(
-        col_name
-      ) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
-      (col_name) := NA_character_
-    ]
-
-    # If the column is a factor, ensure that NA is a valid level
-    if (is.factor(col)) {
-      set(dt,
-        j = col_name,
-        value = factor(dt[[col_name]],
-          levels = c(levels(col), NA)
-        )
-      )
-    }
     # Update the replacement summary
-    replacement_summary <- rbind(replacement_summary, data.table(
+    summary_row <- data.table(
       Column = col_name,
       Empty_Replaced = empty_count,
-      NA_Replaced = na_count,
-      Character0_Replaced = char0_count
-    ))
+      String_NA_Replaced = ifelse(replace_with == "NA_character_", string_na_count, NA_integer_),
+      Actual_NA_Replaced = ifelse(replace_with == "character(0)", actual_na_count, NA_integer_)
+    )
+    replacement_summary <- rbind(replacement_summary, summary_row, fill = TRUE)
   }
-  # Filter out columns where no replacements were made
+
+  # Filter out columns with no replacements made
   replacement_summary <- replacement_summary[
-    Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
+    Empty_Replaced > 0 | get(label_na_replaced) > 0 | get(label_char0_replaced) > 0
   ]
 
-  return(
-    list(
-      # Return the modified data.table
-      return_data = dt,
-      # Return the summary of replacements
-      return_replacement_summary = replacement_summary
-    )
-  )
+  return(list(
+    return_data = dt,
+    return_replacement_summary = replacement_summary
+  ))
 }
 
 clean_column <- function(col) {

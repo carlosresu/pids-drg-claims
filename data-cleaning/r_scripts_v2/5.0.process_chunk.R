@@ -97,9 +97,12 @@ process_chunk <- function(chunk,
   chunk[, clin_rvs := c2_results$clin_rvs]
   chunk[, c2 := c2_results$col]
   c2_discarded_rvs <- c2_results$discarded_rvs
-  replace_result <- replace_empty_with_na(chunk)
+  replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
   chunk <- replace_result$return_data
-  empty_strings_replaced_1 <- replace_result$return_replacement_summary
+  empty_replaced_with_na_1 <- replace_result$return_replacement_summary
+  replace_empty_result_1 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
+  chunk <- replace_empty_result_1$return_data
+  NA_replaced_with_empty_1 <- replace_empty_result_1$return_replacement_summary
   remap_res <- remap_patient_data(
     pat_type = chunk$pat_type,
     pat_memcat_parent = chunk$pat_memcat_parent,
@@ -121,7 +124,7 @@ process_chunk <- function(chunk,
   modified_c2 <- lapply(chunk$c2, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
   chunk[, c1 := modified_c1]
   chunk[, c2 := modified_c2]
-
+  # str(chunk)
   c1 <- chunk$c1
   c2 <- chunk$c2
   clin_icd <- chunk$clin_icd
@@ -129,9 +132,9 @@ process_chunk <- function(chunk,
   chunk[, c1 := icd10_mapping_result$c1]
   chunk[, c2 := icd10_mapping_result$c2]
   chunk[, clin_icd := icd10_mapping_result$clin_icd]
-  res2 <- replace_empty_with_na(dt = chunk)
-  chunk <- res2$return_data
-  empty_strings_replaced_2 <- res2$return_replacement_summary
+  replace_empty_result_2 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
+  chunk <- replace_empty_result_2$return_data
+  NA_replaced_with_empty_2 <- replace_empty_result_2$return_replacement_summary
   chunk[, c1 := lapply(c1, remove_whitespace)]
   chunk[, c2 := lapply(c2, remove_whitespace)]
   chunk[, clin_icd := lapply(clin_icd, remove_whitespace)]
@@ -162,36 +165,6 @@ process_chunk <- function(chunk,
     }
     as.character(lst)
   })]
-  chunk_summary <- list(
-    rename_success = renamesuccess,
-    ICD_replacements_1 = c1_cleaning_comparison,
-    ICD_replacements_2 = c2_cleaning_comparison,
-    pat_type_mapped = remap_res$pat_type_mapped,
-    pat_memcat_parent_mapped = remap_res$pat_memcat_parent_mapped,
-    pat_memcat_child_mapped = remap_res$pat_memcat_child_mapped,
-    clin_discharge_mapped = remap_res$clin_discharge_mapped,
-    claim_status_mapped = remap_res$claim_status_mapped,
-    pat_type_unmapped = remap_res$pat_type_unmapped,
-    memcat_parent_unmapped = remap_res$memcat_parent_unmapped,
-    memcat_child_unmapped = remap_res$memcat_child_unmapped,
-    discharge_unmapped = remap_res$discharge_unmapped,
-    claim_status_unmapped = remap_res$claim_status_unmapped,
-    discard_rvs_one = c1_discarded_rvs,
-    discard_rvs_two = c2_discarded_rvs,
-    empty_strings_replaced_1 = empty_strings_replaced_1,
-    empty_strings_replaced_2 = empty_strings_replaced_2,
-    unique_icds = icd10_mapping_result$unique_icds,
-    direct_matches = icd10_mapping_result$direct_matches,
-    unmatched_codes = icd10_mapping_result$unmatched_codes,
-    unmatched_sources = icd10_mapping_result$unmatched_sources,
-    icd10_map_dt = icd10_mapping_result$icd10_map_dt,
-    modified_matches = icd10_mapping_result$modified_matches,
-    rvss = rvs_mapping_result$rvss,
-    mappable_rvs = rvs_mapping_result$mappable_rvs,
-    unmappable_rvs = rvs_mapping_result$unmappable_rvs,
-    multi_mapped_rvs = rvs_mapping_result$multi_mapped_rvs,
-    without_drg = rvs_mapping_result$without_drg
-  )
   invalid_age_before <- nrow(chunk[pat_age < -1 | pat_age > 124, .(id_series)])
   fwrite(
     chunk[pat_age <= -1, .(id_series, pat_age, c1, c2)],
@@ -296,8 +269,9 @@ process_chunk <- function(chunk,
     }
   })]
   chunk[, clin_sdx := lapply(clin_sdx, function(x) if (is.null(x)) character(0) else unlist(x))]
-  na_replaced_result <- replace_empty_with_na(chunk)
-  chunk <- na_replaced_result$return_data
+  replace_empty_result_3 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)", additional_columns = c("c1", "c2", "pdx"))
+  chunk <- replace_empty_result_3$return_data
+  NA_replaced_with_empty_3 <- replace_empty_result_3$return_replacement_summary
   chunk[, (char_cols) := lapply(.SD, function(col) iconv(col, from = "", to = "UTF-8")), .SDcols = char_cols]
   char_cols <- names(chunk)[sapply(chunk, is.character)]
   chunk[, (char_cols) := lapply(.SD, function(col) {
@@ -309,13 +283,13 @@ process_chunk <- function(chunk,
     col[is.nan(col)] <- NA_real_
     return(col)
   }), .SDcols = num_cols]
-  list_cols <- names(chunk)[sapply(chunk, is.list)]
-  chunk[, (list_cols) := lapply(.SD, function(col) {
-    lapply(col, function(x) {
-      if (is.character(x)) x[x %in% c("None", "")] <- NA_character_
-      return(x)
-    })
-  }), .SDcols = list_cols]
+  # list_cols <- names(chunk)[sapply(chunk, is.list)]
+  # chunk[, (list_cols) := lapply(.SD, function(col) {
+  #   lapply(col, function(x) {
+  #     if (is.character(x)) x[x %in% c("None", "")] <- NA_character_
+  #     return(x)
+  #   })
+  # }), .SDcols = list_cols]
   array_columns <- c("id_hcp")
   split_pattern <- "\\s*,\\s*|\\|\\||\\|"
   chunk[, (array_columns) := lapply(.SD, function(x) {
@@ -328,7 +302,17 @@ process_chunk <- function(chunk,
       }
     })
   }), .SDcols = array_columns]
-  list_columns <- c("clin_sdx", "clin_proc", "id_hcp")
+  # list_columns <- c("clin_sdx", "clin_proc", "id_hcp")
+  # chunk[, (list_columns) := lapply(.SD, function(col) {
+  #   lapply(col, function(x) {
+  #     if (is.null(x) || length(x) == 0L || all(is.na(x))) {
+  #       character(0)
+  #     } else {
+  #       x
+  #     }
+  #   })
+  # }), .SDcols = list_columns]
+  list_columns <- c("id_hcp")
   chunk[, (list_columns) := lapply(.SD, function(col) {
     lapply(col, function(x) {
       if (is.null(x) || length(x) == 0L || all(is.na(x))) {
@@ -350,7 +334,41 @@ process_chunk <- function(chunk,
     "clin_rvs", "clin_pdx", "clin_pdx_source"
   ))
   chunk[, clin_discharge := as.integer(clin_discharge)]
-  print(str(chunk))
+
+  chunk_summary <- list(
+    rename_success = renamesuccess,
+    ICD_replacements_1 = c1_cleaning_comparison,
+    ICD_replacements_2 = c2_cleaning_comparison,
+    pat_type_mapped = remap_res$pat_type_mapped,
+    pat_memcat_parent_mapped = remap_res$pat_memcat_parent_mapped,
+    pat_memcat_child_mapped = remap_res$pat_memcat_child_mapped,
+    clin_discharge_mapped = remap_res$clin_discharge_mapped,
+    claim_status_mapped = remap_res$claim_status_mapped,
+    pat_type_unmapped = remap_res$pat_type_unmapped,
+    memcat_parent_unmapped = remap_res$memcat_parent_unmapped,
+    memcat_child_unmapped = remap_res$memcat_child_unmapped,
+    discharge_unmapped = remap_res$discharge_unmapped,
+    claim_status_unmapped = remap_res$claim_status_unmapped,
+    discard_rvs_one = c1_discarded_rvs,
+    discard_rvs_two = c2_discarded_rvs,
+    empty_replaced_with_na_1 = empty_replaced_with_na_1,
+    NA_replaced_with_empty_1 = NA_replaced_with_empty_1,
+    NA_replaced_with_empty_2 = NA_replaced_with_empty_2,
+    NA_replaced_with_empty_3 = NA_replaced_with_empty_3,
+    unique_icds = icd10_mapping_result$unique_icds,
+    direct_matches = icd10_mapping_result$direct_matches,
+    unmatched_codes = icd10_mapping_result$unmatched_codes,
+    unmatched_sources = icd10_mapping_result$unmatched_sources,
+    icd10_map_dt = icd10_mapping_result$icd10_map_dt,
+    modified_matches = icd10_mapping_result$modified_matches,
+    rvss = rvs_mapping_result$rvss,
+    mappable_rvs = rvs_mapping_result$mappable_rvs,
+    unmappable_rvs = rvs_mapping_result$unmappable_rvs,
+    multi_mapped_rvs = rvs_mapping_result$multi_mapped_rvs,
+    without_drg = rvs_mapping_result$without_drg
+  )
+
+  # str(chunk)
   gc()
   return(list(
     return_chunk = chunk,

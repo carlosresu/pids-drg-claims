@@ -13,8 +13,11 @@ aggregate_all_summaries <- function(summaries) {
       claim_status_unmapped = safe_unlist(lapply(summaries, function(s) safe_access(s, "claim_status_unmapped"))),
       discard_rvs_one = rbindlist(lapply(summaries, function(s) safe_access(s, "discard_rvs_one")), fill = TRUE),
       discard_rvs_two = rbindlist(lapply(summaries, function(s) safe_access(s, "discard_rvs_two")), fill = TRUE),
-      empty_strings_replaced_1 = combine_replace_empty_tables(rbindlist(lapply(summaries, function(s) safe_extract(s, "empty_strings_replaced_1")), fill = TRUE)),
-      empty_strings_replaced_2 = combine_replace_empty_tables(rbindlist(lapply(summaries, function(s) safe_extract(s, "empty_strings_replaced_2")), fill = TRUE)),
+      replacement_summary = combine_replacement_tables(rbindlist(lapply(summaries, function(s) safe_extract(s, "replacement_summary")), fill = TRUE), "NA_character_"),
+      empty_replaced_with_na_1 = combine_replacement_tables(rbindlist(lapply(summaries, function(s) safe_extract(s, "empty_replaced_with_na_1")), fill = TRUE), "NA_character_"),
+      NA_replaced_with_empty_1 = combine_replacement_tables(rbindlist(lapply(summaries, function(s) safe_extract(s, "NA_replaced_with_empty_1")), fill = TRUE), "character(0)"),
+      NA_replaced_with_empty_2 = combine_replacement_tables(rbindlist(lapply(summaries, function(s) safe_extract(s, "NA_replaced_with_empty_2")), fill = TRUE), "character(0)"),
+      NA_replaced_with_empty_3 = combine_replacement_tables(rbindlist(lapply(summaries, function(s) safe_extract(s, "NA_replaced_with_empty_3")), fill = TRUE), "character(0)"),
       unique_icds = unique(safe_unlist(lapply(summaries, function(s) safe_access(s, "unique_icds")))),
       direct_matches = unique(safe_unlist(lapply(summaries, function(s) safe_access(s, "direct_matches")))),
       modified_matches = extract_modified_matches(summaries),
@@ -31,10 +34,7 @@ aggregate_all_summaries <- function(summaries) {
       pat_memcat_parent_mapped = rbindlist(lapply(summaries, function(s) safe_access(s, "pat_memcat_parent_mapped")), fill = TRUE),
       pat_memcat_child_mapped = rbindlist(lapply(summaries, function(s) safe_access(s, "pat_memcat_child_mapped")), fill = TRUE),
       clin_discharge_mapped = rbindlist(lapply(summaries, function(s) safe_access(s, "clin_discharge_mapped")), fill = TRUE),
-      claim_status_mapped = rbindlist(lapply(summaries, function(s) safe_access(s, "claim_status_mapped")), fill = TRUE),
-      replacement_summary = combine_replace_empty_tables(
-        rbindlist(lapply(summaries, function(s) safe_extract(s, "replacement_summary")), fill = TRUE)
-      )
+      claim_status_mapped = rbindlist(lapply(summaries, function(s) safe_access(s, "claim_status_mapped")), fill = TRUE)
     )
 
     return(combined_summary)

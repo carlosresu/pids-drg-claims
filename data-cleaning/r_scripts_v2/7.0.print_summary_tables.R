@@ -68,24 +68,35 @@ print_summary_tables <- function(final_combined_summaries) {
     cat("\nNo RVS codes discarded.\n\n")
   }
 
-  # Convert counts to percentages and print the formatted tables
-  display_empty_string_replacements <- function(data, set_name) {
-    formatted_data <- final_combine_replace_empty_tables(data)
+  display_replacements <- function(data, set_name, replace_with) {
+    # Format the data based on the specified replacement type
+    formatted_data <- final_combine_replace_tables(data, replace_with)
+
+    # Define the replacement description based on `replace_with`
+    replacement_desc <- if (replace_with == "NA_character_") {
+      "Empty Strings Replaced"
+    } else {
+      "NA Strings Replaced"
+    }
+
+    # Display the formatted table or a message if no replacements
     if (nrow(formatted_data) > 0) {
       print(knitr::kable(
         formatted_data,
         format = "markdown",
-        caption = paste0("Empty Strings Replaced (", set_name, " Set)")
+        caption = paste0(replacement_desc, " (", set_name, " Set)")
       ))
     } else {
-      cat(paste0("\nNo empty strings replaced in the ", set_name, " set.\n\n"))
+      cat(paste0("\nNo ", replacement_desc, " in the ", set_name, " set.\n\n"))
     }
   }
 
   # Display Empty String Replacements
-  display_empty_string_replacements(summary$replacement_summary, "Zeroth")
-  display_empty_string_replacements(summary$empty_strings_replaced_1, "First")
-  display_empty_string_replacements(summary$empty_strings_replaced_2, "Second")
+  display_replacements(summary$replacement_summary, "Zeroth", "NA_character_")
+  display_replacements(summary$empty_replaced_with_na_1, "First", "NA_character_")
+  display_replacements(summary$NA_replaced_with_empty_1, "Second", "character(0)")
+  display_replacements(summary$NA_replaced_with_empty_2, "Third", "character(0)")
+  display_replacements(summary$NA_replaced_with_empty_3, "Fourth", "character(0)")
 
   # Step 8: Print RVS Code and ICD-10 Statistics
   cat(sprintf("There are %d RVS codes without an ICD-9CM equivalent.\n", length(summary$without_drg)))

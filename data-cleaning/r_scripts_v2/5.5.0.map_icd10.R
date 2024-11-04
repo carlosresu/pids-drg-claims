@@ -61,7 +61,7 @@ map_icd10 <- function(c1, c2, clin_icd,
 
       # 4. **Mark as unmatched if no match found**
       if (!match_found) {
-        icd_mapping[[code]] <- list(match_type = "Unmatched", original = code, mapped = NA)
+        icd_mapping[[code]] <- list(match_type = "Unmatched", original = code, mapped = character(0))
       }
     }
 
