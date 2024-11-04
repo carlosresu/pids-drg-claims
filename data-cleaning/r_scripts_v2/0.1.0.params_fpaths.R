@@ -310,8 +310,10 @@ expected_types <- list(
 ## COVID codes (for exclusion later)
 covid_rvs <- c(
   "C19T1", "C19T2", "C19T3", "C19X1", "C19X2", "C19X3", "C19FRP",
-  "C19IP1", "C19IP2", "C19IP3", "C19IP4", "C19PP1", "C19PP2",
-  "C19PP3", "C19PP4", "MP01", "IMP02", "C19CI", "C19H1", "C19VIH",
+  "C19IP1", "C19IP2", "C19IP3", "C19IP4",
+  "C191P1", "C191P2", "C191P3", "C191P4",
+  "C19PP1", "C19PP2", "C19PP3", "C19PP4",
+  "MP01", "IMP02", "C19CI", "C19H1", "C19VIH",
   "C19VID", "C19AT1", "C19HI"
 )
 
