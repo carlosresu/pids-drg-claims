@@ -55,14 +55,12 @@
 #   )
 # }
 map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
-  # Split the RVS codes into those with and without DRG
-  with_drg <- rvs[is_drg == TRUE]
-  without_drg <- rvs[!rvs %in% with_drg$rvs]
+  # Identify all codes with is_drg == FALSE
+  rvs_no_drg <- rvs[is_drg == FALSE, .(rvs)]
 
-  # Order by RVS code and is_drg flag,
-  # group by RVS code, and list ICD-9-CM codes
-  setorder(with_drg, rvs, -is_drg)
-  unique_rvs <- with_drg[, .(icd9cm_list = list(icd9cm)), by = rvs]
+  # Order by RVS code and group by RVS code to list ICD-9-CM codes
+  setorder(rvs, rvs)
+  unique_rvs <- rvs[, .(icd9cm_list = list(icd9cm)), by = rvs]
 
   # Separate RVS codes into solo and multi-mapped lists
   solo <- unique_rvs[lengths(icd9cm_list) == 1]
@@ -88,7 +86,9 @@ map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
   mappable_rvs <- intersect(rvss, rvs$rvs)
   unmappable_rvs <- setdiff(rvss, rvs$rvs)
   multi_mapped_rvs <- intersect(rvss, names(rvs_map_list))
-  without_drg_codes <- unique(rvs[!rvs %in% names(rvs_map_list)]$rvs)
+
+  # Determine mapped codes that have is_drg = FALSE
+  mapped_without_drg <- intersect(mappable_rvs, rvs_no_drg$rvs)
 
   return_list <- list(
     icd9_list = icd9_list,
@@ -97,10 +97,8 @@ map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
     mappable_rvs = mappable_rvs,
     unmappable_rvs = unmappable_rvs,
     multi_mapped_rvs = multi_mapped_rvs,
-    without_drg = without_drg_codes
+    without_drg = mapped_without_drg
   )
-
-  # str(return_list)
 
   # Return the result as a list
   return(return_list)
