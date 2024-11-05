@@ -64,8 +64,9 @@ split_to_vector <- function(column) {
     # Filter out empty strings
     first_split <- first_split[first_split != ""]
 
+    second_split <- unlist(strsplit(first_split, "\\|\\|"))
     # Return the character vector of the split result
-    return(first_split)
+    return(second_split)
   })
 
   return(result)

@@ -40,7 +40,8 @@ process_chunk <- function(chunk,
   )
   chunk[, `:=`(clin_icd = col_list$clin_icd, clin_rvs = col_list$clin_rvs)]
   chunk[, (grep("^(clin_icd\\d+|clin_rvs\\d+)$", names(chunk), value = TRUE)) := NULL]
-
+  # cat("After collapsing multiple columns into onef\n")
+  # str(chunk$clin_icd[1:10])
   c1_result <- clean_column(chunk$c1)
   chunk[, `:=`(c1_orig = c1, c1 = c1_result$cleaned_col)]
   is_covid_c1 <- c1_result$is_covid
@@ -68,6 +69,7 @@ process_chunk <- function(chunk,
   # chunk[, c1 := split_to_vector(remove_lumped_icd_codes(lapply(c1, manual_replacement)))]
   # chunk[, c2 := split_to_vector(remove_lumped_icd_codes(lapply(c2, manual_replacement)))]
   # REFACTORED CODE:
+  # cat("Processing c1\n")
   chunk[, c1 := lapply(c1, function(text) {
     replaced_text <- manual_replacement(text)
     collapsed_text <- collapse_to_string(replaced_text)
@@ -75,6 +77,7 @@ process_chunk <- function(chunk,
     cleaned_result <- remove_lumped_icd_codes(split_result)
     return(flatten_and_clean(cleaned_result))
   })]
+  # cat("Processing c2\n")
   chunk[, c2 := lapply(c2, function(text) {
     replaced_text <- manual_replacement(text)
     collapsed_text <- collapse_to_string(replaced_text)
@@ -82,11 +85,13 @@ process_chunk <- function(chunk,
     cleaned_result <- remove_lumped_icd_codes(split_result)
     return(flatten_and_clean(cleaned_result))
   })]
+  # cat("Processing clin_icd\n")
   chunk[, clin_icd := lapply(seq_len(.N), function(i) {
     clin_icd_list <- c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]])
     return(flatten_and_clean(clin_icd_list))
   })]
-
+  # cat("after flatten, clean, and manual replacement\n")
+  # str(chunk$clin_icd[1:10])
   replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
   chunk <- replace_result$return_data
   empty_replaced_with_na_1 <- replace_result$return_replacement_summary
@@ -102,7 +107,7 @@ process_chunk <- function(chunk,
   # cat("\nContents of c2:\n")
   # lapply(chunk$c2, function(x) if (length(x) > 0) cat(x, "\n"))
 
-  # cat("\nContents of clin_icd:\n")
+  # cat("\nContents of clin_icd after replace with NA and replace with empty:\n")
   # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
 
   # cat("\nContents of clin_rvs:\n")
@@ -113,11 +118,15 @@ process_chunk <- function(chunk,
   chunk[, c1 := c1_results$col]
   chunk[, clin_icd := c1_results$clin_icd]
   c1_discarded_rvs <- c1_results$discarded_rvs
+  # cat("\nContents of clin_icd after append copy and remove icd rvs 1:\n")
+  # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
   c2_results <- append_copy_and_remove_icd_rvs(chunk$c2, chunk$clin_rvs, chunk$clin_icd)
   chunk[, clin_rvs := c2_results$clin_rvs]
   chunk[, c2 := c2_results$col]
   chunk[, clin_icd := c2_results$clin_icd]
   c2_discarded_rvs <- c2_results$discarded_rvs
+  # cat("\nContents of clin_icd after append copy and remove icd rvs 2:\n")
+  # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
 
   replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
   chunk <- replace_result$return_data
@@ -134,7 +143,7 @@ process_chunk <- function(chunk,
   # cat("\nContents of c2:\n")
   # lapply(chunk$c2, function(x) if (length(x) > 0) cat(x, "\n"))
 
-  # cat("\nContents of clin_icd:\n")
+  # cat("\nContents of clin_icd after replace with NA and replace with empty:\n")
   # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
 
   # cat("\nContents of clin_rvs:\n")
@@ -159,25 +168,32 @@ process_chunk <- function(chunk,
 
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
-
+  # str(chunk$clin_icd[1:10])
   modified_c1 <- lapply(chunk$c1, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
   modified_c2 <- lapply(chunk$c2, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
   chunk[, c1 := modified_c1]
   chunk[, c2 := modified_c2]
-  # str(chunk)
   c1 <- chunk$c1
   c2 <- chunk$c2
   clin_icd <- chunk$clin_icd
+  # cat("Before map_icd10 function\n")
+  # str(chunk$clin_icd[1:10])
   icd10_mapping_result <- map_icd10(c1, c2, clin_icd)
   chunk[, c1 := icd10_mapping_result$c1]
   chunk[, c2 := icd10_mapping_result$c2]
   chunk[, clin_icd := icd10_mapping_result$clin_icd]
+  # cat("After map_icd10 function\n")
+  # str(chunk$clin_icd[1:10])
   replace_empty_result_2 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
   chunk <- replace_empty_result_2$return_data
   NA_replaced_with_empty_2 <- replace_empty_result_2$return_replacement_summary
+  # cat("After replace with empty\n")
+  # str(chunk$clin_icd[1:10])
   chunk[, c1 := lapply(c1, remove_whitespace)]
   chunk[, c2 := lapply(c2, remove_whitespace)]
   chunk[, clin_icd := lapply(clin_icd, remove_whitespace)]
+  # cat("After remove whitespace\n")
+  # str(chunk$clin_icd[1:10])
   pdx_result <- find_pdx(chunk$c1, chunk$c2, chunk$clin_icd)
   chunk[, pdx := pdx_result$pdx]
   chunk[, pdx_code := pdx_result$pdx_code]
@@ -205,6 +221,8 @@ process_chunk <- function(chunk,
     }
     as.character(lst)
   })]
+  # cat("After removing pdx\n")
+  # str(chunk$clin_icd[1:10])
   invalid_age_before <- nrow(chunk[pat_age < -1 | pat_age > 124, .(id_series)])
   fwrite(
     chunk[pat_age <= -1, .(id_series, pat_age, c1, c2)],
@@ -309,9 +327,13 @@ process_chunk <- function(chunk,
     }
   })]
   chunk[, clin_sdx := lapply(clin_sdx, function(x) if (is.null(x)) character(0) else unlist(x))]
+  # cat("After unlisting or replacing with character(0)\n")
+  # str(chunk$clin_sdx[1:10])
   replace_empty_result_3 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)", additional_columns = c("c1", "c2", "pdx"))
   chunk <- replace_empty_result_3$return_data
   NA_replaced_with_empty_3 <- replace_empty_result_3$return_replacement_summary
+  # cat("After replacing with empty\n")
+  # str(chunk$clin_sdx[1:10])
   chunk[, (char_cols) := lapply(.SD, function(col) iconv(col, from = "", to = "UTF-8")), .SDcols = char_cols]
   char_cols <- names(chunk)[sapply(chunk, is.character)]
   chunk[, (char_cols) := lapply(.SD, function(col) {

@@ -118,13 +118,13 @@ map_icd10 <- function(c1, c2, clin_icd,
 
   # Apply the mapping to input columns
   apply_icd10_mapping <- function(codes) {
-    sapply(codes, function(code) {
+    unname(sapply(codes, function(code) {
       if (!is.null(icd_mapping[[code]]) && !is.null(icd_mapping[[code]]$mapped)) {
         icd_mapping[[code]]$mapped
       } else {
         code
       }
-    })
+    }))
   }
 
   # Apply mappings
