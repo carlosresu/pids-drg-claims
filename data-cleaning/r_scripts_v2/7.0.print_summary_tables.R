@@ -100,14 +100,14 @@ print_summary_tables <- function(final_combined_summaries) {
 
   # Step 8: Print RVS Code and ICD-10 Statistics
   cat(sprintf("There are %d valid RVS codes without an ICD-9CM equivalent.\n", length(summary$without_drg)))
-  cat(sprintf("There are %d unique RVS codes.\n", length(summary$rvss)))
+  cat(sprintf("There are %d unique potential RVS codes in clin_rvs.\n", length(summary$rvss)))
   cat(sprintf(
-    "%d (%.2f%%) have an ICD-9-CM mapping.\n",
+    "%d (%.2f%%) valid codes have an ICD-9-CM mapping.\n",
     length(summary$mappable_rvs),
     (length(summary$mappable_rvs) / length(summary$rvss)) * 100
   ))
   cat(sprintf(
-    "%d (%.2f%%) have multiple ICD-9 equivalents.\n",
+    "%d (%.2f%%) valid codes have multiple ICD-9 equivalents.\n",
     length(summary$multi_mapped_rvs),
     (length(summary$multi_mapped_rvs) / length(summary$rvss)) * 100
   ))
