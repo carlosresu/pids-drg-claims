@@ -153,8 +153,7 @@ print_summary_tables <- function(final_combined_summaries) {
       print(knitr::kable(
         unique_icd10_map,
         format = "markdown",
-        caption = "Modified ICD-10 Codes",
-        escape = FALSE # Add this line
+        caption = "Modified ICD-10 Codes"
       ))
 
       # Print the number of rows
