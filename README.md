@@ -62,33 +62,31 @@ sudo apt-get update && \
 sudo apt-get install -y dotnet-sdk-8.0
 
 # create a venv and install venv-reliant packages
-python3 -m venv ~/venv
+# python3 -m venv ~/venv
 
 # Activate the virtual environment
-source ~/venv/bin/activate
+# source ~/venv/bin/activate
 ```
 
-Install R
-
+New Install R method
 ```
-# Install R
-## Update package list
-sudo apt update
+# update indices
+sudo apt update -qq
 
-## Install R 4.4.1 dependencies
-sudo apt install -y software-properties-common dirmngr libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev
+# install two helper packages we need
+sudo apt install --no-install-recommends software-properties-common dirmngr libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev
 
-## Add CRAN GPG Key
+# add the signing key (by Michael Rutter) for these repos
+# To verify key, run gpg --show-keys /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc 
+# Fingerprint: E298A3A825C0D65DFD57CBB651716619E084DAB9
+
 wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
 
-## Add CRAN repository
-sudo add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu noble-cran40/'
+# add the R 4.0 repo from CRAN -- adjust 'focal' to 'groovy' or 'bionic' as needed
+sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
 
-## Update package list again
-sudo apt update
-
-## Install R 4.4.1
-sudo apt install -y r-base
+## Install R 4.4.2
+sudo apt install --no-install-recommends r-base
 
 ## Check R Version
 R --version
@@ -103,10 +101,29 @@ For example, if I login as resurreccion_cmc_gmail_com, my user profile folder is
 ```
 sudo chmod -R 777 /usr/local/lib/R/site-library
 sudo chmod -R 777 /usr/lib/R/site-library
-sudo mkdir -p /home/data
-sudo chmod -R 777 /home/data
-sudo chown -R root:root /home/data
-sudo chmod -R 777 /home/data
+
+lsblk
+sudo mkfs.ext4 -F /dev/sdb
+sudo mkdir -p /mnt/data-disk
+sudo mount /dev/sdb /mnt/data-disk
+sudo blkid /dev/sdb
+# note UUID of data-disk
+```
+
+```
+sudo nano /etc/fstab
+```
+
+```
+UUID=03f7bfa6-7dc5-4faa-b1b4-74668f95d0df /mnt/data-disk ext4 defaults 0 2
+```
+
+
+```
+sudo mkdir -p /mnt/data-disk/data
+sudo chmod -R 777 /mnt/data-disk/data
+sudo chown -R root:root /mnt/data-disk/data
+sudo chmod -R 777 /mnt/data-disk/data
 ```
 
 Start R to install necessary packages that we need to work with R in VS Code, these cannot be installed later on as we will not be able to access R in our jupyter notebooks otherwise.
@@ -165,8 +182,6 @@ Lastly, edit the VM instance in GCP and add the following in the text box of the
 
 ```
 #!/bin/bash
-sudo apt-get update -y
-sudo apt-get upgrade -y
 USER="resurreccion_cmc_gmail_com"
 sudo -u $USER bash -c 'code tunnel'
 ```
@@ -196,18 +211,23 @@ Clone drg-pipeline into your home folder first
 
 ```
 git clone https://github.com/pids-drg/drg-pipeline
+cd ~/drg-pipeline
+git submodule update --init --recursive
 ```
 
-Symbolically Link /home/data to your username's drg-pipeline/data-cleaning folder
+Symbolically Link /mnt/data-disk/data to your username's drg-pipeline/data-cleaning folder
 
 ```
-sudo ln -s /home/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
+sudo ln -s /mnt/data-disk/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
 ```
 
 Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
 
+maybe not be needed anymore
+
 ```
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
+# sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
+# maybe not be needed anymore
 ```
 
 To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type `curl <link>`
@@ -221,7 +241,7 @@ Assuming you've already authorized the VS Code Server Code Tunnel in the VM, sim
 1. Click the `><` button on the bottom left corner of VS Code, and
 2. Press `Connect to Tunnel`, then
 3. Press `GitHub`, then
-4. Press `drg-data-pipelineus-`
+4. Press `drg-data-pipeline-v2`
 
 Once inside,
 
@@ -233,7 +253,7 @@ Finally,
 1. Go over the parameters under `Primary` and `Secondary Parameters`, as well as `File Paths`, and
 2. Make sure everything is in order.
 
-**Important 1: Ensure you've symbolically linked `/home/data` to `/home/<username>/drg-pipeline/data-cleaning`**
+**Important 1: Ensure you've symbolically linked `/mnt/data-disk/data` to `/home/<username>/drg-pipeline/data-cleaning`**
 
 **Important 2: Ensure you've symbolically linked `~/drg-pipeline/data-cleaning/grouper/libraries` to `~/drg-pipeline/data-cleaning`**
 
