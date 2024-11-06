@@ -431,7 +431,7 @@ process_chunk <- function(chunk,
   )
 
   # str(chunk)
-  invisible(gc())()
+  invisible(gc())
   return(list(
     return_chunk = chunk,
     return_summary = chunk_summary
