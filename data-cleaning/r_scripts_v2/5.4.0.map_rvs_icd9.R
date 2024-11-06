@@ -18,9 +18,9 @@ map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
     codes <- unlist(x)
     # Retrieve ICD-9-CM codes specifically for each code
     mapped_icd9 <- unique(unlist(lapply(codes, function(code) {
-      if (code %in% names(rvs_map_solo)) {
+      if (code %chin% names(rvs_map_solo)) {
         rvs_map_solo[[code]]
-      } else if (code %in% names(rvs_map_list)) {
+      } else if (code %chin% names(rvs_map_list)) {
         rvs_map_list[[code]]
       } else {
         NULL

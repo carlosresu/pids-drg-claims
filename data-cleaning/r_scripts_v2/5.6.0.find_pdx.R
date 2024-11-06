@@ -16,9 +16,9 @@ find_pdx <- function(c1, c2, clin_icd, accpdx = acc_pdx,
   filter_icds <- function(codes) {
     codes <- codes[!is.na(codes) & !grepl("^[0-9]", codes) &
       !grepl("^[A-Z]{2}", codes) & !grepl("/", codes) &
-      !(codes %in% neoplasm_codes) & !(codes %in% rvs_codes) &
-      !(codes %in% covidrvs)]
-    codes[codes %in% acc_pdx_set]
+      !(codes %chin% neoplasm_codes) & !(codes %chin% rvs_codes) &
+      !(codes %chin% covidrvs)]
+    codes[codes %chin% acc_pdx_set]
   }
 
   # Step 4: Apply the PDX finding logic row-wise
@@ -31,7 +31,7 @@ find_pdx <- function(c1, c2, clin_icd, accpdx = acc_pdx,
     # Step 5: Check if any element in c1 or c2 is an accepted PDX
     for (cr_list in list(c1_split, c2_split)) {
       if (length(cr_list) > 0) {
-        return(list(pdx = cr_list[1], pdx_code = ifelse(cr_list[1] %in% c1_split, 1, 2)))
+        return(list(pdx = cr_list[1], pdx_code = ifelse(cr_list[1] %chin% c1_split, 1, 2)))
       }
     }
 

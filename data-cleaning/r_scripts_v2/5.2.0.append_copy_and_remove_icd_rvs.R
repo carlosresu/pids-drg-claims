@@ -12,14 +12,14 @@ append_copy_and_remove_icd_rvs <- function(
     # RVS criteria: 5 numeric digits, start with two letters, or in valid RVS codes/covid RVS
     rvs_codes_in_col <- x[(nchar(x) == 5 & grepl("^[0-9]", x)) |
       grepl("^[A-Z]{2}", x) |
-      (x %in% valid_rvs_codes) |
-      (x %in% c19_rvs)]
+      (x %chin% valid_rvs_codes) |
+      (x %chin% c19_rvs)]
     return(rvs_codes_in_col)
   })]
 
   # Append valid matches to clin_rvs without affecting existing codes in clin_rvs
   datatable[, clin_rvs := mapply(function(rvs, matches) {
-    c(rvs, matches[!matches %in% rvs]) # Add only unique matches
+    c(rvs, matches[!matches %chin% rvs]) # Add only unique matches
   }, clin_rvs, matches, SIMPLIFY = FALSE)]
 
   # Step 2: Identify valid ICD codes to move to clin_icd
@@ -28,9 +28,9 @@ append_copy_and_remove_icd_rvs <- function(
     icd_codes_in_rvs <- rvs_vec[(!grepl("^[0-9]{5}$", rvs_vec) &
       !grepl("^[A-Z]{2}", rvs_vec) &
       !grepl("/", rvs_vec)) |
-      (rvs_vec %in% valid_icd_codes) |
-      (rvs_vec %in% phil_icds)]
-    c(icd_vec, icd_codes_in_rvs[!icd_codes_in_rvs %in% icd_vec]) # Add unique codes
+      (rvs_vec %chin% valid_icd_codes) |
+      (rvs_vec %chin% phil_icds)]
+    c(icd_vec, icd_codes_in_rvs[!icd_codes_in_rvs %chin% icd_vec]) # Add unique codes
   }, clin_rvs, clin_icd, SIMPLIFY = FALSE)]
 
   # Update clin_icd with identified valid ICD codes
@@ -39,15 +39,15 @@ append_copy_and_remove_icd_rvs <- function(
   # Step 3: Remove RVS codes from col only if they don’t belong there
   datatable[, col := lapply(col, function(x) {
     # Keep in col only those codes that do not meet RVS criteria
-    x[!(x %in% matches)]
+    x[!(x %chin% matches)]
   })]
 
   # Step 4: Remove ICD codes from clin_rvs only if they don’t belong there
   datatable[, clin_rvs := lapply(clin_rvs, function(rvs_vec) {
     rvs_vec[(nchar(rvs_vec) == 5 & grepl("^[0-9]", rvs_vec)) |
       grepl("^[A-Z]{2}", rvs_vec) |
-      (rvs_vec %in% valid_rvs_codes) |
-      (rvs_vec %in% c19_rvs)]
+      (rvs_vec %chin% valid_rvs_codes) |
+      (rvs_vec %chin% c19_rvs)]
   })]
 
   # Step 5: Move RVS codes from clin_icd to clin_rvs based on criteria if not already in clin_rvs
@@ -55,9 +55,9 @@ append_copy_and_remove_icd_rvs <- function(
     # Extract RVS codes from clin_icd based on criteria
     rvs_codes_in_icd <- icd_vec[(nchar(icd_vec) == 5 & grepl("^[0-9]", icd_vec)) |
       grepl("^[A-Z]{2}", icd_vec) |
-      (icd_vec %in% valid_rvs_codes) |
-      (icd_vec %in% c19_rvs)]
-    c(rvs_vec, rvs_codes_in_icd[!rvs_codes_in_icd %in% rvs_vec]) # Add unique RVS codes
+      (icd_vec %chin% valid_rvs_codes) |
+      (icd_vec %chin% c19_rvs)]
+    c(rvs_vec, rvs_codes_in_icd[!rvs_codes_in_icd %chin% rvs_vec]) # Add unique RVS codes
   }, clin_rvs, clin_icd, SIMPLIFY = FALSE)]
 
   # Step 6: Remove RVS codes from clin_icd only if they don’t belong there
@@ -65,8 +65,8 @@ append_copy_and_remove_icd_rvs <- function(
     icd_vec[(!grepl("^[0-9]{5}$", icd_vec) &
       !grepl("^[A-Z]{2}", icd_vec) &
       !grepl("/", icd_vec)) |
-      (icd_vec %in% valid_icd_codes) |
-      (icd_vec %in% phil_icds)]
+      (icd_vec %chin% valid_icd_codes) |
+      (icd_vec %chin% phil_icds)]
   })]
 
   # Step 7: Recursively unlist elements in col
@@ -80,7 +80,7 @@ append_copy_and_remove_icd_rvs <- function(
 
   # Step 8: Identify invalid RVS codes
   invalid_matches <- lapply(datatable$matches, function(x) {
-    x[!x %in% valid_rvs_codes]
+    x[!x %chin% valid_rvs_codes]
   })
   discarded_codes <- unlist(invalid_matches)
 

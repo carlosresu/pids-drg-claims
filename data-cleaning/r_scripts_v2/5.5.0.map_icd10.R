@@ -10,7 +10,7 @@ map_icd10 <- function(c1, c2, clin_icd,
 
   # Helper: Check if a code exists in a valid set
   code_exists <- function(code, valid_set) {
-    code %in% valid_set
+    code %chin% valid_set
   }
 
   # Prepare sets of valid codes from datasets
@@ -74,9 +74,9 @@ map_icd10 <- function(c1, c2, clin_icd,
     !grepl("^[0-9]", icds) &
     !grepl("^[A-Z]{2}", icds) &
     !grepl("/", icds) &
-    !(icds %in% neoplasm_codes) &
-    !(icds %in% rvs_codes) &
-    !(icds %in% covidrvs)]
+    !(icds %chin% neoplasm_codes) &
+    !(icds %chin% rvs_codes) &
+    !(icds %chin% covidrvs)]
 
   # Generate the ICD-10 mapping
   mapping_info <- generate_icd10_mapping(filtered_icds)
@@ -107,7 +107,7 @@ map_icd10 <- function(c1, c2, clin_icd,
   )
 
   # Filter unmatched sources based on unmatched codes
-  unmatchedsources <- unmatchedsources[code %in% unmatched_codes]
+  unmatchedsources <- unmatchedsources[code %chin% unmatched_codes]
 
   # Create ICD-10 mapping data.table
   icd10_map <- data.table(

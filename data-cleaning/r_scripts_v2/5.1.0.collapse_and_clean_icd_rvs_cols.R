@@ -14,7 +14,7 @@ collapse_and_clean_icd_rvs_cols <- function(clin_icd_cols = NULL, clin_rvs_cols 
     # Step 2: Collapse cleaned columns into a single string with "||" separators
     collapsed <- sapply(seq_along(cleaned_columns[[1]]), function(i) {
       combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
-      combined <- combined[!combined %in% na_like_strings & combined != ""]
+      combined <- combined[!combined %chin% na_like_strings & combined != ""]
 
       # Collapse the cleaned values with "||" as a separator
       if (length(combined) > 0) {
