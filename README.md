@@ -78,14 +78,14 @@ Update the package list, install jupyter, python, and build tools, then upgrade 
 sudo apt update
 
 # Install Jupyter:
-sudo apt install -y jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip pipx npm
+sudo apt install -y jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip pipx npm libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev libgit2-dev pandoc python3-venv python3-dev
 
 # upgrade packages
 sudo apt upgrade
 
 # Install Microsoft .NET 8.0
 sudo apt-get update && \
-sudo apt-get install -y dotnet-sdk-8.0
+sudo apt-get install dotnet-sdk-8.0
 
 # create a venv and install venv-reliant packages
 # python3 -m venv ~/venv
@@ -100,7 +100,7 @@ New Install R method
 sudo apt update -qq
 
 # install two helper packages we need
-sudo apt install -y --no-install-recommends software-properties-common dirmngr libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev
+sudo apt install -y --no-install-recommends software-properties-common dirmngr
 
 # add the signing key (by Michael Rutter) for these repos
 # To verify key, run gpg --show-keys /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc 
@@ -175,6 +175,8 @@ install.packages("rlang")
 install.packages("yaml")
 install.packages("IRkernel")
 install.packages("here")
+# install.packages("rmarkdown") # may not be needed
+# install.packages("reticulate") # may not be needed
 IRkernel::installspec(user = FALSE)
 ```
 
@@ -196,13 +198,13 @@ Install gcloud CLI on the VM, login with the service account we spoke about earl
 ```
 sudo apt-get update
 
-sudo apt-get install -y apt-transport-https ca-certificates gnupg curl
+sudo apt-get install apt-transport-https ca-certificates gnupg curl
 
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
 
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 
-sudo apt-get update && sudo apt-get install -y google-cloud-cli
+sudo apt-get update && sudo apt-get install google-cloud-cli
 
 gcloud init
 
