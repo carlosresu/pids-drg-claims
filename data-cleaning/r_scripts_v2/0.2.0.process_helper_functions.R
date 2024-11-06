@@ -7,27 +7,27 @@ remove_periods_and_whitespaces <- function(x) {
 }
 
 # NEW REFACTORED CODE:
-split_to_vector <- function(column) {
-  ## Splits strings into vectors by first handling COVID, RVS, and neoplasm codes
-  result <- lapply(column, function(x) {
-    # Handle NA values
-    if (is.na(x)) {
-      return(NA_character_)
-    }
+# split_to_vector <- function(column) {
+#   ## Splits strings into vectors by first handling COVID, RVS, and neoplasm codes
+#   result <- lapply(column, function(x) {
+#     # Handle NA values
+#     if (is.na(x)) {
+#       return(NA_character_)
+#     }
 
-    # First pass: Split using combined pattern of COVID, RVS, and neoplasm codes
-    first_split <- unlist(strsplit(x, paste0("(", covid_rvs_neoplasm_pattern, ")"), perl = TRUE))
+#     # First pass: Split using combined pattern of COVID, RVS, and neoplasm codes
+#     first_split <- unlist(strsplit(x, paste0("(", covid_rvs_neoplasm_pattern, ")"), perl = TRUE))
 
-    # Filter out empty strings
-    first_split <- first_split[first_split != ""]
+#     # Filter out empty strings
+#     first_split <- first_split[first_split != ""]
 
-    second_split <- unlist(strsplit(first_split, "\\|\\|"))
-    # Return the character vector of the split result
-    return(second_split)
-  })
+#     second_split <- unlist(strsplit(first_split, "\\|\\|"))
+#     # Return the character vector of the split result
+#     return(second_split)
+#   })
 
-  return(result)
-}
+#   return(result)
+# }
 
 # SKIP ROWS WITHOUT SPECIAL DELIMITERS
 # split_to_vector <- function(column) {
@@ -131,6 +131,143 @@ split_to_vector <- function(column) {
 #   return(result)
 # }
 
+# split_to_vector <- function(column) {
+#   result <- lapply(column, function(x) {
+#     # Handle NA values
+#     if (is.na(x)) {
+#       return(NA_character_)
+#     }
+
+#     # Helper function to split on a pattern and retain the matched parts
+#     split_and_retain <- function(input, pattern) {
+#       split_result <- unlist(strsplit(input, pattern, perl = TRUE))
+#       matches <- gregexpr(pattern, input, perl = TRUE)[[1]]
+#       if (matches[1] != -1) {
+#         matched_parts <- regmatches(input, gregexpr(pattern, input, perl = TRUE))[[1]]
+#         # Manually interleave split_result and matched_parts
+#         result <- character(0)
+#         for (i in seq_along(split_result)) {
+#           result <- c(result, split_result[i])
+#           if (i <= length(matched_parts)) {
+#             result <- c(result, matched_parts[i])
+#           }
+#         }
+#         # Add any remaining matched parts if they exist
+#         if (length(matched_parts) > length(split_result)) {
+#           result <- c(result, matched_parts[(length(split_result) + 1):length(matched_parts)])
+#         }
+#       } else {
+#         result <- split_result
+#       }
+#       return(result[result != ""]) # Filter out empty strings
+#     }
+
+#     # Step 1: Check for '/' or '\' in x, split by neoplasm codes if either is found
+#     if (grepl("[/\\\\]", x)) {
+#       first_split <- split_and_retain(x, neoplasm_pattern)
+#     } else {
+#       first_split <- x
+#     }
+#     cat("First Split\n")
+#     print(first_split)
+
+#     # Step 2: Check for covid codes in first_split, then split on covid codes
+#     second_split <- unlist(lapply(first_split, function(element) {
+#       if (grepl(covid_pattern, element)) {
+#         return(split_and_retain(element, covid_pattern))
+#       } else {
+#         return(element)
+#       }
+#     }))
+#     cat("Second Split\n")
+#     print(second_split)
+
+#     # Step 3: Check for RVS codes in second_split based on defined patterns
+#     rvs_patterns <- c(
+#       "[0-9]{5}", # Five consecutive numbers
+#       "[A-Z][0-9]{3,4}", # A letter followed by three or four digits
+#       "[A-Z]{2}[0-9]{2,3}", # Two letters followed by two or three digits
+#       "[A-Z]{3}[0-9]{1,2}" # Three letters followed by one or two digits
+#     )
+#     third_split <- unlist(lapply(second_split, function(element) {
+#       if (any(sapply(rvs_patterns, function(p) any(grepl(p, element))))) {
+#         for (pattern in rvs_patterns) {
+#           if (any(grepl(pattern, element))) {
+#             element <- split_and_retain(element, pattern)
+#           }
+#         }
+#         return(element)
+#       } else {
+#         return(element)
+#       }
+#     }))
+#     cat("Third Split\n")
+#     print(third_split)
+
+#     # Step 4: Split elements of third_split that contain "||" and remove "||" from the results
+#     final_split <- unlist(strsplit(third_split, "\\|\\|", perl = TRUE))
+
+#     return(final_split[final_split != ""]) # Remove any remaining empty strings
+#   })
+
+#   return(result)
+# }
+
+split_to_vector <- function(column) {
+  lapply(column, function(long_string) {
+    # Initialize result vector
+    result <- character(0)
+
+    # Ensure long_string is not NA before proceeding
+    if (is.na(long_string)) {
+      return(result)
+    }
+
+    # Step 1: Extract COVID codes
+    covid_matches <- gregexpr(covid_pattern, long_string, perl = TRUE)[[1]]
+    if (!is.na(covid_matches[1]) && covid_matches[1] != -1) {
+      covid_codes <- regmatches(long_string, list(covid_matches))[[1]]
+      result <- c(result, covid_codes)
+      # Remove COVID codes from long_string
+      long_string <- gsub(covid_pattern, "", long_string, perl = TRUE)
+    }
+
+    # Step 2: Extract Neoplasm codes
+    neoplasm_matches <- gregexpr(neoplasm_pattern, long_string, perl = TRUE)[[1]]
+    if (!is.na(neoplasm_matches[1]) && neoplasm_matches[1] != -1) {
+      neoplasm_codes <- regmatches(long_string, list(neoplasm_matches))[[1]]
+      result <- c(result, neoplasm_codes)
+      # Remove Neoplasm codes from long_string
+      long_string <- gsub(neoplasm_pattern, "", long_string, perl = TRUE)
+    }
+
+    # Step 3: Extract RVS codes using individual patterns
+    rvs_patterns <- c(
+      "[A-Za-z]{3}[0-9]{2}", # Three letters followed by one or two digits
+      "[A-Za-z]{2}[0-9]{3}", # Two letters followed by two or three digits
+      "[A-Za-z][0-9]{4}", # A letter followed by four or five digits
+      "[0-9]{5}" # Five consecutive numbers
+    )
+
+    for (pattern in rvs_patterns) {
+      rvs_matches <- gregexpr(pattern, long_string, perl = TRUE)[[1]]
+      if (!is.na(rvs_matches[1]) && rvs_matches[1] != -1) {
+        rvs_codes <- regmatches(long_string, list(rvs_matches))[[1]]
+        result <- c(result, rvs_codes)
+        # Remove RVS codes from long_string
+        long_string <- gsub(pattern, "", long_string, perl = TRUE)
+      }
+    }
+
+    # Step 4: Remaining content in long_string should be lumped ICD codes
+    if (!is.na(long_string) && nchar(long_string) > 0) {
+      result <- c(result, long_string)
+    }
+
+    return(result)
+  })
+}
+
 # New code:
 # remove_lumped_icd_codes <- function(column) {
 #   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
@@ -166,8 +303,9 @@ remove_lumped_icd_codes <- function(column) {
   result <- lapply(column, function(vec) {
     # Iterate through each element of the vector
     processed <- unlist(lapply(vec, function(element) {
-      if ((!is.na(element) && element != "") && (!is.null(mget(element, envir = neoplasm_env, ifnotfound = NA)[[1]]) || !is.null(mget(element, envir = covid_env, ifnotfound = NA)[[1]]))) {
-        return(element) # Keep intact if it's a valid neoplasm or COVID code
+      if ((is.na(element) || element == "") # && (!is.null(mget(element, envir = neoplasm_env, ifnotfound = NA)[[1]]) || !is.null(mget(element, envir = covid_env, ifnotfound = NA)[[1]]))
+      ) {
+        return(character(0)) # Keep intact if it's a valid neoplasm or COVID code
       } else {
         # Perform regex-based splitting for ICD-10 codes using the combined regex
         return(unlist(strsplit(element, "(?<=\\d)(?=[A-Z][0-9]{2,})", perl = TRUE)))
