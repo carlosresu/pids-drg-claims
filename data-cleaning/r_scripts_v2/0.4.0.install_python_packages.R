@@ -28,6 +28,8 @@ is_pip_latest <- function() {
   py_install("pip", envname = "r-reticulate", pip = TRUE)
   return(FALSE)
 }
+# Update pip
+py_install("pip", envname = "r-reticulate", pip = TRUE, upgrade = TRUE)
 invisible(is_pip_latest())
 
 # Package mapping
