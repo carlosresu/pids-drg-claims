@@ -14,14 +14,14 @@ gcloud compute instances create drg-data-pipeline \
     --machine-type=e2-highmem-8 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
     --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
--u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE \
+-u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE,enable-oslogin-2fa=true \
+    --can-ip-forward \
     --maintenance-policy=MIGRATE \
     --provisioning-model=STANDARD \
     --service-account=271591364028-compute@developer.gserviceaccount.com \
     --scopes=https://www.googleapis.com/auth/cloud-platform \
-    --enable-display-device \
     --tags=http-server,https-server,lb-health-check \
-    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=200,type=pd-ssd \
+    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20240809,mode=rw,size=200,type=pd-ssd \
     --shielded-secure-boot \
     --shielded-vtpm \
     --shielded-integrity-monitoring \
