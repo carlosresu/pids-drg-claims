@@ -84,6 +84,9 @@ checkpoint_8_path <- file.path(chkpt_path, "checkpoint_8_py_output")
 checkpoint_9_path <- file.path(chkpt_path, "checkpoint_9_grouper_differences")
 checkpoint_10_path <- file.path(chkpt_path, "checkpoint_10_stata")
 cache_path <- file.path(clean_prefix, "cache")
+mapping_path <- file.path(cache_path, "mapping")
+total_rows_path <- file.path(cache_path, "total_rows")
+py_pkgs_path <- file.path(cache_path, "py_pkgs")
 aux_path <- file.path(data_prefix, "aux-files")
 raw_claims_path <- file.path(claims_prefix, "raw")
 raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
@@ -126,7 +129,7 @@ ram_limit <- (1 - 0.10) * 64 * (1024^3)
 options(future.globals.maxSize = ram_limit)
 
 total_rows_file <<- here(
-  cache_path,
+  cache_path, "total_rows",
   paste0("total_rows_", year_to_load, ".rds")
 )
 
