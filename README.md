@@ -21,7 +21,8 @@ gcloud compute instances create drg-data-pipeline-v2 \
     --service-account=271591364028-compute@developer.gserviceaccount.com \
     --scopes=https://www.googleapis.com/auth/cloud-platform \
     --tags=http-server,https-server,lb-health-check \
-    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=200,type=pd-ssd \
+    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=10,type=pd-ssd \
+    --create-disk=device-name=drg-data-pipeline-data-disk,mode=rw,name=drg-data-pipeline-data-disk,size=100,type=pd-ssd \
     --shielded-secure-boot \
     --shielded-vtpm \
     --shielded-integrity-monitoring \
