@@ -152,8 +152,7 @@
 #   )
 # }
 # Updated map_icd10 function using covid_rvs_neoplasm_env
-map_icd10 <- function(c1, c2, clin_icd,
-                      thai_icd10 = tdrg_icd10) {
+map_icd10 <- function(c1, c2, clin_icd) {
   # Helper: Trim numeric suffixes (e.g., J1892 -> J189)
   trim_code <- function(code) {
     sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
@@ -173,7 +172,7 @@ map_icd10 <- function(c1, c2, clin_icd,
       code <- trimws(code)
 
       # 1. **Exact match check**
-      if (code_exists(code, acc_pdx_env)) {
+      if (code_exists(code, icd_codes_env)) {
         icd_mapping[[code]] <- list(match_type = "Exact", original = code, mapped = code)
         direct_matches <- c(direct_matches, code)
         next
@@ -182,7 +181,7 @@ map_icd10 <- function(c1, c2, clin_icd,
       # 2. **Attempt adding '9' for 3-character codes**
       if (nchar(code) == 3) {
         modified_code <- paste0(code, "9")
-        if (code_exists(modified_code, acc_pdx_env)) {
+        if (code_exists(modified_code, icd_codes_env)) {
           icd_mapping[[code]] <- list(match_type = "Modified (Added 9)", original = code, mapped = modified_code)
           modifiedmatches$modified_matches <- c(modifiedmatches$modified_matches, code)
           modifiedmatches$modified_match <- c(modifiedmatches$modified_match, modified_code)
@@ -196,7 +195,7 @@ map_icd10 <- function(c1, c2, clin_icd,
 
       for (i in 0:(nchar(trimmed_code) - 3)) {
         partial_code <- substr(trimmed_code, 1, nchar(trimmed_code) - i)
-        if (nchar(partial_code) >= 3 && code_exists(partial_code, acc_pdx_env)) {
+        if (nchar(partial_code) >= 3 && code_exists(partial_code, icd_codes_env)) {
           icd_mapping[[code]] <- list(match_type = "Modified (Trimmed)", original = code, mapped = partial_code)
           modifiedmatches$modified_matches <- c(modifiedmatches$modified_matches, code)
           modifiedmatches$modified_match <- c(modifiedmatches$modified_match, partial_code)
