@@ -166,7 +166,7 @@ remove_lumped_icd_codes <- function(column) {
   result <- lapply(column, function(vec) {
     # Iterate through each element of the vector
     processed <- unlist(lapply(vec, function(element) {
-      if (!is.null(mget(element, envir = neoplasm_env, ifnotfound = NA)[[1]]) || !is.null(mget(element, envir = covid_env, ifnotfound = NA)[[1]])) {
+      if ((!is.na(element) && element != "") && (!is.null(mget(element, envir = neoplasm_env, ifnotfound = NA)[[1]]) || !is.null(mget(element, envir = covid_env, ifnotfound = NA)[[1]]))) {
         return(element) # Keep intact if it's a valid neoplasm or COVID code
       } else {
         # Perform regex-based splitting for ICD-10 codes using the combined regex
