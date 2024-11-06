@@ -11,7 +11,7 @@ split_parts <- 15
 # Sample size divisor: Formula for sample size is
 # (total_rows ÷ split_parts) ÷ sample_size_divisor.
 # Choose between 5, 25, 125, and 625
-sample_size_divisor <- 5
+sample_size_divisor <- 625
 
 # Columns to drop
 drop_cols <- c( # Which columns to drop
