@@ -8,7 +8,7 @@ Run this code in Google Cloud Platform Cloud Shell:
 2. Service account should be the service account of the GCP Project. (See --service-account portion of the script below.)
 
 ```
-gcloud compute instances create drg-data-pipeline \
+gcloud compute instances create drg-data-pipeline-v2 \
     --project=drg-pipeline \
     --zone=us-central1-a \
     --machine-type=e2-highmem-8 \
@@ -21,7 +21,7 @@ gcloud compute instances create drg-data-pipeline \
     --service-account=271591364028-compute@developer.gserviceaccount.com \
     --scopes=https://www.googleapis.com/auth/cloud-platform \
     --tags=http-server,https-server,lb-health-check \
-    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20240809,mode=rw,size=200,type=pd-ssd \
+    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=200,type=pd-ssd \
     --shielded-secure-boot \
     --shielded-vtpm \
     --shielded-integrity-monitoring \
