@@ -141,7 +141,7 @@ split_to_vector <- function(column) {
 #       # Check if the element matches COVID, RVS, or neoplasm codes
 #       if (element %in% c(
 #         covid_codes,
-#         # rvs_codes,
+#         rvs_codes,
 #         neoplasm_codes
 #       )) {
 #         return(element) # Keep intact if it's a valid code
@@ -158,15 +158,16 @@ split_to_vector <- function(column) {
 #   return(result)
 # }
 
+# USING ENVIRONMENTS
+# Function to process ICD codes
 remove_lumped_icd_codes <- function(column) {
   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
 
   result <- lapply(column, function(vec) {
     # Iterate through each element of the vector
     processed <- unlist(lapply(vec, function(element) {
-      # Check if the element is in neoplasm_codes or covid_codes using %chin%
-      if (element %chin% neoplasm_codes_lookup_dt$code || element %chin% covid_codes_lookup_dt$code) {
-        return(element) # Keep intact if it's a valid code
+      if (!is.null(mget(element, envir = neoplasm_env, ifnotfound = NA)[[1]]) || !is.null(mget(element, envir = covid_env, ifnotfound = NA)[[1]])) {
+        return(element) # Keep intact if it's a valid neoplasm or COVID code
       } else {
         # Perform regex-based splitting for ICD-10 codes using the combined regex
         return(unlist(strsplit(element, "(?<=\\d)(?=[A-Z][0-9]{2,})", perl = TRUE)))
