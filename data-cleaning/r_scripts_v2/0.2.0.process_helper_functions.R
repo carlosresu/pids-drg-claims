@@ -6,50 +6,7 @@ remove_periods_and_whitespaces <- function(x) {
   gsub("[.\\s]", "", x)
 }
 
-# OLD CODE BEFORE REFACTORING:
-# remove_lumped_icd_codes <- function(column) {
-#   ## Takes a column and separates out ICD-10 codes using "||"
-#   ## been lumped into a single string
-
-#   # Use regex to add "||" between letters and digits
-#   # in the ICD codes (e.g., A123B456 -> A123||B456)
-#   stri_replace_all_regex(
-#     column, "(?<=\\d)(?=[A-Z]\\d{2,4})", "||",
-#     # Specify regex options for the replacement
-#     opts_regex = stri_opts_regex()
-#   )
-# }
-
-# split_to_vector <- function(column, covidrvspattern = covid_rvs_pattern) {
-#   ## Splits a column of strings in two passes:
-#   # 1. Split on COVID RVS codes
-#   # 2. Split on "||" delimiter
-
-#   result <- lapply(column, function(x) {
-#     # If the entry is NA, leave it as is
-#     if (is.na(x)) {
-#       return(NA_character_)
-#     } else {
-#       # First pass: Split on COVID RVS codes to handle lumped codes
-#       first_split <- unlist(strsplit(x, covidrvspattern, perl = TRUE))
-
-#       # Second pass: Split on "||" within each split chunk
-#       final_split <- unlist(strsplit(first_split, "||", fixed = TRUE))
-
-#       # Remove empty strings or NA-like values
-#       final_split <- final_split[final_split != "" & !is.na(final_split)]
-
-#       return(final_split)
-#     }
-#   })
-
-#   # Return the list of vectors
-#   return(result)
-# }
-
 # NEW REFACTORED CODE:
-
-### Split to Vector Function ###
 split_to_vector <- function(column) {
   ## Splits strings into vectors by first handling COVID, RVS, and neoplasm codes
   result <- lapply(column, function(x) {
@@ -71,29 +28,6 @@ split_to_vector <- function(column) {
 
   return(result)
 }
-
-# ### Remove Lumped ICD Codes Function ###
-# remove_lumped_icd_codes <- function(column) {
-#   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
-
-#   result <- lapply(column, function(vec) {
-#     # Iterate through each element of the vector
-#     processed <- unlist(lapply(vec, function(element) {
-#       # Check if the element matches COVID, RVS, or neoplasm codes
-#       if (element %in% c(covid_codes, rvs_codes, neoplasm_codes)) {
-#         return(element) # Keep intact if it's a valid code
-#       } else {
-#         # Perform regex-based splitting for ICD-10 codes
-#         return(unlist(strsplit(element, "(?=[A-Z][0-9]{2,})", perl = TRUE)))
-#       }
-#     }))
-
-#     # Filter out empty strings and return the cleaned vector
-#     return(processed[processed != ""])
-#   })
-
-#   return(result)
-# }
 
 # New code:
 remove_lumped_icd_codes <- function(column) {
@@ -165,74 +99,6 @@ collapse_to_string <- function(vec) {
     NA_character_
   }
 }
-
-# replace_empty_with_na <- function(dt, to_view_checks = TRUE) {
-#   ## Replaces empty strings with NA across an entire data.table.
-#   # dt: input data.table
-#   # to_view_checks: flag to track the replacement count for checks.
-#   # Identify columns that are character, factor, or list
-#   char_factor_cols <- names(dt)[sapply(
-#     dt,
-#     function(col) is.character(col) || is.factor(col) || is.list(col)
-#   )]
-
-#   # Create a summary table for tracking replacements
-#   replacement_summary <- data.table(
-#     Column = character(),
-#     Empty_Replaced = integer(),
-#     NA_Replaced = integer(),
-#     Character0_Replaced = integer()
-#   )
-
-#   # Loop through each identified column
-#   for (col_name in char_factor_cols) {
-#     col <- dt[[col_name]]
-#     if (to_view_checks) {
-#       # Count how many empty, "NA", or "character(0)" entries exist
-#       empty_count <- sum(col == "", na.rm = TRUE)
-#       na_count <- sum(col == "NA", na.rm = TRUE)
-#       char0_count <- sum(col == "character(0)", na.rm = TRUE)
-#     }
-
-#     # Replace all empty, "NA", and "character(0)" values with actual NA
-#     dt[
-#       get(
-#         col_name
-#       ) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
-#       (col_name) := NA_character_
-#     ]
-
-#     # If the column is a factor, ensure that NA is a valid level
-#     if (is.factor(col)) {
-#       set(dt,
-#         j = col_name,
-#         value = factor(dt[[col_name]],
-#           levels = c(levels(col), NA)
-#         )
-#       )
-#     }
-#     # Update the replacement summary
-#     replacement_summary <- rbind(replacement_summary, data.table(
-#       Column = col_name,
-#       Empty_Replaced = empty_count,
-#       NA_Replaced = na_count,
-#       Character0_Replaced = char0_count
-#     ))
-#   }
-#   # Filter out columns where no replacements were made
-#   replacement_summary <- replacement_summary[
-#     Empty_Replaced > 0 | NA_Replaced > 0 | Character0_Replaced > 0
-#   ]
-
-#   return(
-#     list(
-#       # Return the modified data.table
-#       return_data = dt,
-#       # Return the summary of replacements
-#       return_replacement_summary = replacement_summary
-#     )
-#   )
-# }
 
 replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additional_columns = NULL) {
   # Validate `replace_with` argument
