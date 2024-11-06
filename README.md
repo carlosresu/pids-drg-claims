@@ -7,6 +7,7 @@ Run this code in Google Cloud Platform Cloud Shell:
 1. Currently, it is configured to have VS Code Server Code Tunnel accessible by the user profile of Carlos Resurreccion (resurreccion_cmc_gmail_com). (See --metadata portion of the script below.)
 2. Service account should be the service account of the GCP Project. (See --service-account portion of the script below.)
 
+First time
 ```
 gcloud compute instances create drg-data-pipeline-v2 \
     --project=drg-pipeline \
@@ -23,6 +24,31 @@ gcloud compute instances create drg-data-pipeline-v2 \
     --tags=http-server,https-server,lb-health-check \
     --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=10,type=pd-ssd \
     --create-disk=device-name=drg-data-pipeline-data-disk,mode=rw,name=drg-data-pipeline-data-disk,size=100,type=pd-ssd \
+    --shielded-secure-boot \
+    --shielded-vtpm \
+    --shielded-integrity-monitoring \
+    --labels=goog-ec-src=vm_add-gcloud \
+    --reservation-affinity=any \
+    --deletion-protection
+```
+
+Subsequent creations:
+```
+gcloud compute instances create drg-data-pipeline-v2 \
+    --project=drg-pipeline \
+    --zone=us-central1-a \
+    --machine-type=e2-highmem-8 \
+    --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
+    --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
+-u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE,enable-oslogin-2fa=true \
+    --can-ip-forward \
+    --maintenance-policy=MIGRATE \
+    --provisioning-model=STANDARD \
+    --service-account=271591364028-compute@developer.gserviceaccount.com \
+    --scopes=https://www.googleapis.com/auth/cloud-platform \
+    --tags=http-server,https-server,lb-health-check \
+    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=10,type=pd-ssd \
+    --disk=name=drg-data-pipeline-data-disk,device-name=drg-data-pipeline-data-disk,mode=rw \
     --shielded-secure-boot \
     --shielded-vtpm \
     --shielded-integrity-monitoring \
@@ -52,7 +78,7 @@ Update the package list, install jupyter, python, and build tools, then upgrade 
 sudo apt update
 
 # Install Jupyter:
-sudo apt install jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip pipx npm
+sudo apt install -y jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev python3-full python3-pip pipx npm
 
 # upgrade packages
 sudo apt upgrade
@@ -74,7 +100,7 @@ New Install R method
 sudo apt update -qq
 
 # install two helper packages we need
-sudo apt install --no-install-recommends software-properties-common dirmngr libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev
+sudo apt install -y --no-install-recommends software-properties-common dirmngr libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev
 
 # add the signing key (by Michael Rutter) for these repos
 # To verify key, run gpg --show-keys /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc 
@@ -86,7 +112,7 @@ wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sud
 sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
 
 ## Install R 4.4.2
-sudo apt install --no-install-recommends r-base
+sudo apt install -y --no-install-recommends r-base
 
 ## Check R Version
 R --version
@@ -101,9 +127,14 @@ For example, if I login as resurreccion_cmc_gmail_com, my user profile folder is
 ```
 sudo chmod -R 777 /usr/local/lib/R/site-library
 sudo chmod -R 777 /usr/lib/R/site-library
+```
 
+```
 lsblk
-sudo mkfs.ext4 -F /dev/sdb
+sudo mkfs.ext4 -F /dev/sdb # WARNING: ONLY FORMAT THE DISK IF NOT ALREADY FORMATTED
+```
+
+```
 sudo mkdir -p /mnt/data-disk
 sudo mount /dev/sdb /mnt/data-disk
 sudo blkid /dev/sdb
@@ -165,13 +196,13 @@ Install gcloud CLI on the VM, login with the service account we spoke about earl
 ```
 sudo apt-get update
 
-sudo apt-get install apt-transport-https ca-certificates gnupg curl
+sudo apt-get install -y apt-transport-https ca-certificates gnupg curl
 
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
 
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 
-sudo apt-get update && sudo apt-get install google-cloud-cli
+sudo apt-get update && sudo apt-get install -y google-cloud-cli
 
 gcloud init
 
