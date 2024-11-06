@@ -20,7 +20,7 @@ split_and_save_part <- function(split_loop_part) {
     # Save the chunk as an RDS file
     saveRDS(chunk_dt, chunk_file, compress = TRUE)
     rm(chunk_dt)
-    gc()
+    invisible(gc())()
 
     # Save processing time for this part
     split_processing_times[[split_loop_part]] <- as.numeric(
