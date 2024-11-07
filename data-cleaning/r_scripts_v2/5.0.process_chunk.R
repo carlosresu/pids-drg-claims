@@ -5,6 +5,7 @@ process_chunk <- function(chunk,
                           remap_cols = remapped_column,
                           avail_cols = available_columns) {
   # saveWidget(profvis({
+  # chunk_summary <- list()
   setnames(chunk,
     old = avail_cols[avail_cols %in% names(col_maps)],
     new = sapply(
