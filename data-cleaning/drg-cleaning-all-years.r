@@ -21,7 +21,7 @@ run_notebook <- function(to_parallel) {
 }
 
 # Loop over the years (2019, 2022) with retry logic
-for (year in c(2021:2023)) {
+for (year in c(2018:2020)) {
   write(as.character(year), paths$year_to_load)
 
   if (!run_notebook(TRUE)) {
