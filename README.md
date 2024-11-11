@@ -38,17 +38,20 @@ Update the package list, install jupyter, python, and build tools, then upgrade 
 sudo apt update
 
 # Install Jupyter:
-sudo apt install -y jupyter jupyter-core jupyter-client build-essential libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev pipx  libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev libgit2-dev python3-venv python3-dev libgfortran5 liblapack-dev libblas-dev libcairo2-dev libz-dev liblz4-dev libzstd-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libgdal-dev libproj-dev libgmp3-dev libgmp-dev ncdu python3-full python3-pip npm pandoc
+sudo apt install -y jupyter jupyter-core jupyter-client libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev pipx  libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev libgit2-dev python3-venv python3-dev libgfortran5 liblapack-dev libblas-dev libcairo2-dev libz-dev liblz4-dev libzstd-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libgdal-dev libproj-dev libgmp3-dev libgmp-dev ncdu python3-full python3-pip npm pandoc
 
 # Install glances
 sudo snap install glances
+
+# Build tools
+sudo apt-get update
+sudo apt-get install -y build-essential
 
 # upgrade packages
 sudo apt upgrade
 
 # Install Microsoft .NET 8.0
-sudo apt-get update && \
-sudo apt-get install dotnet-sdk-8.0
+sudo apt-get update && sudo apt-get install dotnet-sdk-8.0
 
 # create a venv and install venv-reliant packages
 # python3 -m venv ~/venv
@@ -118,6 +121,14 @@ sudo mkdir -p /mnt/data-disk/data
 sudo chmod -R 777 /mnt/data-disk/data
 sudo chown -R root:root /mnt/data-disk/data
 sudo chmod -R 777 /mnt/data-disk/data
+```
+
+Old Code
+```
+sudo mkdir -p /home/data
+sudo chmod -R 777 /home/data
+sudo chown -R root:root /home/data
+sudo chmod -R 777 /home/data
 ```
 
 Start R to install necessary packages that we need to work with R in VS Code, these cannot be installed later on as we will not be able to access R in our jupyter notebooks otherwise.
@@ -215,6 +226,11 @@ Symbolically Link /mnt/data-disk/data to your username's drg-pipeline/data-clean
 
 ```
 sudo ln -s /mnt/data-disk/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
+```
+
+Old Code
+```
+sudo ln -s /home/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
 ```
 
 Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
