@@ -3,7 +3,13 @@ manual_replacement <- function(text) {
 }
 
 remove_periods_and_whitespaces <- function(x) {
-  gsub("[.\\s]", "", x)
+  # Ensure UTF-8 encoding
+  x <- sapply(x, function(elem) iconv(elem, from = "", to = "UTF-8"), USE.NAMES = FALSE)
+  
+  # Remove periods and whitespaces
+  x <- gsub("[.\\s]", "", x)
+  
+  return(x)
 }
 
 # NEW REFACTORED CODE:
