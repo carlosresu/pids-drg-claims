@@ -4,6 +4,9 @@ paths <- list(
   output_rscript = here::here("data-cleaning", "debug", "drg-cleaning")
 )
 
+dir.create(dirname(here::here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
+if (!file.exists(here::here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here::here("data-cleaning/cache/year_to_load.txt"))
+
 # Helper function to run the notebook as an R script
 run_notebook <- function(to_parallel) {
   Sys.setenv(TO_PARALLEL = to_parallel)
