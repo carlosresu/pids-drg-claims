@@ -5,6 +5,7 @@ paths <- list(
 )
 
 dir.create(dirname(here::here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
+dir.create(dirname(here::here("data-cleaning/debug/drg-cleaning.r")), recursive = TRUE, showWarnings = FALSE)
 if (!file.exists(here::here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here::here("data-cleaning/cache/year_to_load.txt"))
 
 # Helper function to run the notebook as an R script
