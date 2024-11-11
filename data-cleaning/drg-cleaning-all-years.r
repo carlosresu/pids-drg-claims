@@ -25,7 +25,6 @@ for (year in c(2018:2023)) {
   write(as.character(year), paths$year_to_load)
 
   if (!run_notebook(TRUE)) {
-    message("Retrying with to_parallel = FALSE...")
-    run_notebook(FALSE)
+    stop("R script failed.")
   }
 }
