@@ -432,7 +432,7 @@ process_chunk <- function(chunk,
   )
   # }), profvis_fpath)
   # str(chunk)
-  # invisible(gc())
+  invisible(gc())
   return(list(
     return_chunk = chunk,
     return_summary = chunk_summary
