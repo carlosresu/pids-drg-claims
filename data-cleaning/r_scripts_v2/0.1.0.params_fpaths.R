@@ -6,6 +6,8 @@ file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
 to_split <- TRUE # TODO: Deprecated, only used when to_sample is TRUE # Whether to split into split_parts parts (i.e. to fit in 32gb RAM).
+thai_prompt <- TRUE # Whether to prompt for thai grouper even if bypassing all other prompts
+to_prompt <- FALSE
 
 split_parts <- 15
 # Sample size divisor: Formula for sample size is
