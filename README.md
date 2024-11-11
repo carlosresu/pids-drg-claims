@@ -9,52 +9,13 @@ Run this code in Google Cloud Platform Cloud Shell:
 
 First time
 ```
-gcloud compute instances create drg-data-pipeline-v2 \
-    --project=drg-pipeline \
-    --zone=us-central1-a \
-    --machine-type=e2-highmem-8 \
-    --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-    --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
--u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE,enable-oslogin-2fa=true \
-    --can-ip-forward \
-    --maintenance-policy=MIGRATE \
-    --provisioning-model=STANDARD \
-    --service-account=271591364028-compute@developer.gserviceaccount.com \
-    --scopes=https://www.googleapis.com/auth/cloud-platform \
-    --tags=http-server,https-server,lb-health-check \
-    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=10,type=pd-ssd \
-    --create-disk=device-name=drg-data-pipeline-data-disk,mode=rw,name=drg-data-pipeline-data-disk,size=150,type=pd-ssd \
-    --shielded-secure-boot \
-    --shielded-vtpm \
-    --shielded-integrity-monitoring \
-    --labels=goog-ec-src=vm_add-gcloud \
-    --reservation-affinity=any \
-    --deletion-protection
+gcloud compute instances create drg-data-pipeline-v2 --project=drg-pipeline --zone=us-central1-a --machine-type=e2-highmem-8 --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
+-u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE,enable-oslogin-2fa=true --can-ip-forward --maintenance-policy=MIGRATE --provisioning-model=STANDARD --service-account=271591364028-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --tags=http-server,https-server,lb-health-check --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=10,type=pd-ssd --create-disk=device-name=drg-data-pipeline-data-disk,mode=rw,name=drg-data-pipeline-data-disk,size=150,type=pd-ssd --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --labels=goog-ec-src=vm_add-gcloud --reservation-affinity=any --deletion-protection
 ```
 
 Subsequent creations:
 ```
-gcloud compute instances create drg-data-pipeline-v2 \
-    --project=drg-pipeline \
-    --zone=us-central1-a \
-    --machine-type=e2-highmem-8 \
-    --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-    --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
--u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE,enable-oslogin-2fa=true \
-    --can-ip-forward \
-    --maintenance-policy=MIGRATE \
-    --provisioning-model=STANDARD \
-    --service-account=271591364028-compute@developer.gserviceaccount.com \
-    --scopes=https://www.googleapis.com/auth/cloud-platform \
-    --tags=http-server,https-server,lb-health-check \
-    --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=10,type=pd-ssd \
-    --disk=name=drg-data-pipeline-data-disk,device-name=drg-data-pipeline-data-disk,mode=rw \
-    --shielded-secure-boot \
-    --shielded-vtpm \
-    --shielded-integrity-monitoring \
-    --labels=goog-ec-src=vm_add-gcloud \
-    --reservation-affinity=any \
-    --deletion-protection
+gcloud compute instances create drg-data-pipeline-v3 --project=drg-pipeline --zone=us-central1-a --machine-type=e2-highmem-8 --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default --metadata=enable-osconfig=TRUE,startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ -u\ \$USER\ bash\ -c\ \'code\ tunnel\',enable-oslogin=TRUE --can-ip-forward --maintenance-policy=MIGRATE --provisioning-model=STANDARD --service-account=271591364028-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --tags=http-server,https-server,lb-health-check --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241004,mode=rw,size=10,type=pd-ssd --disk=name=drg-data-pipeline-data-disk,device-name=drg-data-pipeline-data-disk,mode=rw --shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --labels=goog-ec-src=vm_add-gcloud --reservation-affinity=any --deletion-protection
 ```
 
 Run the below code in GCP Cloud Shell. This enables the Patch service to work with the VM.
