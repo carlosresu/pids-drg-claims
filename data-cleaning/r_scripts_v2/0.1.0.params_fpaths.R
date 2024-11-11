@@ -1,6 +1,8 @@
 ## Start total execution timer
 tic("Time spent (total)               ")
 
+dir.create(dirname(here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
+if (!file.exists(here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here("data-cleaning/cache/year_to_load.txt"))
 year_to_load <- fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
 file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
