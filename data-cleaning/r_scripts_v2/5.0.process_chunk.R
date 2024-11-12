@@ -67,7 +67,7 @@ process_chunk <- function(chunk,
     by = .(old_code, new_code)
   ]
   chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
-  chunk[!is.na(pat_age) && pat_age < 0 && grepl("99432", c1), pat_age := NA_real_]
+  chunk[!is.na(pat_age) & pat_age < 0 & grepl("99432", c1), `:=`(pat_age, NA_real_)]
   # OLD CODE:
   # chunk[, c1 := split_to_vector(remove_lumped_icd_codes(lapply(c1, manual_replacement)))]
   # chunk[, c2 := split_to_vector(remove_lumped_icd_codes(lapply(c2, manual_replacement)))]

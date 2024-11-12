@@ -252,7 +252,8 @@ column_mappings <- list(
 )
 
 for (i in 1:20) {
-  column_mappings[[if (i == 15) "ICCODED15" else paste0("ICDCODE", i)]] <- paste0("clin_icd", i)
+  column_to_map <- if (i == 15) "ICCODED15" else paste0("ICDCODE", i)
+  column_mappings[[column_to_map]] <- paste0("clin_icd", i)
 }
 for (i in 1:20) {
   column_mappings[[paste0("RVSCODE", i)]] <- paste0("clin_rvs", i)
@@ -287,7 +288,9 @@ expected_types <- list(
     "PAT_BDAY",
     "ICDCODES_ITEM7",
     "RVSCODES_ITEM7",
-    paste0("ICDCODE", 1:12),
+    paste0("ICDCODE", 1:14),
+    "ICCODED15",
+    paste0("ICDCODE", 16:20),
     paste0("RVSCODE", 1:20)
   ),
 
