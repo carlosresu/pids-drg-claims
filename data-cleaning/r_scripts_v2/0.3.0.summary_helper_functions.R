@@ -8,12 +8,12 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
   # Inline conversion of seconds to period and formatting to string
   convert_and_format_time <- function(seconds) {
     # Convert seconds to period using lubridate
-    period <- seconds_to_period(round(seconds))
+    period <- lubridate::seconds_to_period(round(seconds))
 
     # Extract hours, minutes, and seconds
-    h <- hour(period)
-    m <- minute(period)
-    s <- second(period)
+    h <- lubridate::hour(period)
+    m <- lubridate::minute(period)
+    s <- lubridate::second(period)
 
     # Build time string
     time_components <- c()
@@ -31,7 +31,7 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
   # Helper to print the status update
   print_update <- function(message) {
     cat(sprintf(message, status_part, split_parts, elapsed_str, remaining_str))
-    flush.console()
+    utils::flush.console()
   }
 
   # Determine when to print the status update based on phase
@@ -44,10 +44,6 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
       print_update("\rFinished cleaning %d of %d parts in %s (ETA %s)       ")
     }
   }
-}
-
-safe_access <- function(s, field) {
-  if (is.list(s) && field %in% names(s)) s[[field]] else NULL
 }
 
 safe_unlist <- function(x) if (length(x) > 0) unlist(x, recursive = TRUE) else character(0)
@@ -64,7 +60,7 @@ extract_modified_matches <- function(summaries) {
     }
   }
 
-  data.table(
+  data.table::data.table(
     modified_matches = safe_unlist(all_modified_matches),
     modified_match = safe_unlist(all_modified_match)
   )[, .(count = .N), by = .(modified_matches, modified_match)]
@@ -75,9 +71,9 @@ safe_extract <- function(summary, field) {
 }
 
 combine_discarded_rvs_tables <- function(summaries, field) {
-  combined <- rbindlist(lapply(summaries, function(s) safe_extract(s, field)), fill = TRUE)
+  combined <- data.table::rbindlist(lapply(summaries, function(s) safe_extract(s, field)), fill = TRUE)
   if (nrow(combined) == 0) {
-    return(data.table(CODE = character(), count = integer()))
+    return(data.table::data.table(CODE = character(), count = integer()))
   }
   return(combined[, .(count = sum(count)), by = CODE][order(-count)])
 }
@@ -97,7 +93,7 @@ combine_replacement_tables <- function(rboundlist, replace_with) {
 
   # Initialize empty table if the input has no rows
   if (nrow(rboundlist) == 0) {
-    return(data.table(
+    return(data.table::data.table(
       Column = character(),
       Empty_Replaced = integer(),
       NA_or_String_Replaced = integer(),
@@ -119,10 +115,10 @@ combine_replacement_tables <- function(rboundlist, replace_with) {
 
   # Return with distinct names based on replacement type
   if (replace_with == "NA_character_") {
-    setnames(combined, old = c("Replaced_1", "Replaced_2"), new = c("NA_Replaced", "Character0_Replaced"))
+    data.table::setnames(combined, old = c("Replaced_1", "Replaced_2"), new = c("NA_Replaced", "Character0_Replaced"))
     return(combined[, .(Column, Empty_Replaced, NA_Replaced, Character0_Replaced)])
   } else {
-    setnames(combined, old = c("Replaced_1", "Replaced_2"), new = c("String_NA_Replaced", "Actual_NA_Replaced"))
+    data.table::setnames(combined, old = c("Replaced_1", "Replaced_2"), new = c("String_NA_Replaced", "Actual_NA_Replaced"))
     return(combined[, .(Column, Empty_Replaced, String_NA_Replaced, Actual_NA_Replaced)])
   }
 }
@@ -145,7 +141,7 @@ final_combine_replace_tables <- function(rboundlist, replace_with, samplesizediv
   total_elements <- samplesize * splitparts
 
   if (nrow(rboundlist) == 0) {
-    return(data.table(
+    return(data.table::data.table(
       Column = character(),
       Empty_Replaced_Percentage = character(),
       NA_or_String_Replaced_Percentage = character(),
@@ -181,10 +177,10 @@ final_combine_replace_tables <- function(rboundlist, replace_with, samplesizediv
 
   # Return with distinct names based on replacement type
   if (replace_with == "NA_character_") {
-    setnames(combined_replace, old = c("Replaced_1_Percentage", "Replaced_2_Percentage"), new = c("NA_Replaced_Percentage", "Character0_Replaced_Percentage"))
+    data.table::setnames(combined_replace, old = c("Replaced_1_Percentage", "Replaced_2_Percentage"), new = c("NA_Replaced_Percentage", "Character0_Replaced_Percentage"))
     return(combined_replace[, .(Column, Empty_Replaced_Percentage, NA_Replaced_Percentage, Character0_Replaced_Percentage)])
   } else {
-    setnames(combined_replace, old = c("Replaced_1_Percentage", "Replaced_2_Percentage"), new = c("String_NA_Replaced_Percentage", "Actual_NA_Replaced_Percentage"))
+    data.table::setnames(combined_replace, old = c("Replaced_1_Percentage", "Replaced_2_Percentage"), new = c("String_NA_Replaced_Percentage", "Actual_NA_Replaced_Percentage"))
     return(combined_replace[, .(Column, Empty_Replaced_Percentage, String_NA_Replaced_Percentage, Actual_NA_Replaced_Percentage)])
   }
 }
