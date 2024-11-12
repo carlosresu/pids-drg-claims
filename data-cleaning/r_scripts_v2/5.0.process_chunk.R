@@ -67,6 +67,7 @@ process_chunk <- function(chunk,
     by = .(old_code, new_code)
   ]
   chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
+  chunk[!is.na(pat_age) && pat_age < 0 && grepl("99432", c1), pat_age := NA_real_]
   # OLD CODE:
   # chunk[, c1 := split_to_vector(remove_lumped_icd_codes(lapply(c1, manual_replacement)))]
   # chunk[, c2 := split_to_vector(remove_lumped_icd_codes(lapply(c2, manual_replacement)))]
@@ -397,7 +398,8 @@ process_chunk <- function(chunk,
     "clin_rvs", "clin_pdx", "clin_pdx_source"
   ))
   chunk[, clin_discharge := as.integer(clin_discharge)]
-
+  chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
+  chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
   chunk_summary <- list(
     rename_success = renamesuccess,
     ICD_replacements_1 = c1_cleaning_comparison,
