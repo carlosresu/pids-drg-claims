@@ -95,6 +95,7 @@ aux_path <- file.path(data_prefix, "aux-files")
 raw_claims_path <- file.path(claims_prefix, "raw")
 raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
 raw_claims_samples_path <- file.path(claims_prefix, "raw", "samples")
+raw_claims_md5_path <- file.path(claims_prefix, "raw", "md5")
 profvis_path <- file.path(data_prefix, "profvis")
 debug_path <- file.path("data-cleaning", "debug")
 

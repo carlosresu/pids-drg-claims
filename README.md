@@ -45,7 +45,7 @@ sudo snap install glances
 
 # Build tools
 sudo apt-get update
-sudo apt-get install -y build-essential
+sudo apt-get install -y build-essential libprotobuf-dev
 
 # upgrade packages
 sudo apt upgrade
@@ -78,7 +78,7 @@ wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sud
 sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
 
 ## Install R 4.4.2
-sudo apt install -y --no-install-recommends r-base
+sudo apt install -y --no-install-recommends r-base r-base-dev
 
 ## Check R Version
 R --version
@@ -143,12 +143,12 @@ Install necessaary packages, then install the IR kernel system-wide. Note that t
 Run the below code in Terminal, _inside of R._
 
 ```
-install.packages("languageserver")
-install.packages("jsonlite")
-install.packages("rlang")
-install.packages("yaml")
-install.packages("IRkernel")
-install.packages("here")
+install.packages("languageserver", dependencies = TRUE)
+install.packages("jsonlite", dependencies = TRUE)
+install.packages("rlang", dependencies = TRUE)
+install.packages("yaml", dependencies = TRUE)
+install.packages("IRkernel", dependencies = TRUE)
+install.packages("here", dependencies = TRUE)
 # install.packages("rmarkdown") # may not be needed
 # install.packages("reticulate") # may not be needed
 IRkernel::installspec(user = FALSE)
@@ -183,6 +183,10 @@ sudo apt-get update && sudo apt-get install google-cloud-cli
 gcloud init
 
 # Login with the service account
+
+gcloud auth application-default login
+
+# Login with the appropriate account
 ```
 
 Lastly, edit the VM instance in GCP and add the following in the text box of the startup script automation section:
