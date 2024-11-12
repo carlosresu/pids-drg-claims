@@ -46,26 +46,6 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
   }
 }
 
-# Function to print objects with memory usage greater than 0.000 GB
-print_memory_usage_gb <- function(env = .GlobalEnv) {
-  obj_names <- ls(envir = env)
-  obj_sizes <- sapply(obj_names, function(x) object.size(get(x, envir = env)) / (1024^3)) # Convert bytes to GB
-  obj_info <- data.frame(
-    Object = obj_names,
-    Size_GB = round(obj_sizes, 3) # Round to 3 decimal places for readability
-  )
-
-  # Filter for objects taking up more than 0.000 GB and sort in descending order
-  obj_info <- obj_info[obj_info$Size_GB > 0, ]
-  obj_info <- obj_info[order(obj_info$Size_GB, decreasing = TRUE), ]
-
-  print(obj_info, row.names = FALSE)
-}
-
-safe_access <- function(s, field) {
-  if (is.list(s) && field %in% names(s)) s[[field]] else NULL
-}
-
 safe_unlist <- function(x) if (length(x) > 0) unlist(x, recursive = TRUE) else character(0)
 
 extract_modified_matches <- function(summaries) {

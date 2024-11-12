@@ -3,7 +3,7 @@ tictoc::tic("Time spent (total)               ")
 
 # detect available threads
 nthreads <- parallelly::availableCores()
-nthreads <- if (nthreads >= 16) nthreads - 0 else nthreads
+nthreads <- if (nthreads >= 16) nthreads - 1 else nthreads
 
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
