@@ -41,7 +41,7 @@ global_seed <- seed <- 123
 set.seed(seed)
 
 # Service Account to use
-gcs_email <- "271591364028-compute@developer.gserviceaccount.com"
+gcs_email <- if (nthreads > 8) "resurreccion.cmc@gmail.com" else "271591364028-compute@developer.gserviceaccount.com"
 # get current GCP Project
 gcp_proj <- system("gcloud config get-value project", intern = TRUE)
 # Name of GCS bucket
