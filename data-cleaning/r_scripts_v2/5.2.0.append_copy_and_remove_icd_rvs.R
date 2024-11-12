@@ -120,7 +120,7 @@ append_copy_and_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
     unique_matches <- Filter(function(code) {
       !is.null(mget(code, envir = rvs_codes_env, ifnotfound = list(NULL))[[1]])
     }, matches)
-    c(rvs, unique_matches[!unique_matches %in% rvs]) # Add only unique matches
+    c(rvs, unique_matches[!unique_matches %in% rvs]) # Add unique codes to the END of the vector
   }, clin_rvs, matches, SIMPLIFY = FALSE)]
 
   # Step 2: Identify valid ICD codes to move to clin_icd
@@ -133,7 +133,7 @@ append_copy_and_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
         !is.null(mget(code, envir = icd_codes_env, ifnotfound = list(NULL))[[1]]) ||
         !is.null(mget(code, envir = phil_icds_env, ifnotfound = list(NULL))[[1]])
     }, rvs_vec)
-    c(icd_vec, icd_codes_in_rvs[!icd_codes_in_rvs %in% icd_vec]) # Add unique codes
+    c(icd_codes_in_rvs[!icd_codes_in_rvs %in% icd_vec], icd_vec) # Add unique codes to the START of the vector
   }, clin_rvs, clin_icd, SIMPLIFY = FALSE)]
 
   # Update clin_icd with identified valid ICD codes

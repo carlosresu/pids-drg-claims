@@ -37,11 +37,8 @@ sample_size_divisor <- 125
 
 # Columns to drop
 drop_cols <- c( # Which columns to drop
-  paste0("ICDCODE", 13:14), # Start
-  "ICCODED15", # note that ICDCODE15 is misspelled as ICCODED15 in all claims
-  paste0("ICDCODE", 16:170) # Continuation
+  paste0("ICDCODE", 21:170) # Continuation
 )
-
 drop_cols_manual <- c(
   "MEMCAT_SUBCHILD_DESC" # Drop as per Cel's suggestion
 )
@@ -254,9 +251,8 @@ column_mappings <- list(
   "ACR_AMOUNT_ACTUAL" = "claim_charge"
 )
 
-# Add dynamically generated clin_icd1 through clin_icd12 and clin_rvs1 through clin_rvs20
-for (i in 1:12) {
-  column_mappings[[paste0("ICDCODE", i)]] <- paste0("clin_icd", i)
+for (i in 1:20) {
+  column_mappings[[if (i == 15) "ICCODED15" else paste0("ICDCODE", i)]] <- paste0("clin_icd", i)
 }
 for (i in 1:20) {
   column_mappings[[paste0("RVSCODE", i)]] <- paste0("clin_rvs", i)
