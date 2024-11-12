@@ -46,6 +46,10 @@ print_status_update <- function(status_part, split_parts, processing_times, phas
   }
 }
 
+safe_access <- function(s, field) {
+  if (is.list(s) && field %in% names(s)) s[[field]] else NULL
+}
+
 safe_unlist <- function(x) if (length(x) > 0) unlist(x, recursive = TRUE) else character(0)
 
 extract_modified_matches <- function(summaries) {
