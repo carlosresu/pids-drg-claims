@@ -1,6 +1,6 @@
 paths <- list(
   year_to_load = here::here("data-cleaning", "cache", "year_to_load.txt"),
-  input_notebook = here::here("data-cleaning", "drg-cleaning-v2.ipynb"),
+  input_notebook = here::here("data-cleaning", "01-01-drg-cleaning-v2.ipynb"),
   output_rscript = here::here("data-cleaning", "debug", "drg-cleaning")
 )
 
