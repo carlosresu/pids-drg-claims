@@ -1,9 +1,27 @@
 ## Start total execution timer
-tic("Time spent (total)               ")
+tictoc::tic("Time spent (total)               ")
 
-dir.create(dirname(here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
-if (!file.exists(here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here("data-cleaning/cache/year_to_load.txt"))
-year_to_load <- fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
+# detect available threads
+nthreads <- parallelly::availableCores()
+nthreads <- if (nthreads >= 16) nthreads - 0 else nthreads
+
+# Whether to sample each split_part by sample_size_divisor
+# (useful when iterating through code runs in quick succession)
+to_sample <- FALSE
+# TODO: Add description here
+to_write <- TRUE
+# TODO: Add description here
+to_flush <- FALSE
+# TODO: Add description here
+to_parallel <- as.logical(Sys.getenv("TO_PARALLEL", "TRUE"))
+# TODO: Add description here
+to_debug <- FALSE
+verbose_output <- if (to_debug) TRUE else FALSE
+
+
+dir.create(dirname(here::here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
+if (!file.exists(here::here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here::here("data-cleaning/cache/year_to_load.txt"))
+year_to_load <- data.table::fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
 file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
@@ -61,7 +79,7 @@ bq_table <- paste0("temp_claims_", year_to_load)
 # Folder Path Prefixes:
 # Include spaces if there are any
 full_claims_prefix <- "claims_extract_CLAIMS "
-full_claims_bq_prefix <- str_replace_all(full_claims_prefix, " ", "\\\\ ")
+full_claims_bq_prefix <- stringr::str_replace_all(full_claims_prefix, " ", "\\\\ ")
 clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
 claims_prefix <- file.path(data_prefix, "claims")
@@ -100,14 +118,14 @@ profvis_path <- file.path(data_prefix, "profvis")
 debug_path <- file.path("data-cleaning", "debug")
 
 # File Paths
-profvis_fpath <- here("data-cleaning", "data", "profvis", "profvis.html")
+profvis_fpath <- here::here("data-cleaning", "data", "profvis", "profvis.html")
 
 # Create directories:
 created_dirs <- c() # Initialize empty vector
 # For all "_path" variables, create a directory with that path
 # Excludes "_fpath" variables
 for (path in mget(ls(pattern = "_path$"), envir = .GlobalEnv)) {
-  full_path <- here(path)
+  full_path <- here::here(path)
   if (!dir.exists(full_path)) {
     dir.create(full_path, recursive = TRUE)
     created_dirs <- c(created_dirs, full_path)
@@ -123,7 +141,7 @@ if (length(created_dirs) == 0) {
 }
 
 # Commonly Used File Paths:
-full_claims_file <<- here(
+full_claims_file <<- here::here(
   raw_claims_path,
   paste0(full_claims_prefix, year_to_load, file_type) # Use the file_type variable here
 )
@@ -133,7 +151,7 @@ ram_limit <- (1 - 0.10) * 64 * (1024^3)
 # Allowing each future_lapply session to use more memory
 options(future.globals.maxSize = ram_limit)
 
-total_rows_file <<- here(
+total_rows_file <<- here::here(
   cache_path, "total_rows",
   paste0("total_rows_", year_to_load, ".rds")
 )
@@ -143,7 +161,7 @@ if (file.exists(total_rows_file)) {
   total_rows <- readRDS(total_rows_file)
   message(paste("Total Rows via cached object:", total_rows))
 } else {
-  total_rows <- fread(
+  total_rows <- data.table::fread(
     file = full_claims_file,
     select = 1L,
     header = TRUE,
@@ -383,5 +401,5 @@ remapped_column <- quote(fcase(
 all_parts_summaries <- master_dt_list <- combined_chunk_summary <- pdx_success_list <- replacement_summary_list <- icd_mapping_list <- list() # initialize lists
 dim_dt <- vector() # initialize vector for dt dimensions
 processing_times <- split_processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
-master_dt <- data.table() # initialize data.tables
+master_dt <- data.table::data.table() # initialize data.tables
 message(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
