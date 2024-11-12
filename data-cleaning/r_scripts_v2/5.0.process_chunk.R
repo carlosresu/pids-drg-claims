@@ -398,7 +398,8 @@ process_chunk <- function(chunk,
     "clin_rvs", "clin_pdx", "clin_pdx_source"
   ))
   chunk[, clin_discharge := as.integer(clin_discharge)]
-
+  chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
+  chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
   chunk_summary <- list(
     rename_success = renamesuccess,
     ICD_replacements_1 = c1_cleaning_comparison,
