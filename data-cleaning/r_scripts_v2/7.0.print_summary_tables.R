@@ -2,7 +2,7 @@ print_summary_tables <- function(final_combined_summaries) {
   summary <- final_combined_summaries
 
   # Step 1: Print Rename Success
-  if (summary$rename_success) cat("\nRename Success:\n", summary$rename_success, "\n") else stop("Rename failed.")
+  if (summary$rename_success) cat("\nRename Success:\n", summary$rename_success, "\n") else stop(paste0("Rename failed for ", year_to_load, "."))
 
   # Step 2: Combine and Print ICD Replacements
   final_icd_replacements <- rbind(
@@ -183,5 +183,5 @@ print_summary_tables <- function(final_combined_summaries) {
   }
 
   # Step 9: Print PDX Success
-  if (summary$pdx_success) cat("\nAll PDx's are in the list of acceptable PDx's:\n", summary$pdx_success, "\n") else stop("Not all pdx are in acceptable pdxs.")
+  if (summary$pdx_success) cat("\nAll PDx's are in the list of acceptable PDx's:\n", summary$pdx_success, "\n") else stop(paste0("Not all pdx are in acceptable pdxs for ", year_to_load, "."))
 }
