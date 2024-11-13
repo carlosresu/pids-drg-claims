@@ -21,7 +21,7 @@ verbose_output <- if (to_debug) TRUE else FALSE
 
 dir.create(dirname(here::here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
 if (!file.exists(here::here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here::here("data-cleaning/cache/year_to_load.txt"))
-year_to_load <- data.table::fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
+if (!exists("year_to_load")) year_to_load <- data.table::fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
 file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
@@ -112,7 +112,7 @@ raw_claims_parts_path <- file.path(claims_prefix, "raw", "parts")
 raw_claims_samples_path <- file.path(claims_prefix, "raw", "samples")
 raw_claims_md5_path <- file.path(claims_prefix, "raw", "md5")
 profvis_path <- file.path(data_prefix, "profvis")
-debug_path <- file.path("data-cleaning", "debug")
+debug_path <- file.path(clean_prefix, "debug")
 
 # File Paths
 profvis_fpath <- here::here("data-cleaning", "data", "profvis", "profvis.html")
@@ -120,11 +120,12 @@ profvis_fpath <- here::here("data-cleaning", "data", "profvis", "profvis.html")
 # Create directories:
 created_dirs <- c() # Initialize empty vector
 # For all "_path" variables, create a directory with that path
-# Excludes "_fpath" variables
+# Create directories for variables ending in "_path" that are directories, not files
 for (path in mget(ls(pattern = "_path$"), envir = .GlobalEnv)) {
   full_path <- here::here(path)
-  if (!dir.exists(full_path)) {
-    dir.create(full_path, recursive = TRUE)
+  # Check if the path is a directory and does not end with a specific file extension
+  if (!dir.exists(full_path) && !grepl("\\.rds$|\\.csv$|\\.tsv$", full_path)) {
+    dir.create(full_path, recursive = TRUE, showWarnings = FALSE)
     created_dirs <- c(created_dirs, full_path)
   }
 }
