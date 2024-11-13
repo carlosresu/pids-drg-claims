@@ -172,7 +172,7 @@ if (file.exists(total_rows_file)) {
 sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
 
 suffix <- paste0(
-  ifelse(to_sample, paste0("_sampled_", sample_size, "_"), "_full_")
+  ifelse(to_sample, paste0("_sampled_", sample_size_divisor, "_"), "_full_")
 )
 
 ## NA-like strings
