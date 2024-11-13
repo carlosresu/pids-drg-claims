@@ -22,14 +22,14 @@ split_and_save_part <- function(split_loop_part) {
     rm(chunk_dt)
     invisible(gc())
 
-    # Save processing time for this part
-    split_processing_times[[split_loop_part]] <- as.numeric(
-      difftime(Sys.time(), start_time, units = "secs")
-    )
+    # # Save processing time for this part
+    # split_processing_times[[split_loop_part]] <- as.numeric(
+    #   difftime(Sys.time(), start_time, units = "secs")
+    # )
 
-    # Print status update and estimate remaining time
-    print_status_update(
-      split_loop_part, split_parts, split_processing_times, "split"
-    )
+    # # Print status update and estimate remaining time
+    # print_status_update(
+    #   split_loop_part, split_parts, split_processing_times, "split"
+    # )
   }
 }

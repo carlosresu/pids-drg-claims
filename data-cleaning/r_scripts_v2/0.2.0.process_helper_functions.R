@@ -4,11 +4,11 @@ manual_replacement <- function(text) {
 
 remove_periods_and_whitespaces <- function(x) {
   # Ensure UTF-8 encoding
-  x <- sapply(x, function(elem) iconv(elem, from = "", to = "UTF-8"), USE.NAMES = FALSE)
-  
+  x <- sapply(x, function(elem) iconv(elem, from = "latin1", to = "UTF-8"), USE.NAMES = FALSE)
+
   # Remove periods and whitespaces
   x <- gsub("[.\\s]", "", x)
-  
+
   return(x)
 }
 
