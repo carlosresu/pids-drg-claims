@@ -400,6 +400,41 @@ process_chunk <- function(chunk,
   chunk[, clin_discharge := as.integer(clin_discharge)]
   chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
   chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
+
+  chunk[is.na(pat_bdate) & !is.na(pat_age), pat_bdate := as.Date(date_adm) - round(pat_age * 365.25)]
+  chunk[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), pat_ageday := 3]
+  chunk[
+    !is.na(pat_age) & pat_age >= 0 & pat_age < 1 & !is.na(date_adm) & !is.na(pat_bdate),
+    pat_ageday := as.integer(difftime(date_adm, pat_bdate, units = "days"))
+  ]
+  if ("ageday" %in% colnames(chunk)) chunk[, ageday := NULL]
+
+  # # Print messages for invalid ageday corrections
+  # invalid_ageday_after <- chunk[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), .N]
+  # message(
+  #   "Number of agedays generated: ", invalid_ageday_before - invalid_ageday_after,
+  #   ". Agedays generated are for where the patient is younger than 1 year, so the exact number of days was generated."
+  # )
+
+  bw_dist <- c(
+    round(runif(2, 0.5, 0.9), 3), # Random bwt between 0.5 and 0.9 for 2 newborns
+    round(runif(8, 1.1, 1.4), 3), # Random bwt between 1.1 and 1.4 for 8 newborns
+    round(runif(19, 1.6, 1.9), 3), # Random bwt between 1.6 and 1.9 for 19 newborns
+    round(runif(95, 2.1, 2.4), 3), # Random bwt between 2.1 and 2.4 for 95 newborns
+    round(runif(381, 2.6, 2.9), 3), # Random bwt between 2.6 and 2.9 for 381 newborns
+    round(runif(375, 3.1, 3.4), 3), # Random bwt between 3.1 and 3.4 for 375 newborns
+    round(runif(115, 3.5, 4.0), 3), # Random bwt between 3.5 and 4.0 for 115 newborns
+    round(runif(6, 0.5, 4.0), 3) # Random bwt between 0.5 and 4.0 for 6 newborns
+  )
+
+  # Create the zero_mask condition where pat_age is between 0 and 1 (newborns)
+  zero_mask <- chunk[, pat_age >= 0 & pat_age < 1]
+
+  # Apply bwt only if pat_bwt is NA and zero_mask is TRUE
+  chunk[(pat_bwt < 0 | is.na(pat_bwt)) & zero_mask, pat_bwt := sapply(.SD$pat_bwt, function(x) sample(bw_dist, 1)), .SDcols = "pat_bwt"]
+  chunk[pat_bdate < as.Date("1900-01-01"), pat_bdate := NA_Date_]
+  chunk[pat_ageday > 365, pat_ageday := NA_real_]
+  
   chunk_summary <- list(
     rename_success = renamesuccess,
     ICD_replacements_1 = c1_cleaning_comparison,
