@@ -5,18 +5,18 @@ tictoc::tic("Time spent (total)               ")
 nthreads <- parallelly::availableCores()
 nthreads <- if (nthreads >= 16) nthreads - thread_offset else nthreads
 
-# Whether to sample each split_part by sample_size_divisor
-# (useful when iterating through code runs in quick succession)
-to_sample <- FALSE
-# TODO: Add description here
-to_write <- TRUE
-# TODO: Add description here
-to_flush <- FALSE
-# TODO: Add description here
-to_parallel <- as.logical(Sys.getenv("TO_PARALLEL", "TRUE"))
-# TODO: Add description here
-to_debug <- FALSE
-verbose_output <- if (to_debug) TRUE else FALSE
+# # Whether to sample each split_part by sample_size_divisor
+# # (useful when iterating through code runs in quick succession)
+# to_sample <- FALSE
+# # TODO: Add description here
+# to_write <- TRUE
+# # TODO: Add description here
+# to_flush <- FALSE
+# # TODO: Add description here
+# to_parallel <- as.logical(Sys.getenv("TO_PARALLEL", "TRUE"))
+# # TODO: Add description here
+# to_debug <- FALSE
+# verbose_output <- if (to_debug) TRUE else FALSE
 
 
 dir.create(dirname(here::here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)

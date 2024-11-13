@@ -329,7 +329,7 @@ process_chunk <- function(chunk,
     }
   })]
   chunk[, clin_sdx := lapply(clin_sdx, function(x) if (is.null(x)) character(0) else unlist(x))]
-  # cat("After unlisting or replacing with character(0)\n")
+  # cat("After unlisting or replacing with Fcharacter(0)\n")
   # str(chunk$clin_sdx[1:10])
   replace_empty_result_3 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)", additional_columns = c("c1", "c2", "pdx"))
   chunk <- replace_empty_result_3$return_data

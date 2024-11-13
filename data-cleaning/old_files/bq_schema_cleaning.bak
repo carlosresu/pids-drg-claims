@@ -1,5 +1,10 @@
 [
   {
+    "name": "id_year",
+    "type": "INT64",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "id_series",
     "type": "STRING",
     "mode": "NULLABLE"
@@ -25,8 +30,18 @@
     "mode": "NULLABLE"
   },
   {
+    "name": "time_adm",
+    "type": "TIME",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "date_dis",
     "type": "DATETIME",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "time_dis",
+    "type": "TIME",
     "mode": "NULLABLE"
   },
   {
@@ -45,6 +60,11 @@
     "mode": "NULLABLE"
   },
   {
+    "name": "date_ext",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "pat_type",
     "type": "STRING",
     "mode": "NULLABLE"
@@ -52,6 +72,11 @@
   {
     "name": "pat_rel",
     "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "pat_bdate",
+    "type": "DATE",
     "mode": "NULLABLE"
   },
   {
@@ -82,6 +107,11 @@
   {
     "name": "pat_memcat_child",
     "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "is_covid",
+    "type": "BOOL",
     "mode": "NULLABLE"
   },
   {
