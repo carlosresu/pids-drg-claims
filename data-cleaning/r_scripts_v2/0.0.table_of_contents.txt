@@ -3,7 +3,7 @@ process_helper_functions
 summary_helper_functions
 query_bq_to_dt
 split_and_save_part
-ensure_sample_files_exist
+create_sample_files
 read_appropriate_file
 process_chunk
   collapse_and_clean_icd_rvs_cols

@@ -90,7 +90,7 @@ Utilizing 4 cores (8 threads)
 
 2024-10-30 07:03:18.150236 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/2.0.split_and_save_part.R
 
-2024-10-30 07:03:18.151557 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/3.0.ensure_sample_files_exist.R
+2024-10-30 07:03:18.151557 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/3.0.create_sample_files.R
 
 2024-10-30 07:03:18.152833 Sourcing: /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/r_scripts_v2/4.0.read_appropriate_file.R
 
@@ -154,7 +154,10 @@ Querying and loading `grouper_v5.i10vx`...
 
 Querying and loading `hci.temp_hci`...
 
-Finished cleaning 5 of 15 parts in 8s (ETA 15s)       Finished cleaning 10 of 15 parts in 15s (ETA 8s)       Finished cleaning 15 of 15 parts in 23s (ETA 0s)       
+
+Finished cleaning 5 of 15 parts in 8s (ETA 15s)       
+Finished cleaning 10 of 15 parts in 15s (ETA 8s)       
+Finished cleaning 15 of 15 parts in 23s (ETA 0s)       
 Row Counts Match for All Parts
 
 
