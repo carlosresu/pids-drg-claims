@@ -431,10 +431,11 @@ process_chunk <- function(chunk,
   zero_mask <- chunk[, pat_age >= 0 & pat_age < 1]
 
   # Apply bwt only if pat_bwt is NA and zero_mask is TRUE
-  chunk[(pat_bwt < 0 | is.na(pat_bwt)) & zero_mask, pat_bwt := sapply(.SD$pat_bwt, function(x) sample(bw_dist, 1)), .SDcols = "pat_bwt"]
+  chunk[(pat_bwt <= 0 | is.na(pat_bwt)) & zero_mask, pat_bwt := sapply(.SD$pat_bwt, function(x) sample(bw_dist, 1, replace = TRUE)), .SDcols = "pat_bwt"]
+  chunk[!zero_mask, pat_bwt := NA_real_]
   chunk[pat_bdate < as.Date("1900-01-01"), pat_bdate := NA_Date_]
   chunk[pat_ageday > 365, pat_ageday := NA_real_]
-  
+
   chunk_summary <- list(
     rename_success = renamesuccess,
     ICD_replacements_1 = c1_cleaning_comparison,
