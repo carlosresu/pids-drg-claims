@@ -1,0 +1,13 @@
+numpy
+pandas
+streamlit
+python_dateutil
+tabulate
+swifter
+rpy2
+pyreadr
+papermill
+nbformat
+IProgress
+jupyter
+ipywidgets
