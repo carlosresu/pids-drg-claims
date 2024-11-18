@@ -48,7 +48,7 @@
 #   return(dob)
 # }
 
-export_for_grouper <- function(dt, output_txt_file) {
+export_for_grouper <- function(dt, output_txt_file, chunk_number) {
   #' @title Export Data for Batch Grouper
   #'
   #' @description This function exports data for batch grouper,
@@ -62,7 +62,9 @@ export_for_grouper <- function(dt, output_txt_file) {
   output_dt_thai <- data.table()
 
   # Create CASEID column
-  output_dt_thai[, CASEID := as.character(1:nrow(dt))]
+  if (chunk_number == 1) output_dt_thai[, CASEID := as.character(1:nrow(dt))]
+  if (chunk_number == 2) output_dt_thai[, CASEID := as.character(5000001:10000000)]
+  if (chunk_number == 3) output_dt_thai[, CASEID := as.character(10000001:(10000000 + nrow(dt)))]
 
   # Format Date of Birth (DOB)
   output_dt_thai[, DOB := as.character(format(as.Date(dt$pat_bdate), "%d/%m/%Y"))]
