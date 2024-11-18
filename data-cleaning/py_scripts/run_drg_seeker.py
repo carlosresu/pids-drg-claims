@@ -36,7 +36,7 @@ def process_patient(row, libs):
     
     except Exception as e:
         # Log the error and row information for debugging
-        print(f"Error processing patient with id_series {row['id_series']}: {e}")
+        print(f'''Error processing patient with id_series {row['id_series']}: {e}''')
         
         # Optionally, you can log more information such as row content or traceback
         traceback.print_exc()  # Print the full stack trace for more details
