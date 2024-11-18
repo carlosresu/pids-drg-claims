@@ -239,11 +239,9 @@ sudo ln -s /home/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleanin
 
 Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
 
-maybe not be needed anymore
-
 ```
-# sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
-# maybe not be needed anymore
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
+sudo ln -s ~/drg-pipeline/data-cleaning/grouper/scripts ~/drg-pipeline/data-cleaning
 ```
 
 To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type `curl <link>`
