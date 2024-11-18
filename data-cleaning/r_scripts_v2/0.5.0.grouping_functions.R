@@ -63,9 +63,7 @@ export_for_grouper <- function(dt, output_txt_file, chunk_number) {
 
   # Create CASEID column
   # Create the output data.table with the same number of rows as 'dt'
-  output_dt_thai <- data.table(CASEID = as.character(
-    (chunk_number - 1) * 5000000 + 1:(nrow(dt))
-  ))
+  output_dt_thai[, CASEID := as.character(dt$caseid)]
 
   # Format Date of Birth (DOB)
   output_dt_thai[, DOB := as.character(format(as.Date(dt$pat_bdate), "%d/%m/%Y"))]
