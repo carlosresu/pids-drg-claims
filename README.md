@@ -312,7 +312,7 @@ Steps to run the data-cleaning code end-to-end:
 6. It should now proceed with the process, first by analyzing and checking for differences between the drg code generated via Python Grouper vs via Thai Batch Grouper.
    1. It will write a csv containing said differences (or an empty csv if there are none),
    2. It will write to `~/drg-pipeline/data/checkpoints/checkpoint_9_grouper_differences` as `checkpoint_9_grouper_differences_*.csv`
-7. It will then push to BQ as `drg-pipeline.phic.claims_20XX1231`
+7. It will then push to BQ as `drg-pipeline.phic_claims.claims_20XX1231`
 
 # Maintenace
 
