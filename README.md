@@ -247,11 +247,6 @@ Symbolically Link /mnt/data-disk/data to your username's drg-pipeline/data-clean
 sudo ln -s /mnt/data-disk/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
 ```
 
-Old Code
-```
-sudo ln -s /home/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
-```
-
 Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
 
 ```
@@ -260,6 +255,9 @@ sudo ln -s ~/drg-pipeline/data-cleaning/grouper/scripts ~/drg-pipeline/data-clea
 sudo ln -s ~/drg-pipeline/data-cleaning/grouper/misc ~/drg-pipeline/data-cleaning
 sudo ln -s ~/drg-pipeline/data-cleaning/grouper/tests ~/drg-pipeline/data-cleaning
 ```
+
+Configure ipykernel with venv
+Create a .venv using VS Code Python: Select Interpreter > Create a Virtual Environment > .venv > select requirements.txt in data-cleaning (not the grouper).
 
 To use Google Cloud Code, press sign in inside the VS Code extension, it'll open a webbrowser and try to open a localhost link. It won't work as this will open on your local machine instead of the VM. Just copy the link, then open the VM terminal via SSH via GCP, then type `curl <link>`
 
