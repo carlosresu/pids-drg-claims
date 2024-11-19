@@ -56,6 +56,18 @@ sudo apt upgrade
 # Install Microsoft .NET 8.0
 sudo apt-get update && sudo apt-get install dotnet-sdk-8.0
 
+# install pyenv
+curl https://pyenv.run | bash
+
+# Insert the following in ~/.bash_profile, ~/.profile ~/.bashrc
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
+# Install python 3.12.7
+pyenv install 3.12.7
+pyenv global 3.12.7
+
 # create a venv and install venv-reliant packages
 # python3 -m venv ~/venv
 
