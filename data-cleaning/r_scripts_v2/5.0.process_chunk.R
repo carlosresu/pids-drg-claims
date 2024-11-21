@@ -402,6 +402,7 @@ process_chunk <- function(chunk,
   chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
 
   chunk[is.na(pat_bdate) & !is.na(pat_age), pat_bdate := as.Date(date_adm) - round(pat_age * 365.25)]
+  chunk[pat_bdate >= as.Date(date_adm), pat_bdate := as.Date(date_adm)]
   # chunk[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), pat_ageday := 3]
   # chunk[
   #   !is.na(pat_age) & pat_age >= 0 & pat_age < 1 & !is.na(date_adm) & !is.na(pat_bdate),
