@@ -59,50 +59,14 @@ export_for_grouper <- function(dt, output_txt_file, chunk_number) {
   #'
   #' @return NULL.
 
+  # Create the output data.table with the same number of rows as 'dt'
   output_dt_thai <- data.table()
 
-  # Create CASEID column
-  # Create the output data.table with the same number of rows as 'dt'
-  output_dt_thai[, CASEID := as.character(dt$caseid)]
+  output_dt_thai[, CASEID := dt$caseid]
 
   # Format Date of Birth (DOB)
   output_dt_thai[, DOB := as.character(format(as.Date(dt$pat_bdate), "%d/%m/%Y"))]
 
-  # Ensure both data.tables have the correct keys for joining
-  # setkey(output_dt_thai, CASEID)
-  # setkey(pat_bdate_recomputed, id_series)
-
-  # Step 1: Capture rows where DOB is NA and will be filled with recomputed DOB (before updating)
-  # recomputed_dob_rows_before <- output_dt_thai[
-  #   is.na(DOB) & CASEID %in% pat_bdate_recomputed$id_series,
-  #   .(CASEID, DOB_before = DOB)
-  # ]
-
-  # Print rows before the DOB update
-  # cat("Rows where DOB will be updated from recomputed values (Before):\n")
-  # print(recomputed_dob_rows_before)
-
-  # Step 2: Join recomputed DOB values
-  # output_dt_thai <- merge(output_dt_thai, pat_bdate_recomputed, by.x = "CASEID", by.y = "id_series", all.x = TRUE, all.y = FALSE)
-
-  # Step 3: Update DOB with recomputed DOB where applicable
-  # output_dt_thai[
-  #   is.na(DOB) & !is.na(pat_bdate_recomputed),
-  #   DOB := as.character(format(as.Date(pat_bdate_recomputed), "%d/%m/%Y"))
-  # ]
-
-  # Step 4: Capture rows after the DOB update (only the updated ones)
-  # recomputed_dob_rows_after <- output_dt_thai[
-  #   CASEID %in% recomputed_dob_rows_before$CASEID,
-  #   .(CASEID, DOB_after = DOB)
-  # ]
-
-  # Print rows after the DOB update
-  # cat("Rows where DOB was updated from recomputed values (After):\n")
-  # print(recomputed_dob_rows_after)
-
-  # Format DOB
-  # output_dt_thai[, pat_bdate_recomputed := NULL]
   # Format Sex
   output_dt_thai[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
 
