@@ -55,8 +55,13 @@ global_seed <- seed <- 123
 # multiple possible options)
 set.seed(seed)
 
-# Service Account to use
-gcs_email <- if (nthreads > 8) "resurreccion.cmc@gmail.com" else "271591364028-compute@developer.gserviceaccount.com"
+if (Sys.info()["nodename"] == "ubuntu2404vm") {
+  # Code to execute if the condition is TRUE
+  googleAuthR::gar_auth_service("~/.config/gcloud/drg-pipeline-e80a2b3a9229.json")
+} else {
+  gcs_email <- "271591364028-compute@developer.gserviceaccount.com"
+  googleAuthR::gar_auth(email = gcs_email)
+}
 # get current GCP Project
 gcp_proj <- system("gcloud config get-value project", intern = TRUE)
 # Name of GCS bucket
