@@ -239,6 +239,9 @@ gcloud init
 gcloud auth application-default login
 
 # Login with the appropriate account
+
+# Upload drg-pipeline-e80a2b3a9229.json (in Carlos Resurreccion's PIDS OneDrive) or an equivalent Service Account Json Key to VM at ~/.config/gcloud/
+# If using another key, rename it to drg-pipeline-e80a2b3a9229.json all the same.
 ```
 
 Lastly, edit the VM instance in GCP and add the following in the text box of the startup script automation section:
