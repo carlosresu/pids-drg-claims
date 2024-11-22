@@ -57,7 +57,9 @@ set.seed(seed)
 
 if (Sys.info()["nodename"] == "ubuntu2404vm") {
   # Code to execute if the condition is TRUE
-  googleAuthR::gar_auth_service("~/.config/gcloud/drg-pipeline-e80a2b3a9229.json")
+  service_account_json <- "~/.config/gcloud/drg-pipeline-e80a2b3a9229.json"
+  googleAuthR::gar_auth_service(json_file = service_account_json)
+  googleCloudStorageR::gcs_auth(json_file = service_account_json)
 } else {
   gcs_email <- "271591364028-compute@developer.gserviceaccount.com"
   googleAuthR::gar_auth(email = gcs_email)
