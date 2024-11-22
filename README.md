@@ -34,6 +34,9 @@ Run all the below code in Terminal (after SSH-ing into the VM via GCP) unless ot
 Update the package list, install jupyter, python, and build tools, then upgrade packages.
 
 ```
+echo 'export MAKEFLAGS="-j$(nproc)"' | sudo tee -a /etc/environment
+source /etc/environment
+
 # Update the package list:
 sudo apt update
 
@@ -54,20 +57,53 @@ sudo apt-get install -y build-essential libprotobuf-dev
 sudo apt upgrade
 
 # Install Microsoft .NET 8.0
-sudo apt-get update && sudo apt-get install dotnet-sdk-8.0
+sudo apt-get update && sudo apt-get install -y dotnet-sdk-8.0
+```
 
+```
 # install pyenv
 curl https://pyenv.run | bash
+```
 
 # Insert the following in ~/.bash_profile, ~/.profile ~/.bashrc
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
 
+```
+# Define the lines to add
+lines_to_add='
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+'
+
+# Add the lines to each file if not already present
+for file in ~/.bash_profile ~/.profile ~/.bashrc; do
+    if ! grep -Fxq 'export PYENV_ROOT="$HOME/.pyenv"' "$file"; then
+        echo "$lines_to_add" >> "$file"
+        echo "Added pyenv configuration to $file"
+    else
+        echo "pyenv configuration already exists in $file"
+    fi
+done
+
+# Source the updated files to apply changes immediately
+source ~/.bashrc
+source ~/.profile
+[ -f ~/.bash_profile ] && source ~/.bash_profile
+
+echo "pyenv environment setup complete!"
+```
+
+
+```
 # Install python 3.12.7
 pyenv install 3.12.7
 pyenv global 3.12.7
+```
 
+```
 # create a venv and install venv-reliant packages
 # python3 -m venv ~/venv
 
@@ -158,6 +194,7 @@ Install necessaary packages, then install the IR kernel system-wide. Note that t
 Run the below code in Terminal, _inside of R._
 
 ```
+Sys.setenv(MAKEFLAGS = paste0("-j", parallel::detectCores()))
 install.packages("languageserver", dependencies = TRUE)
 install.packages("jsonlite", dependencies = TRUE)
 install.packages("rlang", dependencies = TRUE)
@@ -187,13 +224,13 @@ Install gcloud CLI on the VM, login with the service account we spoke about earl
 ```
 sudo apt-get update
 
-sudo apt-get install apt-transport-https ca-certificates gnupg curl
+sudo apt-get install -y apt-transport-https ca-certificates gnupg curl
 
 curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
 
 echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
 
-sudo apt-get update && sudo apt-get install google-cloud-cli
+sudo apt-get update && sudo apt-get install -y google-cloud-cli
 
 gcloud init
 
