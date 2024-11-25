@@ -268,13 +268,21 @@ process_chunk <- function(chunk,
       as.character(x)
     }
   ), .SDcols = time_cols]
+  # chunk[, date_adm := as.POSIXct(
+  #   paste(date_adm, time_adm),
+  #   format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
+  # )]
+  # chunk[, date_dis := as.POSIXct(
+  #   paste(date_dis, time_dis),
+  #   format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
+  # )]
   chunk[, date_adm := as.POSIXct(
     paste(date_adm, time_adm),
-    format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
+    format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
   )]
   chunk[, date_dis := as.POSIXct(
     paste(date_dis, time_dis),
-    format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
+    format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
   )]
   chunk[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
   chunk[, clin_emergency := as.logical(as.integer(clin_emergency))]
