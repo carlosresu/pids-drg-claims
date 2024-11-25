@@ -11,3 +11,4 @@ nbformat
 IProgress
 jupyter
 ipywidgets
+rpy2
