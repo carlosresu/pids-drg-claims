@@ -1,6 +1,6 @@
 thread_offset <- 0
 
-sample_size_divisor <- 125
+sample_size_divisor <- 25
 
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
@@ -31,3 +31,5 @@ to_generate_thai_txt <- TRUE
 to_thai_all_years <- FALSE
 
 to_spc <- FALSE
+
+to_bq <- FALSE

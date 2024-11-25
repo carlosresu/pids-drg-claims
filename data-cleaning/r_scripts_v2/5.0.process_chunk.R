@@ -4,8 +4,6 @@ process_chunk <- function(chunk,
                           known_vals = known_values,
                           remap_cols = remapped_column,
                           avail_cols = available_columns) {
-  # saveWidget(profvis({
-  # chunk_summary <- list()
   setnames(chunk,
     old = avail_cols[avail_cols %in% names(col_maps)],
     new = sapply(
@@ -42,8 +40,7 @@ process_chunk <- function(chunk,
   )
   chunk[, `:=`(clin_icd = col_list$clin_icd, clin_rvs = col_list$clin_rvs)]
   chunk[, (grep("^(clin_icd\\d+|clin_rvs\\d+)$", names(chunk), value = TRUE)) := NULL]
-  # cat("After collapsing multiple columns into onef\n")
-  # str(chunk$clin_icd[1:10])
+
   c1_result <- clean_column(chunk$c1)
   chunk[, `:=`(c1_orig = c1, c1 = c1_result$cleaned_col)]
   is_covid_c1 <- c1_result$is_covid
@@ -67,12 +64,6 @@ process_chunk <- function(chunk,
     by = .(old_code, new_code)
   ]
   chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
-  chunk[!is.na(pat_age) & pat_age < 0 & grepl("99432", c1), `:=`(pat_age, NA_real_)]
-  # OLD CODE:
-  # chunk[, c1 := split_to_vector(remove_lumped_icd_codes(lapply(c1, manual_replacement)))]
-  # chunk[, c2 := split_to_vector(remove_lumped_icd_codes(lapply(c2, manual_replacement)))]
-  # REFACTORED CODE:
-  # cat("Processing c1\n")
   chunk[, c1 := lapply(c1, function(text) {
     replaced_text <- manual_replacement(text)
     collapsed_text <- collapse_to_string(replaced_text)
@@ -80,7 +71,7 @@ process_chunk <- function(chunk,
     cleaned_result <- remove_lumped_icd_codes(split_result)
     return(flatten_and_clean(cleaned_result))
   })]
-  # cat("Processing c2\n")
+
   chunk[, c2 := lapply(c2, function(text) {
     replaced_text <- manual_replacement(text)
     collapsed_text <- collapse_to_string(replaced_text)
@@ -88,48 +79,30 @@ process_chunk <- function(chunk,
     cleaned_result <- remove_lumped_icd_codes(split_result)
     return(flatten_and_clean(cleaned_result))
   })]
-  # cat("Processing clin_icd\n")
+
   chunk[, clin_icd := lapply(seq_len(.N), function(i) {
     clin_icd_list <- c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]])
     return(flatten_and_clean(clin_icd_list))
   })]
-  # cat("after flatten, clean, and manual replacement\n")
-  # str(chunk$clin_icd[1:10])
+
   replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
   chunk <- replace_result$return_data
   empty_replaced_with_na_1 <- replace_result$return_replacement_summary
   replace_empty_result_1 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
   chunk <- replace_empty_result_1$return_data
   NA_replaced_with_empty_1 <- replace_empty_result_1$return_replacement_summary
-
-  # # Print description and each element of chunk$c1
-  # cat("Contents of c1:\n")
-  # lapply(chunk$c1, function(x) if (length(x) > 0) cat(x, "\n"))
-
-  # # Repeat for each section
-  # cat("\nContents of c2:\n")
-  # lapply(chunk$c2, function(x) if (length(x) > 0) cat(x, "\n"))
-
-  # cat("\nContents of clin_icd after replace with NA and replace with empty:\n")
-  # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
-
-  # cat("\nContents of clin_rvs:\n")
-  # lapply(chunk$clin_rvs, function(x) if (length(x) > 0) cat(x, "\n"))
 
   c1_results <- append_copy_and_remove_icd_rvs(chunk$c1, chunk$clin_rvs, chunk$clin_icd)
   chunk[, clin_rvs := c1_results$clin_rvs]
   chunk[, c1 := c1_results$col]
   chunk[, clin_icd := c1_results$clin_icd]
   c1_discarded_rvs <- c1_results$discarded_rvs
-  # cat("\nContents of clin_icd after append copy and remove icd rvs 1:\n")
-  # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
+
   c2_results <- append_copy_and_remove_icd_rvs(chunk$c2, chunk$clin_rvs, chunk$clin_icd)
   chunk[, clin_rvs := c2_results$clin_rvs]
   chunk[, c2 := c2_results$col]
   chunk[, clin_icd := c2_results$clin_icd]
   c2_discarded_rvs <- c2_results$discarded_rvs
-  # cat("\nContents of clin_icd after append copy and remove icd rvs 2:\n")
-  # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
 
   replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
   chunk <- replace_result$return_data
@@ -137,20 +110,6 @@ process_chunk <- function(chunk,
   replace_empty_result_1 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
   chunk <- replace_empty_result_1$return_data
   NA_replaced_with_empty_1 <- replace_empty_result_1$return_replacement_summary
-
-  # # Print description and each element of chunk$c1
-  # cat("Contents of c1:\n")
-  # lapply(chunk$c1, function(x) if (length(x) > 0) cat(x, "\n"))
-
-  # # Repeat for each section
-  # cat("\nContents of c2:\n")
-  # lapply(chunk$c2, function(x) if (length(x) > 0) cat(x, "\n"))
-
-  # cat("\nContents of clin_icd after replace with NA and replace with empty:\n")
-  # lapply(chunk$clin_icd, function(x) if (length(x) > 0) cat(x, "\n"))
-
-  # cat("\nContents of clin_rvs:\n")
-  # lapply(chunk$clin_rvs, function(x) if (length(x) > 0) cat(x, "\n"))
 
   remap_res <- remap_patient_data(
     pat_type = chunk$pat_type,
@@ -167,11 +126,9 @@ process_chunk <- function(chunk,
   chunk[, clin_discharge := remap_res$remapped$clin_discharge]
   chunk[, claim_status := remap_res$remapped$claim_status]
 
-  # print(unique(unlist(chunk$clin_rvs)))
-
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
-  # str(chunk$clin_icd[1:10])
+
   modified_c1 <- lapply(chunk$c1, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
   modified_c2 <- lapply(chunk$c2, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
   chunk[, c1 := modified_c1]
@@ -179,24 +136,20 @@ process_chunk <- function(chunk,
   c1 <- chunk$c1
   c2 <- chunk$c2
   clin_icd <- chunk$clin_icd
-  # cat("Before map_icd10 function\n")
-  # str(chunk$clin_icd[1:10])
+
   icd10_mapping_result <- map_icd10(c1, c2, clin_icd)
   chunk[, c1 := icd10_mapping_result$c1]
   chunk[, c2 := icd10_mapping_result$c2]
   chunk[, clin_icd := icd10_mapping_result$clin_icd]
-  # cat("After map_icd10 function\n")
-  # str(chunk$clin_icd[1:10])
+
   replace_empty_result_2 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
   chunk <- replace_empty_result_2$return_data
   NA_replaced_with_empty_2 <- replace_empty_result_2$return_replacement_summary
-  # cat("After replace with empty\n")
-  # str(chunk$clin_icd[1:10])
+
   chunk[, c1 := lapply(c1, remove_whitespace)]
   chunk[, c2 := lapply(c2, remove_whitespace)]
   chunk[, clin_icd := lapply(clin_icd, remove_whitespace)]
-  # cat("After remove whitespace\n")
-  # str(chunk$clin_icd[1:10])
+
   pdx_result <- find_pdx(chunk$c1, chunk$c2, chunk$clin_icd)
   chunk[, pdx := pdx_result$pdx]
   chunk[, pdx_code := pdx_result$pdx_code]
@@ -224,17 +177,7 @@ process_chunk <- function(chunk,
     }
     as.character(lst)
   })]
-  # cat("After removing pdx\n")
-  # str(chunk$clin_icd[1:10])
-  invalid_age_before <- nrow(chunk[pat_age < -1 | pat_age > 124, .(id_series)])
-  fwrite(
-    chunk[pat_age <= -1, .(id_series, pat_age, c1, c2)],
-    here(debug_path, "age_less_than_or_equal_to_neg_one.csv")
-  )
-  fwrite(
-    chunk[pat_age < 0 & pat_age > -1, .(id_series, pat_age, c1, c2)],
-    here(debug_path, "age_between_zero_and_neg_one.csv")
-  )
+
   chunk[, clin_c1 := c1_orig]
   chunk[, clin_c2 := c2_orig]
   chunk[, c("c1_orig", "c2_orig") := NULL]
@@ -302,32 +245,7 @@ process_chunk <- function(chunk,
   )
   chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
   chunk[, pat_ageday := NA_integer_]
-  invalid_ages_before_correction <- chunk[pat_age < 0 | pat_age > 124, .N]
-  invalid_age_ids_before <- chunk[pat_age < 0 | pat_age > 124, id_series]
-  chunk[!is.na(pat_age) & pat_age > 0, pat_age := floor(pat_age)]
-  chunk[pat_age < 0 & pat_age >= -1, pat_age := 0]
-  chunk[pat_age < -1 | pat_age > 124, pat_age := NA_integer_]
-  recalculated_rows <- chunk[
-    !is.na(pat_bdate) & !is.na(pat_age) &
-      pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)
-  ]
-  chunk[
-    !is.na(pat_bdate) & !is.na(pat_age) &
-      pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25),
-    pat_age_recalculated := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)
-  ]
-  chunk[
-    !is.na(pat_age_recalculated) & pat_age_recalculated > 0,
-    pat_age := pat_age_recalculated
-  ]
-  chunk[, pat_age_recalculated := NULL]
-  invalid_bdate_before <- chunk[is.na(pat_bdate), .N]
-  invalid_bdate_ids_before <- chunk[is.na(pat_bdate), id_series]
-  invalid_age_path <- here("data-cleaning", "debug", "invalid_age.csv")
-  fwrite(data.table(id_series = invalid_age_ids_before), invalid_age_path)
-  invalid_bdate_path <- here("data-cleaning", "debug", "invalid_bdate.csv")
-  fwrite(data.table(id_series = invalid_bdate_ids_before), invalid_bdate_path)
-  invalid_ages_after_correction <- chunk[pat_age < 0 | pat_age > 124, .N]
+
   chunk[, clin_sdx := lapply(clin_sdx, function(codes) {
     valid_codes <- codes[codes %chin% acc_icd_set]
     if (length(valid_codes) > 0) {
@@ -337,13 +255,11 @@ process_chunk <- function(chunk,
     }
   })]
   chunk[, clin_sdx := lapply(clin_sdx, function(x) if (is.null(x)) character(0) else unlist(x))]
-  # cat("After unlisting or replacing with Fcharacter(0)\n")
-  # str(chunk$clin_sdx[1:10])
+
   replace_empty_result_3 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)", additional_columns = c("c1", "c2", "pdx"))
   chunk <- replace_empty_result_3$return_data
   NA_replaced_with_empty_3 <- replace_empty_result_3$return_replacement_summary
-  # cat("After replacing with empty\n")
-  # str(chunk$clin_sdx[1:10])
+
   chunk[, (char_cols) := lapply(.SD, function(col) iconv(col, from = "", to = "UTF-8")), .SDcols = char_cols]
   char_cols <- names(chunk)[sapply(chunk, is.character)]
   chunk[, (char_cols) := lapply(.SD, function(col) {
@@ -355,13 +271,7 @@ process_chunk <- function(chunk,
     col[is.nan(col)] <- NA_real_
     return(col)
   }), .SDcols = num_cols]
-  # list_cols <- names(chunk)[sapply(chunk, is.list)]
-  # chunk[, (list_cols) := lapply(.SD, function(col) {
-  #   lapply(col, function(x) {
-  #     if (is.character(x)) x[x %in% c("None", "")] <- NA_character_
-  #     return(x)
-  #   })
-  # }), .SDcols = list_cols]
+
   array_columns <- c("id_hcp")
   split_pattern <- "\\s*,\\s*|\\|\\||\\|"
   chunk[, (array_columns) := lapply(.SD, function(x) {
@@ -374,16 +284,7 @@ process_chunk <- function(chunk,
       }
     })
   }), .SDcols = array_columns]
-  # list_columns <- c("clin_sdx", "clin_proc", "id_hcp")
-  # chunk[, (list_columns) := lapply(.SD, function(col) {
-  #   lapply(col, function(x) {
-  #     if (is.null(x) || length(x) == 0L || all(is.na(x))) {
-  #       character(0)
-  #     } else {
-  #       x
-  #     }
-  #   })
-  # }), .SDcols = list_columns]
+
   list_columns <- c("id_hcp")
   chunk[, (list_columns) := lapply(.SD, function(col) {
     lapply(col, function(x) {
@@ -409,44 +310,49 @@ process_chunk <- function(chunk,
   chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
   chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
 
-  chunk[is.na(pat_bdate) & !is.na(pat_age), pat_bdate := as.Date(date_adm) - round(pat_age * 365.25)]
-  chunk[pat_bdate >= as.Date(date_adm), pat_bdate := as.Date(date_adm)]
-  # chunk[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), pat_ageday := 3]
-  # chunk[
-  #   !is.na(pat_age) & pat_age >= 0 & pat_age < 1 & !is.na(date_adm) & !is.na(pat_bdate),
-  #   pat_ageday := as.integer(difftime(date_adm, pat_bdate, units = "days"))
-  # ]
+  # Set pat_age to NA if it is negative and the value in column `c1` contains "99432"
+  chunk[!is.na(pat_age) & pat_age < 0 & grepl("99432", c1), `:=`(pat_age, NA_real_)]
+
+  # Ensure all positive ages are rounded down to the nearest whole number
+  chunk[!is.na(pat_age) & pat_age > 0, pat_age := floor(pat_age)]
+
+  # Correct negative ages within the range of [-1, 0] to be explicitly set to 0
+  chunk[!is.na(pat_age) & pat_age < 0 & pat_age >= -1, pat_age := 0]
+
+  # Set pat_age to NA for ages that are outside the valid range of [-1, 124]
+  chunk[!is.na(pat_age) & pat_age < -1 | pat_age > 124, pat_age := NA_integer_]
+
+  # Impute missing birthdates (pat_bdate) based on admission date (date_adm) and age (pat_age),
+  # then subtract an additional day to adjust
+  chunk[!is.na(pat_age) & is.na(pat_bdate), pat_bdate := as.Date(date_adm) - round(pat_age * 365.25) - 1]
+
+  # Ensure birthdates (pat_bdate) are before the admission date (date_adm),
+  # adjusting by setting them to one day before the admission date if needed
+  chunk[!is.na(pat_bdate) & pat_bdate >= as.Date(date_adm), pat_bdate := as.Date(date_adm) - 1]
+
+  # Set pat_bdate to NA if it falls before the earliest valid date (January 1, 1900)
+  chunk[!is.na(pat_bdate) & pat_bdate < as.Date("1900-01-01"), pat_bdate := NA_Date_]
+
+  # Recalculate pat_age for rows where it is inconsistent with the birthdate (pat_bdate) and admission date (date_adm)
+  # If the recalculated age is positive and not NA, update pat_age with the recalculated value
+  chunk[
+    # !is.na(pat_age) &
+    !is.na(pat_bdate) &
+      # pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) & # Check for age inconsistency
+      !is.na(floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)) & # Ensure the recalculated age is not NA
+      floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) > 0, # Ensure recalculated age is valid (positive)
+    pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) # Update pat_age with the recalculated value
+  ]
+
+  # Check if pat_age equals date_adm - pat_bdate - 1, and if not, set pat_age to date_adm - pat_bdate
+  chunk[
+    !is.na(pat_age) & !is.na(pat_bdate) &
+      pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate - 1) / 365.25), # Check for inconsistency
+    pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) # Recalculate pat_age
+  ]
+
   if ("ageday" %in% colnames(chunk)) chunk[, ageday := NULL]
 
-  # # Print messages for invalid ageday corrections
-  # invalid_ageday_after <- chunk[!is.na(pat_age) & pat_age >= 0 & pat_age < 1 & is.na(pat_ageday), .N]
-  # message(
-  #   "Number of agedays generated: ", invalid_ageday_before - invalid_ageday_after,
-  #   ". Agedays generated are for where the patient is younger than 1 year, so the exact number of days was generated."
-  # )
-
-  # bw_dist <- c(
-  #   round(runif(2, 0.5, 0.9), 3), # Random bwt between 0.5 and 0.9 for 2 newborns
-  #   round(runif(8, 1.1, 1.4), 3), # Random bwt between 1.1 and 1.4 for 8 newborns
-  #   round(runif(19, 1.6, 1.9), 3), # Random bwt between 1.6 and 1.9 for 19 newborns
-  #   round(runif(95, 2.1, 2.4), 3), # Random bwt between 2.1 and 2.4 for 95 newborns
-  #   round(runif(381, 2.6, 2.9), 3), # Random bwt between 2.6 and 2.9 for 381 newborns
-  #   round(runif(375, 3.1, 3.4), 3), # Random bwt between 3.1 and 3.4 for 375 newborns
-  #   round(runif(115, 3.5, 4.0), 3), # Random bwt between 3.5 and 4.0 for 115 newborns
-  #   round(runif(6, 0.5, 4.0), 3) # Random bwt between 0.5 and 4.0 for 6 newborns
-  # )
-
-  # # Create the zero_mask condition where pat_age is between 0 and 1 (newborns)
-  # zero_mask <- chunk[, pat_age >= 0 & pat_age < 1]
-
-  # # Apply bwt only if pat_bwt is NA and zero_mask is TRUE
-  # chunk[(pat_bwt <= 0 | is.na(pat_bwt)) & zero_mask, pat_bwt := sapply(.SD$pat_bwt, function(x) sample(bw_dist, 1, replace = TRUE)), .SDcols = "pat_bwt"]
-  # chunk[!zero_mask, pat_bwt := NA_real_]
-  chunk[pat_bdate < as.Date("1900-01-01"), pat_bdate := NA_Date_]
-  # chunk[pat_ageday > 365, pat_ageday := NA_real_]
-  # chunk[pat_ageday <= 0, pat_ageday := NA_real_]
-  # chunk[!is.na(pat_ageday), pat_ageday := floor(pat_ageday)]
-  # chunk[!is.na(pat_age), pat_age := floor(pat_age)]
   chunk_summary <- list(
     rename_success = renamesuccess,
     ICD_replacements_1 = c1_cleaning_comparison,
@@ -479,8 +385,6 @@ process_chunk <- function(chunk,
     multi_mapped_rvs = rvs_mapping_result$multi_mapped_rvs,
     without_drg = rvs_mapping_result$without_drg
   )
-  # }), profvis_fpath)
-  # str(chunk)
   invisible(gc())
   return(list(
     return_chunk = chunk,
