@@ -377,46 +377,45 @@ process_chunk <- function(chunk,
   chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
   chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
 
-  # Set pat_age to NA if it is negative and the value in column `c1` contains "99432"
-  chunk[!is.na(pat_age) & pat_age < 0 & grepl("99432", c1), `:=`(pat_age, NA_real_)]
+  # Set pat_age to 0 for specific cases
+  chunk[grepl("99432", c1) & !is.na(pat_age) & pat_age < 0 & pat_age >= -1, pat_age := 0]
 
-  # Ensure all positive ages are rounded down to the nearest whole number
-  chunk[!is.na(pat_age) & pat_age > 0, pat_age := floor(pat_age)]
-
-  # Correct negative ages within the range of [-1, 0] to be explicitly set to 0
-  chunk[!is.na(pat_age) & pat_age < 0 & pat_age >= -1, pat_age := 0]
-
-  # Set pat_age to NA for ages that are outside the valid range of [-1, 124]
-  chunk[!is.na(pat_age) & pat_age < -1 | pat_age > 124, pat_age := NA_integer_]
-
-  # Impute missing birthdates (pat_bdate) based on admission date (date_adm) and age (pat_age),
-  # then subtract an additional day to adjust
-  chunk[!is.na(pat_age) & is.na(pat_bdate), pat_bdate := as.Date(date_adm) - round(pat_age * 365.25) - 1]
-
-  # Ensure birthdates (pat_bdate) are before the admission date (date_adm),
-  # adjusting by setting them to one day before the admission date if needed
-  chunk[!is.na(pat_bdate) & pat_bdate >= as.Date(date_adm), pat_bdate := as.Date(date_adm) - 1]
-
-  # Set pat_bdate to NA if it falls before the earliest valid date (January 1, 1900)
-  chunk[!is.na(pat_bdate) & pat_bdate < as.Date("1900-01-01"), pat_bdate := NA_Date_]
-
-  # Recalculate pat_age for rows where it is inconsistent with the birthdate (pat_bdate) and admission date (date_adm)
-  # If the recalculated age is positive and not NA, update pat_age with the recalculated value
+  # Recalculate pat_age if necessary
+  chunk[!is.na(pat_bdate) & !is.na(date_adm), calc_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)]
   chunk[
-    # !is.na(pat_age) &
-    !is.na(pat_bdate) &
-      # pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) & # Check for age inconsistency
-      !is.na(floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)) & # Ensure the recalculated age is not NA
-      floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) > 0, # Ensure recalculated age is valid (positive)
-    pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) # Update pat_age with the recalculated value
+    ((is.na(pat_age) & !is.na(pat_bdate)) | 
+    (!is.na(pat_bdate) & pat_age != calc_age)) &
+    !is.na(calc_age) & 
+    calc_age >= 0, 
+    pat_age := calc_age
   ]
+  chunk[, calc_age := NULL] # Cleanup temporary column
 
-  # Check if pat_age equals date_adm - pat_bdate - 1, and if not, set pat_age to date_adm - pat_bdate
-  chunk[
-    !is.na(pat_age) & !is.na(pat_bdate) &
-      pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate - 1) / 365.25), # Check for inconsistency
-    pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) # Recalculate pat_age
-  ]
+  # Floor pat_age for valid ranges (optional if fractional values are possible)
+  chunk[!is.na(pat_age) & pat_age > 0 & pat_age <= 124, pat_age := floor(pat_age)]
+
+  # Remove invalid ages
+  chunk[!is.na(pat_age) & (pat_age < 0 | pat_age > 124), pat_age := NA_integer_]
+
+  # ################################ TO BE MOVED TO GROUPING ################################
+  # # Impute missing birthdates (pat_bdate) based on admission date (date_adm) and age (pat_age),
+  # # then subtract an additional day to adjust
+  # chunk[!is.na(pat_age) & is.na(pat_bdate), pat_bdate := as.Date(date_adm) - round(pat_age * 365.25) - 1]
+
+  # # Ensure birthdates (pat_bdate) are before the admission date (date_adm),
+  # # adjusting by setting them to one day before the admission date if needed
+  # chunk[!is.na(pat_bdate) & pat_bdate >= as.Date(date_adm), pat_bdate := as.Date(date_adm) - 1]
+
+  # # Set pat_bdate to NA if it falls before the earliest valid date (January 1, 1900)
+  # chunk[!is.na(pat_bdate) & pat_bdate < as.Date("1900-01-01"), pat_bdate := NA_Date_]
+
+  # # Check if pat_age equals date_adm - pat_bdate - 1, and if not, set pat_age to date_adm - pat_bdate
+  # chunk[
+  #   !is.na(pat_age) & !is.na(pat_bdate) &
+  #     pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate - 1) / 365.25), # Check for inconsistency
+  #   pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) # Recalculate pat_age
+  # ]
+  # ################################ TO BE MOVED TO GROUPING ################################
 
   chunk_summary <- list(
     rename_success = renamesuccess,
