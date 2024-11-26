@@ -203,7 +203,7 @@ sudo nano /etc/fstab
 ```
 
 ```
-UUID=03f7bfa6-7dc5-4faa-b1b4-74668f95d0df /mnt/data-disk ext4 defaults 0 2
+UUID=bb716fcb-7f55-418c-8382-455bd288d54a /mnt/data-disk ext4 defaults 0 2
 ```
 
 
