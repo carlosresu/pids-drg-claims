@@ -302,7 +302,7 @@ Run the below code in Terminal after SSH-ing into the VM via GCP. A link will ap
 
 ```
 sudo snap install code --classic
-code tunnel
+code tunnel service install
 ```
 
 Configure git on the VM, change these to your user details if logging in from a user other than that which we configured earlier.
