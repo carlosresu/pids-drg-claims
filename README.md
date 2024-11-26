@@ -9,12 +9,11 @@ Run this code in Google Cloud Platform Cloud Shell:
 
 First time
 ```
-gcloud compute instances create drg-data-pipeline-v3 \
+gcloud compute instances create drg-data-pipeline \
     --project=drg-pipeline \
     --zone=us-central1-a \
-    --machine-type=e2-highmem-8 \
+    --machine-type=e2-highmem-16 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-    --metadata=enable-oslogin=true \
     --can-ip-forward \
     --maintenance-policy=MIGRATE \
     --provisioning-model=STANDARD \
@@ -22,7 +21,7 @@ gcloud compute instances create drg-data-pipeline-v3 \
     --scopes=https://www.googleapis.com/auth/cloud-platform \
     --tags=http-server,https-server,lb-health-check \
     --create-disk=auto-delete=yes,boot=yes,device-name=drg-data-pipeline-boot-disk,image=projects/ubuntu-os-cloud/global/images/ubuntu-2404-noble-amd64-v20241115,mode=rw,size=20,type=pd-ssd \
-    --create-disk=device-name=drg-data-pipeline-data-disk,mode=rw,name=drg-data-pipeline-data-disk,size=150,type=pd-ssd \
+    --create-disk=device-name=drg-data-pipeline-data-disk-v2,mode=rw,name=drg-data-pipeline-data-disk-v2,size=150,type=pd-ssd \
     --shielded-secure-boot \
     --shielded-vtpm \
     --shielded-integrity-monitoring \

@@ -46,6 +46,6 @@ chrome-remote-desktop_current_amd64.deb
 
 grouper/test.py
 
-data-cleaning/debug
+# data-cleaning/debug
 Rplots.pdf
 data-cleaning/cache/venv
