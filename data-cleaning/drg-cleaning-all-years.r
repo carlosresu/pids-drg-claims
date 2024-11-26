@@ -1,6 +1,6 @@
 # Helper function to run the notebook as an R script
 run_notebook <- function(to_parallel) {
-  system(paste("Rscript", "/home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning/debug/drg-cleaning.r")) == 0
+  system(paste("Rscript", "~/drg-pipeline/data-cleaning/debug/drg-cleaning.r")) == 0
 }
 
 # Loop over the years (2019, 2022) with retry logic
