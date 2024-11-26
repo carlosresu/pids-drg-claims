@@ -136,11 +136,14 @@ source ~/.profile
 echo "pyenv environment setup complete!"
 ```
 
-
 ```
 # Install python 3.12.7
 pyenv install 3.12.7
 pyenv global 3.12.7
+```
+
+```
+pip install jupyter jupyter-core jupyter-client ipykernel
 ```
 
 ```
