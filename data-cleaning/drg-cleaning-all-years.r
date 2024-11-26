@@ -4,7 +4,7 @@ run_notebook <- function(to_parallel) {
 }
 
 # Loop over the years (2019, 2022) with retry logic
-for (year in c(2020)) {
+for (year in c(2019)) {
   write(as.character(year), here::here("data-cleaning", "cache", "year_to_load.txt"))
 
   if (!run_notebook(TRUE)) {
