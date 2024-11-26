@@ -364,8 +364,8 @@ process_chunk <- function(chunk,
     "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
     "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
     "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
-    "pat_memcat_child", "is_covid", "claim_status", "claim_payout",
-    "claim_charge", "clin_discharge", "clin_outpatient", "clin_emergency",
+    "pat_memcat_child", "claim_status", "claim_payout",
+    "claim_charge", "is_covid", "clin_discharge", "clin_outpatient", "clin_emergency",
     "clin_acc", "clin_c1", "c1", "clin_c2", "c2", "clin_sdx", "clin_proc",
     "clin_rvs", "clin_pdx", "clin_pdx_source"
   ))
