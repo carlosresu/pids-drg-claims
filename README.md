@@ -14,8 +14,7 @@ gcloud compute instances create drg-data-pipeline-v3 \
     --zone=us-central1-a \
     --machine-type=e2-highmem-8 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-    --metadata=startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
--u\ \"\$USER\"\ bash\ -c\ \"code\ tunnel\",enable-oslogin=true \
+    --metadata=enable-oslogin=true \
     --can-ip-forward \
     --maintenance-policy=MIGRATE \
     --provisioning-model=STANDARD \
@@ -39,8 +38,7 @@ gcloud compute instances create drg-data-pipeline-v3 \
     --zone=us-central1-a \
     --machine-type=e2-highmem-8 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
-    --metadata=startup-script=\#\!/bin/bash$'\n'USER=\"resurreccion_cmc_gmail_com\"$'\n'sudo\ \
--u\ \"\$USER\"\ bash\ -c\ \"code\ tunnel\",enable-oslogin=true \
+    --metadata=enable-oslogin=true \
     --can-ip-forward \
     --maintenance-policy=MIGRATE \
     --provisioning-model=STANDARD \
