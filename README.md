@@ -350,7 +350,7 @@ Assuming you've already authorized the VS Code Server Code Tunnel in the VM, sim
 1. Click the `><` button on the bottom left corner of VS Code, and
 2. Press `Connect to Tunnel`, then
 3. Press `GitHub`, then
-4. Press `drg-data-pipeline-v2`
+4. Press `drg-data-pipeline-v3`
 
 Once inside,
 
