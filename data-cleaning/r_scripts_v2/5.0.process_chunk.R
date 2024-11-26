@@ -4,6 +4,7 @@ process_chunk <- function(chunk,
                           known_vals = known_values,
                           remap_cols = remapped_column,
                           avail_cols = available_columns) {
+  # Rename Columns
   setnames(chunk,
     old = avail_cols[avail_cols %in% names(col_maps)],
     new = sapply(
@@ -11,6 +12,7 @@ process_chunk <- function(chunk,
       function(col) col_maps[[col]]
     )
   )
+  # Check Rename Success
   renamesuccess <- all(sapply(
     avail_cols[avail_cols %in% names(col_maps)],
     function(col) col_maps[[col]]
@@ -18,14 +20,21 @@ process_chunk <- function(chunk,
   if (!"id_year" %in% colnames(chunk)) {
     chunk[, id_year := as.integer(yr_to_load)]
   }
+
+  # Trim whitespace for id columns
   chunk[, `:=`(
     id_series = trimws(id_series),
     id_pin = trimws(id_pin)
   )]
+
+  # Make a copy of clin_c1 and clin_c2 for later use
+
   chunk[, `:=`(
     c1 = clin_c1,
     c2 = clin_c2
   )]
+
+  # Handle decimal seconds for 2022 and 2023 data
   chunk[, (c("time_adm", "time_dis")) := lapply(.SD, function(col) {
     ifelse(
       grepl("AM|PM", col),
@@ -33,6 +42,8 @@ process_chunk <- function(chunk,
       col
     )
   }), .SDcols = c("time_adm", "time_dis")]
+
+  # Collapse icd rvs columns
   cols_to_extract <- grep("^(clin_icd\\d+|clin_rvs\\d+)$", names(chunk), value = TRUE)
   col_list <- collapse_and_clean_icd_rvs_cols(
     lapply(cols_to_extract[grepl("^clin_icd", cols_to_extract)], function(col) chunk[[col]]),
@@ -41,9 +52,10 @@ process_chunk <- function(chunk,
   chunk[, `:=`(clin_icd = col_list$clin_icd, clin_rvs = col_list$clin_rvs)]
   chunk[, (grep("^(clin_icd\\d+|clin_rvs\\d+)$", names(chunk), value = TRUE)) := NULL]
 
+  # Clean c1 and c2 columns
   c1_result <- clean_column(chunk$c1)
   chunk[, `:=`(c1_orig = c1, c1 = c1_result$cleaned_col)]
-  is_covid_c1 <- c1_result$is_covid
+
   c1_cleaning_comparison <- data.table(
     old_code = sapply(chunk$c1_orig, toString),
     new_code = sapply(chunk$c1, toString)
@@ -54,7 +66,7 @@ process_chunk <- function(chunk,
   ]
   c2_result <- clean_column(chunk$c2)
   chunk[, `:=`(c2_orig = c2, c2 = c2_result$cleaned_col)]
-  is_covid_c2 <- c2_result$is_covid
+
   c2_cleaning_comparison <- data.table(
     old_code = sapply(chunk$c2_orig, toString),
     new_code = sapply(chunk$c2, toString)
@@ -63,7 +75,13 @@ process_chunk <- function(chunk,
     .(old_code, new_code, count = .N),
     by = .(old_code, new_code)
   ]
+
+  # Apply is_covid boolean
+  is_covid_c1 <- c1_result$is_covid
+  is_covid_c2 <- c2_result$is_covid
   chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
+
+  # Flatten and clean c1, c2, and clin_icd
   chunk[, c1 := lapply(c1, function(text) {
     replaced_text <- manual_replacement(text)
     collapsed_text <- collapse_to_string(replaced_text)
@@ -71,7 +89,6 @@ process_chunk <- function(chunk,
     cleaned_result <- remove_lumped_icd_codes(split_result)
     return(flatten_and_clean(cleaned_result))
   })]
-
   chunk[, c2 := lapply(c2, function(text) {
     replaced_text <- manual_replacement(text)
     collapsed_text <- collapse_to_string(replaced_text)
@@ -85,6 +102,7 @@ process_chunk <- function(chunk,
     return(flatten_and_clean(clin_icd_list))
   })]
 
+  # Replace empty with NA, then replace with character(0)
   replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
   chunk <- replace_result$return_data
   empty_replaced_with_na_1 <- replace_result$return_replacement_summary
@@ -92,18 +110,20 @@ process_chunk <- function(chunk,
   chunk <- replace_empty_result_1$return_data
   NA_replaced_with_empty_1 <- replace_empty_result_1$return_replacement_summary
 
+
+  # Move rvs icd rvs codes to proper columns
   c1_results <- append_copy_and_remove_icd_rvs(chunk$c1, chunk$clin_rvs, chunk$clin_icd)
   chunk[, clin_rvs := c1_results$clin_rvs]
   chunk[, c1 := c1_results$col]
   chunk[, clin_icd := c1_results$clin_icd]
   c1_discarded_rvs <- c1_results$discarded_rvs
-
   c2_results <- append_copy_and_remove_icd_rvs(chunk$c2, chunk$clin_rvs, chunk$clin_icd)
   chunk[, clin_rvs := c2_results$clin_rvs]
   chunk[, c2 := c2_results$col]
   chunk[, clin_icd := c2_results$clin_icd]
   c2_discarded_rvs <- c2_results$discarded_rvs
 
+  # Replace empty with NA, then replace with character(0)
   replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
   chunk <- replace_result$return_data
   empty_replaced_with_na_1 <- replace_result$return_replacement_summary
@@ -111,6 +131,7 @@ process_chunk <- function(chunk,
   chunk <- replace_empty_result_1$return_data
   NA_replaced_with_empty_1 <- replace_empty_result_1$return_replacement_summary
 
+  # Remap patient data
   remap_res <- remap_patient_data(
     pat_type = chunk$pat_type,
     pat_memcat_parent = chunk$pat_memcat_parent,
@@ -126,9 +147,11 @@ process_chunk <- function(chunk,
   chunk[, clin_discharge := remap_res$remapped$clin_discharge]
   chunk[, claim_status := remap_res$remapped$claim_status]
 
+  # Map RVS codes
   rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs)
   chunk[, icd9_list := rvs_mapping_result$icd9_list]
 
+  # Map ICD codes
   modified_c1 <- lapply(chunk$c1, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
   modified_c2 <- lapply(chunk$c2, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
   chunk[, c1 := modified_c1]
@@ -136,20 +159,22 @@ process_chunk <- function(chunk,
   c1 <- chunk$c1
   c2 <- chunk$c2
   clin_icd <- chunk$clin_icd
-
   icd10_mapping_result <- map_icd10(c1, c2, clin_icd)
   chunk[, c1 := icd10_mapping_result$c1]
   chunk[, c2 := icd10_mapping_result$c2]
   chunk[, clin_icd := icd10_mapping_result$clin_icd]
 
+  # Replace na/empty with character(0)
   replace_empty_result_2 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
   chunk <- replace_empty_result_2$return_data
   NA_replaced_with_empty_2 <- replace_empty_result_2$return_replacement_summary
 
+  # Remove whitespace in preparation for pdx finding
   chunk[, c1 := lapply(c1, remove_whitespace)]
   chunk[, c2 := lapply(c2, remove_whitespace)]
   chunk[, clin_icd := lapply(clin_icd, remove_whitespace)]
 
+  # Find pdx
   pdx_result <- find_pdx(chunk$c1, chunk$c2, chunk$clin_icd)
   chunk[, pdx := pdx_result$pdx]
   chunk[, pdx_code := pdx_result$pdx_code]
@@ -178,19 +203,28 @@ process_chunk <- function(chunk,
     as.character(lst)
   })]
 
+  # Restore clin_c1 and clin_c2
   chunk[, clin_c1 := c1_orig]
   chunk[, clin_c2 := c2_orig]
   chunk[, c("c1_orig", "c2_orig") := NULL]
+
+  # Save rvs mappings to clin_proc
   chunk[, clin_proc := icd9_list]
   chunk[, icd9_list := NULL]
+
+  # Save icd mappings to clin_sdx
   chunk[, clin_icd := Map(function(pdx_var, sdx_var) {
     sdx_var[sdx_var != pdx_var]
   }, pdx, clin_icd)]
   chunk[, clin_sdx := clin_icd]
   chunk[, clin_icd := NULL]
+
+  # Safeguard: If pat_bdate doesn't exist, set it to NA_Date_
   if (!"pat_bdate" %in% colnames(chunk)) {
     chunk[, pat_bdate := NA_Date_]
   }
+
+  # Format date columns and check for dates before 1900-01-01
   date_cols <- c(
     "date_adm", "date_dis", "date_rec", "date_ref",
     "date_check", "pat_bdate", "date_ext"
@@ -203,6 +237,8 @@ process_chunk <- function(chunk,
       return(converted_dates)
     }
   ), .SDcols = date_cols]
+
+  # Format time columns
   time_cols <- c("time_adm", "time_dis")
   chunk[, (time_cols) := lapply(
     .SD,
@@ -211,6 +247,8 @@ process_chunk <- function(chunk,
       as.character(x)
     }
   ), .SDcols = time_cols]
+
+  # OLD CODE:
   # chunk[, date_adm := as.POSIXct(
   #   paste(date_adm, time_adm),
   #   format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
@@ -219,6 +257,8 @@ process_chunk <- function(chunk,
   #   paste(date_dis, time_dis),
   #   format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
   # )]
+
+  # Set time to UTC so that datetime timestamp matches up with time_adm and time_dis for groupings
   chunk[, date_adm := as.POSIXct(
     paste(date_adm, time_adm),
     format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
@@ -227,25 +267,40 @@ process_chunk <- function(chunk,
     paste(date_dis, time_dis),
     format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
   )]
+
+  # Format clin_outpatient and clin_emergency
   chunk[, clin_outpatient := as.logical(as.integer(clin_outpatient))]
   chunk[, clin_emergency := as.logical(as.integer(clin_emergency))]
+
+  # Safeguard: If pat_bwt doesn't exist, set it to NA_real_
   if (!"pat_bwt" %in% colnames(chunk)) {
     chunk[, pat_bwt := NA_real_]
   }
+
+  # Format numeric columns as numeric
   num_cols <- c(
     "pat_age", "pat_bwt", "clin_discharge", "claim_payout",
     "claim_charge", "id_year", "pdx_code"
   )
   chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
+
+  # Format integer columns as integer
   int_cols <- c("clin_discharge", "id_year", "pdx_code")
   chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
+
+  # Format character columns as character
   char_cols <- c(
     "id_hcp", "pat_type", "clin_acc", "pat_rel", "pat_sex",
     "pat_memcat_parent", "pat_memcat_child", "claim_status", "pdx"
   )
+
+  char_cols <- c(char_cols, names(chunk)[sapply(chunk, is.character)])
   chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
+
+  # Initialize pat_ageday to NA_integer_
   chunk[, pat_ageday := NA_integer_]
 
+  # Subset clin_sdx to valid icd codes only
   chunk[, clin_sdx := lapply(clin_sdx, function(codes) {
     valid_codes <- codes[codes %chin% acc_icd_set]
     if (length(valid_codes) > 0) {
@@ -256,22 +311,27 @@ process_chunk <- function(chunk,
   })]
   chunk[, clin_sdx := lapply(clin_sdx, function(x) if (is.null(x)) character(0) else unlist(x))]
 
+  # Replace with character(0)
   replace_empty_result_3 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)", additional_columns = c("c1", "c2", "pdx"))
   chunk <- replace_empty_result_3$return_data
   NA_replaced_with_empty_3 <- replace_empty_result_3$return_replacement_summary
 
+  # Convert char cols to UTF-8, then replace empty with NA_character_
   chunk[, (char_cols) := lapply(.SD, function(col) iconv(col, from = "", to = "UTF-8")), .SDcols = char_cols]
-  char_cols <- names(chunk)[sapply(chunk, is.character)]
   chunk[, (char_cols) := lapply(.SD, function(col) {
     col[col %chin% c("None", "")] <- NA_character_
     return(col)
   }), .SDcols = char_cols]
+
+  # Replace nan with NA_real_
   num_cols <- names(chunk)[sapply(chunk, is.numeric)]
   chunk[, (num_cols) := lapply(.SD, function(col) {
     col[is.nan(col)] <- NA_real_
     return(col)
   }), .SDcols = num_cols]
 
+
+  # Split Id_hcp then replace empty with character(0)
   array_columns <- c("id_hcp")
   split_pattern <- "\\s*,\\s*|\\|\\||\\|"
   chunk[, (array_columns) := lapply(.SD, function(x) {
@@ -284,7 +344,6 @@ process_chunk <- function(chunk,
       }
     })
   }), .SDcols = array_columns]
-
   list_columns <- c("id_hcp")
   chunk[, (list_columns) := lapply(.SD, function(col) {
     lapply(col, function(x) {
@@ -295,7 +354,11 @@ process_chunk <- function(chunk,
       }
     })
   }), .SDcols = list_columns]
+
+  # Rename pdx code columns
   setnames(chunk, c("pdx", "pdx_code"), c("clin_pdx", "clin_pdx_source"))
+
+  # Set final column order
   setcolorder(chunk, c(
     "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm",
     "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
@@ -306,7 +369,11 @@ process_chunk <- function(chunk,
     "clin_acc", "clin_c1", "c1", "clin_c2", "c2", "clin_sdx", "clin_proc",
     "clin_rvs", "clin_pdx", "clin_pdx_source"
   ))
+
+  # Set clin_discharge as integer
   chunk[, clin_discharge := as.integer(clin_discharge)]
+
+  # Chop off excess clin_sdx and clin_proc from the RIGHT hand side (i.e. least priority ones)
   chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
   chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
 
@@ -350,8 +417,6 @@ process_chunk <- function(chunk,
       pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate - 1) / 365.25), # Check for inconsistency
     pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) # Recalculate pat_age
   ]
-
-  if ("ageday" %in% colnames(chunk)) chunk[, ageday := NULL]
 
   chunk_summary <- list(
     rename_success = renamesuccess,
