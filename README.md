@@ -4,7 +4,7 @@
 
 Run this code in Google Cloud Platform Cloud Shell:
 
-1. Currently, it is configured to have VS Code Server Code Tunnel accessible by the user profile of Carlos Resurreccion (resurreccion_cmc_gmail_com). (See --metadata portion of the script below.)
+1. Currently, it is configured to have VS Code Server Code Tunnel accessible by the user profile of Carlos Resurreccion (resurreccion_cmc). (See --metadata portion of the script below.)
 2. Service account should be the service account of the GCP Project. (See --service-account portion of the script below.)
 
 First time
@@ -179,7 +179,7 @@ Make system-wide libraries writable by R, otherwise we'd need to rely on renv wh
 
 Here we create a data folder in the home directory where multiple users can store data, accessible to all of their user profile git cloned repositories.
 
-For example, if I login as resurreccion_cmc_gmail_com, my user profile folder is /home/resurreccion_cmc_gmail_com and in that is my drg-pipeline git cloned repository. Later we will symbolically link the entire 'data' folder to each of our git cloned repository folders, as the code expects the 'data' folder and its contents to be in the data-cleaning folder of the repository, i.e. ~/drg-pipeline/data-cleaning/data.
+For example, if I login as resurreccion_cmc, my user profile folder is /home/resurreccion_cmc and in that is my drg-pipeline git cloned repository. Later we will symbolically link the entire 'data' folder to each of our git cloned repository folders, as the code expects the 'data' folder and its contents to be in the data-cleaning folder of the repository, i.e. ~/drg-pipeline/data-cleaning/data.
 
 ```
 sudo chmod -R 777 /usr/local/lib/R/site-library
@@ -288,7 +288,7 @@ Lastly, edit the VM instance in GCP and add the following in the text box of the
 
 ```
 #!/bin/bash
-USER="resurreccion_cmc_gmail_com"
+USER="resurreccion_cmc"
 sudo -u $USER bash -c 'code tunnel'
 ```
 
@@ -324,7 +324,7 @@ git submodule update --init --recursive
 Symbolically Link /mnt/data-disk/data to your username's drg-pipeline/data-cleaning folder
 
 ```
-sudo ln -s /mnt/data-disk/data /home/resurreccion_cmc_gmail_com/drg-pipeline/data-cleaning
+sudo ln -s /mnt/data-disk/data /home/resurreccion_cmc/drg-pipeline/data-cleaning
 ```
 
 Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
@@ -412,7 +412,7 @@ Steps to run the data-cleaning code end-to-end:
    set -e
 
    # Define the path to the r-reticulate virtual environment
-   VENV_PATH="/home/resurreccion_cmc_gmail_com/.virtualenvs/r-reticulate"
+   VENV_PATH="/home/resurreccion_cmc/.virtualenvs/r-reticulate"
 
    # Function to upgrade a virtual environment
    upgrade_venv() {
