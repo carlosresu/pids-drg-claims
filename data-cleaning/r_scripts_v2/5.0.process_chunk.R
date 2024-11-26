@@ -294,8 +294,8 @@ process_chunk <- function(chunk,
     "pat_memcat_parent", "pat_memcat_child", "claim_status", "pdx"
   )
 
-  char_cols <- c(char_cols, names(chunk)[sapply(chunk, is.character)])
   chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
+  char_cols <- names(chunk)[sapply(chunk, is.character)]
 
   # Initialize pat_ageday to NA_integer_
   chunk[, pat_ageday := NA_integer_]
