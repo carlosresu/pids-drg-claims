@@ -29,7 +29,8 @@ to_split <- TRUE # TODO: Deprecated, only used when to_sample is TRUE # Whether 
 thai_prompt <- TRUE # Whether to prompt for thai grouper even if bypassing all other prompts
 to_prompt <- FALSE
 
-split_parts <- 15
+# split_parts <- 15
+split_parts <- 5
 # Sample size divisor: Formula for sample size is
 # (total_rows ÷ split_parts) ÷ sample_size_divisor.
 # Choose between 5, 25, 125, and 625
