@@ -393,12 +393,16 @@ for (loop_part in 1:split_parts) {
   # loop_part <- 1
   start_time <- Sys.time() # Record start time for processing
   # Step 7: Read the appropriate file (sample or full)
+  message(paste0("Start reading part ", loop_part, " of ", split_parts))
   read_result <- read_appropriate_file(loop_part)
   # The data to process
   read_in_dt <- read_result$read_result_dt
   # Any replacements summary
   read_in_replacement_summary <- read_result$read_result_replacement_summary
 
+  message(paste0("Finished reading part ", loop_part, " of ", split_parts))
+
+  message(paste0("Start chunking part ", loop_part, " of ", split_parts))
   # Step 8: Split the data into chunks for parallel processing
   chunk_size <- ceiling(nrow(read_in_dt) / nthreads)
   chunks <- split(
@@ -409,6 +413,7 @@ for (loop_part in 1:split_parts) {
       length.out = nrow(read_in_dt)
     )
   )
+  message(paste0("Finished chunking part ", loop_part, " of ", split_parts))
 
   message(paste0("Start processing part ", loop_part, " of ", split_parts))
   # Step 9: Apply parallel processing
