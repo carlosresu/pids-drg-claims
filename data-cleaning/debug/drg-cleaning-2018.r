@@ -386,199 +386,199 @@ if (to_print_mapping_data) {
 }
 
 
-# Step 5: Loop through each part and process the partial files
-# saveWidget(profvis({
-for (loop_part in 1:split_parts) {
-  # loop_part <- 1
-  start_time <- Sys.time() # Record start time for processing
-  # Step 7: Read the appropriate file (sample or full)
-  message(paste0("Start reading part ", loop_part, " of ", split_parts))
-  read_result <- read_appropriate_file(loop_part)
-  # The data to process
-  read_in_dt <- read_result$read_result_dt
-  # Any replacements summary
-  read_in_replacement_summary <- read_result$read_result_replacement_summary
+# # Step 5: Loop through each part and process the partial files
+# # saveWidget(profvis({
+# for (loop_part in 1:split_parts) {
+#   # loop_part <- 1
+#   start_time <- Sys.time() # Record start time for processing
+#   # Step 7: Read the appropriate file (sample or full)
+#   message(paste0("Start reading part ", loop_part, " of ", split_parts))
+#   read_result <- read_appropriate_file(loop_part)
+#   # The data to process
+#   read_in_dt <- read_result$read_result_dt
+#   # Any replacements summary
+#   read_in_replacement_summary <- read_result$read_result_replacement_summary
 
-  message(paste0("Finished reading part ", loop_part, " of ", split_parts))
+#   message(paste0("Finished reading part ", loop_part, " of ", split_parts))
 
-  message(paste0("Start chunking part ", loop_part, " of ", split_parts))
-  # Step 8: Split the data into chunks for parallel processing
-  chunk_size <- ceiling(nrow(read_in_dt) / nthreads)
-  chunks <- split(
-    read_in_dt,
-    rep(
-      1:nthreads,
-      each = chunk_size,
-      length.out = nrow(read_in_dt)
-    )
-  )
-  message(paste0("Finished chunking part ", loop_part, " of ", split_parts))
+#   message(paste0("Start chunking part ", loop_part, " of ", split_parts))
+#   # Step 8: Split the data into chunks for parallel processing
+#   chunk_size <- ceiling(nrow(read_in_dt) / nthreads)
+#   chunks <- split(
+#     read_in_dt,
+#     rep(
+#       1:nthreads,
+#       each = chunk_size,
+#       length.out = nrow(read_in_dt)
+#     )
+#   )
+#   message(paste0("Finished chunking part ", loop_part, " of ", split_parts))
 
-  message(paste0("Start processing part ", loop_part, " of ", split_parts))
-  # Step 9: Apply parallel processing
-  # See function(s) before the loop
-  if (to_parallel) {
-    parallel_results <- mclapply(
-      chunks, process_chunk,
-      mc.cores = nthreads
-    )
-  } else {
-    if (!to_debug) parallel_results <- lapply(chunks, process_chunk) else parallel_results <- list(process_chunk(chunks[[1]]))
-  }
+#   message(paste0("Start processing part ", loop_part, " of ", split_parts))
+#   # Step 9: Apply parallel processing
+#   # See function(s) before the loop
+#   if (to_parallel) {
+#     parallel_results <- mclapply(
+#       chunks, process_chunk,
+#       mc.cores = nthreads
+#     )
+#   } else {
+#     if (!to_debug) parallel_results <- lapply(chunks, process_chunk) else parallel_results <- list(process_chunk(chunks[[1]]))
+#   }
 
-  rbound_dt <- rbindlist(lapply(
-    parallel_results,
-    function(res) {
-      res$return_chunk
-    }
-  ))
+#   rbound_dt <- rbindlist(lapply(
+#     parallel_results,
+#     function(res) {
+#       res$return_chunk
+#     }
+#   ))
 
-  # Step 11: Check for invalid primary diagnoses (PDx) and update the summary
-  invalid_pdx_indices <- which(
-    !is.na(rbound_dt$pdx) & rbound_dt$pdx != "" &
-      !sapply(rbound_dt$pdx, function(x) exists(x, acc_pdx_env))
-  )
-  if (length(invalid_pdx_indices) > 0) {
-    message(paste("Invalid PDx found:", rbound_dt$pdx[invalid_pdx_indices]))
-    pdx_success_list[[loop_part]] <- FALSE
-  } else {
-    pdx_success_list[[loop_part]] <- TRUE
-  }
+#   # Step 11: Check for invalid primary diagnoses (PDx) and update the summary
+#   invalid_pdx_indices <- which(
+#     !is.na(rbound_dt$pdx) & rbound_dt$pdx != "" &
+#       !sapply(rbound_dt$pdx, function(x) exists(x, acc_pdx_env))
+#   )
+#   if (length(invalid_pdx_indices) > 0) {
+#     message(paste("Invalid PDx found:", rbound_dt$pdx[invalid_pdx_indices]))
+#     pdx_success_list[[loop_part]] <- FALSE
+#   } else {
+#     pdx_success_list[[loop_part]] <- TRUE
+#   }
 
-  for (i in seq_along(parallel_results)) {
-    parallel_results[[i]]$return_summary$pdx_success <- pdx_success_list[[loop_part]]
-    parallel_results[[i]]$return_summary$replacement_summary <- read_in_replacement_summary
-  }
+#   for (i in seq_along(parallel_results)) {
+#     parallel_results[[i]]$return_summary$pdx_success <- pdx_success_list[[loop_part]]
+#     parallel_results[[i]]$return_summary$replacement_summary <- read_in_replacement_summary
+#   }
 
-  # Step 10: Combine results from all parallel chunks
-  parallel_summaries <- lapply(
-    parallel_results,
-    function(res) {
-      res$return_summary
-    }
-  )
+#   # Step 10: Combine results from all parallel chunks
+#   parallel_summaries <- lapply(
+#     parallel_results,
+#     function(res) {
+#       res$return_summary
+#     }
+#   )
 
-  summarized_dt <- rbound_dt # Store the summarized data
-  combined_chunk_summary[[loop_part]] <- parallel_summaries
+#   summarized_dt <- rbound_dt # Store the summarized data
+#   combined_chunk_summary[[loop_part]] <- parallel_summaries
 
-  # Step 12: Write processed data to checkpoint file if required
-  if (to_write) {
-    saveRDS(
-      summarized_dt, here(checkpoint_1_path, paste0(
-        checkpoint_1_prefix, year_to_load, suffix,
-        "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
-      )),
-      compress = TRUE
-    )
-  }
+#   # Step 12: Write processed data to checkpoint file if required
+#   if (to_write) {
+#     saveRDS(
+#       summarized_dt, here(checkpoint_1_path, paste0(
+#         checkpoint_1_prefix, year_to_load, suffix,
+#         "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
+#       )),
+#       compress = TRUE
+#     )
+#   }
 
-  # Step 13: Collect summaries for each part
-  all_parts_summaries[[loop_part]] <- combined_chunk_summary[[loop_part]]
-  processing_times[[loop_part]] <- as.numeric(difftime(Sys.time(),
-    start_time,
-    units = "secs"
-  ))
+#   # Step 13: Collect summaries for each part
+#   all_parts_summaries[[loop_part]] <- combined_chunk_summary[[loop_part]]
+#   processing_times[[loop_part]] <- as.numeric(difftime(Sys.time(),
+#     start_time,
+#     units = "secs"
+#   ))
 
-  # Step 14: Update status and ETA
-  print_status_update(loop_part, split_parts, processing_times, "clean")
+#   # Step 14: Update status and ETA
+#   print_status_update(loop_part, split_parts, processing_times, "clean")
 
-  if (loop_part == 1) dim_dt <- dim(summarized_dt)
+#   if (loop_part == 1) dim_dt <- dim(summarized_dt)
 
-  nrow_end[[loop_part]] <- nrow(summarized_dt)
-  # Step 15: Clean up memory after processing each part
-  rm(read_in_dt, rbound_dt, summarized_dt)
-  invisible(gc())
-}
-# }), profvis_fpath)
+#   nrow_end[[loop_part]] <- nrow(summarized_dt)
+#   # Step 15: Clean up memory after processing each part
+#   rm(read_in_dt, rbound_dt, summarized_dt)
+#   invisible(gc())
+# }
+# # }), profvis_fpath)
 
-if (to_post_cleaning_checks) print_summary_tables(aggregate_all_summaries(all_parts_summaries))
-
-
-# Step 2: Combine all parts into a master data table
-master_dt_list <- parallel::mclapply(1:split_parts, function(read_part) {
-  cat(paste("\rStarted reading part", read_part))
-  flush.console()
-  return_dt <- readRDS(here(checkpoint_1_path, paste0(
-    checkpoint_1_prefix, year_to_load, suffix,
-    "part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
-  )))
-  # message(colnames(return_dt))
-  cat(paste("\rFinished reading prt", read_part))
-  flush.console()
-  return(return_dt)
-}, mc.cores = nthreads)
-message("Commencing rbindlist")
-master_dt <- rbindlist(master_dt_list, fill = TRUE)
-rm(master_dt_list)
-invisible(gc())
-message("Finished rbindlist")
-# Step 1: Validate row counts across parts
-# Initialize variable to track total row counts across parts
-total_start_rows <- 0
-total_end_rows <- 0
-
-for (nrow_part in 1:split_parts) {
-  # Sum up row counts for each part
-  total_start_rows <- total_start_rows + nrow_start[[nrow_part]]
-  total_end_rows <- total_end_rows + nrow_end[[nrow_part]]
-
-  # Check if rows match for each part
-  if (nrow_start[[nrow_part]] != nrow_end[[nrow_part]]) {
-    warning(
-      "WARNING: Row Count Mismatch! Part ", nrow_part,
-      " has ", nrow_start[[nrow_part]], " starting rows and ",
-      nrow_end[[nrow_part]], " ending rows\n"
-    )
-    stop("ERROR: Row Count Mismatch")
-  }
-}
-
-# Check if the total rows match
-if (if (to_sample) total_rows / sample_size_divisor else total_rows == nrow(master_dt)) {
-  message("\nRow Counts Match for All Parts and Sum to Total Rows\n")
-} else {
-  stop("ERROR: Total Row Count Mismatch")
-}
-
-# Step 3: Save the combined master data table
-if (to_write) {
-  message("Commencing saveRDS")
-  saveRDS(master_dt, here(
-    checkpoint_2_path, paste0(
-      checkpoint_2_prefix, year_to_load, suffix, ".rds"
-    )
-  ), compress = TRUE)
-  message("Finished saveRDS")
-}
+# if (to_post_cleaning_checks) print_summary_tables(aggregate_all_summaries(all_parts_summaries))
 
 
-if (exists("master_dt")) {
-  message("master_dt exists, making a copy and deleting it")
-  result <- data.table::copy(master_dt)
-  rm(master_dt)
-  invisible(gc())
-  message("copied master_dt to result, deleted master_dt")
-} else {
-  message(paste0("master_dt doesn't exist, reading ", paste0(
-    checkpoint_2_prefix, year_to_load, suffix, ".rds"
-  )))
-  result <- readRDS(here(
-    checkpoint_2_path, paste0(
-      checkpoint_2_prefix, year_to_load, suffix, ".rds"
-    )
-  ))
-  invisible(gc())
-  message(paste0("finished reading ", paste0(
-    checkpoint_2_prefix, year_to_load, suffix, ".rds"
-  )))
-}
+# # Step 2: Combine all parts into a master data table
+# master_dt_list <- parallel::mclapply(1:split_parts, function(read_part) {
+#   cat(paste("\rStarted reading part", read_part))
+#   flush.console()
+#   return_dt <- readRDS(here(checkpoint_1_path, paste0(
+#     checkpoint_1_prefix, year_to_load, suffix,
+#     "part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
+#   )))
+#   # message(colnames(return_dt))
+#   cat(paste("\rFinished reading prt", read_part))
+#   flush.console()
+#   return(return_dt)
+# }, mc.cores = nthreads)
+# message("Commencing rbindlist")
+# master_dt <- rbindlist(master_dt_list, fill = TRUE)
+# rm(master_dt_list)
+# invisible(gc())
+# message("Finished rbindlist")
+# # Step 1: Validate row counts across parts
+# # Initialize variable to track total row counts across parts
+# total_start_rows <- 0
+# total_end_rows <- 0
 
-message(paste0("Saving ", paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")))
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-), compress = TRUE)
-message(paste0("Finished saving ", paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")))
+# for (nrow_part in 1:split_parts) {
+#   # Sum up row counts for each part
+#   total_start_rows <- total_start_rows + nrow_start[[nrow_part]]
+#   total_end_rows <- total_end_rows + nrow_end[[nrow_part]]
+
+#   # Check if rows match for each part
+#   if (nrow_start[[nrow_part]] != nrow_end[[nrow_part]]) {
+#     warning(
+#       "WARNING: Row Count Mismatch! Part ", nrow_part,
+#       " has ", nrow_start[[nrow_part]], " starting rows and ",
+#       nrow_end[[nrow_part]], " ending rows\n"
+#     )
+#     stop("ERROR: Row Count Mismatch")
+#   }
+# }
+
+# # Check if the total rows match
+# if (if (to_sample) total_rows / sample_size_divisor else total_rows == nrow(master_dt)) {
+#   message("\nRow Counts Match for All Parts and Sum to Total Rows\n")
+# } else {
+#   stop("ERROR: Total Row Count Mismatch")
+# }
+
+# # Step 3: Save the combined master data table
+# if (to_write) {
+#   message("Commencing saveRDS")
+#   saveRDS(master_dt, here(
+#     checkpoint_2_path, paste0(
+#       checkpoint_2_prefix, year_to_load, suffix, ".rds"
+#     )
+#   ), compress = TRUE)
+#   message("Finished saveRDS")
+# }
+
+
+# if (exists("master_dt")) {
+#   message("master_dt exists, making a copy and deleting it")
+#   result <- data.table::copy(master_dt)
+#   rm(master_dt)
+#   invisible(gc())
+#   message("copied master_dt to result, deleted master_dt")
+# } else {
+#   message(paste0("master_dt doesn't exist, reading ", paste0(
+#     checkpoint_2_prefix, year_to_load, suffix, ".rds"
+#   )))
+#   result <- readRDS(here(
+#     checkpoint_2_path, paste0(
+#       checkpoint_2_prefix, year_to_load, suffix, ".rds"
+#     )
+#   ))
+#   invisible(gc())
+#   message(paste0("finished reading ", paste0(
+#     checkpoint_2_prefix, year_to_load, suffix, ".rds"
+#   )))
+# }
+
+# message(paste0("Saving ", paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")))
+# saveRDS(result, here(
+#   checkpoint_2_path,
+#   paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
+# ), compress = TRUE)
+# message(paste0("Finished saving ", paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")))
 
 
 if (to_post_cleaning_checks) {
@@ -742,49 +742,49 @@ if (to_post_cleaning_checks) {
 }
 
 
-result <- readRDS(here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-))
-print(nrow(result))
-# result <- result[clin_outpatient == FALSE, ] # DONT SUBSET OUTPATIENT CLAIMS
-print(nrow(result))
-result[, is_covid := {
-  # Start with FALSE
-  covid_found <- rep(FALSE, .N)
+# result <- readRDS(here(
+#   checkpoint_2_path,
+#   paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
+# ))
+# print(nrow(result))
+# # result <- result[clin_outpatient == FALSE, ] # DONT SUBSET OUTPATIENT CLAIMS
+# print(nrow(result))
+# result[, is_covid := {
+#   # Start with FALSE
+#   covid_found <- rep(FALSE, .N)
 
-  # Check each condition sequentially, updating only rows not yet marked TRUE
-  not_found <- !covid_found
-  covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
+#   # Check each condition sequentially, updating only rows not yet marked TRUE
+#   not_found <- !covid_found
+#   covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
 
-  not_found <- !covid_found
-  covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
+#   not_found <- !covid_found
+#   covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
 
-  not_found <- !covid_found
-  covid_found[not_found] <- c2[not_found] %chin% covid_rvs
+#   not_found <- !covid_found
+#   covid_found[not_found] <- c2[not_found] %chin% covid_rvs
 
-  not_found <- !covid_found
-  covid_found[not_found] <- c1[not_found] %chin% covid_rvs
+#   not_found <- !covid_found
+#   covid_found[not_found] <- c1[not_found] %chin% covid_rvs
 
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_rvs[not_found], function(row) any(row %chin% covid_rvs))
+#   not_found <- !covid_found
+#   covid_found[not_found] <- sapply(clin_rvs[not_found], function(row) any(row %chin% covid_rvs))
 
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_sdx[not_found], function(row) any(row %chin% covid_rvs))
+#   not_found <- !covid_found
+#   covid_found[not_found] <- sapply(clin_sdx[not_found], function(row) any(row %chin% covid_rvs))
 
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_proc[not_found], function(row) any(row %chin% covid_rvs))
+#   not_found <- !covid_found
+#   covid_found[not_found] <- sapply(clin_proc[not_found], function(row) any(row %chin% covid_rvs))
 
-  # Return the result
-  covid_found
-}]
+#   # Return the result
+#   covid_found
+# }]
 
-# result <- result[is_covid == FALSE, ] # DONT SUBSET COVID CLAIMS
-print(nrow(result))
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-))
+# # result <- result[is_covid == FALSE, ] # DONT SUBSET COVID CLAIMS
+# print(nrow(result))
+# saveRDS(result, here(
+#   checkpoint_2_path,
+#   paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
+# ))
 
 
 if (to_post_cleaning_checks) {
@@ -831,40 +831,40 @@ not in the other, or where the values differ:\n")
 }
 
 
-message("Reading final")
-result <- readRDS(here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-))
-message("Finished reading final, commencing subsetting")
-result <- result[, .(
-  id_series, id_pin, id_hci, id_hcp, date_adm, time_adm,
-  date_dis, time_dis, date_rec, date_ref, date_check, pat_type, pat_rel, pat_bdate,
-  pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
-  pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
-  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-)]
-message("Finished subsetting, commencing saveRDS")
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset_with_time", ".rds")
-))
-message("Finished saveRDS, commencing subsetting")
-result <- result[, .(
-  id_series, id_pin, id_hci, id_hcp, date_adm,
-  date_dis, date_rec, date_ref, date_check, pat_type, pat_rel,
-  pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
-  pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
-  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-)]
-message("Finished subsetting, commencing saveRDS")
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset", ".rds")
-))
-message("Finished saveRDS")
+# message("Reading final")
+# result <- readRDS(here(
+#   checkpoint_2_path,
+#   paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
+# ))
+# message("Finished reading final, commencing subsetting")
+# result <- result[, .(
+#   id_series, id_pin, id_hci, id_hcp, date_adm, time_adm,
+#   date_dis, time_dis, date_rec, date_ref, date_check, pat_type, pat_rel, pat_bdate,
+#   pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
+#   pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
+#   clin_discharge, clin_outpatient, clin_emergency, clin_acc,
+#   clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
+# )]
+# message("Finished subsetting, commencing saveRDS")
+# saveRDS(result, here(
+#   checkpoint_2_path,
+#   paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset_with_time", ".rds")
+# ))
+# message("Finished saveRDS, commencing subsetting")
+# result <- result[, .(
+#   id_series, id_pin, id_hci, id_hcp, date_adm,
+#   date_dis, date_rec, date_ref, date_check, pat_type, pat_rel,
+#   pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
+#   pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
+#   clin_discharge, clin_outpatient, clin_emergency, clin_acc,
+#   clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
+# )]
+# message("Finished subsetting, commencing saveRDS")
+# saveRDS(result, here(
+#   checkpoint_2_path,
+#   paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset", ".rds")
+# ))
+# message("Finished saveRDS")
 
 
 result <- readRDS(here(
