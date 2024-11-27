@@ -78,7 +78,7 @@ source /etc/environment
 sudo apt update
 
 # Install Jupyter:
-sudo apt install -y jupyter jupyter-core jupyter-client libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev pipx  libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev libgit2-dev python3-venv python3-dev libgfortran5 liblapack-dev libblas-dev libcairo2-dev libz-dev liblz4-dev libzstd-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libgdal-dev libproj-dev libgmp3-dev libgmp-dev ncdu python3-full python3-pip npm pandoc
+sudo apt install -y jupyter jupyter-core jupyter-client libcurl4-openssl-dev libssl-dev libxml2-dev libsodium-dev pipx  libfontconfig1-dev libharfbuzz-dev libfribidi-dev libgeos-dev libudunits2-dev libgit2-dev python3-venv python3-dev libgfortran5 liblapack-dev libblas-dev libcairo2-dev libz-dev liblz4-dev libzstd-dev libfreetype6-dev libpng-dev libtiff5-dev libjpeg-dev libgdal-dev libproj-dev libgmp3-dev libgmp-dev ncdu python3-full python3-pip npm pandoc dstat
 
 sudo apt install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 
