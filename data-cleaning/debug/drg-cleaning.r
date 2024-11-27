@@ -410,6 +410,7 @@ for (loop_part in 1:split_parts) {
     )
   )
 
+  message(paste0("Start processing part ", loop_part, " of ", split_parts))
   # Step 9: Apply parallel processing
   # See function(s) before the loop
   if (to_parallel) {
