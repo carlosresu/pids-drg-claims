@@ -492,7 +492,7 @@ for (loop_part in 1:split_parts) {
 }
 # }), profvis_fpath)
 
-print_summary_tables(aggregate_all_summaries(all_parts_summaries))
+if (to_post_cleaning_checks) print_summary_tables(aggregate_all_summaries(all_parts_summaries))
 
 
 # Step 2: Combine all parts into a master data table
