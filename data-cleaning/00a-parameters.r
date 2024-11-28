@@ -10,7 +10,7 @@ to_write <- TRUE
 # TODO: Add description here
 to_flush <- FALSE
 # TODO: Add description here
-to_bq <- FALSE
+to_bq <- TRUE
 # TODO: Add description here
 to_post_cleaning_checks <- FALSE
 # TODO: Add description here
@@ -20,7 +20,7 @@ cat("Parallelization:", to_parallel, "\n")
 to_debug <- FALSE
 verbose_output <- if (to_debug) TRUE else FALSE
 
-to_generate_subset <- TRUE
+to_generate_subset <- FALSE
 
 to_py_prompt <- FALSE
 to_python <- FALSE
@@ -30,9 +30,9 @@ to_py_bq <- FALSE
 
 to_thai_prompt <- TRUE
 to_thai <- TRUE
-to_thai_bq <- FALSE
-to_generate_thai_txt <- TRUE
-to_thai_all_years <- TRUE
+to_thai_bq <- TRUE
+to_generate_thai_txt <- FALSE
+to_thai_all_years <- FALSE
 
 to_spc <- FALSE
 
