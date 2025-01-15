@@ -20,141 +20,145 @@
 # Such as why it exists, what it intends to do, and why it was written
 ############################# WHAT IS A DOCSTRING? #############################
 
-# NTS: This can probably be de-functionized and put in the script
-# everywhere it's needed
+# NTS: TODO: This can probably be de-functionized and put in the script
+#      everywhere it's needed
 trim_code <- function(code) {
-  sub( # Substitute command
-    paste0( # combine the two enclosed strings into one string
-      "(\\D+\\d{3})", # (Group 1): Matches one non-digit char and 3 digit chars.
-      "(\\d*)$" # (Group 2): matched but omitted in the replacement i.e. deleted
-    ), # TODO: Get rid of paste0, this is just for compartmentalizing comments
-    "\\1", # VALUE: only group \\1 is kept, group \\2 (unwritten) is deleted
-    code # What to apply it to
-  )
+  # Trims ICD-10 codes with 4+ digits, into one with exactly has 3 digits
+  # e.g. J1892 and J18923 both become J189
+  # NOTE: if regex is not met, e.g. J18, it will be returned unchanged
+  sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
 }
 
-# Helper: Check if a code exists in a valid environment
+# OLD VERSION FOR REFERENCE
+# [[1]] is necessary because mget always returns a list, AND
+# because is.null expects a NULL value directly,
+# not a list containing NULL
 code_exists <- function(code, env) {
-  !is.null( # VALUE: Returns TRUE if result is NOT null,
-    # i.e. if is.null returns FALSE, then return TRUE
-    # This entire thing is the "return" statement of code_exists
-    # i.e. code_exists is meant to return the fact that a code exists or not,
-    # and not the code itself or its corresponding value
-    # If it were just mget without is.null or !is.null
-    # it would return the corresponding value of "code" in the env
-    mget( # retrieves the value of whatever "code" is, in an environment
-      code, # the value to retrieve
-      envir = env, # the environment to check
-      ifnotfound = list( # What to return if not found (a list)
-        NULL # Containing NULL, i.e. a null list
-      )
-    )[[1]] # of the mget results, get only the first element,
-    # This is either the matching retrieved value, or NULL as in the
-    # ifnotfound section.
-  )
+  # Returns TRUE if code exists in/is a valid thai code(s))
+  !is.null(mget(x = code, envir = env, ifnotfound = list(NULL))[[1]])
+}
+
+# REFACTORED VERSION WITH DOCSTRINGS/COMMENTAS
+code_exists <- function(code, env) {
+  # Returns TRUE if code (key: a string) exists (value: a boolean) in an env
+  exists(x = code, envir = env, inherits = FALSE)
 }
 
 generate_icd10_mapping <- function(filtered_icds) {
   # Initialize things
-  icd_mapping <- list() # Initialize icd_mapping as an empty list
-  direct_matches <- character() # Store all direct matches as char vector
-  # Store pairs of original::modified
-  modifiedmatches <- list( # store as a list two char vectors
-    # TODO: rename intuitively
-    modified_matches = character(), # the raw code in the data that matched
-    # (via modification) something in the environment
-    modified_match = character() # the resulting [modified] mapped replacement
-  )
+  icd_mapping <- list()
+  generated_direct_matches <- character()
+  generated_modified_matches <-
+    # a two-element list of the raw match and its modified counterpart
+    list(raw_match = character(), modified_match = character())
 
   # loop through every element of icds that are filtered
   for (code in filtered_icds) {
-    # 0. ** trim whitespace for every element (i.e. "code") processed
+    # 0. ** trim whitespace for ALL codes
     code <- trimws(code)
 
     # 1. **Exact match check**
-    if (code_exists( # call code_exists from above
-      code, # check the existence of the value of "code"
-      icd_codes_env # the env to check
-    )) {
-      icd_mapping[[code]] <- list(
-        # store a list called "code" in the list "icd_mapping"
-        match_type = "Exact", # CHECK: human-readable label of type of match
-        # for downstream checks
-        original = code, # CHECK: exact; original is also what is mapped too
-        mapped = code # VALUE: what is mapped (i.e. same as the original)
-      )
-      # CHECK: append code to list of direct matches
-      direct_matches <- c(direct_matches, code)
-      next
+    # If code exists directly/exactly,
+    if (code_exists(code, icd_codes_env)) {
+      icd_mapping[[code]] <-
+        # add that code to generated mapping
+        list(
+          match_type = "Exact",
+          original = code,
+          mapped = code
+        )
+
+      # also, add output to checks
+      generated_direct_matches <- c(generated_direct_matches, code)
+
+      # then, continue the loop and bypass code below
+      next # Skip further processing for this code
     }
 
-    # 2. **Attempt adding '9' for 3-character codes**
+    # 2. **Attempt adding '9' for 3-character codes, then check for existence**
+    # If code is 3 characters long, e.g. J18
     if (nchar(code) == 3) {
+      # first, add 9 to it
       modified_code <- paste0(code, "9")
 
-      if (code_exists(
-        modified_code,
-        icd_codes_env
-      )) {
+      # If once with a 9 code exists in env,
+      if (code_exists(modified_code, icd_codes_env)) {
+        # add said code to generated mapping
+        icd_mapping[[code]] <-
+          list(
+            match_type = "Modified (Added 9)",
+            original = code,
+            mapped = modified_code
+          )
+
+        # also, add raw version of code to checks
+        generated_modified_matches$raw_match <-
+          c(generated_modified_matches$raw_match, code)
+
+        # also, add said code to checks
+        generated_modified_matches$modified_match <-
+          c(generated_modified_matches$modified_match, modified_code)
+
+        # then, continue the loop and bypass code below
+        next # Skip further processing for this code
+      }
+    }
+
+    # 3. **Trimming codes longer than or equal to 4 char**
+    trimmed_code <- if (nchar(code) > 4) trim_code(code) else if (nchar(code) == 4) code else NULL
+
+    # For non-null 4 char codes,
+    if (!is.null(trimmed_code)) {
+      # Check if the 4-character trimmed code exists
+      if (code_exists(trimmed_code, icd_codes_env)) {
         icd_mapping[[code]] <- list(
-          match_type = "Modified (Added 9)",
+          match_type = "Modified (Trimmed)",
           original = code,
-          mapped = modified_code
+          mapped = trimmed_code
         )
-        modifiedmatches$modified_matches <- c(
-          modifiedmatches$modified_matches,
-          code
+
+        # also, add raw to checks
+        generated_modified_matches$raw_match <- c(generated_modified_matches$raw_match, code)
+
+        # also, add trimmed to checks
+        generated_modified_matches$modified_match <- c(generated_modified_matches$modified_match, trimmed_code)
+
+        # Skip further processing for this code
+        next
+      }
+
+      # If 4 char code doesn't exist, trim again, to 3 char
+      trimmed_to_3 <- substr(trimmed_code, 1, 3)
+      if (code_exists(trimmed_to_3, icd_codes_env)) {
+        icd_mapping[[code]] <- list(
+          match_type = "Modified (Trimmed)",
+          original = code,
+          mapped = trimmed_to_3
         )
-        modifiedmatches$modified_match <- c(
-          modifiedmatches$modified_match,
-          modified_code
-        )
+
+        # also, add raw to checks
+        generated_modified_matches$raw_match <- c(generated_modified_matches$raw_match, code)
+
+        # also, add trimmed to checks
+        generated_modified_matches$modified_match <- c(generated_modified_matches$modified_match, trimmed_to_3)
+
+        # Skip further processing for this code
         next
       }
     }
 
-    # 3. **Trim and progressively shorten the code**
-    trimmed_code <- trim_code(code)
-    match_found <- FALSE
-
-    for (i in 0:(nchar(trimmed_code) - 3)) {
-      partial_code <- substr(trimmed_code, 1, nchar(trimmed_code) - i)
-      if (nchar(partial_code) >= 3 && code_exists(
-        partial_code,
-        icd_codes_env
-      )) {
-        icd_mapping[[code]] <- list(
-          match_type = "Modified (Trimmed)",
-          original = code,
-          mapped = partial_code
-        )
-        modifiedmatches$modified_matches <- c(
-          modifiedmatches$modified_matches,
-          code
-        )
-        modifiedmatches$modified_match <- c(
-          modifiedmatches$modified_match,
-          partial_code
-        )
-        match_found <- TRUE
-        break
-      }
-    }
-
-    # 4. **Mark as unmatched if no match found**
-    if (!match_found) {
-      icd_mapping[[code]] <- list(
-        match_type = "Unmatched",
-        original = code,
-        mapped = NA_character_
-      )
-    }
+    # 4. **Mark as unmatched once all else fails**
+    icd_mapping[[code]] <- list(
+      match_type = "Unmatched",
+      original = code,
+      mapped = NA_character_
+    )
   }
 
   list(
     mapping = icd_mapping,
-    modified_matches = modifiedmatches,
-    direct_matches = direct_matches
+    returned_modified_matches = generated_modified_matches,
+    returned_direct_matches = generated_direct_matches
   )
 }
 
@@ -225,11 +229,13 @@ map_icd10 <- function(c1, c2, clin_icd) {
   )
 
   # Filter unmatched sources based on unmatched codes
+  # %chin% is a faster version of %in% for character vectors
   unmatchedsources <- unmatchedsources[code %chin% unmatched_codes]
 
   # Create ICD-10 mapping data.table
   icd10_map <- data.table(
     phl_icd10 = names(icd_mapping),
+    # STUDY: what does `[[` do
     thai_icd10 = sapply(icd_mapping, `[[`, "mapped"),
     match_type = sapply(icd_mapping, `[[`, "match_type")
   )
@@ -249,16 +255,18 @@ map_icd10 <- function(c1, c2, clin_icd) {
   )
 
   # Return the results
-  list(
-    c1 = c1_mapped,
-    c2 = c2_mapped,
-    clin_icd = clin_icd_mapped,
-    icd10_map_dt = icd10_map,
-    unique_icds = icds,
-    unmatched_codes = unmatched_codes,
-    unmatched_sources = unmatchedsources,
-    icd_mapping_res = icd_mapping,
-    modified_matches = mapping_info$modified_matches,
-    direct_matches = mapping_info$direct_matches
+  return(
+    list(
+      c1 = c1_mapped,
+      c2 = c2_mapped,
+      clin_icd = clin_icd_mapped,
+      icd10_map_dt_for_checks = icd10_map,
+      unique_icds_for_checks = icds,
+      unmatched_codes_for_checks = unmatched_codes,
+      unmatched_sources_for_checks = unmatchedsources,
+      icd_mapping_for_checks = icd_mapping,
+      modified_matches_for_checks = mapping_info$returned_modified_matches,
+      direct_matches_for_checks = mapping_info$returned_direct_matches
+    )
   )
 }

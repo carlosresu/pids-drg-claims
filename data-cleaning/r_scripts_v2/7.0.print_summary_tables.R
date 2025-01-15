@@ -114,20 +114,20 @@ print_summary_tables <- function(final_combined_summaries) {
 
   # Print ICD-10 Mapping Statistics
   cat(
-    sprintf("\nThere are %d unique ICD-10 codes.\n", length(summary$unique_icds)),
+    sprintf("\nThere are %d unique ICD-10 codes.\n", length(summary$aggregated_unique_icds_for_checks)),
     sprintf(
       "%d (%.2f%%) are directly in the Thai ICD-10 library.\n",
-      length(summary$direct_matches), (length(summary$direct_matches) / length(summary$unique_icds)) * 100
+      length(summary$direct_matches), (length(summary$direct_matches) / length(summary$aggregated_unique_icds_for_checks)) * 100
     ),
     sprintf(
       "Total %d codes were mapped to the Thai ICD10 library.\n",
-      length(summary$unique_icds) - length(summary$unmatched_codes)
+      length(summary$aggregated_unique_icds_for_checks) - length(summary$aggregated_unmatched_codes_for_checks)
     ),
     sprintf(
       "%d codes were modified to match.\n",
-      length(summary$unique_icds) - length(summary$unmatched_codes) - length(summary$direct_matches)
+      length(summary$aggregated_unique_icds_for_checks) - length(summary$aggregated_unmatched_codes_for_checks) - length(summary$direct_matches)
     ),
-    sprintf("%d codes could not be mapped.\n", length(summary$unmatched_codes))
+    sprintf("%d codes could not be mapped.\n", length(summary$aggregated_unmatched_codes_for_checks))
   )
 
   # Print Modified ICD-10 Codes
@@ -166,18 +166,18 @@ print_summary_tables <- function(final_combined_summaries) {
   # Example usage to print the modified codes
   print_modified_icd10_codes(summary)
 
-  if (length(summary$unmatched_codes) > 0) {
+  if (length(summary$aggregated_unmatched_codes_for_checks) > 0) {
     # Convert the unmatched codes into a data.table with counts
-    unmatched_codes <- data.table(
-      code = summary$unmatched_codes
+    aggregated_unmatched_codes_for_checks <- data.table(
+      code = summary$aggregated_unmatched_codes_for_checks
     )[, .(count = .N), by = code][order(-count)] # Aggregate by code and order by count
 
     # Print the final unmatched sources as a markdown table
-    print(knitr::kable(unmatched_codes,
+    print(knitr::kable(aggregated_unmatched_codes_for_checks,
       format = "markdown",
       caption = "Invalid ICD-10 Codes"
     ))
-    cat("\nnrow invalid ICD-10 codes: ", nrow(unmatched_codes), "\n")
+    cat("\nnrow invalid ICD-10 codes: ", nrow(aggregated_unmatched_codes_for_checks), "\n")
   } else {
     cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
   }
