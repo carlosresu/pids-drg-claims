@@ -5,20 +5,6 @@ tictoc::tic("Time spent (total)               ")
 nthreads <- parallelly::availableCores()
 nthreads <- if (nthreads >= 16) nthreads - thread_offset else nthreads
 
-# # Whether to sample each split_part by sample_size_divisor
-# # (useful when iterating through code runs in quick succession)
-# to_sample <- FALSE
-# # TODO: Add description here
-# to_write <- TRUE
-# # TODO: Add description here
-# to_flush <- FALSE
-# # TODO: Add description here
-# to_parallel <- as.logical(Sys.getenv("TO_PARALLEL", "TRUE"))
-# # TODO: Add description here
-# to_debug <- FALSE
-# verbose_output <- if (to_debug) TRUE else FALSE
-
-
 dir.create(dirname(here::here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
 if (!file.exists(here::here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here::here("data-cleaning/cache/year_to_load.txt"))
 if (!exists("year_to_load")) year_to_load <- data.table::fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
@@ -47,12 +33,10 @@ drop_cols_manual <- c(
 manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD codes to replace
 manual_code_replacements <- c("O800", "O80", "O809") # ICD code replacements
 
-# Control random behavior for reproducibility
-# Choose a number as seed
-global_seed <- seed <- 123
-# Setting the seed reproducibility
+# Control random behavior for reproducibility (Choose and set a number as seed)
 # (Important for stuff like randomly choosing a pdx among
 # multiple possible options)
+global_seed <- seed <- 123
 set.seed(seed)
 
 if (Sys.info()["nodename"] == "ubuntu2404vm") {

@@ -248,16 +248,6 @@ process_chunk <- function(chunk,
     }
   ), .SDcols = time_cols]
 
-  # OLD CODE:
-  # chunk[, date_adm := as.POSIXct(
-  #   paste(date_adm, time_adm),
-  #   format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
-  # )]
-  # chunk[, date_dis := as.POSIXct(
-  #   paste(date_dis, time_dis),
-  #   format = "%Y-%m-%d %H:%M:%S", tz = "Asia/Manila"
-  # )]
-
   # Set time to UTC so that datetime timestamp matches up with time_adm and time_dis for groupings
   chunk[, date_adm := as.POSIXct(
     paste(date_adm, time_adm),
@@ -388,22 +378,6 @@ process_chunk <- function(chunk,
   chunk[!is.na(pat_age) & pat_age > 0 & pat_age <= 124, pat_age := floor(pat_age)]
 
   chunk[!is.na(pat_age) & (pat_age < 0 | pat_age > 124), pat_age := NA_integer_]
-
-  # # Recalculate pat_age if necessary
-  # chunk[!is.na(pat_bdate) & !is.na(date_adm), calc_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)]
-  # chunk[
-  #   ((is.na(pat_age) & !is.na(pat_bdate)) |
-  #     (!is.na(pat_bdate) & pat_age != calc_age)) &
-  #     !is.na(calc_age) &
-  #     calc_age >= 0,
-  #   pat_age := calc_age
-  # ]
-  # chunk[, calc_age := NULL] # Cleanup temporary column
-
-  # if (nrow(chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age), pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)]) > 0) {
-  #   print(chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age), pat_age != floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)])
-  #   stop("There are ages that dont match birthday")
-  # }
   chunk_summary <- list(
     rename_success = renamesuccess,
     ICD_replacements_1 = c1_cleaning_comparison,

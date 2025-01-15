@@ -1,6 +1,7 @@
 params_fpaths
 process_helper_functions
 summary_helper_functions
+grouping_functions
 query_bq_to_dt
 split_and_save_part
 create_sample_files
@@ -13,5 +14,4 @@ process_chunk
   map_icd10
   find_pdx
 aggregate_all_summaries
-  combine_summaries
 print_summary_tables

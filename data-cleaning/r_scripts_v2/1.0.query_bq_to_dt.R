@@ -1,4 +1,3 @@
-# 01.__.query_bq_to_dt.R
 query_bq_to_dt <- function(query, max_bq_rows = Inf) {
   tryCatch(
     dt <- as.data.table(
