@@ -46,44 +46,46 @@ code_exists <- function(code, env) {
 
 generate_icd10_mapping <- function(filtered_icds) {
   # Initialize things
-  icd_mapping <- list()
-  generated_direct_matches <- character()
-  generated_modified_matches <-
-    # a two-element list of the raw match and its modified counterpart
-    list(raw_match = character(), modified_match = character())
+  icd_mapping <- list() # Mapping to store results
+  generated_direct_matches <- character() # Store exact matches
+  generated_modified_matches <- list(
+    # A two-element list of the raw match and its modified counterpart
+    raw_match = character(),
+    modified_match = character()
+  )
 
-  # loop through every element of icds that are filtered
+  # Loop through every element of ICDs that are filtered
   for (code in filtered_icds) {
-    # 0. ** trim whitespace for ALL codes
+    # 0. **Trim whitespace for ALL codes**
     code <- trimws(code)
 
     # 1. **Exact match check**
     # If code exists directly/exactly,
     if (code_exists(code, icd_codes_env)) {
       icd_mapping[[code]] <-
-        # add that code to generated mapping
+        # Add that code to generated mapping
         list(
           match_type = "Exact",
           original = code,
           mapped = code
         )
 
-      # also, add output to checks
+      # Also, add output to checks
       generated_direct_matches <- c(generated_direct_matches, code)
 
-      # then, continue the loop and bypass code below
-      next # Skip further processing for this code
+      # Skip further processing for this code
+      next
     }
 
     # 2. **Attempt adding '9' for 3-character codes, then check for existence**
-    # If code is 3 characters long, e.g. J18
+    # If code is 3 characters long, e.g., J18
     if (nchar(code) == 3) {
-      # first, add 9 to it
+      # First, add '9' to it
       modified_code <- paste0(code, "9")
 
-      # If once with a 9 code exists in env,
+      # If the modified code exists in the environment
       if (code_exists(modified_code, icd_codes_env)) {
-        # add said code to generated mapping
+        # Add the modified code to the generated mapping
         icd_mapping[[code]] <-
           list(
             match_type = "Modified (Added 9)",
@@ -91,25 +93,33 @@ generate_icd10_mapping <- function(filtered_icds) {
             mapped = modified_code
           )
 
-        # also, add raw version of code to checks
-        generated_modified_matches$raw_match <-
-          c(generated_modified_matches$raw_match, code)
+        # Update generated modified matches
+        generated_modified_matches <- list(
+          raw_match = c(generated_modified_matches$raw_match, code),
+          modified_match = c(generated_modified_matches$modified_match, modified_code)
+        )
 
-        # also, add said code to checks
-        generated_modified_matches$modified_match <-
-          c(generated_modified_matches$modified_match, modified_code)
-
-        # then, continue the loop and bypass code below
-        next # Skip further processing for this code
+        # Skip further processing for this code
+        next
       }
     }
 
-    # 3. **Trimming codes longer than or equal to 4 char**
-    trimmed_code <- if (nchar(code) > 4) trim_code(code) else if (nchar(code) == 4) code else NULL
+    # 3. **Trimming codes longer than or equal to 4 characters**
+    trimmed_code <-
+      if (nchar(code) > 4) {
+        # For codes longer than 4 characters, trim them
+        trim_code(code)
+      } else if (nchar(code) == 4) {
+        # For codes exactly 4 characters, keep them as is
+        code
+      } else {
+        # For codes shorter than 4 characters, set to NULL to skip trimming
+        NULL
+      }
 
-    # For non-null 4 char codes,
+    # For non-null trimmed codes
     if (!is.null(trimmed_code)) {
-      # Check if the 4-character trimmed code exists
+      # Check if the trimmed 4-character code exists
       if (code_exists(trimmed_code, icd_codes_env)) {
         icd_mapping[[code]] <- list(
           match_type = "Modified (Trimmed)",
@@ -117,17 +127,17 @@ generate_icd10_mapping <- function(filtered_icds) {
           mapped = trimmed_code
         )
 
-        # also, add raw to checks
-        generated_modified_matches$raw_match <- c(generated_modified_matches$raw_match, code)
-
-        # also, add trimmed to checks
-        generated_modified_matches$modified_match <- c(generated_modified_matches$modified_match, trimmed_code)
+        # Update generated modified matches
+        generated_modified_matches <- list(
+          raw_match = c(generated_modified_matches$raw_match, code),
+          modified_match = c(generated_modified_matches$modified_match, trimmed_code)
+        )
 
         # Skip further processing for this code
         next
       }
 
-      # If 4 char code doesn't exist, trim again, to 3 char
+      # If the 4-character code doesn't exist, trim further to 3 characters
       trimmed_to_3 <- substr(trimmed_code, 1, 3)
       if (code_exists(trimmed_to_3, icd_codes_env)) {
         icd_mapping[[code]] <- list(
@@ -136,11 +146,11 @@ generate_icd10_mapping <- function(filtered_icds) {
           mapped = trimmed_to_3
         )
 
-        # also, add raw to checks
-        generated_modified_matches$raw_match <- c(generated_modified_matches$raw_match, code)
-
-        # also, add trimmed to checks
-        generated_modified_matches$modified_match <- c(generated_modified_matches$modified_match, trimmed_to_3)
+        # Update generated modified matches
+        generated_modified_matches <- list(
+          raw_match = c(generated_modified_matches$raw_match, code),
+          modified_match = c(generated_modified_matches$modified_match, trimmed_to_3)
+        )
 
         # Skip further processing for this code
         next
@@ -155,12 +165,14 @@ generate_icd10_mapping <- function(filtered_icds) {
     )
   }
 
+  # Return the final results
   list(
-    mapping = icd_mapping,
-    returned_modified_matches = generated_modified_matches,
-    returned_direct_matches = generated_direct_matches
+    mapping = icd_mapping, # Complete ICD mapping
+    returned_modified_matches = generated_modified_matches, # Modified matches
+    returned_direct_matches = generated_direct_matches # Direct matches
   )
 }
+
 
 # Apply the mapping to input columns
 apply_icd10_mapping <- function(codes) {
