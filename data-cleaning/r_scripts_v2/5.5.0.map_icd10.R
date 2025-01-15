@@ -1,33 +1,47 @@
+############################# OVERALL TODO #############################
 # TO-DO's:
 # 0. Make a new branch
 # 1. Separate all nested functions
 #    (including those nested within nested functions)
 # 2. Mapping code should process one column at a time, not all columns at once.
 # 3. Separate out checks from functions and return statements
+############################# OVERALL TODO #############################
 
+############################# SPECIFIC TODO #############################
 # 1. document!!!!!!
 # 2. did you document it?
 # 3. no, really, did you?
 # 4. ok go rearrange
 # 5. test
+############################# SPECIFIC TODO #############################
 
-# Helper: Trim numeric suffixes (e.g., J1892 -> J189)
+############################# WHAT IS A DOCSTRING? #############################
+# Docstring that covers the bigger picture of the function
+# Such as why it exists, what it intends to do, and why it was written
+############################# WHAT IS A DOCSTRING? #############################
+
+# NTS: This can probably be de-functionized and put in the script
+# everywhere it's needed
 trim_code <- function(code) {
-  # INSERT WHOLE-FUNCTION-DESCRIBING-DOCSTRING HERE
   sub( # Substitute command
     paste0( # combine the two enclosed strings into one string
-      "(\\D+\\d{3})", # (\\1): Matches one non-digit char and 3 digit chars.
-      "(\\d*)$" # (\\2): matched but omitted in the replacement, i.e. deleted
-    ), # TODO: Get rid of paste0, this is just for commenting purposes
-    "\\1", # only group \\1 is kept, group \\2 (unwritten) is deleted
+      "(\\D+\\d{3})", # (Group 1): Matches one non-digit char and 3 digit chars.
+      "(\\d*)$" # (Group 2): matched but omitted in the replacement i.e. deleted
+    ), # TODO: Get rid of paste0, this is just for compartmentalizing comments
+    "\\1", # VALUE: only group \\1 is kept, group \\2 (unwritten) is deleted
     code # What to apply it to
   )
 }
 
 # Helper: Check if a code exists in a valid environment
 code_exists <- function(code, env) {
-  # INSERT WHOLE-FUNCTION-DESCRIBING-DOCSTRING HERE
-  !is.null( # Returns TRUE if result is NOT null.
+  !is.null( # VALUE: Returns TRUE if result is NOT null,
+    # i.e. if is.null returns FALSE, then return TRUE
+    # This entire thing is the "return" statement of code_exists
+    # i.e. code_exists is meant to return the fact that a code exists or not,
+    # and not the code itself or its corresponding value
+    # If it were just mget without is.null or !is.null
+    # it would return the corresponding value of "code" in the env
     mget( # retrieves the value of whatever "code" is, in an environment
       code, # the value to retrieve
       envir = env, # the environment to check
@@ -41,16 +55,35 @@ code_exists <- function(code, env) {
 }
 
 generate_icd10_mapping <- function(filtered_icds) {
-  icd_mapping <- list()
-  direct_matches <- character() # Store all directly matched codes
-  modifiedmatches <- list(modified_matches = character(), modified_match = character()) # Store original-modified pairs
+  # Initialize things
+  icd_mapping <- list() # Initialize icd_mapping as an empty list
+  direct_matches <- character() # Store all direct matches as char vector
+  # Store pairs of original::modified
+  modifiedmatches <- list( # store as a list two char vectors
+    # TODO: rename intuitively
+    modified_matches = character(), # the raw code in the data that matched
+    # (via modification) something in the environment
+    modified_match = character() # the resulting [modified] mapped replacement
+  )
 
+  # loop through every element of icds that are filtered
   for (code in filtered_icds) {
+    # 0. ** trim whitespace for every element (i.e. "code") processed
     code <- trimws(code)
 
     # 1. **Exact match check**
-    if (code_exists(code, icd_codes_env)) {
-      icd_mapping[[code]] <- list(match_type = "Exact", original = code, mapped = code)
+    if (code_exists( # call code_exists from above
+      code, # check the existence of the value of "code"
+      icd_codes_env # the env to check
+    )) {
+      icd_mapping[[code]] <- list(
+        # store a list called "code" in the list "icd_mapping"
+        match_type = "Exact", # CHECK: human-readable label of type of match
+        # for downstream checks
+        original = code, # CHECK: exact; original is also what is mapped too
+        mapped = code # VALUE: what is mapped (i.e. same as the original)
+      )
+      # CHECK: append code to list of direct matches
       direct_matches <- c(direct_matches, code)
       next
     }
@@ -58,10 +91,24 @@ generate_icd10_mapping <- function(filtered_icds) {
     # 2. **Attempt adding '9' for 3-character codes**
     if (nchar(code) == 3) {
       modified_code <- paste0(code, "9")
-      if (code_exists(modified_code, icd_codes_env)) {
-        icd_mapping[[code]] <- list(match_type = "Modified (Added 9)", original = code, mapped = modified_code)
-        modifiedmatches$modified_matches <- c(modifiedmatches$modified_matches, code)
-        modifiedmatches$modified_match <- c(modifiedmatches$modified_match, modified_code)
+
+      if (code_exists(
+        modified_code,
+        icd_codes_env
+      )) {
+        icd_mapping[[code]] <- list(
+          match_type = "Modified (Added 9)",
+          original = code,
+          mapped = modified_code
+        )
+        modifiedmatches$modified_matches <- c(
+          modifiedmatches$modified_matches,
+          code
+        )
+        modifiedmatches$modified_match <- c(
+          modifiedmatches$modified_match,
+          modified_code
+        )
         next
       }
     }
@@ -72,10 +119,23 @@ generate_icd10_mapping <- function(filtered_icds) {
 
     for (i in 0:(nchar(trimmed_code) - 3)) {
       partial_code <- substr(trimmed_code, 1, nchar(trimmed_code) - i)
-      if (nchar(partial_code) >= 3 && code_exists(partial_code, icd_codes_env)) {
-        icd_mapping[[code]] <- list(match_type = "Modified (Trimmed)", original = code, mapped = partial_code)
-        modifiedmatches$modified_matches <- c(modifiedmatches$modified_matches, code)
-        modifiedmatches$modified_match <- c(modifiedmatches$modified_match, partial_code)
+      if (nchar(partial_code) >= 3 && code_exists(
+        partial_code,
+        icd_codes_env
+      )) {
+        icd_mapping[[code]] <- list(
+          match_type = "Modified (Trimmed)",
+          original = code,
+          mapped = partial_code
+        )
+        modifiedmatches$modified_matches <- c(
+          modifiedmatches$modified_matches,
+          code
+        )
+        modifiedmatches$modified_match <- c(
+          modifiedmatches$modified_match,
+          partial_code
+        )
         match_found <- TRUE
         break
       }
@@ -83,11 +143,19 @@ generate_icd10_mapping <- function(filtered_icds) {
 
     # 4. **Mark as unmatched if no match found**
     if (!match_found) {
-      icd_mapping[[code]] <- list(match_type = "Unmatched", original = code, mapped = NA_character_)
+      icd_mapping[[code]] <- list(
+        match_type = "Unmatched",
+        original = code,
+        mapped = NA_character_
+      )
     }
   }
 
-  list(mapping = icd_mapping, modified_matches = modifiedmatches, direct_matches = direct_matches)
+  list(
+    mapping = icd_mapping,
+    modified_matches = modifiedmatches,
+    direct_matches = direct_matches
+  )
 }
 
 # Apply the mapping to input columns
@@ -120,19 +188,39 @@ map_icd10 <- function(c1, c2, clin_icd) {
 
   # Create a data.table of unmatched codes by source
   unmatchedsources <- rbindlist(
-    lapply(c("c1", "c2", "clin_icd"), function(col_name) {
-      col_values <- get(col_name)
+    lapply(
+      c("c1", "c2", "clin_icd"), # hardcoded names of columns to process
+      function(col_name) {
+        col_values <- get(col_name)
 
-      # Flatten the list, filter out NAs or NULLs, and convert to character
-      flattened_values <- unlist(col_values)
-      valid_codes <- flattened_values[!is.na(flattened_values) & flattened_values != ""]
+        # Flatten the list, filter out NAs or NULLs, and convert to character
+        flattened_values <- unlist(col_values)
+        valid_codes <- flattened_values[
+          !is.na(
+            flattened_values
+          ) & flattened_values != ""
+        ]
 
-      if (length(valid_codes) > 0) {
-        data.table(code = valid_codes, source = col_name)[, .(count = .N), by = .(code, source)]
-      } else {
-        data.table(code = character(), source = character(), count = integer())
+        if (length(valid_codes) > 0) {
+          data.table(
+            code = valid_codes,
+            source = col_name
+          )[,
+            .(count = .N),
+            by = .(
+              code,
+              source
+            )
+          ]
+        } else {
+          data.table(
+            code = character(),
+            source = character(),
+            count = integer()
+          )
+        }
       }
-    }),
+    ),
     fill = TRUE
   )
 
@@ -147,9 +235,18 @@ map_icd10 <- function(c1, c2, clin_icd) {
   )
 
   # Apply mappings
-  c1_mapped <- lapply(c1, apply_icd10_mapping)
-  c2_mapped <- lapply(c2, apply_icd10_mapping)
-  clin_icd_mapped <- lapply(clin_icd, apply_icd10_mapping)
+  c1_mapped <- lapply(
+    c1,
+    apply_icd10_mapping
+  )
+  c2_mapped <- lapply(
+    c2,
+    apply_icd10_mapping
+  )
+  clin_icd_mapped <- lapply(
+    clin_icd,
+    apply_icd10_mapping
+  )
 
   # Return the results
   list(
