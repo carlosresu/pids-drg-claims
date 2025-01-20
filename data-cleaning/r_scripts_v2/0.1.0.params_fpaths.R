@@ -37,7 +37,7 @@ manual_code_replacements <- c("O800", "O80", "O809") # ICD code replacements
 # (Important for stuff like randomly choosing a pdx among
 # multiple possible options)
 global_seed <- seed <- 123
-set.seed(seed)
+set.seed(global_seed)
 
 if (Sys.info()["nodename"] == "ubuntu2404vm") {
   # Code to execute if the condition is TRUE

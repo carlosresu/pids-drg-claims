@@ -19,6 +19,7 @@
 ############################# WHAT IS A DOCSTRING? #############################
 
 # Updated map_icd10 function using covid_rvs_neoplasm_env
+# Updated map_icd10 function using covid_rvs_neoplasm_env
 map_icd10 <- function(col) {
   # Collect and pre-filter unique ICD codes,
   # excluding those in covid_rvs_neoplasm_env
@@ -67,7 +68,7 @@ map_icd10 <- function(col) {
     trimmed_code <-
       if (nchar(code) > 4) {
         # For codes longer than 4 characters, trim them
-        code <- sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
+        sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
       } else if (nchar(code) == 4) {
         # For codes exactly 4 characters, keep them as is
         code
@@ -114,6 +115,7 @@ map_icd10 <- function(col) {
   # Return the results
   return(col_mapped)
 }
+
 
 # # OLD VERSION FOR REFERENCE
 # # [[1]] is necessary because mget always returns a list, AND
