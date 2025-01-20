@@ -18,13 +18,17 @@
 # Such as why it exists, what it intends to do, and why it was written
 ############################# WHAT IS A DOCSTRING? #############################
 
-# REFACTORED VERSION WITH DOCSTRINGS/COMMENTAS
-code_exists <- function(code, env) {
-  # Returns TRUE if code (key: a string) exists (value: a boolean) in an env
-  exists(x = code, envir = env, inherits = FALSE)
-}
+# Updated map_icd10 function using covid_rvs_neoplasm_env
+map_icd10 <- function(col) {
+  # Collect and pre-filter unique ICD codes,
+  # excluding those in covid_rvs_neoplasm_env
+  icds <- unique(unlist(col))
+  filtered_icds <- icds[!is.na(icds) &
+    !grepl("^[0-9]", icds) &
+    !grepl("^[A-Z]{2}", icds) &
+    !grepl("/", icds) &
+    !vapply(icds, function(code) exists(x = code, envir = covid_rvs_neoplasm_env, inherits = FALSE), logical(1))]
 
-generate_icd10_mapping <- function(filtered_icds) {
   # Initialize things
   icd_mapping <- list() # Mapping to store results
 
@@ -35,7 +39,7 @@ generate_icd10_mapping <- function(filtered_icds) {
 
     # 1. **Exact match check**
     # If code exists directly/exactly,
-    if (code_exists(code, icd_codes_env)) {
+    if (exists(x = code, envir = icd_codes_env, inherits = FALSE)) {
       # Add that code to the mapping
       icd_mapping[[code]] <- code
 
@@ -50,7 +54,7 @@ generate_icd10_mapping <- function(filtered_icds) {
       modified_code <- paste0(code, "9")
 
       # If the modified code exists in the environment
-      if (code_exists(modified_code, icd_codes_env)) {
+      if (exists(x = modified_code, envir = icd_codes_env, inherits = FALSE)) {
         # Add the modified code to the generated mapping
         icd_mapping[[code]] <- modified_code
 
@@ -75,7 +79,7 @@ generate_icd10_mapping <- function(filtered_icds) {
     # For non-null trimmed codes
     if (!is.null(trimmed_code)) {
       # Check if the trimmed 4-character code exists
-      if (code_exists(trimmed_code, icd_codes_env)) {
+      if (exists(x = trimmed_code, envir = icd_codes_env, inherits = FALSE)) {
         icd_mapping[[code]] <- trimmed_code
 
         # Skip further processing for this code
@@ -84,7 +88,7 @@ generate_icd10_mapping <- function(filtered_icds) {
 
       # If the 4-character code doesn't exist, trim further to 3 characters
       trimmed_to_3 <- substr(trimmed_code, 1, 3)
-      if (code_exists(trimmed_to_3, icd_codes_env)) {
+      if (exists(x = trimmed_to_3, envir = icd_codes_env, inherits = FALSE)) {
         icd_mapping[[code]] <- trimmed_to_3
 
         # Skip further processing for this code
@@ -96,41 +100,13 @@ generate_icd10_mapping <- function(filtered_icds) {
     icd_mapping[[code]] <- NA_character_
   }
 
-  # Return the final results
-  return(icd_mapping)
-}
-
-
-# Updated map_icd10 function using covid_rvs_neoplasm_env
-map_icd10 <- function(col) {
-  if (!exists("icd_codes_env") || !is.environment(icd_codes_env)) {
-    stop("Error: 'icd_codes_env' is not initialized.")
-  }
-
-  if (!exists("covid_rvs_neoplasm_env") ||
-    !is.environment(covid_rvs_neoplasm_env)) {
-    stop("Error: 'covid_rvs_neoplasm_env' is not initialized.")
-  }
-
-  # Collect and pre-filter unique ICD codes,
-  # excluding those in covid_rvs_neoplasm_env
-  icds <- unique(unlist(col))
-  filtered_icds <- icds[!is.na(icds) &
-    !grepl("^[0-9]", icds) &
-    !grepl("^[A-Z]{2}", icds) &
-    !grepl("/", icds) &
-    !sapply(icds, function(code) code_exists(code, covid_rvs_neoplasm_env))]
-
-  # Generate the ICD-10 mapping
-  mapping_info <- generate_icd10_mapping(filtered_icds)
-
   # Apply mappings
-  col_mapped <- lapply(col, function(filtered_icds, mapping_info) {
-    unname(sapply(filtered_icds, function(filtered_icd) {
-      if (!is.null(mapping_info[[filtered_icd]])) {
-        mapping_info[[filtered_icd]]
+  col_mapped <- lapply(col, function(codes, icd_mapping) {
+    unname(sapply(codes, function(code) {
+      if (!is.null(icd_mapping[[code]])) {
+        icd_mapping[[code]]
       } else {
-        filtered_icd
+        code
       }
     }))
   })
