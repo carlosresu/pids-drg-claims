@@ -1,6 +1,6 @@
 find_pdx <- function(c1, c2, clin_icd, accpdx = acc_pdx,
                      neoplasmsdtactual = neoplasms_dt_actual,
-                     acrrvs = acr_rvs, covidrvs = covid_rvs) {
+                     acrrvs = acr_rvs, covidrvs = covid_rvs, seed = global_seed) {
   # Step 1: Define sets for filtering and accepted PDX codes
   acc_pdx_set <- unique(accpdx)
   neoplasm_codes <- unique(neoplasmsdtactual$icd10)
@@ -61,6 +61,7 @@ find_pdx <- function(c1, c2, clin_icd, accpdx = acc_pdx,
     }
 
     # Step 9: Pick a random PDX if no match is found
+    set.seed(seed)
     list(pdx = sample(pdxs, 1), pdx_code = 6)
   }, c1, c2, clin_icd, SIMPLIFY = FALSE)
 
