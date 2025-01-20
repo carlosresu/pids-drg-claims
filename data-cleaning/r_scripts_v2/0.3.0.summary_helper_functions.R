@@ -71,27 +71,27 @@ safe_unlist <- function(x) if (length(x) > 0) unlist(x, recursive = TRUE) else c
 #   )[, .(count = .N), by = .(modified_matches, modified_match)]
 # }
 
-# NEW CODE COMPATIBLE WITH NEWLY REFACTORED map_icd10 FUNCTION
-extract_modified_matches <- function(summaries) {
-  # Initialize the lists for collecting data
-  raw_matches <- list()
-  modified_matches <- list()
+# # NEW CODE COMPATIBLE WITH NEWLY REFACTORED map_icd10 FUNCTION
+# extract_modified_matches <- function(summaries) {
+#   # Initialize the lists for collecting data
+#   raw_matches <- list()
+#   modified_matches <- list()
 
-  # Loop through summaries and extract relevant data
-  for (summary in summaries) {
-    result <- safe_access(summary, "modified_matches_for_checks")
-    if (is.list(result) && all(c("raw_match", "modified_match") %in% names(result))) {
-      raw_matches <- append(raw_matches, result$raw_match)
-      modified_matches <- append(modified_matches, result$modified_match)
-    }
-  }
+#   # Loop through summaries and extract relevant data
+#   for (summary in summaries) {
+#     result <- safe_access(summary, "modified_matches_for_checks")
+#     if (is.list(result) && all(c("raw_match", "modified_match") %in% names(result))) {
+#       raw_matches <- append(raw_matches, result$raw_match)
+#       modified_matches <- append(modified_matches, result$modified_match)
+#     }
+#   }
 
-  # Create a data.table and calculate counts
-  data.table::data.table(
-    raw_match = safe_unlist(raw_matches),
-    modified_match = safe_unlist(modified_matches)
-  )[, .(count = .N), by = .(raw_match, modified_match)]
-}
+#   # Create a data.table and calculate counts
+#   data.table::data.table(
+#     raw_match = safe_unlist(raw_matches),
+#     modified_match = safe_unlist(modified_matches)
+#   )[, .(count = .N), by = .(raw_match, modified_match)]
+# }
 
 safe_extract <- function(summary, field) {
   tryCatch(summary[[field]], error = function(e) NULL)

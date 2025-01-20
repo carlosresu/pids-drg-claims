@@ -112,75 +112,75 @@ print_summary_tables <- function(final_combined_summaries) {
     (length(summary$multi_mapped_rvs) / length(summary$rvss)) * 100
   ))
 
-  # Print ICD-10 Mapping Statistics
-  cat(
-    sprintf("\nThere are %d unique ICD-10 codes.\n", length(summary$aggregated_unique_icds_for_checks)),
-    sprintf(
-      "%d (%.2f%%) are directly in the Thai ICD-10 library.\n",
-      length(summary$direct_matches), (length(summary$direct_matches) / length(summary$aggregated_unique_icds_for_checks)) * 100
-    ),
-    sprintf(
-      "Total %d codes were mapped to the Thai ICD10 library.\n",
-      length(summary$aggregated_unique_icds_for_checks) - length(summary$aggregated_unmatched_codes_for_checks)
-    ),
-    sprintf(
-      "%d codes were modified to match.\n",
-      length(summary$aggregated_unique_icds_for_checks) - length(summary$aggregated_unmatched_codes_for_checks) - length(summary$direct_matches)
-    ),
-    sprintf("%d codes could not be mapped.\n", length(summary$aggregated_unmatched_codes_for_checks))
-  )
+  # # Print ICD-10 Mapping Statistics
+  # cat(
+  #   sprintf("\nThere are %d unique ICD-10 codes.\n", length(summary$aggregated_unique_icds_for_checks)),
+  #   sprintf(
+  #     "%d (%.2f%%) are directly in the Thai ICD-10 library.\n",
+  #     length(summary$direct_matches), (length(summary$direct_matches) / length(summary$aggregated_unique_icds_for_checks)) * 100
+  #   ),
+  #   sprintf(
+  #     "Total %d codes were mapped to the Thai ICD10 library.\n",
+  #     length(summary$aggregated_unique_icds_for_checks) - length(summary$aggregated_unmatched_codes_for_checks)
+  #   ),
+  #   sprintf(
+  #     "%d codes were modified to match.\n",
+  #     length(summary$aggregated_unique_icds_for_checks) - length(summary$aggregated_unmatched_codes_for_checks) - length(summary$direct_matches)
+  #   ),
+  #   sprintf("%d codes could not be mapped.\n", length(summary$aggregated_unmatched_codes_for_checks))
+  # )
 
-  # Print Modified ICD-10 Codes
-  print_modified_icd10_codes <- function(summary) {
-    # Extract the modified matches from the summary
-    unique_icd10_map <- summary$modified_matches
+  # # Print Modified ICD-10 Codes
+  # print_modified_icd10_codes <- function(summary) {
+  #   # Extract the modified matches from the summary
+  #   unique_icd10_map <- summary$modified_matches
 
-    # Ensure the data is in a data.table format
-    if (!is.data.table(unique_icd10_map)) {
-      unique_icd10_map <- as.data.table(unique_icd10_map)
-    }
+  #   # Ensure the data is in a data.table format
+  #   if (!is.data.table(unique_icd10_map)) {
+  #     unique_icd10_map <- as.data.table(unique_icd10_map)
+  #   }
 
-    if (nrow(unique_icd10_map) > 0) {
-      # Add a character difference column if not already present
-      if (!"char_diff" %in% names(unique_icd10_map)) {
-        unique_icd10_map[, char_diff := abs(nchar(modified_matches) - nchar(modified_match))]
-      }
+  #   if (nrow(unique_icd10_map) > 0) {
+  #     # Add a character difference column if not already present
+  #     if (!"char_diff" %in% names(unique_icd10_map)) {
+  #       unique_icd10_map[, char_diff := abs(nchar(modified_matches) - nchar(modified_match))]
+  #     }
 
-      # Order the data.table by char_diff in descending order
-      unique_icd10_map <- unique_icd10_map[order(-char_diff)]
+  #     # Order the data.table by char_diff in descending order
+  #     unique_icd10_map <- unique_icd10_map[order(-char_diff)]
 
-      # Print the table as markdown
-      print(knitr::kable(
-        unique_icd10_map,
-        format = "markdown",
-        caption = "Modified ICD-10 Codes"
-      ))
+  #     # Print the table as markdown
+  #     print(knitr::kable(
+  #       unique_icd10_map,
+  #       format = "markdown",
+  #       caption = "Modified ICD-10 Codes"
+  #     ))
 
-      # Print the number of rows
-      cat("nrow Modified ICD-10 Codes: ", nrow(unique_icd10_map), "\n")
-    } else {
-      cat("\nNo modified ICD-10 codes found.\n\n")
-    }
-  }
+  #     # Print the number of rows
+  #     cat("nrow Modified ICD-10 Codes: ", nrow(unique_icd10_map), "\n")
+  #   } else {
+  #     cat("\nNo modified ICD-10 codes found.\n\n")
+  #   }
+  # }
 
-  # Example usage to print the modified codes
-  print_modified_icd10_codes(summary)
+  # # Example usage to print the modified codes
+  # print_modified_icd10_codes(summary)
 
-  if (length(summary$aggregated_unmatched_codes_for_checks) > 0) {
-    # Convert the unmatched codes into a data.table with counts
-    aggregated_unmatched_codes_for_checks <- data.table(
-      code = summary$aggregated_unmatched_codes_for_checks
-    )[, .(count = .N), by = code][order(-count)] # Aggregate by code and order by count
+  # if (length(summary$aggregated_unmatched_codes_for_checks) > 0) {
+  #   # Convert the unmatched codes into a data.table with counts
+  #   aggregated_unmatched_codes_for_checks <- data.table(
+  #     code = summary$aggregated_unmatched_codes_for_checks
+  #   )[, .(count = .N), by = code][order(-count)] # Aggregate by code and order by count
 
-    # Print the final unmatched sources as a markdown table
-    print(knitr::kable(aggregated_unmatched_codes_for_checks,
-      format = "markdown",
-      caption = "Invalid ICD-10 Codes"
-    ))
-    cat("\nnrow invalid ICD-10 codes: ", nrow(aggregated_unmatched_codes_for_checks), "\n")
-  } else {
-    cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
-  }
+  #   # Print the final unmatched sources as a markdown table
+  #   print(knitr::kable(aggregated_unmatched_codes_for_checks,
+  #     format = "markdown",
+  #     caption = "Invalid ICD-10 Codes"
+  #   ))
+  #   cat("\nnrow invalid ICD-10 codes: ", nrow(aggregated_unmatched_codes_for_checks), "\n")
+  # } else {
+  #   cat("\nAll resulting ICD-10 codes are present in the Thai library.\n\n")
+  # }
 
   # Step 9: Print PDX Success
   if (summary$pdx_success) cat("\nAll PDx's are in the list of acceptable PDx's:\n", summary$pdx_success, "\n") else stop(paste0("Not all pdx are in acceptable pdxs for ", year_to_load, "."))

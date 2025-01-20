@@ -159,10 +159,12 @@ process_chunk <- function(chunk,
   c1 <- chunk$c1
   c2 <- chunk$c2
   clin_icd <- chunk$clin_icd
-  icd10_mapping_result <- map_icd10(c1, c2, clin_icd)
-  chunk[, c1 := icd10_mapping_result$c1]
-  chunk[, c2 := icd10_mapping_result$c2]
-  chunk[, clin_icd := icd10_mapping_result$clin_icd]
+  c1_icd10_mapping_result <- map_icd10(c1)
+  chunk[, c1 := c1_icd10_mapping_result]
+  c2_icd10_mapping_result <- map_icd10(c2)
+  chunk[, c2 := c2_icd10_mapping_result]
+  clin_icd_icd10_mapping_result <- map_icd10(clin_icd)
+  chunk[, clin_icd := clin_icd_icd10_mapping_result]
 
   # Replace na/empty with character(0)
   replace_empty_result_2 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
@@ -398,12 +400,6 @@ process_chunk <- function(chunk,
     NA_replaced_with_empty_1 = NA_replaced_with_empty_1,
     NA_replaced_with_empty_2 = NA_replaced_with_empty_2,
     NA_replaced_with_empty_3 = NA_replaced_with_empty_3,
-    returned_unique_icds_for_checks = icd10_mapping_result$unique_icds_for_checks,
-    direct_matches = icd10_mapping_result$direct_matches,
-    returned_unmatched_codes_for_checks = icd10_mapping_result$unmatched_codes_for_checks,
-    returned_unmatched_sources_for_checks = icd10_mapping_result$unmatched_sources_for_checks,
-    icd10_map_dt_for_checks = icd10_mapping_result$icd10_map_dt_for_checks,
-    modified_matches = icd10_mapping_result$modified_matches,
     rvss = rvs_mapping_result$rvss,
     mappable_rvs = rvs_mapping_result$mappable_rvs,
     unmappable_rvs = rvs_mapping_result$unmappable_rvs,
