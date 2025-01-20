@@ -1,18 +1,19 @@
+# Global parameters
 thread_offset <- 0
 
-sample_size_divisor <- 25
+sample_size_divisor <- 625
 
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
-to_sample <- FALSE
+to_sample <- TRUE
 # TODO: Add description here
 to_write <- TRUE
 # TODO: Add description here
 to_flush <- FALSE
 # TODO: Add description here
-to_bq <- TRUE
+to_bq <- FALSE
 # TODO: Add description here
-to_post_cleaning_checks <- FALSE
+to_post_cleaning_checks <- TRUE
 # TODO: Add description here
 to_parallel <- TRUE
 cat("Parallelization:", to_parallel, "\n")
@@ -20,6 +21,7 @@ cat("Parallelization:", to_parallel, "\n")
 to_debug <- FALSE
 verbose_output <- if (to_debug) TRUE else FALSE
 
+# Grouping parameters
 to_generate_subset <- FALSE
 
 to_py_prompt <- FALSE
