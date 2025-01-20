@@ -19,7 +19,6 @@
 ############################# WHAT IS A DOCSTRING? #############################
 
 # Updated map_icd10 function using covid_rvs_neoplasm_env
-# Updated map_icd10 function using covid_rvs_neoplasm_env
 map_icd10 <- function(col) {
   # Collect and pre-filter unique ICD codes,
   # excluding those in covid_rvs_neoplasm_env
