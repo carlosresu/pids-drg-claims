@@ -122,14 +122,8 @@ sudo apt install -y xfce4 xfce4-goodies
 wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
 sudo dpkg -i chrome-remote-desktop_current_amd64.deb
 sudo apt install -f -y
-```
-
-```
 echo "exec xfce4-session" > ~/.chrome-remote-desktop-session
-sudo apt remove light-locker
-sudo usermod -a -G chrome-remote-desktop $USER
-sudo systemctl enable chrome-remote-desktop@$USER
-sudo systemctl start chrome-remote-desktop@$USER
+sudo apt remove -y light-locker
 ```
 
 Get the below code from chrome remote desktop web interface, paste it in terminal via SSH https://remotedesktop.google.com/access/ (Set up via SSH -> Follow the steps)
