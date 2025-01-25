@@ -25,10 +25,7 @@ prep_pdx_inputs <- function(
   # prepare return list
   pdx_inputs <- list(
     # prepared outputs (input to find_pdx)
-    c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final,
-    # prepared outputs (dependencies of find_pdx)
-    acc_pdx = acc_pdx_set_final, neoplasm_codes = neoplasm_codes_final,
-    rvs_codes = rvs_codes_final, covid_rvs = covidrvsfinal
+    c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final
   )
 
   # return prepared list

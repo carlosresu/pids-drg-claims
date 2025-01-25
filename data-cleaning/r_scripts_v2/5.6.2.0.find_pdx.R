@@ -21,8 +21,6 @@
 find_pdx <- function(
     # Inputs:
     c1_split, c2_split, clin_icd_split,
-    # Dependencies:
-    acc_pdx_set, neoplasm_codes, rvs_codes, covid_rvs,
     # Parameters:
     seed) {
   # Function to calculate similarity between two strings
@@ -33,6 +31,9 @@ find_pdx <- function(
 
   # Process each row, saving it so we run it only once, but extract
   # two things from it later.
+
+  # REMEMBER: we already filter c1 thru clin_icd and leave only acceptable pdxs
+  # this is why we dont check
   algo_result <- mapply(function(c1_split, c2_split, clin_icd_split) {
     # Step A: Check if any element in c1_split or c2_split is an accepted PDX
     for (cr_list in list(c1_split, c2_split)) {
@@ -89,7 +90,7 @@ find_pdx <- function(
       pdx = sample(pdxs, 1),
       pdx_code = 6
     ))
-  }, c1_split, c2_split, clin_icd_split)
+  }, c1_split, c2_split, clin_icd_split, SIMPLIFY = FALSE)
 
   # Return the PDX values and codes
   return(list(

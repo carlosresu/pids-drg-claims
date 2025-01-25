@@ -199,9 +199,6 @@ process_chunk <- function(chunk,
   pdx_result <- find_pdx(
     # inputs to find pdx for
     pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_icd,
-    # dependencies for find pdx
-    pdx_inputs$acc_pdx, pdx_inputs$neoplasm_codes,
-    pdx_inputs$rvs_codes, pdx_inputs$covid_rvs,
     # parameters
     global_seed
   )
