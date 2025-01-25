@@ -203,7 +203,9 @@ process_chunk <- function(chunk,
     pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_icd,
     # dependencies for find pdx
     pdx_inputs$acc_pdx, pdx_inputs$neoplasm_codes,
-    pdx_inputs$rvs_codes, pdx_inputs$covid_rvs
+    pdx_inputs$rvs_codes, pdx_inputs$covid_rvs,
+    # parameters
+    global_seed
   )
   chunk[, c("pdx", "pdx_code") := .(pdx_result$pdx, pdx_result$pdx_code)]
   chunk[, c1 := lapply(seq_len(.N), function(i) {
