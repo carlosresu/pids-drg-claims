@@ -82,24 +82,25 @@ process_chunk <- function(chunk,
   chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
 
   # Flatten and clean c1, c2, and clin_icd
-  chunk[, c1 := lapply(c1, function(text) {
+  prep_icd_for_mapping <- function(text) {
     replaced_text <- manual_replacement(text)
     collapsed_text <- collapse_to_string(replaced_text)
     split_result <- split_to_vector(collapsed_text)
     cleaned_result <- remove_lumped_icd_codes(split_result)
-    return(flatten_and_clean(cleaned_result))
-  })]
-  chunk[, c2 := lapply(c2, function(text) {
-    replaced_text <- manual_replacement(text)
-    collapsed_text <- collapse_to_string(replaced_text)
-    split_result <- split_to_vector(collapsed_text)
-    cleaned_result <- remove_lumped_icd_codes(split_result)
-    return(flatten_and_clean(cleaned_result))
-  })]
+    return(flatten_then_check_null_na(cleaned_result))
+  }
+
+  # flatten and clean runs manual_replacement, collapse_to_string,
+  # split_to_vector, remove_lumped_icd_codes, and finally,
+  # flatten_then_check_null_na
+  chunk[, `:=`(
+    c1 = lapply(c1, flatten_and_clean),
+    c2 = lapply(c2, flatten_and_clean)
+  )]
 
   chunk[, clin_icd := lapply(seq_len(.N), function(i) {
     clin_icd_list <- c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]])
-    return(flatten_and_clean(clin_icd_list))
+    return(flatten_then_check_null_na(clin_icd_list))
   })]
 
   # Replace empty with NA, then replace with character(0)
@@ -112,16 +113,24 @@ process_chunk <- function(chunk,
 
 
   # Move rvs icd rvs codes to proper columns
+  # Process c1
   c1_results <- append_copy_and_remove_icd_rvs(chunk$c1, chunk$clin_rvs, chunk$clin_icd)
-  chunk[, clin_rvs := c1_results$clin_rvs]
-  chunk[, c1 := c1_results$col]
-  chunk[, clin_icd := c1_results$clin_icd]
+  chunk[, `:=`(
+    clin_rvs = c1_results$clin_rvs,
+    c1 = c1_results$col,
+    clin_icd = c1_results$clin_icd
+  )]
   c1_discarded_rvs <- c1_results$discarded_rvs
+
+  # Process c2
   c2_results <- append_copy_and_remove_icd_rvs(chunk$c2, chunk$clin_rvs, chunk$clin_icd)
-  chunk[, clin_rvs := c2_results$clin_rvs]
-  chunk[, c2 := c2_results$col]
-  chunk[, clin_icd := c2_results$clin_icd]
+  chunk[, `:=`(
+    clin_rvs = c2_results$clin_rvs,
+    c2 = c2_results$col,
+    clin_icd = c2_results$clin_icd
+  )]
   c2_discarded_rvs <- c2_results$discarded_rvs
+
 
   # Replace empty with NA, then replace with character(0)
   replace_result <- replace_na_or_empty(dt = chunk, replace_with = "NA_character_")
@@ -141,45 +150,52 @@ process_chunk <- function(chunk,
     known_values = known_vals,
     remapped_column = remap_cols
   )
-  chunk[, pat_type := remap_res$remapped$pat_type]
-  chunk[, pat_memcat_parent := remap_res$remapped$pat_memcat_parent]
-  chunk[, pat_memcat_child := remap_res$remapped$pat_memcat_child]
-  chunk[, clin_discharge := remap_res$remapped$clin_discharge]
-  chunk[, claim_status := remap_res$remapped$claim_status]
+
+  chunk[, `:=`(
+    pat_type = remap_res$remapped$pat_type,
+    pat_memcat_parent = remap_res$remapped$pat_memcat_parent,
+    pat_memcat_child = remap_res$remapped$pat_memcat_child,
+    clin_discharge = remap_res$remapped$clin_discharge,
+    claim_status = remap_res$remapped$claim_status
+  )]
 
   # Map RVS codes
-  rvs_mapping_result <- map_rvs_icd9(chunk$clin_rvs)
-  chunk[, icd9_list := rvs_mapping_result$icd9_list]
+  chunk[, icd9_list := map_rvs_icd9(clin_rvs)$icd9_list]
 
-  # Map ICD codes
-  modified_c1 <- lapply(chunk$c1, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
-  modified_c2 <- lapply(chunk$c2, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
-  chunk[, c1 := modified_c1]
-  chunk[, c2 := modified_c2]
-  c1 <- chunk$c1
-  c2 <- chunk$c2
-  clin_icd <- chunk$clin_icd
-  c1_icd10_mapping_result <- map_icd10(c1)
-  chunk[, c1 := c1_icd10_mapping_result]
-  c2_icd10_mapping_result <- map_icd10(c2)
-  chunk[, c2 := c2_icd10_mapping_result]
-  clin_icd_icd10_mapping_result <- map_icd10(clin_icd)
-  chunk[, clin_icd := clin_icd_icd10_mapping_result]
+  # Prepare codes for mapping
+  chunk[, `:=`(
+    c1 = lapply(c1, function(x) if (is.null(x) || all(is.na(x))) character(0) else x),
+    c2 = lapply(c2, function(x) if (is.null(x) || all(is.na(x))) character(0) else x)
+  )]
+
+
+  # Map ICD 10 codes
+  chunk[, `:=`(
+    c1 = map_icd10(c1),
+    c2 = map_icd10(c2),
+    clin_icd = map_icd10(clin_icd)
+  )]
 
   # Replace na/empty with character(0)
   replace_empty_result_2 <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
   chunk <- replace_empty_result_2$return_data
   NA_replaced_with_empty_2 <- replace_empty_result_2$return_replacement_summary
 
-  # Remove whitespace in preparation for pdx finding
-  chunk[, c1 := lapply(c1, remove_whitespace)]
-  chunk[, c2 := lapply(c2, remove_whitespace)]
-  chunk[, clin_icd := lapply(clin_icd, remove_whitespace)]
-
   # Find pdx
-  pdx_result <- find_pdx(chunk$c1, chunk$c2, chunk$clin_icd)
-  chunk[, pdx := pdx_result$pdx]
-  chunk[, pdx_code := pdx_result$pdx_code]
+  pdx_inputs <- prep_pdx_inputs(
+    # inputs to prep (the below have been extracted above)
+    chunk$c1, chunk$c2, chunk$clin_icd,
+    # dependencies to prep (the below are global variables)
+    acc_pdx, neoplasms_dt_actual, acr_rvs, covid_rvs
+  )
+  pdx_result <- find_pdx(
+    # inputs to find pdx for
+    pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_icd,
+    # dependencies for find pdx
+    pdx_inputs$acc_pdx, pdx_inputs$neoplasm_codes,
+    pdx_inputs$rvs_codes, pdx_inputs$covid_rvs
+  )
+  chunk[, c("pdx", "pdx_code") := .(pdx_result$pdx, pdx_result$pdx_code)]
   chunk[, c1 := lapply(seq_len(.N), function(i) {
     lst <- c1[[i]]
     pdx_val <- pdx[i]

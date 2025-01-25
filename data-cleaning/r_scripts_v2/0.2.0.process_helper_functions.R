@@ -96,6 +96,18 @@ remove_lumped_icd_codes <- function(column) {
   return(result)
 }
 
+flatten_then_check_null_na <- function(input) {
+  # Fully flatten all nested lists into a character vector
+  input <- unlist(input, recursive = TRUE)
+
+  # Check if the flattened result is empty or only contains NULL/NA
+  if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
+    return(character(0)) # Return empty character vector if all NULL/NA
+  } else {
+    return(input) # Already a flat character vector
+  }
+}
+
 remove_lumped_rvs_codes <- function(column) {
   ## Separates out lumped RVS codes by splitting into chunks of 5 chars each
 
@@ -278,14 +290,21 @@ remove_whitespace <- function(x) {
   }
 }
 
-flatten_and_clean <- function(input) {
-  # Fully flatten all nested lists into a character vector
-  input <- unlist(input, recursive = TRUE)
+prep_icd_for_mapping <- function(text) {
+  text %>%
+    manual_replacement() %>%
+    collapse_to_string() %>%
+    split_to_vector() %>%
+    remove_lumped_icd_codes() %>%
+    flatten_then_check_null_na()
+}
 
-  # Check if the flattened result is empty or only contains NULL/NA
-  if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
-    return(character(0)) # Return empty character vector if all NULL/NA
-  } else {
-    return(input) # Already a flat character vector
-  }
+# Filter ICD codes based on exclusion criteria,
+# for use in prepare_pdx_inputs function
+filter_icds <- function(codes) {
+  codes <- codes[!is.na(codes) & !grepl("^[0-9]", codes) &
+    !grepl("^[A-Z]{2}", codes) & !grepl("/", codes) &
+    !(codes %chin% neoplasm_codes) & !(codes %chin% rvs_codes) &
+    !(codes %chin% covidrvs)]
+  codes[codes %chin% acc_pdx_set]
 }
