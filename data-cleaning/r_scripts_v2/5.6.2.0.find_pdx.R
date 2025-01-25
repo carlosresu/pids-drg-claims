@@ -24,26 +24,11 @@ check_similarity <- function(x, y) {
   sum(substr(x, 1, min_len) == substr(y, 1, min_len))
 }
 
-# Step 2: Filter ICD codes based on exclusion criteria
-filter_icds <- function(codes) {
-  codes <- codes[!is.na(codes) & !grepl("^[0-9]", codes) &
-    !grepl("^[A-Z]{2}", codes) & !grepl("/", codes) &
-    !(codes %chin% neoplasm_codes) & !(codes %chin% rvs_codes) &
-    !(codes %chin% covidrvs)]
-  codes[codes %chin% acc_pdx_set]
-}
-
 find_pdx <- function(
     # inputs:
-    c1_split = filter_icds(unlist(strsplit(c1, "\\|"))),
-    c2_split = filter_icds(unlist(strsplit(c2, "\\|"))),
-    clin_icd_split = filter_icds(unlist(strsplit(clin_icd, "\\|"))),
+    c1_split, c2_split, clin_icd_split,
     # dependencies:
-    acc_pdx_set = unique(acc_pdx),
-    neoplasm_codes = unique(neoplasms_dt_actual$icd10),
-    rvs_codes = unique(acr_rvs$rvs),
-    covidrvs = unique(covid_rvs),
-    seed = global_seed) {
+    acc_pdx_set, neoplasm_codes, rvs_codes, covidrvs, seed) {
   # Given a set of dependencies (see above), and a set of input columns (icds),
   # find the appropriate PDx for the specified case. It does this by filtering
   # the codes first thru the sieves that are the dependencies above, then apply
@@ -103,10 +88,10 @@ find_pdx <- function(
 
     # Step E: Pick a random PDX if no match is found
     set.seed(seed)
-    list(
+    return(list(
       pdx = sample(pdxs, 1),
       pdx_code = 6
-    )
+    ))
   }
 
   # Step 3: Apply the PDX finding logic row-wise
