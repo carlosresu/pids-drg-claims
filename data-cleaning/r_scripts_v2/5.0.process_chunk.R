@@ -85,10 +85,15 @@ process_chunk <- function(chunk,
   # flatten and clean runs manual_replacement, collapse_to_string,
   # split_to_vector, remove_lumped_icd_codes, and finally,
   # flatten_then_check_null_na
+
+  str(chunk$c1)
+
   chunk[, `:=`(
-    c1 = lapply(c1, prep_icd_for_mapping()),
+    c1 = lapply(c1, prep_icd_for_mapping),
     c2 = lapply(c2, prep_icd_for_mapping)
   )]
+
+  str(chunk$c1)
 
   chunk[, clin_icd := lapply(seq_len(.N), function(i) {
     clin_icd_list <- c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]])
@@ -458,8 +463,11 @@ process_chunk <- function(chunk,
   #   without_drg = rvs_mapping_result$without_drg
   # )
   invisible(gc())
-  return(list(
-    return_chunk = chunk
+  return(
+    # list(
+    # return_chunk =
+    chunk
     # , return_summary = chunk_summary
-  ))
+    # )
+  )
 }

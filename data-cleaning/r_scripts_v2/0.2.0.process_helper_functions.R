@@ -291,6 +291,7 @@ remove_whitespace <- function(x) {
 }
 
 prep_icd_for_mapping <- function(text) {
+  # str(text)
   text %>%
     manual_replacement() %>%
     collapse_to_string() %>%
@@ -302,7 +303,7 @@ prep_icd_for_mapping <- function(text) {
 # Filter ICD codes based on exclusion criteria,
 # for use in prepare_pdx_inputs function
 filter_icds <- function(codes) {
-  codes <- codes[!is.na(codes) & !grepl("^[0-9]", codes) &
+  codes <- codes[!is.null(codes) & !is.na(codes) & !grepl("^[0-9]", codes) &
     !grepl("^[A-Z]{2}", codes) & !grepl("/", codes) &
     !(codes %chin% neoplasm_codes) & !(codes %chin% rvs_codes) &
     !(codes %chin% covidrvs)]

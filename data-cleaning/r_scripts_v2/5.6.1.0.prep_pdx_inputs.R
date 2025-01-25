@@ -9,7 +9,7 @@ prep_pdx_inputs <- function(
   c1_temp <- lapply(c1_orig, remove_whitespace)
   c2_temp <- lapply(c2_orig, remove_whitespace)
   clin_icd_temp <- lapply(clin_icd_orig, remove_whitespace)
-
+  
   # split, unlist, and then filter icd codes
   c1_final <- filter_icds(unlist(strsplit(c1_temp, "\\|")))
   c2_final <- filter_icds(unlist(strsplit(c2_temp, "\\|")))
