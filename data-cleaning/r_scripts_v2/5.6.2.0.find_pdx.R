@@ -18,38 +18,35 @@
 # Such as why it exists, what it intends to do, and why it was written
 ############################# WHAT IS A DOCSTRING? #############################
 
-# Step 1: Helper function to check similarity between two strings
-check_similarity <- function(x, y) {
-  min_len <- min(nchar(x), nchar(y))
-  sum(substr(x, 1, min_len) == substr(y, 1, min_len))
-}
-
 find_pdx <- function(
-    # inputs:
+    # Inputs:
     c1_split, c2_split, clin_icd_split,
-    # dependencies:
-    acc_pdx_set, neoplasm_codes, rvs_codes, covidrvs, seed) {
-  # Given a set of dependencies (see above), and a set of input columns (icds),
-  # find the appropriate PDx for the specified case. It does this by filtering
-  # the codes first thru the sieves that are the dependencies above, then apply
-  # the find PDx algorithm, which is as follows:
-  # Algorithm:
-  # 1. Check if case rate 1 or 2 is a valid PDx,
-  # 2. Check if
-  find_pdx_algorithm <- function(cr1, cr2, cicd) {
-    # Step A: Check if any element in cr1 or cr2 is an accepted PDX
-    for (cr_list in list(cr1, cr2)) {
+    # Dependencies:
+    acc_pdx_set, neoplasm_codes, rvs_codes, covid_rvs,
+    # Parameters:
+    seed) {
+  # Function to calculate similarity between two strings
+  check_similarity <- function(x, y) {
+    min_len <- min(nchar(x), nchar(y))
+    sum(substr(x, 1, min_len) == substr(y, 1, min_len))
+  }
+
+  # Process each row, saving it so we run it only once, but extract
+  # two things from it later.
+  algo_result <- mapply(function(c1_split, c2_split, clin_icd_split) {
+    # Step A: Check if any element in c1_split or c2_split is an accepted PDX
+    for (cr_list in list(c1_split, c2_split)) {
       if (length(cr_list) > 0) {
         return(list(
           pdx = cr_list[1],
-          pdx_code = ifelse(cr_list[1] %in% cr1, 1, 2)
+          pdx_code = ifelse(cr_list[1] %in% c1_split, 1, 2)
         ))
       }
     }
 
-    # Step B: Find accepted PDX from cicd
-    if (length(cicd) > 0) {
-      pdxs <- cicd
+    # Step B: Find accepted PDX from clin_icd_split
+    if (length(clin_icd_split) > 0) {
+      pdxs <- clin_icd_split
     } else {
       return(list(
         pdx = NA_character_,
@@ -65,8 +62,8 @@ find_pdx <- function(
       ))
     }
 
-    # Step D: Check for matching starting letters in cr1 and cr2
-    for (cr_list in list(cr1, cr2)) {
+    # Step D: Check for matching starting letters in c1_split and c2_split
+    for (cr_list in list(c1_split, c2_split)) {
       for (cr in cr_list) {
         starting_codes <- pdxs[substr(pdxs, 1, 1) == substr(cr, 1, 1)]
         if (length(starting_codes) == 1) {
@@ -92,16 +89,9 @@ find_pdx <- function(
       pdx = sample(pdxs, 1),
       pdx_code = 6
     ))
-  }
+  }, c1_split, c2_split, clin_icd_split)
 
-  # Step 3: Apply the PDX finding logic row-wise
-  algo_result <- mapply(
-    find_pdx_algorithm,
-    cr1 = c1_split, cr2 = c2_split, cicd = clin_icd_split,
-    SIMPLIFY = FALSE
-  )
-
-  # Step 4: Return the PDX values and codes
+  # Return the PDX values and codes
   return(list(
     pdx = sapply(algo_result, `[[`, "pdx"),
     pdx_code = sapply(algo_result, `[[`, "pdx_code")

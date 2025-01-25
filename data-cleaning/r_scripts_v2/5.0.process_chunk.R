@@ -82,18 +82,11 @@ process_chunk <- function(chunk,
   is_covid_c2 <- c2_result$is_covid
   chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
 
-  # flatten and clean runs manual_replacement, collapse_to_string,
-  # split_to_vector, remove_lumped_icd_codes, and finally,
-  # flatten_then_check_null_na
-
-  str(chunk$c1)
-
+  # prepare icds for mapping
   chunk[, `:=`(
     c1 = lapply(c1, prep_icd_for_mapping),
     c2 = lapply(c2, prep_icd_for_mapping)
   )]
-
-  str(chunk$c1)
 
   chunk[, clin_icd := lapply(seq_len(.N), function(i) {
     clin_icd_list <- c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]])
