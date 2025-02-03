@@ -8,8 +8,8 @@ remap_patient_data <- function(
     known_values,
     remapped_column) {
   # Initialize lists to store results
-  mapped <- list()
-  unmapped <- list()
+  # mapped <- list()
+  # unmapped <- list()
   remapped <- list()
 
   # Define columns to process and their input data
@@ -31,47 +31,49 @@ remap_patient_data <- function(
     # Dynamically evaluate the global remapped_column for each column
     remapped_col <- eval(remapped_column, envir = list(dt = dt, column_name = "column_data"))
 
-    # Identify unmapped values
-    unknown_values <- setdiff(
-      column_data[!is.na(column_data)],
-      known_values[[col_name]]
-    )
+    # # Identify unmapped values
+    # unknown_values <- setdiff(
+    #   column_data[!is.na(column_data)],
+    #   known_values[[col_name]]
+    # )
 
-    # Issue a warning if unmapped values are found
-    if (length(unknown_values) > 0) {
-      warning(sprintf(
-        "Unmapped values in column '%s': %s",
-        col_name, paste(unknown_values, collapse = ", ")
-      ))
-    }
+    # # Issue a warning if unmapped values are found
+    # if (length(unknown_values) > 0) {
+    #   warning(sprintf(
+    #     "Unmapped values in column '%s': %s",
+    #     col_name, paste(unknown_values, collapse = ", ")
+    #   ))
+    # }
 
     # Store the remapped column
     remapped[[col_name]] <- remapped_col
 
-    # Store the mapped data for this column
-    mapped[[col_name]] <- unique(data.table(
-      Original = column_data,
-      Mapped = remapped_col
-    ))
+    # # Store the mapped data for this column
+    # mapped[[col_name]] <- unique(data.table(
+    #   Original = column_data,
+    #   Mapped = remapped_col
+    # ))
 
-    # Store the unmapped values
-    unmapped[[col_name]] <- unknown_values
+    # # Store the unmapped values
+    # unmapped[[col_name]] <- unknown_values
   }
 
+  # # Prepare the return values
+  # return(
+  #   list(
+  #     remapped = remapped,
+  #     pat_type_mapped = mapped$pat_type,
+  #     pat_memcat_parent_mapped = mapped$pat_memcat_parent,
+  #     pat_memcat_child_mapped = mapped$pat_memcat_child,
+  #     clin_discharge_mapped = mapped$clin_discharge,
+  #     claim_status_mapped = mapped$claim_status,
+  #     pat_type_unmapped = unmapped$pat_type,
+  #     memcat_parent_unmapped = unmapped$pat_memcat_parent,
+  #     memcat_child_unmapped = unmapped$pat_memcat_child,
+  #     discharge_unmapped = unmapped$clin_discharge,
+  #     claim_status_unmapped = unmapped$claim_status
+  #   )
+  # )
   # Prepare the return values
-  return(
-    list(
-      remapped = remapped,
-      pat_type_mapped = mapped$pat_type,
-      pat_memcat_parent_mapped = mapped$pat_memcat_parent,
-      pat_memcat_child_mapped = mapped$pat_memcat_child,
-      clin_discharge_mapped = mapped$clin_discharge,
-      claim_status_mapped = mapped$claim_status,
-      pat_type_unmapped = unmapped$pat_type,
-      memcat_parent_unmapped = unmapped$pat_memcat_parent,
-      memcat_child_unmapped = unmapped$pat_memcat_child,
-      discharge_unmapped = unmapped$clin_discharge,
-      claim_status_unmapped = unmapped$claim_status
-    )
-  )
+  return(remapped)
 }

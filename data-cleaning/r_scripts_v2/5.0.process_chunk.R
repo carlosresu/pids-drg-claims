@@ -154,11 +154,11 @@ process_chunk <- function(chunk,
   )
 
   chunk[, `:=`(
-    pat_type = remap_res$remapped$pat_type,
-    pat_memcat_parent = remap_res$remapped$pat_memcat_parent,
-    pat_memcat_child = remap_res$remapped$pat_memcat_child,
-    clin_discharge = remap_res$remapped$clin_discharge,
-    claim_status = remap_res$remapped$claim_status
+    pat_type = remap_res$pat_type,
+    pat_memcat_parent = remap_res$pat_memcat_parent,
+    pat_memcat_child = remap_res$pat_memcat_child,
+    clin_discharge = remap_res$clin_discharge,
+    claim_status = remap_res$claim_status
   )]
 
   # Map RVS codes
