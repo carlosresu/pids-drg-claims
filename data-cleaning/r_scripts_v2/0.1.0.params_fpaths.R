@@ -357,7 +357,7 @@ known_values <- list(
 )
 
 # Define the fcase logic for remapping the membership categories
-remapped_column <- quote(fcase(
+col_remap_master <- quote(fcase(
   dt[[column_name]] %in% c("MEMBER", "MM"), "M",
   dt[[column_name]] %in% c("DEPENDENT", "DD"), "D",
   dt[[column_name]] == "DENIED", "D",

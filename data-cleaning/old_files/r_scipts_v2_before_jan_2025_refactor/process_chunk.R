@@ -2,7 +2,7 @@ process_chunk <- function(chunk,
                           yr_to_load = year_to_load,
                           col_maps = column_mappings,
                           known_vals = known_values,
-                          remap_master = col_remap_master,
+                          remap_cols = remapped_column,
                           avail_cols = available_columns) {
   # Rename Columns
   setnames(chunk,
@@ -12,6 +12,11 @@ process_chunk <- function(chunk,
       function(col) col_maps[[col]]
     )
   )
+  # Check Rename Success
+  # renamesuccess <- all(sapply(
+  #   avail_cols[avail_cols %in% names(col_maps)],
+  #   function(col) col_maps[[col]]
+  # ) %in% colnames(chunk))
 
   if (!"id_year" %in% colnames(chunk)) {
     chunk[, id_year := as.integer(yr_to_load)]
@@ -52,8 +57,25 @@ process_chunk <- function(chunk,
   c1_result <- clean_column(chunk$c1)
   chunk[, `:=`(c1_orig = c1, c1 = c1_result$cleaned_col)]
 
+  # c1_cleaning_comparison <- data.table(
+  #   old_code = sapply(chunk$c1_orig, toString),
+  #   new_code = sapply(chunk$c1, toString)
+  # )[
+  #   remove_periods_and_whitespaces(old_code) != remove_periods_and_whitespaces(new_code),
+  #   .(old_code, new_code, count = .N),
+  #   by = .(old_code, new_code)
+  # ]
   c2_result <- clean_column(chunk$c2)
   chunk[, `:=`(c2_orig = c2, c2 = c2_result$cleaned_col)]
+
+  # c2_cleaning_comparison <- data.table(
+  #   old_code = sapply(chunk$c2_orig, toString),
+  #   new_code = sapply(chunk$c2, toString)
+  # )[
+  #   remove_periods_and_whitespaces(old_code) != remove_periods_and_whitespaces(new_code),
+  #   .(old_code, new_code, count = .N),
+  #   by = .(old_code, new_code)
+  # ]
 
   # Apply is_covid boolean
   is_covid_c1 <- c1_result$is_covid
@@ -120,15 +142,24 @@ process_chunk <- function(chunk,
   chunk <- replace_empty_result_1$return_data
   # NA_replaced_with_empty_1 <- replace_empty_result_1$return_replacement_summary
 
-  # List of column names to remap
-  cols_to_remap <- c(
-    "pat_type", "pat_memcat_parent",
-    "pat_memcat_child", "clin_discharge", "claim_status"
+  # Remap patient data
+  remap_res <- remap_patient_data(
+    pat_type = chunk$pat_type,
+    pat_memcat_parent = chunk$pat_memcat_parent,
+    pat_memcat_child = chunk$pat_memcat_child,
+    clin_discharge = chunk$clin_discharge,
+    claim_status = chunk$claim_status,
+    known_values = known_vals,
+    remapped_column = remap_cols
   )
 
-  # Apply remapping in a single step
-  chunk[, (cols_to_remap) := lapply(.SD, remap_patient_data, remap_master), .SDcols = cols_to_remap]
-
+  chunk[, `:=`(
+    pat_type = remap_res$pat_type,
+    pat_memcat_parent = remap_res$pat_memcat_parent,
+    pat_memcat_child = remap_res$pat_memcat_child,
+    clin_discharge = remap_res$clin_discharge,
+    claim_status = remap_res$claim_status
+  )]
 
   # Map RVS codes
   chunk[, icd9_list := map_rvs_icd9(clin_rvs)$icd9_list]
@@ -142,6 +173,7 @@ process_chunk <- function(chunk,
       c2, function(x) if (is.null(x) || all(is.na(x))) character(0) else x
     )
   )]
+
 
   # Map ICD 10 codes
   chunk[, `:=`(
@@ -394,6 +426,38 @@ process_chunk <- function(chunk,
     !is.na(pat_age) & (pat_age < 0 | pat_age > 124),
     pat_age := NA_integer_
   ]
+  # chunk_summary <- list(
+  #   rename_success = renamesuccess,
+  #   ICD_replacements_1 = c1_cleaning_comparison,
+  #   ICD_replacements_2 = c2_cleaning_comparison,
+  #   pat_type_mapped = remap_res$pat_type_mapped,
+  #   pat_memcat_parent_mapped = remap_res$pat_memcat_parent_mapped,
+  #   pat_memcat_child_mapped = remap_res$pat_memcat_child_mapped,
+  #   clin_discharge_mapped = remap_res$clin_discharge_mapped,
+  #   claim_status_mapped = remap_res$claim_status_mapped,
+  #   pat_type_unmapped = remap_res$pat_type_unmapped,
+  #   memcat_parent_unmapped = remap_res$memcat_parent_unmapped,
+  #   memcat_child_unmapped = remap_res$memcat_child_unmapped,
+  #   discharge_unmapped = remap_res$discharge_unmapped,
+  #   claim_status_unmapped = remap_res$claim_status_unmapped,
+  #   discard_rvs_one = c1_discarded_rvs,
+  #   discard_rvs_two = c2_discarded_rvs,
+  #   empty_replaced_with_na_1 = empty_replaced_with_na_1,
+  #   NA_replaced_with_empty_1 = NA_replaced_with_empty_1,
+  #   NA_replaced_with_empty_2 = NA_replaced_with_empty_2,
+  #   NA_replaced_with_empty_3 = NA_replaced_with_empty_3,
+  #   rvss = rvs_mapping_result$rvss,
+  #   mappable_rvs = rvs_mapping_result$mappable_rvs,
+  #   unmappable_rvs = rvs_mapping_result$unmappable_rvs,
+  #   multi_mapped_rvs = rvs_mapping_result$multi_mapped_rvs,
+  #   without_drg = rvs_mapping_result$without_drg
+  # )
   invisible(gc())
-  return(chunk)
+  return(
+    # list(
+    # return_chunk =
+    chunk
+    # , return_summary = chunk_summary
+    # )
+  )
 }
