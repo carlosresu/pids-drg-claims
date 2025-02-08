@@ -2037,232 +2037,60 @@ saveRDS(result, here(
 message(paste0("Finished saving ", paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")))
 data <- readRDS("/home/resurreccion_cmc/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_2_master_clean_claims/checkpoint_2_claims_2018_sampled_625_prefinal.rds")
 fwrite(data, "test.csv")
-if (to_post_cleaning_checks) {
-  acc_pdx_set <- unique(acc_pdx)
-  dt <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-  ))
-  str(dt)
-  not_in_acc_pdx <- dt$clin_pdx[!dt$clin_pdx %in% acc_pdx_set & !is.na(dt$clin_pdx)]
-  all_in_acc_pdx <- length(not_in_acc_pdx) == 0
-  if (all_in_acc_pdx) {
-    message("All entries in dt$clin_pdx are in acc_pdx.")
-  } else {
-    message("Not all entries in dt$clin_pdx are in acc_pdx. Entries not in acc_pdx are:")
-    print(unique(not_in_acc_pdx)) # Print unique entries not in acc_pdx
-  }
-  rm(all_in_acc_pdx, not_in_acc_pdx)
-  invisible(gc())
-}
-if (to_post_cleaning_checks) {
-  count_data <- dt[, .N, by = clin_pdx_source]
-  setorder(count_data, clin_pdx_source)
-  count_data[, clin_pdx_source := factor(clin_pdx_source, levels = c(1, 2, 3, 6, 99))]
-  total_count <- sum(count_data$N)
-  ggplot(count_data, aes(x = clin_pdx_source, y = N)) +
-    geom_bar(stat = "identity", fill = "skyblue", color = "black") +
-    labs(title = "Histogram of clin_pdx_source", x = "clin_pdx_source", y = "Count") +
-    theme_minimal() +
-    scale_x_discrete(drop = FALSE) + # Ensures all categories are shown
-    geom_text(aes(label = N), vjust = -0.5) + # Display count above each bar
-    annotate("text", x = Inf, y = -Inf, label = paste("Total N =", total_count), hjust = 1.1, vjust = -1.5) # Display total count below
-  rm(count_data, total_count)
-  invisible(gc())
-}
-if (to_post_cleaning_checks) {
-  output <- capture.output({
-    cat("Structure of non-empty elements in each specified column:\n\n")
-    cat("dt\n")
-    str(dt)
-    cat("Structure of non-empty elements in each specified column:\n\n")
-    cat("c1:\n")
-    str(dt[!is.na(c1) & sapply(c1, function(x) length(x) > 0 && any(nzchar(x)))]$c1)
-    cat("\nc2:\n")
-    str(dt[!is.na(c2) & sapply(c2, function(x) length(x) > 0 && any(nzchar(x)))]$c2)
-    cat("\nclin_sdx:\n")
-    str(dt[!is.na(clin_sdx) & sapply(clin_sdx, function(x) length(x) > 0 && any(nzchar(x)))]$clin_sdx)
-    cat("\nclin_pdx:\n")
-    str(dt[!is.na(clin_pdx) & sapply(clin_pdx, function(x) length(x) > 0 && any(nzchar(x)))]$clin_pdx)
-    cat("\nclin_proc:\n")
-    str(dt[!is.na(clin_proc) & sapply(clin_proc, function(x) length(x) > 0 && any(nzchar(x)))]$clin_proc)
-  })
-  cat(paste(output, collapse = "\n"))
-  rm(output)
-  invisible(gc())
-}
-if (to_post_cleaning_checks) {
-  unique_values <- unique(unlist(dt$clin_rvs))
-  unique_values <- unique_values[!is.na(unique_values) & unique_values != "NA"]
-  matched_values <- unique_values[unique_values %in% rvs_icd9$rvs]
-  cat(paste(matched_values, collapse = "\n"))
-  rm(unique_values, matched_values)
-  invisible(gc())
-}
-if (to_post_cleaning_checks) {
-  non_empty_clin_proc_rows <- dt[!is.na(clin_proc) & sapply(clin_proc, function(x) length(x) > 0 && any(nzchar(x)))]
-  print(non_empty_clin_proc_rows)
-  rm(non_empty_clin_proc_rows)
-  invisible(gc())
-}
-if (to_post_cleaning_checks) {
-  result <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-  ))
-  setkey(result, NULL) # Removes any existing key
-  print(result[id_series %like% "e"])
-  print(result[id_pin %like% "e"])
-  print(result[id_hci %like% "e"])
-  flattened_clin_sdx <- unlist(result$clin_sdx, use.names = FALSE, recursive = TRUE)
-  if ("A" %chin% flattened_clin_sdx) {
-    cat("Found 'A' in clin_sdx\n")
-    rows_with_A <- result[sapply(result$clin_sdx, function(x) any("A" %chin% x))]
-    for (i in seq_len(nrow(rows_with_A))) {
-      print(rows_with_A[i])
-    }
-  } else {
-    cat("No 'A' found in clin_sdx\n")
-  }
-}
-if (to_post_cleaning_checks) {
-  result <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-  ))
-  date_cols <- c(
-    "date_adm", "date_dis", "date_rec", "date_ref",
-    "date_check", "pat_bdate", "date_ext"
-  )
-  rows_with_old_dates <- result[Reduce(`|`, lapply(
-    .SD,
-    function(x) x < as.Date("1900-01-01")
-  )), .SDcols = date_cols]
-  print(rows_with_old_dates)
-}
 result <- readRDS(here(
   checkpoint_2_path,
   paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
 ))
-print(nrow(result))
-print(nrow(result))
 result[, is_covid := {
-  covid_found <- rep(FALSE, .N)
+  covid_found <- rep(FALSE, .N) # Initialize all rows as FALSE
   not_found <- !covid_found
-  covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
+  covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs # Check primary diagnosis
   not_found <- !covid_found
-  covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
+  covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs # Check secondary diagnosis
   not_found <- !covid_found
-  covid_found[not_found] <- c2[not_found] %chin% covid_rvs
+  covid_found[not_found] <- c2[not_found] %chin% covid_rvs # Check coded diagnosis
   not_found <- !covid_found
-  covid_found[not_found] <- c1[not_found] %chin% covid_rvs
+  covid_found[not_found] <- c1[not_found] %chin% covid_rvs # Check additional coded diagnosis
   not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_rvs[not_found], function(row) any(row %chin% covid_rvs))
+  covid_found[not_found] <- sapply(clin_rvs[not_found], function(row) any(row %chin% covid_rvs)) # Check procedure codes
   not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_sdx[not_found], function(row) any(row %chin% covid_rvs))
+  covid_found[not_found] <- sapply(clin_sdx[not_found], function(row) any(row %chin% covid_rvs)) # Check supporting diagnoses
   not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_proc[not_found], function(row) any(row %chin% covid_rvs))
-  covid_found
+  covid_found[not_found] <- sapply(clin_proc[not_found], function(row) any(row %chin% covid_rvs)) # Check performed procedures
+  covid_found # Return logical vector of COVID matches
 }]
-print(nrow(result))
+result <- result[, .(
+  id_series, id_pin, id_hci, id_hcp, # Identifiers
+  date_adm, date_dis, date_rec, date_ref, date_check, # Date-related fields
+  pat_type, pat_rel, pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent, pat_memcat_child, # Patient details
+  claim_status, claim_payout, claim_charge, is_covid, # Claim-related fields
+  clin_discharge, clin_outpatient, clin_emergency, clin_acc, # Clinical classification
+  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source # Clinical details
+)]
 saveRDS(result, here(
   checkpoint_2_path,
   paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-))
-if (to_post_cleaning_checks) {
-  before <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds")
-  ))
-  after <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-  ))
-  setkey(before, id_series)
-  setkey(after, id_series)
-  pat_age_diff_na <- before[after,
-    on = .(id_series), nomatch = 0,
-    .(id_series, pat_bdate,
-      pat_age_before = x.pat_age,
-      pat_age_after = i.pat_age
-    ),
-    by = .EACHI
-  ]
-  pat_age_diff_na <- pat_age_diff_na[
-    (is.na(pat_age_before) & !is.na(pat_age_after)) |
-      (!is.na(pat_age_before) & is.na(pat_age_after)) |
-      (pat_age_before != pat_age_after)
-  ]
-  cat("Rows where pat_age is NA in one table but
-not in the other, or where the values differ:\n")
-  print(pat_age_diff_na)
-  rm(before, after)
-  invisible(gc())
-}
-message("Reading final")
-result <- readRDS(here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-))
-message("Finished reading final, commencing subsetting")
-result <- result[, .(
-  id_series, id_pin, id_hci, id_hcp, date_adm, time_adm,
-  date_dis, time_dis, date_rec, date_ref, date_check, pat_type, pat_rel, pat_bdate,
-  pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
-  pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
-  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-)]
-message("Finished subsetting, commencing saveRDS")
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset_with_time", ".rds")
-))
-message("Finished saveRDS, commencing subsetting")
-result <- result[, .(
-  id_series, id_pin, id_hci, id_hcp, date_adm,
-  date_dis, date_rec, date_ref, date_check, pat_type, pat_rel,
-  pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
-  pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
-  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-)]
-message("Finished subsetting, commencing saveRDS")
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset", ".rds")
-))
-message("Finished saveRDS")
-result <- readRDS(here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset", ".rds")
 ))
 if (to_bq) {
-  if (!to_sample) bq_table <- paste0("claims_", year_to_load)
+  if (!to_sample) bq_table <- paste0("claims_", year_to_load) # Define BQ table name
   tryCatch(
-    {
-      bq_table_delete(bq_table(gcp_proj, bq_dataset, bq_table))
-      message("Table dropped successfully.\n")
-    },
+    bq_table_delete(bq_table(gcp_proj, bq_dataset, bq_table)),
     error = function(e) {
       if (grepl("Not found", e, ignore.case = TRUE)) {
-        message("Table does not exist, nothing to drop.\n")
+        message("Table does not exist, nothing to drop.")
       } else {
         stop(e)
       }
     }
   )
   tryCatch(
-    {
-      bq_table_create(
-        bq_table(gcp_proj, bq_dataset, bq_table),
-        fields = fromJSON(here(
-          "data-cleaning/r_scripts_v2",
-          "bq_schema_cleaning.json"
-        ), simplifyDataFrame = FALSE)
-      )
-      message("Table created successfully.\n")
-    },
+    bq_table_create(
+      bq_table(gcp_proj, bq_dataset, bq_table),
+      fields = fromJSON(here(
+        "data-cleaning/r_scripts_v2",
+        "bq_schema_cleaning.json"
+      ), simplifyDataFrame = FALSE)
+    ),
     error = function(e) {
       if (grepl("already exists", e, ignore.case = TRUE)) {
         message("Table already exists. Skipping creation and upload.")
@@ -2272,21 +2100,15 @@ if (to_bq) {
     }
   )
   if (to_write) {
-    chunk_size <- 250000 # Adjust the chunk size based on memory availability
-    num_chunks <- ceiling(nrow(result) / chunk_size)
+    chunk_size <- 250000 # Define chunk size for upload
+    num_chunks <- ceiling(nrow(result) / chunk_size) # Calculate number of chunks
     for (i in seq_len(num_chunks)) {
-      cat(paste("\rUploading chunk no.:", i))
-      flush.console()
-      chunk <- result[
-        ((i - 1) * chunk_size + 1):min(i * chunk_size, nrow(result)),
-      ]
+      chunk <- result[((i - 1) * chunk_size + 1):min(i * chunk_size, nrow(result)), ] # Extract chunk
       bq_table_upload(
         bq_table(gcp_proj, bq_dataset, bq_table),
         values = chunk,
         write_disposition = if (i == 1) "WRITE_EMPTY" else "WRITE_APPEND"
       )
-      cat(paste("\rUploaded chunk no.:", i))
-      flush.console()
     }
   }
 }
