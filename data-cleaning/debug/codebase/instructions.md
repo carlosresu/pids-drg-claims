@@ -1,6 +1,9 @@
-Codebase Context
+# Codebase Context
 
-Helper Scripts:
+## Helper Scripts
+
+### 0.1.0.params_fpaths.R
+```r
 tictoc::tic("Time spent (total)               ")
 nthreads <- parallelly::availableCores()
 nthreads <- if (nthreads >= 16) nthreads - thread_offset else nthreads
@@ -310,6 +313,10 @@ dim_dt <- vector() # initialize vector for dt dimensions
 processing_times <- split_processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
 master_dt <- data.table::data.table() # initialize data.tables
 message(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
+```
+
+### 0.2.0.process_helper_functions.R
+```r
 manual_replacement <- function(text) {
   stri_replace_all_regex(text, manual_patterns_to_replace, manual_code_replacements, vectorize_all = FALSE)
 }
@@ -524,6 +531,10 @@ safe_split <- function(x) {
   }
   unlist(strsplit(x, "\\|")) # Split valid strings by '|'
 }
+```
+
+### 0.3.0.summary_helper_functions.R
+```r
 print_status_update <- function(status_part, split_parts, processing_times, phase) {
   elapsed_time <- sum(processing_times[1:status_part])
   avg_time_per_part <- elapsed_time / status_part
@@ -648,6 +659,10 @@ final_combine_replace_tables <- function(rboundlist, replace_with, samplesizediv
     return(combined_replace[, .(Column, Empty_Replaced_Percentage, String_NA_Replaced_Percentage, Actual_NA_Replaced_Percentage)])
   }
 }
+```
+
+### 0.5.0.grouping_functions.R
+```r
 export_for_grouper <- function(dt, output_txt_file, chunk_number) {
   output_dt_thai <- data.table()
   output_dt_thai[, CASEID := dt$caseid]
@@ -683,6 +698,10 @@ export_for_grouper <- function(dt, output_txt_file, chunk_number) {
     return(NULL)
   }
 }
+```
+
+### 1.0.query_bq_to_dt.R
+```r
 query_bq_to_dt <- function(query, max_bq_rows = Inf) {
   tryCatch(
     dt <- as.data.table(
@@ -694,6 +713,10 @@ query_bq_to_dt <- function(query, max_bq_rows = Inf) {
   )
   return(dt)
 }
+```
+
+### 2.0.split_and_save_part.R
+```r
 split_and_save_part <- function(split_loop_part) {
   rows_per_part <- ceiling(total_rows / split_parts)
   chunk_file <- here::here(raw_claims_parts_path, paste0(
@@ -710,6 +733,10 @@ split_and_save_part <- function(split_loop_part) {
     invisible(gc())
   }
 }
+```
+
+### 3.0.create_sample_files.R
+```r
 create_sample_files <- function(sample_part, sampled_claims_file, seed = global_seed) {
   partial_file_for_sampling <- here::here(raw_claims_parts_path, paste0(
     full_claims_prefix, year_to_load,
@@ -720,6 +747,10 @@ create_sample_files <- function(sample_part, sampled_claims_file, seed = global_
   dt <- dt[sample(.N, min(sample_size, .N))]
   saveRDS(dt, sampled_claims_file, compress = TRUE)
 }
+```
+
+### 4.0.read_appropriate_file.R
+```r
 read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
   chunk_file <- if (to_sample_argument) {
     here(raw_claims_samples_path, paste0(
@@ -793,6 +824,10 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
     )
   )
 }
+```
+
+### 5.0.process_chunk.R
+```r
 process_chunk <- function(chunk,
                           yr_to_load = year_to_load,
                           col_maps = column_mappings,
@@ -1081,6 +1116,10 @@ process_chunk <- function(chunk,
   invisible(gc())
   return(chunk)
 }
+```
+
+### 5.1.0.collapse_and_clean_icd_rvs_cols.R
+```r
 collapse_and_clean_icd_rvs_cols <- function(clin_icd_cols = NULL, clin_rvs_cols = NULL) {
   result <- list()
   process_columns <- function(cols, is_icd = TRUE) {
@@ -1108,6 +1147,10 @@ collapse_and_clean_icd_rvs_cols <- function(clin_icd_cols = NULL, clin_rvs_cols 
   }
   return(result)
 }
+```
+
+### 5.2.0.append_copy_and_remove_icd_rvs.R
+```r
 append_copy_and_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
   datatable <- data.table(clin_rvs = clin_rvs, col = col, clin_icd = clin_icd)
   datatable[, matches := lapply(col, function(x) {
@@ -1195,11 +1238,19 @@ append_copy_and_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
     discarded_rvs = discarded_table
   ))
 }
+```
+
+### 5.3.0.remap_patient_data.R
+```r
 remap_patient_data <- function(col, remapping) {
   eval(remapping,
   list(dt = data.table(data = col),
   column_name = "data"))
 }
+```
+
+### 5.4.0.map_rvs_icd9.R
+```r
 map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
   without_drg_codes <- unique(rvs[is_drg == FALSE]$rvs)
   setorder(rvs, rvs)
@@ -1237,6 +1288,10 @@ map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
   )
   return(return_list)
 }
+```
+
+### 5.5.0.map_icd10.R
+```r
 map_icd10 <- function(col) {
   icds <- unique(unlist(col))
   filtered_icds <- icds[!is.na(icds) &
@@ -1290,6 +1345,10 @@ map_icd10 <- function(col) {
   })
   return(col_mapped)
 }
+```
+
+### 5.6.1.0.prep_pdx_inputs.R
+```r
 prep_pdx_inputs <- function(
     c1_orig, c2_orig, clin_icd_orig,
     accpdx = acc_pdx, neoplasmsdtactual = neoplasms_dt_actual,
@@ -1309,6 +1368,10 @@ prep_pdx_inputs <- function(
   )
   return(pdx_inputs)
 }
+```
+
+### 5.6.2.0.find_pdx.R
+```r
 find_pdx <- function(
     c1_split, c2_split, clin_icd_split,
     seed) {
@@ -1369,6 +1432,10 @@ find_pdx <- function(
     pdx_code = sapply(algo_result, `[[`, "pdx_code")
   ))
 }
+```
+
+### 6.0.aggregate_all_summaries.R
+```r
 aggregate_all_summaries <- function(summaries) {
   combine_summaries <- function(summaries) {
     combined_summary <- list(
@@ -1408,6 +1475,10 @@ aggregate_all_summaries <- function(summaries) {
   }
   combine_summaries(summaries)
 }
+```
+
+### 7.0.print_summary_tables.R
+```r
 print_summary_tables <- function(final_combined_summaries) {
   summary <- final_combined_summaries
   if (summary$rename_success) cat("\nRename Success:\n", summary$rename_success, "\n") else stop(paste0("Rename failed for ", year_to_load, "."))
@@ -1496,8 +1567,12 @@ print_summary_tables <- function(final_combined_summaries) {
   ))
   if (summary$pdx_success) cat("\nAll PDx's are in the list of acceptable PDx's:\n", summary$pdx_success, "\n") else stop(paste0("Not all pdx are in acceptable pdxs for ", year_to_load, "."))
 }
+```
 
-R notebooks:
+## R Notebooks
+
+### 00b-drg-partial.ipynb
+```r
 source("~/drg-pipeline/data-cleaning/00a-parameters.r")
 system("git submodule update --init --recursive")
 required_packages <- c(
@@ -1731,6 +1806,10 @@ for (sample_size_divisor in c(625, 125, 25, 5)) {
   }
   message(paste0("Finished sampling for size ÷", sample_size_divisor, " for all years"))
 }
+```
+
+### 01-drg-cleaning-v2.ipynb
+```r
 source("~/drg-pipeline/data-cleaning/00a-parameters.r")
 system("git submodule update --init --recursive")
 required_packages <- c(
@@ -2211,6 +2290,10 @@ if (to_bq) {
     }
   }
 }
+```
+
+### 02-drg-grouping-v2.ipynb
+```r
 source("~/drg-pipeline/data-cleaning/00a-parameters.r")
 system("git submodule update --init --recursive")
 required_packages <- c(
@@ -3028,8 +3111,12 @@ if (to_thai && !to_thai_all_years && to_thai_bq) {
     message("Skipping BigQuery upload as to_spc is TRUE.")
   }
 }
+```
 
-Python notebook:
+## Python Notebook
+
+### 02b-drg-grouping-py-v2.ipynb
+```python
 from rpy2.robjects import r, globalenv
 from rpy2.robjects.packages import importr
 import os
@@ -3153,3 +3240,4 @@ if __name__ == "__main__":
 print(pandas_df)
 file_path = f"/home/resurreccion_cmc/drg-pipeline/data-cleaning/data/checkpoints/checkpoint_8_py_output/python_output_{year_to_load}{suffix}.feather"
 pandas_df.to_feather(file_path)
+```
