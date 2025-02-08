@@ -15,7 +15,7 @@ to_bq <- FALSE
 # TODO: Add description here
 to_post_cleaning_checks <- TRUE
 # TODO: Add description here
-to_parallel <- TRUE
+to_parallel <- FALSE
 cat("Parallelization:", to_parallel, "\n")
 # TODO: Add description here
 to_debug <- FALSE
