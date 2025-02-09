@@ -34,9 +34,9 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-#ipynb checkpoints
-data-cleaning/.ipynb_checkpoints
-data-cleaning/r_scripts/.ipynb_checkpoints
+#ipynb chkpts
+data-cleaning/.ipynb_chkpts
+data-cleaning/r_scripts/.ipynb_chkpts
 
 #git-ignored-files
 data-cleaning/data

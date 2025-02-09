@@ -5,10 +5,10 @@ tictoc::tic("Time spent (total)               ")
 nthreads <- parallelly::availableCores()
 nthreads <- if (nthreads >= 16) nthreads - thread_offset else nthreads
 
-dir.create(dirname(here::here("data-cleaning/cache/year_to_load.txt")), recursive = TRUE, showWarnings = FALSE)
-if (!file.exists(here::here("data-cleaning/cache/year_to_load.txt"))) writeLines("2018", here::here("data-cleaning/cache/year_to_load.txt"))
-if (!exists("year_to_load")) year_to_load <- data.table::fread(here::here("data-cleaning", "cache", "year_to_load.txt"), header = FALSE, colClasses = "character")[[1]]
-file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
+dir.create(dirname(here::here("data-cleaning/cache/year.txt")), recursive = TRUE, showWarnings = FALSE)
+if (!file.exists(here::here("data-cleaning/cache/year.txt"))) writeLines("2018", here::here("data-cleaning/cache/year.txt"))
+if (!exists("year")) year <- data.table::fread(here::here("data-cleaning", "cache", "year.txt"), header = FALSE, colClasses = "character")[[1]]
+file_type <- if (year %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
 to_split <- TRUE # TODO: Deprecated, only used when to_sample is TRUE # Whether to split into split_parts parts (i.e. to fit in 32gb RAM).
@@ -50,7 +50,7 @@ if (Sys.info()["nodename"] == "ubuntu2404vm") {
 # get current GCP Project
 gcp_proj <- system("gcloud config get-value project", intern = TRUE)
 # Name of GCS bucket
-gcs_bucket <- "phic-claims-checkpoints"
+gcs_bucket <- "phic-claims-chkpts"
 # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_pre_fpath <- "pre-tdrg"
 # Name of folder path prefix in GCS bucket for thai grouper output
@@ -60,7 +60,7 @@ gcs_spc_fpath <- "spc"
 # bq dataset
 bq_dataset <- "phic_claims"
 # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
-bq_table <- paste0("temp_claims_", year_to_load)
+bq_table <- paste0("temp_claims_", year)
 
 
 # Folder Path Prefixes:
@@ -70,28 +70,28 @@ full_claims_bq_prefix <- stringr::str_replace_all(full_claims_prefix, " ", "\\\\
 clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
 claims_prefix <- file.path(data_prefix, "claims")
-checkpoint_1_prefix <- "checkpoint_1_claims_"
-checkpoint_2_prefix <- "checkpoint_2_claims_"
-checkpoint_3_prefix <- "DRG_Grouped_"
-checkpoint_4_prefix <- "checkpoint_4_thai_grouper_input_"
-checkpoint_5_prefix <- toupper(paste0(gcs_pre_fpath, "_", checkpoint_4_prefix))
-checkpoint_6_prefix <- "checkpoint_6_grouped_claims"
-checkpoint_7a_prefix <- "python_input_1"
-checkpoint_7b_prefix <- "python_input_2"
-checkpoint_10_prefix <- "stata"
+chkpt_1_prefix <- "chkpt_1_claims_"
+chkpt_2_prefix <- "chkpt_2_claims_"
+chkpt_3_prefix <- "DRG_Grouped_"
+chkpt_4_prefix <- "chkpt_4_thai_grouper_input_"
+chkpt_5_prefix <- toupper(paste0(gcs_pre_fpath, "_", chkpt_4_prefix))
+chkpt_6_prefix <- "chkpt_6_grouped_claims"
+chkpt_7a_prefix <- "python_input_1"
+chkpt_7b_prefix <- "python_input_2"
+chkpt_10_prefix <- "stata"
 
 # Folder Paths:
-chkpt_path <- file.path(data_prefix, "checkpoints")
-checkpoint_1_path <- file.path(chkpt_path, "checkpoint_1_partial_clean_claims")
-checkpoint_2_path <- file.path(chkpt_path, "checkpoint_2_master_clean_claims")
-checkpoint_3_path <- file.path(chkpt_path, "checkpoint_3_thai_partial_input")
-checkpoint_4_path <- file.path(chkpt_path, "checkpoint_4_thai_master_input")
-checkpoint_5_path <- file.path(chkpt_path, "checkpoint_5_thai_output")
-checkpoint_6_path <- file.path(chkpt_path, "checkpoint_6_thai_merged")
-checkpoint_7_path <- file.path(chkpt_path, "checkpoint_7_py_input")
-checkpoint_8_path <- file.path(chkpt_path, "checkpoint_8_py_output")
-checkpoint_9_path <- file.path(chkpt_path, "checkpoint_9_grouper_differences")
-checkpoint_10_path <- file.path(chkpt_path, "checkpoint_10_stata")
+chkpt_path <- file.path(data_prefix, "chkpts")
+chkpt_1_path <- file.path(chkpt_path, "chkpt_1_partial_clean_claims")
+chkpt_2_path <- file.path(chkpt_path, "chkpt_2_master_clean_claims")
+chkpt_3_path <- file.path(chkpt_path, "chkpt_3_thai_partial_input")
+chkpt_4_path <- file.path(chkpt_path, "chkpt_4_thai_master_input")
+chkpt_5_path <- file.path(chkpt_path, "chkpt_5_thai_output")
+chkpt_6_path <- file.path(chkpt_path, "chkpt_6_thai_merged")
+chkpt_7_path <- file.path(chkpt_path, "chkpt_7_py_input")
+chkpt_8_path <- file.path(chkpt_path, "chkpt_8_py_output")
+chkpt_9_path <- file.path(chkpt_path, "chkpt_9_grouper_differences")
+chkpt_10_path <- file.path(chkpt_path, "chkpt_10_stata")
 cache_path <- file.path(clean_prefix, "cache")
 mapping_path <- file.path(cache_path, "mapping")
 total_rows_path <- file.path(cache_path, "total_rows")
@@ -131,7 +131,7 @@ if (length(created_dirs) == 0) {
 # Commonly Used File Paths:
 full_claims_file <- here::here(
   raw_claims_path,
-  paste0(full_claims_prefix, year_to_load, file_type) # Use the file_type variable here
+  paste0(full_claims_prefix, year, file_type) # Use the file_type variable here
 )
 
 ram_limit <- (1 - 0.10) * 64 * (1024^3)
@@ -141,7 +141,7 @@ options(future.globals.maxSize = ram_limit)
 
 total_rows_file <- here::here(
   cache_path, "total_rows",
-  paste0("total_rows_", year_to_load, ".rds")
+  paste0("total_rows_", year, ".rds")
 )
 
 # Load cached total rows file if available, saves ~10 seconds of runtime

@@ -380,18 +380,18 @@ Steps to run the data-cleaning code end-to-end:
       2. Press `enter`.
    2. If not:
       1. **Don't type anything or press enter just yet. Leave it pending.** **DO NOT CLOSE VS CODE OR DISCONNECT FROM THE CODE TUNNEL INSTANCE**
-      2. Go to GCP GCS `phic-claims-checkpoints/pre-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-checkpoints/pre-tdrg?project=drg-pipeline>)
+      2. Go to GCP GCS `phic-claims-chkpts/pre-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/pre-tdrg?project=drg-pipeline>)
       3. Find the file it just uploaded.
       4. Download the file to your local machine. **DO NOT RENAME THE FILE AFTER DOWNLOADING.**
       5. Run the Thai Batch Grouper `(TGRP50V02.exe)` on the file you just downloaded. It should take an hour or two.
-      6. Go to GCP GCS `phic-claims-checkpoints/post-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-checkpoints/post-tdrg?project=drg-pipeline>)
+      6. Go to GCP GCS `phic-claims-chkpts/post-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/post-tdrg?project=drg-pipeline>)
       7. Upload the file outputted by the Thai Batch Grouper. **DO NOT RENAME THE FILE BEFORE UPLOADING.**
       8. Return to your VS Code Code Tunnel Instance.
       9. Type `y`.
       10. Press `enter`.
 6. It should now proceed with the process, first by analyzing and checking for differences between the drg code generated via Python Grouper vs via Thai Batch Grouper.
    1. It will write a csv containing said differences (or an empty csv if there are none),
-   2. It will write to `~/drg-pipeline/data/checkpoints/checkpoint_9_grouper_differences` as `checkpoint_9_grouper_differences_*.csv`
+   2. It will write to `~/drg-pipeline/data/chkpts/chkpt_9_grouper_differences` as `chkpt_9_grouper_differences_*.csv`
 7. It will then push to BQ as `drg-pipeline.phic_claims.claims_20XX1231`
 
 # Maintenace

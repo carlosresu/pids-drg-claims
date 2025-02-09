@@ -1,12 +1,12 @@
 read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
   chunk_file <- if (to_sample_argument) {
     here(raw_claims_samples_path, paste0(
-      "sampled_claims_", year_to_load, "_", sample_size_divisor,
+      "sampled_claims_", year, "_", sample_size_divisor,
       "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
     ))
   } else {
     here(raw_claims_parts_path, paste0(
-      full_claims_prefix, year_to_load,
+      full_claims_prefix, year,
       "_part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
     ))
   }
@@ -24,8 +24,7 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
     dt <- dt[, (drop_cols_manual) := NULL]
   }
 
-  replace_result <- replace_na_or_empty(dt = dt, replace_with = "NA_character_")
-  dt <- replace_result$return_data
+  dt <- replace_na_or_empty(dt = dt, replace_with = "NA_character_")
 
   ## Apply column classes only to the columns that exist in the data
   col_classes <- sapply(available_columns, function(col) {
@@ -61,26 +60,9 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
       },
       dt[[col]] # Default case: no conversion if unrecognized type
     )
-
-    # Check for NA coercion
-    coerced_to_na <- which(is.na(dt[[col]]) & !is.na(original_values))
-    if (length(coerced_to_na) > 0) {
-      cat(sprintf(
-        "Column '%s' coerced %d values to NA.
-          First few original values: %s\n",
-        col, length(coerced_to_na),
-        paste(original_values[coerced_to_na][1:5],
-          collapse = ", "
-        )
-      ))
-    }
   }
 
   nrow_start[[read_part]] <<- nrow(dt)
 
-  return(
-    list(
-      read_result_dt = dt
-    )
-  )
+  return(dt)
 }

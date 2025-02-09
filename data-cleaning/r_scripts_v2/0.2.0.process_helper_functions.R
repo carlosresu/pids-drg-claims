@@ -16,7 +16,9 @@ split_to_vector <- function(column) {
     result <- character(0)
 
     # Ensure long_string is not NA before proceeding
-    if (is.na(long_string)) return(result)
+    if (is.na(long_string)) {
+      return(result)
+    }
 
     # Step 1: Extract COVID codes
     covid_matches <- gregexpr(covid_pattern, long_string, perl = TRUE)[[1]]
@@ -170,45 +172,19 @@ replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additio
   # Include any additional columns specified, avoiding duplicates
   cols <- unique(c(cols, additional_columns))
 
-  # Initialize summary table for tracking replacements
-  replacement_summary <- data.table(
-    Column = character(),
-    Empty_Replaced = integer(),
-    String_NA_Replaced = integer(),
-    Actual_NA_Replaced = integer()
-  )
-
   # Define replacement values based on `replace_with` argument
   replacement_value <- if (replace_with == "NA_character_") NA_character_ else character(0)
-  label_na_replaced <- if (replace_with == "NA_character_") "String_NA_Replaced" else "Actual_NA_Replaced"
-  label_char0_replaced <- if (replace_with == "NA_character_") "Actual_NA_Replaced" else "String_NA_Replaced"
 
   # Process each relevant column
   for (col_name in cols) {
     col <- dt[[col_name]]
-    empty_count <- 0
-    string_na_count <- 0
-    actual_na_count <- 0
-
     # Separate handling for list and non-list columns
     if (is.list(col)) {
-      if (to_view_checks) {
-        # Count occurrences in list columns
-        empty_count <- sum(sapply(col, \(x) identical(x, "")))
-        string_na_count <- sum(sapply(col, \(x) identical(x, "NA")))
-        actual_na_count <- sum(sapply(col, \(x) all(is.na(x)) || (is.list(x) && length(x) == 0)))
-      }
       # Replace values with `character(0)` in list columns
       dt[, (col_name) := lapply(get(col_name), \(x) {
         if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
       })]
     } else {
-      # Count and replace for non-list columns if `replace_with` is `NA_character_`
-      if (to_view_checks) {
-        empty_count <- sum(col == "", na.rm = TRUE)
-        string_na_count <- sum(col == "NA", na.rm = TRUE)
-        actual_na_count <- sum(col == "character(0)", na.rm = TRUE)
-      }
       # Replace values with `NA_character_`
       dt[
         get(col_name) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
@@ -219,26 +195,9 @@ replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additio
         set(dt, j = col_name, value = factor(dt[[col_name]], levels = c(levels(col), NA)))
       }
     }
-
-    # Update the replacement summary
-    summary_row <- data.table(
-      Column = col_name,
-      Empty_Replaced = empty_count,
-      String_NA_Replaced = ifelse(replace_with == "NA_character_", string_na_count, NA_integer_),
-      Actual_NA_Replaced = ifelse(replace_with == "character(0)", actual_na_count, NA_integer_)
-    )
-    replacement_summary <- rbind(replacement_summary, summary_row, fill = TRUE)
   }
 
-  # Filter out columns with no replacements made
-  replacement_summary <- replacement_summary[
-    Empty_Replaced > 0 | get(label_na_replaced) > 0 | get(label_char0_replaced) > 0
-  ]
-
-  return(list(
-    return_data = dt,
-    return_replacement_summary = replacement_summary
-  ))
+  return(dt)
 }
 
 clean_column <- function(col) {
