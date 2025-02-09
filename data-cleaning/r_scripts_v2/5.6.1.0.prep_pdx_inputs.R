@@ -12,7 +12,6 @@ prep_pdx_inputs <- function(
 
   # Assumes existing definition of remove_whitespace and filter_icds
   # Remove whitespace in preparation for pdx finding
-  # Remove whitespace and split ICD codes
   c1_temp <- lapply(c1_orig, function(x) safe_split(remove_whitespace(x)))
   c2_temp <- lapply(c2_orig, function(x) safe_split(remove_whitespace(x)))
   clin_icd_temp <- lapply(clin_icd_orig, function(x) safe_split(remove_whitespace(x)))

@@ -8,13 +8,11 @@ sample_size_divisor <- 625
 to_sample <- TRUE
 # TODO: Add description here
 to_write <- TRUE
-# TODO: Add description here
+# To flush intermediate files
 to_flush <- FALSE
-# TODO: Add description here
+# To push to BQ
 to_bq <- FALSE
-# TODO: Add description here
-to_post_cleaning_checks <- TRUE
-# TODO: Add description here
+# To parallelize using unix-style multicore lapply
 to_parallel <- TRUE
 cat("Parallelization:", to_parallel, "\n")
 # TODO: Add description here

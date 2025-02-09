@@ -1,23 +1,3 @@
-############################# OVERALL TODO #############################
-# TO-DO's:
-# 0. [DONE] Make a new branch
-# 1. [DONE] Separate all nested functions
-#    (including those nested within nested functions)
-# 2. [DONE] Mapping code should process one column at a time, not all columns at once.
-# 3. [DONE] Separate out checks from functions and return statements
-############################# OVERALL TODO #############################
-
-############################# SPECIFIC TODO #############################
-# 1. document!!!!!!
-# 2. rearrange
-# 3. test
-############################# SPECIFIC TODO #############################
-
-############################# WHAT IS A DOCSTRING? #############################
-# Docstring that covers the bigger picture of the function
-# Such as why it exists, what it intends to do, and why it was written
-############################# WHAT IS A DOCSTRING? #############################
-
 find_pdx <- function(
     # Inputs:
     c1_split, c2_split, clin_icd_split,
