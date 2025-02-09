@@ -35,8 +35,8 @@ po/*~
 rsconnect/
 
 #ipynb chkpts
-data-cleaning/.ipynb_chkpts
-data-cleaning/r_scripts/.ipynb_chkpts
+data-cleaning/.ipynb_checkpoints
+data-cleaning/r_scripts/.ipynb_checkpoints
 
 #git-ignored-files
 data-cleaning/data

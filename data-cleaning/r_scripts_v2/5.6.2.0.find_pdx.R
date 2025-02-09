@@ -14,7 +14,7 @@ find_pdx <- function(
 
   # REMEMBER: we already filter c1 thru clin_icd and leave only acceptable pdxs
   # this is why we dont check
-  algo_result <- mapply(function(c1_split, c2_split, clin_icd_split) {
+  algo_result <- mapply(\(c1_split, c2_split, clin_icd_split) {
     # Step A: Check if any element in c1_split or c2_split is an accepted PDX
     for (cr_list in list(c1_split, c2_split)) {
       if (length(cr_list) > 0) {
