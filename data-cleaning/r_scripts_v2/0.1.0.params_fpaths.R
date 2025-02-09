@@ -34,8 +34,7 @@ manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD c
 manual_code_replacements <- c("O800", "O80", "O809") # ICD code replacements
 
 # Control random behavior for reproducibility (Choose and set a number as seed)
-# (Important for stuff like randomly choosing a pdx among
-# multiple possible options)
+# (Important for stuff like randomly choosing a pdx among multiple possible options)
 global_seed <- seed <- 123
 set.seed(global_seed)
 
