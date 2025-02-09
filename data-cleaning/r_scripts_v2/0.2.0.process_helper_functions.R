@@ -4,7 +4,7 @@ manual_replacement <- function(text) {
 
 remove_periods_and_whitespaces <- function(x) {
   # Ensure UTF-8 encoding
-  x <- sapply(x, function(elem) iconv(elem, from = "latin1", to = "UTF-8"), USE.NAMES = FALSE)
+  x <- sapply(x, \(elem) iconv(elem, from = "latin1", to = "UTF-8"), USE.NAMES = FALSE)
 
   # Remove periods and whitespaces
   x <- gsub("[.\\s]", "", x)
@@ -13,7 +13,7 @@ remove_periods_and_whitespaces <- function(x) {
 }
 
 split_to_vector <- function(column) {
-  lapply(column, function(long_string) {
+  lapply(column, \(long_string) {
     # Initialize result vector
     result <- character(0)
 
@@ -64,7 +64,7 @@ split_to_vector <- function(column) {
     }
 
     # Final Step: Split each element of result by "||" and flatten the output
-    final_result <- unlist(lapply(result, function(element) {
+    final_result <- unlist(lapply(result, \(element) {
       strsplit(element, "\\|\\|", perl = TRUE)[[1]]
     }))
 
@@ -77,9 +77,9 @@ split_to_vector <- function(column) {
 remove_lumped_icd_codes <- function(column) {
   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
 
-  result <- lapply(column, function(vec) {
+  result <- lapply(column, \(vec) {
     # Iterate through each element of the vector
-    processed <- unlist(lapply(vec, function(element) {
+    processed <- unlist(lapply(vec, \(element) {
       if ((is.na(element) || element == "") # && (!is.null(mget(element, envir = neoplasm_env, ifnotfound = NA)[[1]]) || !is.null(mget(element, envir = covid_env, ifnotfound = NA)[[1]]))
       ) {
         return(character(0)) # Keep intact if it's a valid neoplasm or COVID code
@@ -165,7 +165,7 @@ replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additio
   # Identify columns based on `replace_with` type
   cols <- if (replace_with == "NA_character_") {
     # Apply to character, factor, or list columns
-    names(dt)[sapply(dt, function(col) is.character(col) || is.factor(col) || is.list(col))]
+    names(dt)[sapply(dt, \(col) is.character(col) || is.factor(col) || is.list(col))]
   } else {
     # Apply only to list columns if `replace_with` is character(0)
     names(dt)[sapply(dt, is.list)]
@@ -198,12 +198,12 @@ replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additio
     if (is.list(col)) {
       if (to_view_checks) {
         # Count occurrences in list columns
-        empty_count <- sum(sapply(col, function(x) identical(x, "")))
-        string_na_count <- sum(sapply(col, function(x) identical(x, "NA")))
-        actual_na_count <- sum(sapply(col, function(x) all(is.na(x)) || (is.list(x) && length(x) == 0)))
+        empty_count <- sum(sapply(col, \(x) identical(x, "")))
+        string_na_count <- sum(sapply(col, \(x) identical(x, "NA")))
+        actual_na_count <- sum(sapply(col, \(x) all(is.na(x)) || (is.list(x) && length(x) == 0)))
       }
       # Replace values with `character(0)` in list columns
-      dt[, (col_name) := lapply(get(col_name), function(x) {
+      dt[, (col_name) := lapply(get(col_name), \(x) {
         if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
       })]
     } else {
@@ -291,7 +291,6 @@ remove_whitespace <- function(x) {
 }
 
 prep_icd_for_mapping <- function(text) {
-  # str(text)
   text %>%
     manual_replacement() %>%
     collapse_to_string() %>%

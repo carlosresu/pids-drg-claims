@@ -93,7 +93,7 @@ append_copy_and_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
     }
   })]
 
-  # Return updated clin_rvs, clin_icd, cleaned col, and discarded RVS codes
+  # Return updated clin_rvs, clin_icd, and cleaned col
   return(list(
     clin_rvs = datatable$clin_rvs,
     clin_icd = datatable$clin_icd,
