@@ -26,7 +26,6 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 
   replace_result <- replace_na_or_empty(dt = dt, replace_with = "NA_character_")
   dt <- replace_result$return_data
-  replacement_summary <- replace_result$return_replacement_summary
 
   ## Apply column classes only to the columns that exist in the data
   col_classes <- sapply(available_columns, function(col) {
@@ -81,8 +80,7 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 
   return(
     list(
-      read_result_dt = dt,
-      read_result_replacement_summary = replacement_summary
+      read_result_dt = dt
     )
   )
 }

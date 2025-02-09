@@ -7,9 +7,7 @@ remove_periods_and_whitespaces <- function(x) {
   x <- sapply(x, \(elem) iconv(elem, from = "latin1", to = "UTF-8"), USE.NAMES = FALSE)
 
   # Remove periods and whitespaces
-  x <- gsub("[.\\s]", "", x)
-
-  return(x)
+  return(gsub("[.\\s]", "", x))
 }
 
 split_to_vector <- function(column) {
@@ -18,9 +16,7 @@ split_to_vector <- function(column) {
     result <- character(0)
 
     # Ensure long_string is not NA before proceeding
-    if (is.na(long_string)) {
-      return(result)
-    }
+    if (is.na(long_string)) return(result)
 
     # Step 1: Extract COVID codes
     covid_matches <- gregexpr(covid_pattern, long_string, perl = TRUE)[[1]]
