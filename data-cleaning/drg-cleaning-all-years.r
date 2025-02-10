@@ -5,7 +5,7 @@ run_notebook <- function(to_parallel) {
 
 # Loop over the years (2019, 2022) with retry logic
 for (year in c(2019:2023)) {
-  write(as.character(year), here::here("data-cleaning", "cache", "year.txt"))
+  write(as.character(year), here::here("data-cleaning", "debug", "cache", "year.txt"))
 
   if (!run_notebook(TRUE)) {
     stop("R script failed.")

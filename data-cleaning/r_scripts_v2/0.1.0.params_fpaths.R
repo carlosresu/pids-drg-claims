@@ -12,7 +12,7 @@ if (!file.exists(here::here("data-cleaning/debug/cache/year.txt"))) {
   writeLines("2018", here::here("data-cleaning/debug/cache/year.txt"))
 }
 if (!exists("year")) {
-  year <- data.table::fread(here::here("data-cleaning", "cache", "year.txt"),
+  year <- data.table::fread(here::here("data-cleaning", "debug", "cache", "year.txt"),
     header = FALSE, colClasses = "character"
   )[[1]]
 }
@@ -109,7 +109,7 @@ chkpt_7_path <- file.path(chkpt_path, "chkpt_7_py_input")
 chkpt_8_path <- file.path(chkpt_path, "chkpt_8_py_output")
 chkpt_9_path <- file.path(chkpt_path, "chkpt_9_grouper_differences")
 chkpt_10_path <- file.path(chkpt_path, "chkpt_10_stata")
-cache_path <- file.path(clean_prefix, "cache")
+cache_path <- file.path(clean_prefix, "debug", "cache")
 mapping_path <- file.path(cache_path, "mapping")
 total_rows_path <- file.path(cache_path, "total_rows")
 py_pkgs_path <- file.path(cache_path, "py_pkgs")
