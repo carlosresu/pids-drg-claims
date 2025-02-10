@@ -8,18 +8,28 @@ export_for_grouper <- function(dt, output_txt_file, chunk_number) {
   output_dt_thai[, CASEID := dt$caseid]
 
   # Format Date of Birth (DOB)
-  output_dt_thai[, DOB := as.character(format(as.Date(dt$pat_bdate), "%d/%m/%Y"))]
+  output_dt_thai[, DOB := as.character(
+    format(as.Date(dt$pat_bdate), "%d/%m/%Y")
+  )]
 
   # Format Sex
   output_dt_thai[, Sex := ifelse(dt$pat_sex == "M", 1, 2)]
 
   # Format Admission Date and Time
-  output_dt_thai[, DateAdm := format(as.Date(dt$date_adm), "%d/%m/%Y")]
-  output_dt_thai[, TimeAdm := format(as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M")]
+  output_dt_thai[, DateAdm := format(
+    as.Date(dt$date_adm), "%d/%m/%Y"
+  )]
+  output_dt_thai[, TimeAdm := format(
+    as.POSIXct(dt$time_adm, format = "%H:%M:%S"), "%H%M"
+  )]
 
   # Format Discharge Date and Time
-  output_dt_thai[, DateDsc := format(as.Date(dt$date_dis), "%d/%m/%Y")]
-  output_dt_thai[, TimeDsc := format(as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M")]
+  output_dt_thai[, DateDsc := format(
+    as.Date(dt$date_dis), "%d/%m/%Y"
+  )]
+  output_dt_thai[, TimeDsc := format(
+    as.POSIXct(dt$time_dis, format = "%H:%M:%S"), "%H%M"
+  )]
 
   # Discharge Type
   output_dt_thai[, DischT := dt$clin_discharge]

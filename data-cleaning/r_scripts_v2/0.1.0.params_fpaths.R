@@ -5,21 +5,32 @@ tictoc::tic("Time spent (total)               ")
 nthreads <- parallelly::availableCores()
 nthreads <- if (nthreads >= 16) nthreads - thread_offset else nthreads
 
-dir.create(dirname(here::here("data-cleaning/cache/year.txt")), recursive = TRUE, showWarnings = FALSE)
-if (!file.exists(here::here("data-cleaning/cache/year.txt"))) writeLines("2018", here::here("data-cleaning/cache/year.txt"))
-if (!exists("year")) year <- data.table::fread(here::here("data-cleaning", "cache", "year.txt"), header = FALSE, colClasses = "character")[[1]]
+dir.create(dirname(here::here("data-cleaning/cache/year.txt")),
+  recursive = TRUE, showWarnings = FALSE
+)
+if (!file.exists(here::here("data-cleaning/cache/year.txt"))) {
+  writeLines("2018", here::here("data-cleaning/cache/year.txt"))
+}
+if (!exists("year")) {
+  year <- data.table::fread(here::here("data-cleaning", "cache", "year.txt"),
+    header = FALSE, colClasses = "character"
+  )[[1]]
+}
 file_type <- if (year %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
-to_read <- FALSE # TODO: Deprecated, used to be whether to forcibly read the whole file again instead of using the split parts created even if available
-to_split <- TRUE # TODO: Deprecated, only used when to_sample is TRUE # Whether to split into split_parts parts (i.e. to fit in 32gb RAM).
-thai_prompt <- TRUE # Whether to prompt for thai grouper even if bypassing all other prompts
+# Whether to prompt for thai grouper even if bypassing all other prompts
+thai_prompt <- TRUE
 to_prompt <- FALSE
 
 split_parts <- 15
 # Sample size divisor: Formula for sample size is
 # (total_rows ÷ split_parts) ÷ sample_size_divisor.
 # Choose between 5, 25, 125, and 625
-if (exists("sample_size_divisor")) sample_size_divisor <- sample_size_divisor else sample_size_divisor <- 5
+if (exists("sample_size_divisor")) {
+  sample_size_divisor <- sample_size_divisor
+} else {
+  sample_size_divisor <- 5
+}
 
 # Columns to drop
 drop_cols <- c( # Which columns to drop
@@ -30,11 +41,15 @@ drop_cols_manual <- c(
 )
 
 # other parameters for manual adjustments
-manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b") # ICD codes to replace
-manual_code_replacements <- c("O800", "O80", "O809") # ICD code replacements
+# ICD codes to replace
+manual_patterns_to_replace <- c("\\b0800\\b", "\\b080\\b", "\\b0809\\b")
+# ICD code replacements
+manual_code_replacements <- c("O800", "O80", "O809")
 
-# Control random behavior for reproducibility (Choose and set a number as seed)
-# (Important for stuff like randomly choosing a pdx among multiple possible options)
+# Control random behavior for reproducibility
+# (Choose and set a number as seed)
+# (Important for stuff like randomly choosing a
+# pdx among multiple possible options)
 global_seed <- seed <- 123
 set.seed(global_seed)
 
@@ -66,7 +81,9 @@ bq_table <- paste0("temp_claims_", year)
 # Folder Path Prefixes:
 # Include spaces if there are any
 full_claims_prefix <- "claims_extract_CLAIMS "
-full_claims_bq_prefix <- stringr::str_replace_all(full_claims_prefix, " ", "\\\\ ")
+full_claims_bq_prefix <- stringr::str_replace_all(
+  full_claims_prefix, " ", "\\\\ "
+)
 clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
 claims_prefix <- file.path(data_prefix, "claims")
@@ -110,10 +127,12 @@ profvis_fpath <- here::here("data-cleaning", "data", "profvis", "profvis.html")
 # Create directories:
 created_dirs <- c() # Initialize empty vector
 # For all "_path" variables, create a directory with that path
-# Create directories for variables ending in "_path" that are directories, not files
+# Create directories for variables ending in "_path"
+# that are directories, not files
 for (path in mget(ls(pattern = "_path$"), envir = .GlobalEnv)) {
   full_path <- here::here(path)
-  # Check if the path is a directory and does not end with a specific file extension
+  # Check if the path is a directory and does not end
+  # with a specific file extension
   if (!dir.exists(full_path) && !grepl("\\.rds$|\\.csv$|\\.tsv$", full_path)) {
     dir.create(full_path, recursive = TRUE, showWarnings = FALSE)
     created_dirs <- c(created_dirs, full_path)
@@ -129,7 +148,10 @@ if (length(created_dirs) == 0) {
 }
 
 # Commonly Used File Paths:
-full_claims_file <- here::here(raw_claims_path, paste0(full_claims_prefix, year, file_type))
+full_claims_file <- here::here(
+  raw_claims_path,
+  paste0(full_claims_prefix, year, file_type)
+)
 # Use the file_type variable here
 
 ram_limit <- (1 - 0.10) * 64 * (1024^3)
@@ -137,7 +159,10 @@ ram_limit <- (1 - 0.10) * 64 * (1024^3)
 # Allowing each future_lapply session to use more memory
 options(future.globals.maxSize = ram_limit)
 
-total_rows_file <- here::here(cache_path, "total_rows", paste0("total_rows_", year, ".rds"))
+total_rows_file <- here::here(
+  cache_path, "total_rows",
+  paste0("total_rows_", year, ".rds")
+)
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
 if (file.exists(total_rows_file)) {
@@ -156,7 +181,10 @@ if (file.exists(total_rows_file)) {
 
 sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
 
-suffix <- paste0(ifelse(to_sample, paste0("_sampled_", sample_size_divisor, "_"), "_full_"))
+suffix <- paste0(ifelse(to_sample, paste0(
+  "_sampled_",
+  sample_size_divisor, "_"
+), "_full_"))
 
 ## NA-like strings
 na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
@@ -223,7 +251,8 @@ column_mappings <- list(
   "DISPOSITION" = "clin_discharge",
   "PRIMARY_ILLNESS" = "clin_c1",
   "SECONDARY_ILLNESS" = "clin_c2",
-  "ICDCODES_ITEM7" = "clin_icd1", # We'll dynamically handle clin_icd and clin_rvs
+  # We'll dynamically handle clin_icd and clin_rvs
+  "ICDCODES_ITEM7" = "clin_icd1",
   "RVSCODES_ITEM7" = "clin_rvs1",
 
   # Claim status and amounts
@@ -339,12 +368,14 @@ known_values <- list(
     "EMPLOYED PRIVATE", "SELF-EARNING INDIVIDUAL", "SENIOR CITIZEN", "INDIGENT",
     "LIFETIME MEMBER", "SPONSORED", "MIGRANT WORKER", "EMPLOYED GOVERNMENT",
     "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
-    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD", "SELF EARNING INDIVIDUAL",
-    "FAMILY DRIVER", "FORMAL ECONOMY", "DIRECT CONTRIBUTOR", "PROFESSIONAL PRACTITIONER"
+    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
+    "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY",
+    "DIRECT CONTRIBUTOR", "PROFESSIONAL PRACTITIONER"
   ),
   clin_discharge = c(
-    "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE", "ABSCONDED",
-    "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED", "I", "R", "H", "A", "T", "E"
+    "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
+    "ABSCONDED", "TRANSFERRED/REFERRED", "EXPIRED", "UNDEFINED",
+    "I", "R", "H", "A", "T", "E"
   )
 )
 
@@ -381,8 +412,10 @@ col_remap_master <- quote(fcase(
 ))
 
 # Initialize Variables
-all_parts_summaries <- master_dt_list <- combined_chunk_summary <- pdx_success_list <- replacement_summary_list <- icd_mapping_list <- list() # initialize lists
+# initialize lists
+all_parts_summaries <- master_dt_list <- icd_mapping_list <- list()
 dim_dt <- vector() # initialize vector for dt dimensions
-processing_times <- split_processing_times <- nrow_start <- nrow_end <- numeric(split_parts)
+processing_times <- split_processing_times <-
+  nrow_start <- nrow_end <- numeric(split_parts)
 master_dt <- data.table::data.table() # initialize data.tables
 message(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))

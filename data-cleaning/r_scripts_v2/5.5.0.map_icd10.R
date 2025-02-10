@@ -12,7 +12,9 @@ map_icd10 <- function(col) {
     !grepl("^[0-9]", icds) &
     !grepl("^[A-Z]{2}", icds) &
     !grepl("/", icds) &
-    !vapply(icds, function(code) exists(x = code, envir = covid_rvs_neoplasm_env, inherits = FALSE), logical(1))]
+    !vapply(icds, function(code) {
+      exists(x = code, envir = covid_rvs_neoplasm_env, inherits = FALSE)
+    }, logical(1))]
 
   # Initialize things
   icd_mapping <- list() # Mapping to store results

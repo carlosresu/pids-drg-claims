@@ -5,8 +5,8 @@ query_bq_to_dt
 split_and_save_part
 create_sample_files
 read_appropriate_file
-collapse_and_clean_icd_rvs_cols
-append_copy_and_remove_icd_rvs
+collapse_clean_icd_rvs_cols
+append_copy_remove_icd_rvs
 remap_patient_data
 map_rvs_icd9
 map_icd10

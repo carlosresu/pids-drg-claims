@@ -9,7 +9,9 @@ manual_replacement <- function(text) {
 
 remove_periods_and_whitespaces <- function(x) {
   # Ensure UTF-8 encoding
-  x <- sapply(x, function(elem) iconv(elem, from = "latin1", to = "UTF-8"), USE.NAMES = FALSE)
+  x <- sapply(x, function(elem) {
+    iconv(elem, from = "latin1", to = "UTF-8")
+  }, USE.NAMES = FALSE)
 
   # Remove periods and whitespaces
   return(gsub("[.\\s]", "", x))
@@ -35,7 +37,10 @@ split_to_vector <- function(column) {
     }
 
     # Step 2: Extract Neoplasm codes
-    neoplasm_matches <- gregexpr(neoplasm_pattern, long_string, perl = TRUE)[[1]]
+    neoplasm_matches <- gregexpr(neoplasm_pattern,
+      long_string,
+      perl = TRUE
+    )[[1]]
     if (!is.na(neoplasm_matches[1]) && neoplasm_matches[1] != -1) {
       neoplasm_codes <- regmatches(long_string, list(neoplasm_matches))[[1]]
       result <- c(result, neoplasm_codes)
@@ -82,12 +87,16 @@ remove_lumped_icd_codes <- function(column) {
   return(lapply(column, function(vec) {
     # Iterate through each element of the vector
     processed <- unlist(lapply(vec, function(element) {
-      if ((is.na(element) || element == "") # && (!is.null(mget(element, envir = neoplasm_env, ifnotfound = NA)[[1]]) || !is.null(mget(element, envir = covid_env, ifnotfound = NA)[[1]]))
+      if ((is.na(element) || element == "")
       ) {
-        return(character(0)) # Keep intact if it's a valid neoplasm or COVID code
+        # Keep intact if it's a valid neoplasm or COVID code
+        return(character(0))
       } else {
-        # Perform regex-based splitting for ICD-10 codes using the combined regex
-        return(unlist(strsplit(element, "(?<=\\d)(?=[A-Z][0-9]{2,})", perl = TRUE)))
+        # Perform regex-based splitting for ICD-10
+        # codes using the combined regex
+        return(unlist(strsplit(element, "(?<=\\d)(?=[A-Z][0-9]{2,})",
+          perl = TRUE
+        )))
       }
     }))
 
@@ -120,15 +129,18 @@ remove_lumped_rvs_codes <- function(column) {
         }
 
         # Remove all non-alphanumeric characters and clean the code
-        code_clean <- gsub("\\|", "", code) # Remove all "|" characters
-        code_clean <- gsub("[^A-Z0-9]", "", code_clean) # Remove non-alphanumeric characters
+        # Remove all "|" characters
+        code_clean <- gsub("\\|", "", code)
+        # Remove non-alphanumeric characters
+        code_clean <- gsub("[^A-Z0-9]", "", code_clean)
 
         # If the cleaned code length is 0, return NA
         if (nchar(code_clean) == 0) {
           return(NA_character_)
         }
 
-        # If the cleaned code length is not a multiple of 5, log a message and return NA
+        # If the cleaned code length is not a multiple of 5,
+        # log a message and return NA
         if (nchar(code_clean) %% 5 != 0) {
           return(NA_character_)
         }
@@ -157,16 +169,15 @@ collapse_to_string <- function(vec) {
   }
 }
 
-replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additional_columns = NULL) {
-  # Validate `replace_with` argument
-  if (!replace_with %chin% c("NA_character_", "character(0)")) {
-    stop("Invalid replace_with argument. Use either 'NA_character_' or 'character(0)'.")
-  }
-
+replace_na_or_empty <- function(
+    dt, replace_with, to_view_checks = TRUE,
+    additional_columns = NULL) {
   # Identify columns based on `replace_with` type
   cols <- if (replace_with == "NA_character_") {
     # Apply to character, factor, or list columns
-    names(dt)[sapply(dt, function(col) is.character(col) || is.factor(col) || is.list(col))]
+    names(dt)[sapply(dt, function(col) {
+      is.character(col) || is.factor(col) || is.list(col)
+    })]
   } else {
     # Apply only to list columns if `replace_with` is character(0)
     names(dt)[sapply(dt, is.list)]
@@ -176,26 +187,34 @@ replace_na_or_empty <- function(dt, replace_with, to_view_checks = TRUE, additio
   cols <- unique(c(cols, additional_columns))
 
   # Define replacement values based on `replace_with` argument
-  replacement_value <- if (replace_with == "NA_character_") NA_character_ else character(0)
+  replacement_value <- if (replace_with == "NA_character_") {
+    NA_character_
+  } else {
+    character(0)
+  }
 
   # Process each relevant column
-  for (col_name in cols) {
-    col <- dt[[col_name]]
+  for (col in cols) {
+    col <- dt[[col]]
     # Separate handling for list and non-list columns
     if (is.list(col)) {
       # Replace values with `character(0)` in list columns
-      dt[, (col_name) := lapply(get(col_name), function(x) {
-        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
+      dt[, (col) := lapply(get(col), function(x) {
+        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) {
+          character(0)
+        } else {
+          x
+        }
       })]
     } else {
       # Replace values with `NA_character_`
       dt[
-        get(col_name) == "" | get(col_name) == "NA" | get(col_name) == "character(0)",
-        (col_name) := NA_character_
+        get(col) == "" | get(col) == "NA" | get(col) == "character(0)",
+        (col) := NA_character_
       ]
       # Ensure NA is a level if the column is a factor
       if (is.factor(col)) {
-        set(dt, j = col_name, value = factor(dt[[col_name]], levels = c(levels(col), NA)))
+        set(dt, j = col, value = factor(dt[[col]], levels = c(levels(col), NA)))
       }
     }
   }
@@ -229,9 +248,14 @@ clean_column <- function(col) {
   is_covid[is.na(is_covid)] <- FALSE # Handle NAs
 
   # Restore slashes for neoplasm ICD-10 codes
-  neopl <- setNames(neoplasms_dt_actual$icd10, gsub("/", "", neoplasms_dt_actual$icd10))
+  neopl <- setNames(
+    neoplasms_dt_actual$icd10,
+    gsub("/", "", neoplasms_dt_actual$icd10)
+  )
   matched_indices <- match(cleaned_col, names(neopl))
-  cleaned_col[!is.na(matched_indices)] <- neopl[matched_indices[!is.na(matched_indices)]]
+  cleaned_col[!is.na(matched_indices)] <- neopl[
+    matched_indices[!is.na(matched_indices)]
+  ]
 
   # Return the cleaned column and is_covid flag
   return(list(
@@ -242,9 +266,11 @@ clean_column <- function(col) {
 
 remove_whitespace <- function(x) {
   if (is.null(x) || length(x) == 0) {
-    return(NA_character_) # Return NA for NULL or empty lists
+    # Return NA for NULL or empty lists
+    return(NA_character_)
   } else {
-    return(gsub("\\s+", "", x)) # Remove all whitespace characters
+    # Remove all whitespace characters
+    return(gsub("\\s+", "", x))
   }
 }
 
@@ -270,12 +296,16 @@ filter_icds <- function(codes, neoplasm_codes, covidrvs, acc_pdx_set) {
 # Helper function to handle NULL or NA safely
 safe_split <- function(x) {
   if (is.null(x) || all(is.na(x))) {
-    return(NA_character_) # Return an empty character vector for consistency
+    # Return an empty character vector for consistency
+    return(NA_character_)
   }
-  unlist(strsplit(x, "\\|")) # Split valid strings by '|'
+  # Split valid strings by '|'
+  unlist(strsplit(x, "\\|"))
 }
 
-print_status_update <- function(status_part, split_parts, processing_times, phase) {
+print_status_update <- function(
+    status_part, split_parts,
+    processing_times, phase) {
   # Calculate elapsed time and averages
   elapsed_time <- sum(processing_times[1:status_part])
   avg_time_per_part <- elapsed_time / status_part
