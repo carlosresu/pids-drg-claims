@@ -88,14 +88,15 @@ map_icd10 <- function(col) {
   }
 
   # Return the results
-  return(lapply(col, function(codes) {
+  ret <- lapply(col, function(codes) {
     unname(sapply(codes, function(code) {
       # str(icd_mapping)
       if (!is.null(icd_mapping[[code]]) && !is.na(icd_mapping[[code]])) {
-        icd_mapping[[code]]
+        return(icd_mapping[[code]])
       } else {
-        code
+        return(code)
       }
     }))
-  }))
+  })
+  return(ret)
 }

@@ -1,20 +1,23 @@
 manual_replacement <- function(text) {
-  stri_replace_all_regex(
+  replaced <- stri_replace_all_regex(
     text,
     manual_patterns_to_replace,
     manual_code_replacements,
     vectorize_all = FALSE
   )
+  return(replaced)
 }
 
 remove_periods_and_whitespaces <- function(x) {
   # Ensure UTF-8 encoding
   x <- sapply(x, function(elem) {
-    iconv(elem, from = "latin1", to = "UTF-8")
+    element <- iconv(elem, from = "latin1", to = "UTF-8")
+    return(element)
   }, USE.NAMES = FALSE)
 
   # Remove periods and whitespaces
-  return(gsub("[.\\s]", "", x))
+  cleaned <- gsub("[.\\s]", "", x)
+  return(cleaned)
 }
 
 split_to_vector <- function(column) {
@@ -76,7 +79,9 @@ split_to_vector <- function(column) {
       strsplit(element, "\\|\\|", perl = TRUE)[[1]]
     }))
 
-    return(final_result[final_result != ""]) # Remove any empty strings
+    # Remove any empty strings
+    clean_result <- final_result[final_result != ""]
+    return(clean_result)
   })
 }
 
@@ -84,7 +89,7 @@ split_to_vector <- function(column) {
 # Function to process ICD codes
 remove_lumped_icd_codes <- function(column) {
   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
-  return(lapply(column, function(vec) {
+  unlumped <- lapply(column, function(vec) {
     # Iterate through each element of the vector
     processed <- unlist(lapply(vec, function(element) {
       if ((is.na(element) || element == "")
@@ -101,8 +106,10 @@ remove_lumped_icd_codes <- function(column) {
     }))
 
     # Filter out empty strings and return the cleaned vector
-    return(processed[processed != ""])
-  }))
+    processed <- processed[processed != ""]
+    return(processed)
+  })
+  return(unlumped)
 }
 
 flatten_then_check_null_na <- function(input) {
@@ -119,43 +126,42 @@ flatten_then_check_null_na <- function(input) {
 
 remove_lumped_rvs_codes <- function(column) {
   ## Separates out lumped RVS codes by splitting into chunks of 5 chars each
-  return(
-    sapply(
-      as.character(column),
-      function(code) {
-        # Check if the code is NA, empty, or NULL, and return NA if so
-        if (is.na(code) || code == "" || is.null(code)) {
-          return(NA_character_)
-        }
+  modified_column <- sapply(
+    as.character(column),
+    function(code) {
+      # Check if the code is NA, empty, or NULL, and return NA if so
+      if (is.na(code) || code == "" || is.null(code)) {
+        return(NA_character_)
+      }
 
-        # Remove all non-alphanumeric characters and clean the code
-        # Remove all "|" characters
-        code_clean <- gsub("\\|", "", code)
-        # Remove non-alphanumeric characters
-        code_clean <- gsub("[^A-Z0-9]", "", code_clean)
+      # Remove all non-alphanumeric characters and clean the code
+      # Remove all "|" characters
+      code_clean <- gsub("\\|", "", code)
+      # Remove non-alphanumeric characters
+      code_clean <- gsub("[^A-Z0-9]", "", code_clean)
 
-        # If the cleaned code length is 0, return NA
-        if (nchar(code_clean) == 0) {
-          return(NA_character_)
-        }
+      # If the cleaned code length is 0, return NA
+      if (nchar(code_clean) == 0) {
+        return(NA_character_)
+      }
 
-        # If the cleaned code length is not a multiple of 5,
-        # log a message and return NA
-        if (nchar(code_clean) %% 5 != 0) {
-          return(NA_character_)
-        }
+      # If the cleaned code length is not a multiple of 5,
+      # log a message and return NA
+      if (nchar(code_clean) %% 5 != 0) {
+        return(NA_character_)
+      }
 
-        # Insert "||" every 5 characters to split the code
-        modified_code <- gsub("(.{5})", "\\1||", code_clean)
+      # Insert "||" every 5 characters to split the code
+      modified_code <- gsub("(.{5})", "\\1||", code_clean)
 
-        # Remove trailing "||" if present
-        modified_code <- gsub("\\|\\|$", "", modified_code)
+      # Remove trailing "||" if present
+      modified_code <- gsub("\\|\\|$", "", modified_code)
 
-        return(modified_code)
-      },
-      USE.NAMES = FALSE
-    )
-  ) # Return the modified column with split RVS codes
+      return(modified_code)
+    },
+    USE.NAMES = FALSE
+  )
+  return(modified_column) # Return the modified column with split RVS codes
 }
 
 # Function to collapse the replaced text with "||" as separator
@@ -163,9 +169,11 @@ collapse_to_string <- function(vec) {
   # Collapse non-empty elements with "||" as the separator
   vec <- vec[vec != "" & !is.na(vec)]
   if (length(vec) > 0) {
-    paste(vec, collapse = "||")
+    vector <- paste(vec, collapse = "||")
+    return(vector)
   } else {
-    NA_character_
+    empty_vec <- NA_character_
+    return(empty_vec)
   }
 }
 
@@ -176,7 +184,7 @@ replace_na_or_empty <- function(
   cols <- if (replace_with == "NA_character_") {
     # Apply to character, factor, or list columns
     names(dt)[sapply(dt, function(col) {
-      is.character(col) || is.factor(col) || is.list(col)
+      return(is.character(col) || is.factor(col) || is.list(col))
     })]
   } else {
     # Apply only to list columns if `replace_with` is character(0)
@@ -264,10 +272,11 @@ clean_column <- function(col) {
   ]
 
   # Return the cleaned column and is_covid flag
-  return(list(
+  return_list <- list(
     cleaned_col = cleaned_col,
     is_covid = is_covid
-  ))
+  )
+  return(return_list)
 }
 
 remove_whitespace <- function(x) {
@@ -296,7 +305,8 @@ filter_icds <- function(codes, neoplasm_codes, covidrvs, acc_pdx_set) {
     !grepl("^[A-Z]{2}", codes) & !grepl("/", codes) &
     !(codes %chin% neoplasm_codes) & !(codes %chin% rvs_codes) &
     !(codes %chin% covidrvs)]
-  codes[codes %chin% acc_pdx_set]
+  filtered <- codes[codes %chin% acc_pdx_set]
+  return(filtered)
 }
 
 # Helper function to handle NULL or NA safely
@@ -306,7 +316,8 @@ safe_split <- function(x) {
     return(NA_character_)
   }
   # Split valid strings by '|'
-  unlist(strsplit(x, "\\|"))
+  unlisted_and_split <- unlist(strsplit(x, "\\|"))
+  return(unlisted_and_split)
 }
 
 print_status_update <- function(
@@ -333,8 +344,8 @@ print_status_update <- function(
     if (h > 0) time_components <- c(time_components, paste0(h, "h"))
     if (m > 0 || h > 0) time_components <- c(time_components, paste0(m, "m"))
     time_components <- c(time_components, paste0(s, "s"))
-
-    return(trimws(paste(time_components, collapse = " ")))
+    trimmed_time <- trimws(paste(time_components, collapse = " "))
+    return(trimmed_time)
   }
 
   # Calculate and format elapsed and remaining time

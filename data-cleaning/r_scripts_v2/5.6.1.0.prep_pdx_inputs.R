@@ -13,13 +13,16 @@ prep_pdx_inputs <- function(
   # Assumes existing definition of remove_whitespace and filter_icds
   # Remove whitespace in preparation for pdx finding
   c1_temp <- lapply(c1_orig, function(x) {
-    safe_split(remove_whitespace(x))
+    split <- safe_split(remove_whitespace(x))
+    return(split)
   })
   c2_temp <- lapply(c2_orig, function(x) {
-    safe_split(remove_whitespace(x))
+    split <- safe_split(remove_whitespace(x))
+    return(split)
   })
   clin_icd_temp <- lapply(clin_icd_orig, function(x) {
-    safe_split(remove_whitespace(x))
+    split <- safe_split(remove_whitespace(x))
+    return(split)
   })
 
   # Filter ICD codes to remove invalid candidates
@@ -37,5 +40,6 @@ prep_pdx_inputs <- function(
   )
 
   # prepared outputs (input to find_pdx)
-  return(list(c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final))
+  ret_list <- list(c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final)
+  return(ret_list)
 }
