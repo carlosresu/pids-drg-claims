@@ -48,5 +48,5 @@ grouper/test.py
 
 # data-cleaning/debug
 Rplots.pdf
-data-cleaning/cache/venv
+data-cleaning/debug/cache/venv
 data-cleaning/debug/test.csv
