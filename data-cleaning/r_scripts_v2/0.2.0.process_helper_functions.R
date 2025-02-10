@@ -109,24 +109,28 @@ flatten_then_check_null_na <- function(input) {
 remove_lumped_rvs_codes <- function(column) {
   ## Separates out lumped RVS codes by splitting into chunks of 5 chars each
 
-  # Define a helper function to split each code into 5-character chunks
-  split_rvs_codes_helper <- function(code) {
-    if (is.na(code) || code == "" || is.null(code)) {
-      return(NA_character_) # If the input code is NA, empty, or NULL, return NA
-    }
+  modified_column <- sapply(
+    as.character(column),
+    \(code) {
+      # Check if the code is NA, empty, or NULL, and return NA if so
+      if (is.na(code) || code == "" || is.null(code)) {
+        return(NA_character_)
+      }
 
-    # Remove all non-alphanumeric characters and clean the code
-    code_clean <- gsub("\\|", "", code) # Remove all "|" characters
-    code_clean <- gsub("[^A-Z0-9]", "", code_clean) # Remove non-alphanumeric characters
+      # Remove all non-alphanumeric characters and clean the code
+      code_clean <- gsub("\\|", "", code) # Remove all "|" characters
+      code_clean <- gsub("[^A-Z0-9]", "", code_clean) # Remove non-alphanumeric characters
 
-    # If the cleaned code length is 0, return NA
-    if (nchar(code_clean) == 0) {
-      return(NA_character_)
-    } else if (nchar(code_clean) %% 5 != 0) {
-      # If the length is not a multiple of 5, log a message and return NA
-      message(paste0("Total length of concatenated RVS codes is not a multiple of 5 characters: ", code_clean))
-      return(NA_character_)
-    } else {
+      # If the cleaned code length is 0, return NA
+      if (nchar(code_clean) == 0) {
+        return(NA_character_)
+      }
+
+      # If the cleaned code length is not a multiple of 5, log a message and return NA
+      if (nchar(code_clean) %% 5 != 0) {
+        return(NA_character_)
+      }
+
       # Insert "||" every 5 characters to split the code
       modified_code <- gsub("(.{5})", "\\1||", code_clean)
 
@@ -134,14 +138,13 @@ remove_lumped_rvs_codes <- function(column) {
       modified_code <- gsub("\\|\\|$", "", modified_code)
 
       return(modified_code)
-    }
-  }
-
-  # Apply the helper function to each element of the input column
-  modified_column <- sapply(as.character(column), split_rvs_codes_helper, USE.NAMES = FALSE)
+    },
+    USE.NAMES = FALSE
+  )
 
   return(modified_column) # Return the modified column with split RVS codes
 }
+
 
 # Function to collapse the replaced text with "||" as separator
 collapse_to_string <- function(vec) {
