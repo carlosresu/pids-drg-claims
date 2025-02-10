@@ -10,9 +10,9 @@ prep_pdx_inputs <- function(
 
   # Assumes existing definition of remove_whitespace and filter_icds
   # Remove whitespace in preparation for pdx finding
-  c1_temp <- lapply(c1_orig, \(x) safe_split(remove_whitespace(x)))
-  c2_temp <- lapply(c2_orig, \(x) safe_split(remove_whitespace(x)))
-  clin_icd_temp <- lapply(clin_icd_orig, \(x) safe_split(remove_whitespace(x)))
+  c1_temp <- lapply(c1_orig, function(x) safe_split(remove_whitespace(x)))
+  c2_temp <- lapply(c2_orig, function(x) safe_split(remove_whitespace(x)))
+  clin_icd_temp <- lapply(clin_icd_orig, function(x) safe_split(remove_whitespace(x)))
 
   # Filter ICD codes to remove invalid candidates
   c1_final <- lapply(c1_temp, filter_icds, neoplasm_codes_final, covidrvsfinal, acc_pdx_set_final)

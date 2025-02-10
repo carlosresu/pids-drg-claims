@@ -27,7 +27,7 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
   dt <- replace_na_or_empty(dt = dt, replace_with = "NA_character_")
 
   ## Apply column classes only to the columns that exist in the data
-  col_classes <- sapply(available_columns, \(col) {
+  col_classes <- sapply(available_columns, function(col) {
     if (col %in% unlist(expected_types["character"])) {
       return("character")
     }

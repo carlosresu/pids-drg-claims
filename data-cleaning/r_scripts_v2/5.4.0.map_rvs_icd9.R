@@ -14,9 +14,10 @@ map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
   rvs_map_list <- setNames(list_mapped$icd9cm_list, list_mapped$rvs)
 
   # Map each RVS code in clin_rvs to its specific ICD-9-CM code(s)
-  return(lapply(clin_rvs, \(x) {
-    mapped_icd9 <- unique(unlist(lapply(unlist(x), \(code)
-    rvs_map_solo[[code]] %||% rvs_map_list[[code]] %||% NULL)))
+  return(lapply(clin_rvs, function(x) {
+    mapped_icd9 <- unique(unlist(lapply(unlist(x), function(code) {
+      rvs_map_solo[[code]] %||% rvs_map_list[[code]] %||% NULL
+    })))
     if (length(mapped_icd9)) mapped_icd9 else NA_character_
   }))
 }

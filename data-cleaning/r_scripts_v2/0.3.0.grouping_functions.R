@@ -31,7 +31,7 @@ export_for_grouper <- function(dt, output_txt_file, chunk_number) {
   output_dt_thai[, PDx := dt$clin_pdx]
 
   # Secondary Diagnosis Codes (SDx1 to SDx12)
-  icd_codes_list <- lapply(dt$clin_sdx, \(icd_str) {
+  icd_codes_list <- lapply(dt$clin_sdx, function(icd_str) {
     codes <- unlist(icd_str)
     length(codes) <- 12 # Ensure there are 12 elements
     codes
@@ -41,7 +41,7 @@ export_for_grouper <- function(dt, output_txt_file, chunk_number) {
   output_dt_thai[, (icd_cols) := icd_codes]
 
   # Procedure Codes (Proc1 to Proc20)
-  proc_codes_list <- lapply(dt$clin_proc, \(proc_str) {
+  proc_codes_list <- lapply(dt$clin_proc, function(proc_str) {
     codes <- unlist(proc_str)
     length(codes) <- 20 # Ensure there are 20 elements
     codes
