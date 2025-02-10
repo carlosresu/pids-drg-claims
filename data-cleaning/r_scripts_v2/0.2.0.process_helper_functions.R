@@ -170,8 +170,8 @@ collapse_to_string <- function(vec) {
 }
 
 replace_na_or_empty <- function(
-    dt, replace_with, to_view_checks = TRUE,
-    additional_columns = NULL) {
+    dt, replace_with,
+    to_view_checks = TRUE, additional_columns = NULL) {
   # Identify columns based on `replace_with` type
   cols <- if (replace_with == "NA_character_") {
     # Apply to character, factor, or list columns
@@ -194,12 +194,12 @@ replace_na_or_empty <- function(
   }
 
   # Process each relevant column
-  for (col in cols) {
-    col <- dt[[col]]
+  for (colname in cols) {
+    col <- dt[[colname]]
     # Separate handling for list and non-list columns
     if (is.list(col)) {
       # Replace values with `character(0)` in list columns
-      dt[, (col) := lapply(get(col), function(x) {
+      dt[, (colname) := lapply(get(colname), function(x) {
         if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) {
           character(0)
         } else {
@@ -207,20 +207,26 @@ replace_na_or_empty <- function(
         }
       })]
     } else {
+      # Count and replace for non-list columns
+      # if `replace_with` is `NA_character_`
       # Replace values with `NA_character_`
       dt[
-        get(col) == "" | get(col) == "NA" | get(col) == "character(0)",
-        (col) := NA_character_
+        get(colname) == "" | get(colname) == "NA" |
+          get(colname) == "character(0)",
+        (colname) := NA_character_
       ]
       # Ensure NA is a level if the column is a factor
       if (is.factor(col)) {
-        set(dt, j = col, value = factor(dt[[col]], levels = c(levels(col), NA)))
+        set(dt, j = colname, value = factor(dt[[colname]],
+          levels = c(levels(col), NA)
+        ))
       }
     }
   }
 
   return(dt)
 }
+
 
 clean_column <- function(col) {
   # Convert column to character and normalize to ASCII
