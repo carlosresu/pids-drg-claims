@@ -1,8 +1,7 @@
 find_pdx <- function(
-    # Inputs:
-    c1_split, c2_split, clin_icd_split,
-    # Parameters:
-    seed) {
+    c1_split, c2_split, clin_icd_split, # Inputs:
+    seed # Parameters:
+    ) {
   # Function to calculate similarity between two strings
   check_similarity <- function(x, y) {
     min_len <- min(nchar(x), nchar(y))

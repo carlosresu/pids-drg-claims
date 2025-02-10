@@ -22,8 +22,7 @@ collapse_and_clean_icd_rvs_cols <- function(cols, is_icd = TRUE) {
   # Step 4: Further split any remaining lumped ICD-10 codes
   if (is_icd) {
     return(remove_lumped_icd_codes(split))
-  }
-  if (!is_icd) {
+  } else if (!is_icd) {
     return(split)
   }
 }

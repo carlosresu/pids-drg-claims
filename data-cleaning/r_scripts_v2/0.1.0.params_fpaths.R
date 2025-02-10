@@ -129,20 +129,15 @@ if (length(created_dirs) == 0) {
 }
 
 # Commonly Used File Paths:
-full_claims_file <- here::here(
-  raw_claims_path,
-  paste0(full_claims_prefix, year, file_type) # Use the file_type variable here
-)
+full_claims_file <- here::here(raw_claims_path, paste0(full_claims_prefix, year, file_type))
+# Use the file_type variable here
 
 ram_limit <- (1 - 0.10) * 64 * (1024^3)
 
 # Allowing each future_lapply session to use more memory
 options(future.globals.maxSize = ram_limit)
 
-total_rows_file <- here::here(
-  cache_path, "total_rows",
-  paste0("total_rows_", year, ".rds")
-)
+total_rows_file <- here::here(cache_path, "total_rows", paste0("total_rows_", year, ".rds"))
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
 if (file.exists(total_rows_file)) {
@@ -161,9 +156,7 @@ if (file.exists(total_rows_file)) {
 
 sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
 
-suffix <- paste0(
-  ifelse(to_sample, paste0("_sampled_", sample_size_divisor, "_"), "_full_")
-)
+suffix <- paste0(ifelse(to_sample, paste0("_sampled_", sample_size_divisor, "_"), "_full_"))
 
 ## NA-like strings
 na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")

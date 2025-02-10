@@ -19,8 +19,5 @@ prep_pdx_inputs <- function(
   c2_final <- lapply(c2_temp, filter_icds, neoplasm_codes_final, covidrvsfinal, acc_pdx_set_final)
   clin_icd_final <- lapply(clin_icd_temp, filter_icds, neoplasm_codes_final, covidrvsfinal, acc_pdx_set_final)
 
-  return(list(
-    # prepared outputs (input to find_pdx)
-    c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final
-  ))
+  return(list(c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final)) # prepared outputs (input to find_pdx)
 }

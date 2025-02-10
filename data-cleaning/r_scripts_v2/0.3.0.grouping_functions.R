@@ -1,14 +1,6 @@
-
 export_for_grouper <- function(dt, output_txt_file, chunk_number) {
-  #' @title Export Data for Batch Grouper
-  #'
-  #' @description This function exports data for batch grouper,
-  #' generating necessary columns and formatting them accordingly.
-  #'
-  #' @param dt data.table. The input data table.
-  #' @param output_txt_file character. The path to the output text file.
-  #'
-  #' @return NULL.
+  # This function exports data for batch grouper,
+  # generating necessary columns and formatting them accordingly.
 
   # Create the output data.table with the same number of rows as 'dt'
   output_dt_thai <- data.table()

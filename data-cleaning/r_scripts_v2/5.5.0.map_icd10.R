@@ -85,8 +85,8 @@ map_icd10 <- function(col) {
     icd_mapping[[code]] <- NA_character_
   }
 
-  # Apply mappings
-  col_mapped <- lapply(col, \(codes) {
+  # Return the results
+  return(lapply(col, \(codes) {
     unname(sapply(codes, \(code) {
       # str(icd_mapping)
       if (!is.null(icd_mapping[[code]]) && !is.na(icd_mapping[[code]])) {
@@ -95,8 +95,5 @@ map_icd10 <- function(col) {
         code
       }
     }))
-  })
-
-  # Return the results
-  return(col_mapped)
+  }))
 }
