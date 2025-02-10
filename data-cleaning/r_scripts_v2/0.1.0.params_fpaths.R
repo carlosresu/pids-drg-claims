@@ -5,11 +5,11 @@ tictoc::tic("Time spent (total)               ")
 nthreads <- parallelly::availableCores()
 nthreads <- if (nthreads >= 16) nthreads - thread_offset else nthreads
 
-dir.create(dirname(here::here("data-cleaning/cache/year.txt")),
+dir.create(dirname(here::here("data-cleaning/debug/cache/year.txt")),
   recursive = TRUE, showWarnings = FALSE
 )
-if (!file.exists(here::here("data-cleaning/cache/year.txt"))) {
-  writeLines("2018", here::here("data-cleaning/cache/year.txt"))
+if (!file.exists(here::here("data-cleaning/debug/cache/year.txt"))) {
+  writeLines("2018", here::here("data-cleaning/debug/cache/year.txt"))
 }
 if (!exists("year")) {
   year <- data.table::fread(here::here("data-cleaning", "cache", "year.txt"),
