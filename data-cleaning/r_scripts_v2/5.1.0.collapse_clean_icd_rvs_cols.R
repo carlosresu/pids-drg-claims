@@ -1,8 +1,7 @@
 # Helper function to clean, collapse, and split columns
 collapse_clean_icd_rvs_cols <- function(cols, is_icd = TRUE) {
   # Step 1: Clean each column using `clean_column()`
-  cleaned_results <- lapply(cols, clean_column)
-  cleaned_columns <- lapply(cleaned_results, function(res) res$cleaned_col)
+  cleaned_columns <- lapply(cols, clean_column)
   # Step 2: Collapse cleaned columns into a single string with "||" separators
   collapsed <- sapply(seq_along(cleaned_columns[[1]]), function(i) {
     combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
@@ -19,12 +18,8 @@ collapse_clean_icd_rvs_cols <- function(cols, is_icd = TRUE) {
   # Step 3: First split using COVID/RVS/neoplasm codes
   split <- split_to_vector(collapsed)
 
-
   # Step 4: Further split any remaining lumped ICD-10 codes
-  if (is_icd) {
-    unlumped <- remove_lumped_icd_codes(split)
-  } else if (!is_icd) {
-    unlumped <- split
-  }
+  unlumped <- if (is_icd) remove_lumped_icd_codes(split) else split
+
   return(unlumped)
 }

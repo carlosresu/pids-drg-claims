@@ -16,33 +16,33 @@ find_pdx <- function(
   # REMEMBER: we already filter c1 thru clin_icd and leave only acceptable pdxs
   # this is why we dont check
   algo_result <- mapply(function(c1_split, c2_split, clin_icd_split) {
-    # Step A: Check if any element in c1_split or c2_split is an accepted PDX
+    # Step A: Check if any element in c1_split or c2_split is an accepted clin_pdx
     for (cr_list in list(c1_split, c2_split)) {
       if (length(cr_list) > 0) {
         ret_list <- list(
-          pdx = cr_list[1],
-          pdx_code = ifelse(cr_list[1] %in% c1_split, 1, 2)
+          clin_pdx = cr_list[1],
+          clin_pdx_source = ifelse(cr_list[1] %in% c1_split, 1, 2)
         )
         return(ret_list)
       }
     }
 
-    # Step B: Find accepted PDX from clin_icd_split
+    # Step B: Find accepted clin_pdx from clin_icd_split
     if (length(clin_icd_split) > 0) {
       pdxs <- clin_icd_split
     } else {
       ret_list <- list(
-        pdx = NA_character_,
-        pdx_code = 99
+        clin_pdx = NA_character_,
+        clin_pdx_source = 99
       )
       return(ret_list)
     }
 
-    # Step C: Handle cases with only one accepted PDX
+    # Step C: Handle cases with only one accepted clin_pdx
     if (length(pdxs) == 1) {
       ret_list <- list(
-        pdx = pdxs[1],
-        pdx_code = 3
+        clin_pdx = pdxs[1],
+        clin_pdx_source = 3
       )
       return(ret_list)
     }
@@ -53,8 +53,8 @@ find_pdx <- function(
         starting_codes <- pdxs[substr(pdxs, 1, 1) == substr(cr, 1, 1)]
         if (length(starting_codes) == 1) {
           ret_list <- list(
-            pdx = starting_codes[1],
-            pdx_code = 4
+            clin_pdx = starting_codes[1],
+            clin_pdx_source = 4
           )
           return(ret_list)
         } else if (length(starting_codes) > 1) {
@@ -62,27 +62,27 @@ find_pdx <- function(
             sapply(starting_codes, check_similarity, y = cr)
           )]
           ret_list <- list(
-            pdx = best_match,
-            pdx_code = 5
+            clin_pdx = best_match,
+            clin_pdx_source = 5
           )
           return(ret_list)
         }
       }
     }
 
-    # Step E: Pick a random PDX if no match is found
+    # Step E: Pick a random clin_pdx if no match is found
     set.seed(seed)
     ret_list <- list(
-      pdx = sample(pdxs, 1),
-      pdx_code = 6
+      clin_pdx = sample(pdxs, 1),
+      clin_pdx_source = 6
     )
     return(ret_list)
   }, c1_split, c2_split, clin_icd_split, SIMPLIFY = FALSE)
 
-  # Return the PDX values and codes
+  # Return the clin_pdx values and codes
   ret_list <- list(
-    pdx = sapply(algo_result, `[[`, "pdx"),
-    pdx_code = sapply(algo_result, `[[`, "pdx_code")
+    clin_pdx = sapply(algo_result, `[[`, "clin_pdx"),
+    clin_pdx_source = sapply(algo_result, `[[`, "clin_pdx_source")
   )
   return(ret_list)
 }

@@ -256,11 +256,6 @@ clean_column <- function(col) {
   # Replace any NA-like strings with actual NA values
   cleaned_col[cleaned_col %chin% na_like_strings] <- NA_character_
 
-  # Detect if any COVID-related RVS is found
-  covid_rvs_pattern <- paste0(covid_rvs, collapse = "|")
-  is_covid <- stri_detect_regex(cleaned_col, covid_rvs_pattern)
-  is_covid[is.na(is_covid)] <- FALSE # Handle NAs
-
   # Restore slashes for neoplasm ICD-10 codes
   neopl <- setNames(
     neoplasms_dt_actual$icd10,
@@ -271,12 +266,7 @@ clean_column <- function(col) {
     matched_indices[!is.na(matched_indices)]
   ]
 
-  # Return the cleaned column and is_covid flag
-  return_list <- list(
-    cleaned_col = cleaned_col,
-    is_covid = is_covid
-  )
-  return(return_list)
+  return(cleaned_col)
 }
 
 remove_whitespace <- function(x) {
