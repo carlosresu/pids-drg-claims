@@ -61,6 +61,18 @@ collapse_to_string <- function(vec) {
   }
 }
 
+# Function to collapse selected columns into a single character vector
+collapse_cols <- function(cols) {
+  apply(do.call(cbind, cols), 1, function(row) {
+    row_vals <- na.omit(row) # Remove NAs
+    if (length(row_vals) > 0) {
+      paste0(row_vals, collapse = "||")
+    } else {
+      NA_character_
+    }
+  })
+}
+
 split_to_vector <- function(column) {
   lapply(column, function(long_string) {
     # Initialize result vector
@@ -193,31 +205,49 @@ remove_lumped_rvs_codes <- function(column) {
   return(modified_column) # Return the modified column with split RVS codes
 }
 
-replace_na_or_empty_col <- function(col, replace_with) {
-  if (replace_with == "NA_character_") {
-    if (is.list(col)) {
-      # Ensure list columns remain list of vectors, replacing NULL-like values with character(0)
-      return(lapply(col, function(x) {
-        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
-      }))
-    } else {
-      # Replace empty values with NA_character_ for character and factor columns
-      col[is.na(col) | col %chin% c("", "NA", "character(0)")] <- NA_character_
+replace_na_or_empty <- function(dt, replace_with) {
+  na_vals <- c(na_values, na_like_strings)
+  # Identify relevant columns
+  cols <- if (replace_with == "NA_character_") {
+    names(dt)[sapply(
+      dt,
+      function(col) is.character(col) || is.factor(col) || is.list(col)
+    )]
+  } else {
+    names(dt)[sapply(dt, is.list)]
+  }
 
-      # Ensure NA is a valid level for factors
+  # Define replacement value
+  replacement_value <- if (replace_with == "NA_character_") {
+    NA_character_
+  } else {
+    character(0)
+  }
+
+  # Process each column
+  for (col_name in cols) {
+    col <- dt[[col_name]]
+
+    if (is.list(col)) {
+      dt[, (col_name) := lapply(get(col_name), function(x) {
+        if (all(is.na(x)) || x %in% na_vals) character(0) else x
+      })]
+    } else {
+      dt[
+        get(col_name) %in% na_vals,
+        (col_name) := replacement_value
+      ]
+
+      # Ensure NA is a level if the column is a factor
       if (is.factor(col)) {
-        col <- factor(col, levels = c(levels(col), NA))
+        set(dt, j = col_name, value = factor(dt[[col_name]],
+          levels = c(levels(col), NA)
+        ))
       }
     }
-  } else { # If replace_with == "character(0)"
-    if (is.list(col)) {
-      # Ensure list columns remain list of vectors, avoiding list of lists
-      col <- lapply(col, function(x) {
-        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
-      })
-    }
   }
-  return(col)
+
+  return(dt)
 }
 
 remove_whitespace <- function(x) {

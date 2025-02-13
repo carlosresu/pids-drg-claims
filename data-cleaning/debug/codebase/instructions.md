@@ -136,8 +136,8 @@ suffix <- paste0(ifelse(to_sample, paste0(
 ), "_full_"))
 na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
 na_like_strings <- c(
-  "", " ", "  ", " ", "-", "none", "None", "NONE", "NA", "n/a",
-  "N/A", "NaN", "'", "\t", "\n", "\r", "\f", "\v", "\u00A0",
+  "", '"', "'", " ", "  ", " ", "-", "none", "None", "NONE", "NA", "n/a",
+  "N/A", "NaN", "\t", "\n", "\r", "\f", "\v", "\u00A0",
   "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005",
   "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028",
   "\u2029", "\u202F", "\u205F", "\u3000"
@@ -206,15 +206,26 @@ expected_types <- list(
     "id_series", "id_pin", "id_hci", "id_hcp",
     "date_adm", "time_adm", "date_dis", "time_dis",
     "date_rec", "date_ref", "date_check", "date_ext",
-    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent",
-    "pat_memcat_child", "claim_status", "clin_pdx"
+    "pat_bdate",
+    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child",
+    "claim_status", "clin_pdx", "clin_c1", "clin_c2",
+    "c1", "c2", "clin_sdx", "clin_proc", "clin_rvs",
+    paste0("clin_icd", 1:20), paste0("clin_rvs", 1:20),
+    "clin_acc"
   ),
-  "integer" = c("id_year", "clin_pdx_source"),
+  "integer" = c(
+    "id_year", "clin_pdx_source", "pat_ageday"
+  ),
+  "numeric" = c(
+    "pat_age", "pat_bwt", "claim_payout", "claim_charge"
+  ),
   "factor" = c(
-    "pat_type", "pat_memcat_parent", "pat_memcat_child",
-    "clin_discharge", "claim_status"
+    "pat_type", "pat_rel", "pat_memcat_parent", "pat_memcat_child",
+    "claim_status", "clin_discharge"
   ),
-  "numeric" = c("pat_age", "pat_bwt", "claim_payout", "claim_charge")
+  "logical" = c(
+    "clin_outpatient", "clin_emergency"
+  )
 )
 covid_rvs <- c(
   "C19T1", "C19T2", "C19T3", "C19X1", "C19X2", "C19X3", "C19FRP",
@@ -283,22 +294,34 @@ message(paste0("Utilizing ", nthreads / 2, " cores (", nthreads, " threads)\n"))
 
 ### 0.2.0.process_helper_functions.R
 ```r
-manual_replacement <- function(text) {
-  replaced <- stri_replace_all_regex(
-    text,
-    manual_patterns_to_replace,
-    manual_code_replacements,
-    vectorize_all = FALSE
+clean_column <- function(col) {
+  cleaned_col <- stri_trans_general(col, "Latin-ASCII")
+  cleaned_col <- toupper(cleaned_col)
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d/\\\\]+", "")
+  cleaned_col <- stri_replace_all_regex(
+    cleaned_col,
+    "(?<=[A-Z])/|/(?=[A-Z])|(?<=[A-Z])\\\\|\\\\(?=[A-Z])",
+    "",
+    opts_regex = stri_opts_regex(case_insensitive = TRUE)
   )
-  return(replaced)
+  cleaned_col[cleaned_col %chin% na_like_strings] <- NA_character_
+  neopl <- setNames(
+    neoplasms_dt_actual$icd10,
+    gsub("/", "", neoplasms_dt_actual$icd10)
+  )
+  matched_indices <- match(cleaned_col, names(neopl))
+  cleaned_col[!is.na(matched_indices)] <- neopl[matched_indices[!is.na(matched_indices)]]
+  return(cleaned_col)
 }
-remove_periods_and_whitespaces <- function(x) {
-  x <- sapply(x, function(elem) {
-    element <- iconv(elem, from = "latin1", to = "UTF-8")
-    return(element)
-  }, USE.NAMES = FALSE)
-  cleaned <- gsub("[.\\s]", "", x)
-  return(cleaned)
+collapse_to_string <- function(vec) {
+  vec <- vec[vec != "" & !is.na(vec)]
+  if (length(vec) > 0) {
+    vector <- paste(vec, collapse = "||")
+    return(vector)
+  } else {
+    empty_vec <- NA_character_
+    return(empty_vec)
+  }
 }
 split_to_vector <- function(column) {
   lapply(column, function(long_string) {
@@ -362,14 +385,6 @@ remove_lumped_icd_codes <- function(column) {
   })
   return(unlumped)
 }
-flatten_then_check_null_na <- function(input) {
-  input <- unlist(input, recursive = TRUE)
-  if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
-    return(character(0)) # Return empty character vector if all NULL/NA
-  } else {
-    return(input) # Already a flat character vector
-  }
-}
 remove_lumped_rvs_codes <- function(column) {
   modified_column <- sapply(
     as.character(column),
@@ -393,16 +408,6 @@ remove_lumped_rvs_codes <- function(column) {
   )
   return(modified_column) # Return the modified column with split RVS codes
 }
-collapse_to_string <- function(vec) {
-  vec <- vec[vec != "" & !is.na(vec)]
-  if (length(vec) > 0) {
-    vector <- paste(vec, collapse = "||")
-    return(vector)
-  } else {
-    empty_vec <- NA_character_
-    return(empty_vec)
-  }
-}
 replace_na_or_empty_col <- function(col, replace_with) {
   if (replace_with == "NA_character_") {
     if (is.list(col)) {
@@ -424,33 +429,28 @@ replace_na_or_empty_col <- function(col, replace_with) {
   }
   return(col)
 }
-clean_column <- function(col) {
-  column_to_clean <- as.character(col)
-  cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
-  cleaned_col <- toupper(cleaned_col)
-  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d/\\\\]+", "")
-  cleaned_col <- stri_replace_all_regex(
-    cleaned_col,
-    "(?<=[A-Z])/|/(?=[A-Z])|(?<=[A-Z])\\\\|\\\\(?=[A-Z])",
-    "",
-    opts_regex = stri_opts_regex(case_insensitive = TRUE)
-  )
-  cleaned_col[cleaned_col %chin% na_like_strings] <- NA_character_
-  neopl <- setNames(
-    neoplasms_dt_actual$icd10,
-    gsub("/", "", neoplasms_dt_actual$icd10)
-  )
-  matched_indices <- match(cleaned_col, names(neopl))
-  cleaned_col[!is.na(matched_indices)] <- neopl[
-    matched_indices[!is.na(matched_indices)]
-  ]
-  return(cleaned_col)
-}
 remove_whitespace <- function(x) {
   if (is.null(x) || length(x) == 0) {
     return(NA_character_)
   } else {
     return(gsub("\\s+", "", x))
+  }
+}
+manual_replacement <- function(text) {
+  replaced <- stri_replace_all_regex(
+    text,
+    manual_patterns_to_replace,
+    manual_code_replacements,
+    vectorize_all = FALSE
+  )
+  return(replaced)
+}
+flatten_then_check_null_na <- function(input) {
+  input <- unlist(input, recursive = TRUE)
+  if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
+    return(character(0)) # Return empty character vector if all NULL/NA
+  } else {
+    return(input) # Already a flat character vector
   }
 }
 prep_icd_for_mapping <- function(text) {
@@ -642,10 +642,9 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 
 ### 5.1.0.collapse_clean_icd_rvs_cols.R
 ```r
-collapse_clean_icd_rvs_cols <- function(cols, is_icd) {
-  cleaned_columns <- lapply(cols, clean_column)
-  collapsed <- lapply(seq_along(cleaned_columns[[1]]), function(i) {
-    combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
+collapse_clin_cols <- function(cols, is_icd) {
+  collapsed <- lapply(seq_along(cols[[1]]), function(i) {
+    combined <- unique(unlist(lapply(cols, function(col) col[[i]])))
     combined <- combined[!combined %chin% na_like_strings & combined != ""]
     if (length(combined) > 0) {
       combined
@@ -1406,8 +1405,18 @@ process_chunk <- function(
   cols <- c("c1", "c2", "c1_orig", "c2_orig")
   vals <- c("clin_c1", "clin_c2", "c1", "c2")
   for (i in seq_along(cols)) set(chunk, j = cols[i], value = chunk[[vals[i]]])
-  if (!"id_year" %in% names(chunk)) set(chunk, j = "id_year", value = yr_to_load)
-  if (!"pat_bwt" %in% names(chunk)) set(chunk, j = "pat_bwt", value = NA_real_)
+  if (!"id_year" %in% names(chunk)) {
+    set(chunk, j = "id_year", value = yr_to_load)
+  }
+  if (!"pat_bwt" %in% names(chunk)) {
+    set(chunk, j = "pat_bwt", value = NA_real_)
+  }
+  if (!"pat_bdate" %in% names(chunk)) {
+    set(chunk, j = "pat_bdate", value = NA_Date_)
+  }
+  if (!"pat_ageday" %in% names(chunk)) {
+    set(chunk, j = "pat_ageday", value = NA_integer_)
+  }
   int_cols <- intersect(names(chunk), unlist(expected_types["integer"]))
   num_cols <- intersect(names(chunk), unlist(expected_types["numeric"]))
   char_cols <- intersect(names(chunk), unlist(expected_types["character"]))
@@ -1415,211 +1424,90 @@ process_chunk <- function(
   bool_cols <- intersect(names(chunk), c("clin_outpatient", "clin_emergency"))
   chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
   chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
-  chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
+  chunk[, (char_cols) := lapply(.SD), .SDcols = char_cols]
   chunk[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
   chunk[, (bool_cols) := lapply(.SD, as.logical), .SDcols = bool_cols]
-  id_cols <- c("id_series", "id_pin")
-  chunk[, id_cols := lapply(.SD, trimws), .SDcols = id_cols]
-  time_cols <- c("time_adm", "time_dis")
-  chunk[, (time_cols) := lapply(
-    .SD,
-    function(col) {
-      idx <- grepl("AM|PM", col) # Identify rows with AM/PM format
-      col[idx] <- format(
-        fastPOSIXct(sub("\\.\\d+ ", " ", col[idx]),
-          format = "%m/%d/%Y %I:%M:%S %p"
-        ),
-        "%H:%M"
-      )
-      col # Return modified column
+  chunk[, (char_cols) := lapply(.SD, function(col) {
+    col <- iconv(col, from = "", to = "UTF-8")
+  }), .SDcols = char_cols]
+  replace_na_or_empty <- function(dt, replace_with) {
+    na_vals <- c(na_values, na_like_strings)
+    cols <- if (replace_with == "NA_character_") {
+      names(dt)[sapply(
+        dt,
+        function(col) is.character(col) || is.factor(col) || is.list(col)
+      )]
+    } else {
+      names(dt)[sapply(dt, is.list)]
     }
-  ), .SDcols = time_cols]
-  c1_c2_cols <- c1_c2_cols
-  chunk[, c1_c2_cols := lapply(.SD, clean_column), .SDcols = c1_c2_cols]
-  chunk[, c1_c2_cols := lapply(.SD, prep_icd_for_mapping), .SDcols = c1_c2_cols]
-  chunk[, clin_icd := lapply(seq_len(.N), function(i) {
-    clin_icd_list <- c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]])
-    return(flatten_then_check_null_na(clin_icd_list))
-  })]
-  setcolorder(chunk, c(
-    "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm",
-    "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
-    "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
-    "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
-    "pat_memcat_child", "claim_status", "claim_payout",
-    "claim_charge", "clin_discharge", "clin_outpatient",
-    "clin_emergency", "clin_acc", "clin_c1", "c1", "clin_c2", "c2",
-    "clin_sdx", "clin_proc", "clin_rvs", "clin_pdx", "clin_pdx_source"
-  ))
-  chunk[, `:=`(
-    clin_icd = collapse_clean_icd_rvs_cols(as.list(.SD), TRUE),
-    clin_rvs = collapse_clean_icd_rvs_cols(as.list(.SD), FALSE)
-  ), .SDcols = patterns("^clin_icd\\d+$", "^clin_rvs\\d+$")]
-  chunk[, (patterns("^(clin_icd\\d+|clin_rvs\\d+)$")) := NULL]
-  chunk[, (names(chunk)) := lapply(
-    .SD,
-    function(col) {
-      replace_na_or_empty_col(
-        replace_na_or_empty_col(
-          col, "NA_character_"
-        ), "character(0)"
-      )
+    replacement_value <- if (replace_with == "NA_character_") {
+      NA_character_
+    } else {
+      character(0)
     }
-  ), .SDcols = names(chunk)]
-  for (col in c1_c2_cols) {
-    results <- append_copy_remove_icd_rvs(
-      chunk[[col]], chunk$clin_rvs, chunk$clin_icd
-    )
-    set(chunk, j = "clin_rvs", value = results$clin_rvs)
-    set(chunk, j = col, value = results$col)
-    set(chunk, j = "clin_icd", value = results$clin_icd)
+    for (col_name in cols) {
+      col <- dt[[col_name]]
+      if (is.list(col)) {
+        dt[, (col_name) := lapply(get(col_name), function(x) {
+          if (all(is.na(x)) || x %in% na_vals) character(0) else x
+        })]
+      } else {
+        dt[
+          get(col_name) %in% na_vals,
+          (col_name) := replacement_value
+        ]
+        if (is.factor(col)) {
+          set(dt, j = col_name, value = factor(dt[[col_name]],
+            levels = c(levels(col), NA)
+          ))
+        }
+      }
+    }
+    return(dt)
   }
-  chunk[, (names(chunk)) := lapply(
-    .SD,
-    function(col) {
-      replace_na_or_empty_col(
-        replace_na_or_empty_col(
-          col, "NA_character_"
-        ), "character(0)"
-      )
-    }
-  ), .SDcols = names(chunk)]
-  remap_cols <- c(
-    "pat_type", "pat_memcat_parent",
-    "pat_memcat_child", "clin_discharge", "claim_status"
-  )
-  chunk[, (remap_cols) := lapply(
-    .SD, remap_patient_data, remap_master
-  ), .SDcols = remap_cols]
-  chunk[, icd9_list := map_rvs_icd9(clin_rvs)]
-  chunk[, c1_c2_cols := lapply(.SD, function(x) {
-    lapply(x, \(y) if (is.null(y) || all(is.na(y))) character(0) else y)
-  }), .SDcols = c1_c2_cols]
-  icd_cols <- c("c1", "c2", "clin_icd")
-  chunk[, icd_cols := lapply(.SD, map_icd10), .SDcols = icd_cols]
-  chunk[, (names(chunk)) := lapply(
-    .SD,
-    replace_na_or_empty_col(
-      col, "character(0)"
-    )
-  ), .SDcols = names(chunk)]
-  pdx_inputs <- prep_pdx_inputs(
-    chunk$c1, chunk$c2, chunk$clin_icd,
-    acc_pdx, neoplasms_dt_actual, acr_rvs, covid_rvs
-  )
-  pdx_result <- find_pdx(
-    pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_icd,
-    global_seed
-  )
-  chunk[, c("clin_pdx", "clin_pdx_source") := .(pdx_result$clin_pdx, pdx_result$clin_pdx_source)]
-  chunk[, c("c1", "c2", "clin_icd") := lapply(.SD, function(col) {
-    lapply(seq_len(.N), function(i) {
-      lst <- col[[i]]
-      pdx_val <- pdx[i]
-      if (!is.na(pdx_val)) lst <- setdiff(lst, pdx_val)
-      return(as.character(lst))
-    })
-  }), .SDcols = c("c1", "c2", "clin_icd")]
-  chunk[, `:=`(
-    clin_c1 = c1_orig, clin_c2 = c2_orig,
-    clin_proc = icd9_list
-  )][, `:=`(c1_orig = NULL, c2_orig = NULL, icd9_list = NULL)]
-  chunk[, clin_sdx := Map(
-    function(pdx_var, sdx_var) {
-      sdx_var[sdx_var != pdx_var]
-    }, pdx, clin_icd
-  )][, clin_icd := NULL]
-  if (!"pat_bdate" %in% names(chunk)) chunk[, pat_bdate := NA_Date_]
+  chunk <- replace_na_or_empty(chunk, "NA_character_")
+  chunk <- replace_na_or_empty(chunk, "character(0)")
   date_cols <- c(
     "date_adm", "date_dis", "date_rec", "date_ref",
     "date_check", "pat_bdate", "date_ext"
   )
   chunk[, (date_cols) := lapply(.SD, function(x) {
-    x <- fastPOSIXct(x, tz = "UTC") # Faster parsing
-    x[x < as.POSIXct("1900-01-01", tz = "UTC")] <- NA_Date_
-    as.Date(x) # Convert to Date format
+    x <- sub("\\.\\d+ ", " ", x)
+    dt <- fastPOSIXct(x, tz = "UTC")
+    dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA_Date_
+    as.Date(dt)
   }), .SDcols = date_cols]
-  chunk[, c("time_adm", "time_dis") := lapply(.SD, function(x) {
-    as.character(ifelse(is.na(x), "00:00:00", paste0(x, ":00")))
-  }), .SDcols = c("time_adm", "time_dis")]
+  time_cols <- c("time_adm", "time_dis")
+  chunk[, (time_cols) := lapply(.SD, function(x) {
+    x <- ifelse(is.na(x), "00:00", x)
+    ifelse(nchar(x) <= 5, paste0(x, ":00"), x)
+  }), .SDcols = time_cols]
   chunk[, date_adm := as.POSIXct(paste(date_adm, time_adm),
     format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
   )]
   chunk[, date_dis := as.POSIXct(paste(date_dis, time_dis),
     format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
   )]
-  chunk[, c("clin_outpatient", "clin_emergency") := lapply(.SD, function(col) {
-    as.logical(as.integer(col))
-  }), .SDcols = c("clin_outpatient", "clin_emergency")]
-  num_cols <- c(
-    "pat_age", "pat_bwt", "clin_discharge", "claim_payout",
-    "claim_charge", "id_year", "clin_pdx_source"
-  )
-  chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
-  int_cols <- c("clin_discharge", "id_year", "clin_pdx_source")
-  chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
-  char_cols <- c(
-    "id_hcp", "pat_type", "clin_acc", "pat_rel", "pat_sex",
-    "pat_memcat_parent", "pat_memcat_child", "claim_status", "clin_pdx"
-  )
-  chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
-  char_cols <- names(chunk)[sapply(chunk, is.character)]
-  chunk[, pat_ageday := NA_integer_]
-  chunk[, clin_sdx := lapply(clin_sdx, function(codes) {
-    valid_codes <- codes[codes %chin% acc_icd_set]
-    return(ifelse(length(valid_codes) > 0, valid_codes, NA_character_))
-  })]
-  chunk[, clin_sdx := lapply(clin_sdx, function(x) {
-    if (is.null(x)) character(0) else unlist(x)
-  })]
-  chunk[, (names(chunk)) := lapply(
-    .SD,
-    replace_na_or_empty_col,
-    "character(0)"
-  ), .SDcols = names(chunk)]
-  chunk[, (char_cols) := lapply(.SD, function(col) {
-    col <- iconv(col, from = "", to = "UTF-8")
-    return(fifelse(col %chin% c("None", ""), NA_character_, col))
-  }), .SDcols = char_cols]
-  num_cols <- names(chunk)[sapply(chunk, is.numeric)]
-  chunk[, (num_cols) := lapply(.SD, function(col) {
-    col[is.nan(col)] <- NA_real_
-    return(col)
-  }), .SDcols = num_cols]
-  chunk[, id_hcp := lapply(
-    strsplit(id_hcp, "\\s*,\\s*|\\|\\||\\|"),
-    function(y) {
-      if (is.null(y) || length(y) == 0L || all(is.na(y))) character(0) else y
-    }
-  )]
-  trim_cols <- list(clin_sdx = 12, clin_proc = 20)
-  chunk[, (names(trim_cols)) := lapply(
-    .SD,
-    function(col, n) {
-      trimmed <- head(col, n)
-      return(trimmed)
-    }
-  ),
-  .SDcols = names(trim_cols),
-  n = unname(trim_cols)
-  ]
-  chunk[, pat_age := fifelse(
-    !is.na(pat_bdate) & !is.na(date_adm),
-    floor(as.numeric(date_adm - pat_bdate) / 365.25),
-    NA_integer_
-  )]
-  chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age) &
-    pat_bdate > as.Date(date_adm), pat_bdate := NA_Date_]
-  chunk[grepl("99432", c1) & !is.na(pat_age) & pat_age < 0 &
-    pat_age >= -1, pat_age := 0]
-  chunk[
-    !is.na(pat_age) & pat_age > 0 & pat_age <= 124,
-    pat_age := floor(pat_age)
-  ]
-  chunk[
-    !is.na(pat_age) & (pat_age < 0 | pat_age > 124),
-    pat_age := NA_integer_
-  ]
+  id_cols <- c("id_series", "id_pin")
+  chunk[, (id_cols) := lapply(.SD, trimws), .SDcols = id_cols]
+  collapse_cols <- function(cols) {
+    collapsed <- apply(do.call(cbind, cols), 1, function(row) {
+      row_vals <- na.omit(row) # Remove NAs
+      if (length(row_vals) > 0) {
+        paste0(row_vals, collapse = "||")
+      } else {
+        NA_character_
+      }
+    })
+    return(collapsed)
+  }
+  clin_icd_colnames <- grep("^clin_icd", names(chunk), value = TRUE)
+  clin_rvs_colnames <- grep("^clin_rvs", names(chunk), value = TRUE)
+  clin_icd_cols <- lapply()
+  clin_rvs_cols <- lapply()
+  chunk[, clin_icd := collapse_cols(.SD), .SDcols = clin_icd_colnames]
+  chunk[, clin_rvs := collapse_cols(.SD), .SDcols = clin_rvs_colnames]
+  chunk[, c(clin_icd_colnames, clin_rvs_colnames) := NULL]
   invisible(gc())
   return(chunk)
 }
@@ -1638,7 +1526,7 @@ for (loop_part in 1:split_parts) {
       mclapply(chunks, process_chunk, mc.cores = nthreads)
     } else if (!to_debug) {
       lapply(chunks, process_chunk)
-    } else {
+    } else if (to_debug) {
       list(process_chunk(chunks[[1]]))
     }
   summarized_dt <- rbindlist(parallel_results)
