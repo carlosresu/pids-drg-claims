@@ -203,68 +203,18 @@ for (i in 1:20) {
 }
 expected_types <- list(
   "character" = c(
-    "CLAIM_SERIES_ID",
-    "PSEUDO_CLAIMSERIES",
-    "PIN",
-    "PSEUDO_MEM_PIN",
-    "HCI_PMCC_NO",
-    "HCP_NO_LIST",
-    "ADMISSION_DATE",
-    "DATE_ADM",
-    "ADMISSION_TIME",
-    "TIME_ADM",
-    "DISCHARGE_DATE",
-    "DATE_DIS",
-    "DISCHARGE_TIME",
-    "TIME_DIS",
-    "RECEIVE_DATE",
-    "DATE_REC",
-    "REFILE_DATE",
-    "DATE_REF",
-    "CHECK_DATE",
-    "CHKDT",
-    "EXTRACTION_DATE",
-    "PRIMARY_ILLNESS",
-    "SECONDARY_ILLNESS",
-    "PAT_BDAY",
-    "ICDCODES_ITEM7",
-    "RVSCODES_ITEM7",
-    paste0("ICDCODE", 1:14),
-    "ICCODED15",
-    paste0("ICDCODE", 16:20),
-    paste0("RVSCODE", 1:20)
+    "id_series", "id_pin", "id_hci", "id_hcp",
+    "date_adm", "time_adm", "date_dis", "time_dis",
+    "date_rec", "date_ref", "date_check", "date_ext",
+    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent",
+    "pat_memcat_child", "claim_status", "clin_pdx"
   ),
-  "integer" = c(
-    "ADMISSION_YEAR",
-    "SRC_YR",
-    "IS_ADMISSION_OPD",
-    "IS_EMERGENCY_CASE",
-    "OUT_PATIENT",
-    "EMERGENCY",
-    "PATIENT_AGE",
-    "PATAGE"
-  ),
+  "integer" = c("id_year", "clin_pdx_source"),
   "factor" = c(
-    "PATIENT_TYPE",
-    "PATIENT_RELATIONSHIP",
-    "DEP_REL",
-    "PATIENT_SEX",
-    "PATSEX",
-    "MEMCAT_PARENT_DESC",
-    "MEMCAT_CHILD_DESC",
-    "CLAIM_STATUS",
-    "CLAIMS_STATUS",
-    "PATIENT_DISPOSITION",
-    "DISPOSITION",
-    "ROOM_TYPE"
+    "pat_type", "pat_memcat_parent", "pat_memcat_child",
+    "clin_discharge", "claim_status"
   ),
-  "numeric" = c(
-    "CLAIM_PAID_AMOUNT",
-    "CLAIMS_PAID_AMT",
-    "CLAIM_AMOUNT_ACTUAL",
-    "ACR_AMOUNT_ACTUAL",
-    "PAT_BWT_KG"
-  )
+  "numeric" = c("pat_age", "pat_bwt", "claim_payout", "claim_charge")
 )
 covid_rvs <- c(
   "C19T1", "C19T2", "C19T3", "C19X1", "C19X2", "C19X3", "C19FRP",
@@ -456,8 +406,9 @@ collapse_to_string <- function(vec) {
 replace_na_or_empty_col <- function(col, replace_with) {
   if (replace_with == "NA_character_") {
     if (is.list(col)) {
-      return(lapply(col, \(x)
-      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x))
+      return(lapply(col, function(x) {
+        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
+      }))
     } else {
       col[is.na(col) | col %chin% c("", "NA", "character(0)")] <- NA_character_
       if (is.factor(col)) {
@@ -466,8 +417,9 @@ replace_na_or_empty_col <- function(col, replace_with) {
     }
   } else { # If replace_with == "character(0)"
     if (is.list(col)) {
-      col <- lapply(col, \(x)
-      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x)
+      col <- lapply(col, function(x) {
+        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
+      })
     }
   }
   return(col)
@@ -692,18 +644,18 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 ```r
 collapse_clean_icd_rvs_cols <- function(cols, is_icd) {
   cleaned_columns <- lapply(cols, clean_column)
-  collapsed <- sapply(seq_along(cleaned_columns[[1]]), function(i) {
+  collapsed <- lapply(seq_along(cleaned_columns[[1]]), function(i) {
     combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
     combined <- combined[!combined %chin% na_like_strings & combined != ""]
     if (length(combined) > 0) {
-      paste(combined, collapse = "||")
+      combined
     } else {
-      NA_character_
+      character(0) # Return an empty vector instead of NA
     }
   })
   split <- split_to_vector(collapsed)
   unlumped <- if (is_icd) remove_lumped_icd_codes(split) else split
-  return(unlumped)
+  return(unlumped) # Always return a list of vectors
 }
 ```
 
@@ -882,9 +834,9 @@ map_icd10 <- function(col) {
     !vapply(icds, function(code) {
       exists(x = code, envir = covid_rvs_neoplasm_env, inherits = FALSE)
     }, logical(1))]
-  icd_mapping <- list() # Mapping to store results
+  icd_mapping <- list()
   for (code in filtered_icds) {
-    code <- trimws(code)
+    code <- trimws(code) # Trim whitespace
     if (exists(x = code, envir = icd_codes_env, inherits = FALSE)) {
       icd_mapping[[code]] <- code
       next
@@ -896,14 +848,13 @@ map_icd10 <- function(col) {
         next
       }
     }
-    trimmed_code <-
-      if (nchar(code) > 4) {
-        sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
-      } else if (nchar(code) == 4) {
-        code
-      } else {
-        NULL
-      }
+    trimmed_code <- if (nchar(code) > 4) {
+      sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
+    } else if (nchar(code) == 4) {
+      code
+    } else {
+      NULL
+    }
     if (!is.null(trimmed_code)) {
       if (exists(x = trimmed_code, envir = icd_codes_env, inherits = FALSE)) {
         icd_mapping[[code]] <- trimmed_code
@@ -918,15 +869,15 @@ map_icd10 <- function(col) {
     icd_mapping[[code]] <- NA_character_
   }
   ret <- lapply(col, function(codes) {
-    unname(sapply(codes, function(code) {
+    unname(lapply(codes, function(code) {
       if (!is.null(icd_mapping[[code]]) && !is.na(icd_mapping[[code]])) {
         return(icd_mapping[[code]])
       } else {
-        return(code)
+        return(code) # Keep original code if no mapping found
       }
     }))
   })
-  return(ret)
+  return(ret) # Always return a list of vectors
 }
 ```
 

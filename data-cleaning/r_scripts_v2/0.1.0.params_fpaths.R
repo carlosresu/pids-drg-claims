@@ -274,19 +274,37 @@ for (i in 1:20) {
 
 expected_types <- list(
   "character" = c(
+    # Identifiers and time strings (dates now in Date category)
     "id_series", "id_pin", "id_hci", "id_hcp",
-    "date_adm", "time_adm", "date_dis", "time_dis",
-    "date_rec", "date_ref", "date_check", "date_ext",
-    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent",
-    "pat_memcat_child", "claim_status", "clin_pdx"
+    "time_adm", "time_dis",
+    # Patient and clinical text fields
+    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child",
+    "claim_status", "clin_pdx", "clin_c1", "clin_c2",
+    "c1", "c2", "clin_sdx", "clin_proc", "clin_rvs",
+    # Dynamically generated ICD and RVS columns
+    paste0("clin_icd", 1:20), paste0("clin_rvs", 1:20),
+    # Other clinical information
+    "clin_acc"
   ),
-  "integer" = c("id_year", "clin_pdx_source"),
+  "integer" = c(
+    "id_year", "clin_pdx_source", "pat_ageday"
+  ),
+  "numeric" = c(
+    "pat_age", "pat_bwt", "claim_payout", "claim_charge"
+  ),
   "factor" = c(
-    "pat_type", "pat_memcat_parent", "pat_memcat_child",
-    "clin_discharge", "claim_status"
+    "pat_type", "pat_rel", "pat_memcat_parent", "pat_memcat_child",
+    "claim_status", "clin_discharge"
   ),
-  "numeric" = c("pat_age", "pat_bwt", "claim_payout", "claim_charge")
+  "logical" = c(
+    "clin_outpatient", "clin_emergency"
+  ),
+  "Date" = c(
+    "date_adm", "date_dis", "date_rec", "date_ref", "date_check",
+    "date_ext", "pat_bdate"
+  )
 )
+
 
 ## COVID codes (for exclusion later)
 covid_rvs <- c(

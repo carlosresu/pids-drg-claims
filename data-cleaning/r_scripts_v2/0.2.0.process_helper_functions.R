@@ -207,7 +207,6 @@ replace_na_or_empty_col <- function(col, replace_with) {
 
 clean_column <- function(col) {
   # Convert column to character and normalize to ASCII
-  column_to_clean <- as.character(col)
   cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
   cleaned_col <- toupper(cleaned_col)
 
