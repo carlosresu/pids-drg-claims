@@ -1,5 +1,5 @@
 # Helper function to clean, collapse, and split columns
-collapse_clean_icd_rvs_cols <- function(cols, is_icd = TRUE) {
+collapse_clean_icd_rvs_cols <- function(cols, is_icd) {
   # Step 1: Clean each column using `clean_column()`
   cleaned_columns <- lapply(cols, clean_column)
   # Step 2: Collapse cleaned columns into a single string with "||" separators

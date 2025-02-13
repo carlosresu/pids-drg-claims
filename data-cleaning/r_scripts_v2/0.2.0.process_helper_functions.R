@@ -177,62 +177,28 @@ collapse_to_string <- function(vec) {
   }
 }
 
-replace_na_or_empty <- function(
-    dt, replace_with,
-    to_view_checks = TRUE, additional_columns = NULL) {
-  # Identify columns based on `replace_with` type
-  cols <- if (replace_with == "NA_character_") {
-    # Apply to character, factor, or list columns
-    names(dt)[sapply(dt, function(col) {
-      return(is.character(col) || is.factor(col) || is.list(col))
-    })]
-  } else {
-    # Apply only to list columns if `replace_with` is character(0)
-    names(dt)[sapply(dt, is.list)]
-  }
-
-  # Include any additional columns specified, avoiding duplicates
-  cols <- unique(c(cols, additional_columns))
-
-  # Define replacement values based on `replace_with` argument
-  replacement_value <- if (replace_with == "NA_character_") {
-    NA_character_
-  } else {
-    character(0)
-  }
-
-  # Process each relevant column
-  for (colname in cols) {
-    col <- dt[[colname]]
-    # Separate handling for list and non-list columns
+replace_na_or_empty_column <- function(col, replace_with) {
+  if (replace_with == "NA_character_") {
     if (is.list(col)) {
-      # Replace values with `character(0)` in list columns
-      dt[, (colname) := lapply(get(colname), function(x) {
-        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) {
-          character(0)
-        } else {
-          x
-        }
-      })]
+      # Replace NULL-like values in list columns with character(0)
+      return(lapply(col, \(x)
+      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x))
     } else {
-      # Count and replace for non-list columns
-      # if `replace_with` is `NA_character_`
-      # Replace values with `NA_character_`
-      dt[
-        get(colname) == "" | get(colname) == "NA" |
-          get(colname) == "character(0)",
-        (colname) := NA_character_
-      ]
-      # Ensure NA is a level if the column is a factor
+      # Replace empty values with NA_character_ for character and factor columns
+      col[col %chin% c("", "NA", "character(0)")] <- NA_character_
+
+      # Ensure NA is a valid level for factors
       if (is.factor(col)) {
-        set(dt, j = colname, value = factor(dt[[colname]],
-          levels = c(levels(col), NA)
-        ))
+        col <- factor(col, levels = c(levels(col), NA))
       }
     }
+  } else { # If replace_with == "character(0)"
+    if (is.list(col)) {
+      col <- lapply(col, \(x)
+      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x)
+    }
   }
-
-  return(dt)
+  return(col)
 }
 
 
