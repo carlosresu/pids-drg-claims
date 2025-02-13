@@ -273,76 +273,19 @@ for (i in 1:20) {
 }
 
 expected_types <- list(
-  # Character columns (identifiers and date/time information)
   "character" = c(
-    "CLAIM_SERIES_ID",
-    "PSEUDO_CLAIMSERIES",
-    "PIN",
-    "PSEUDO_MEM_PIN",
-    "HCI_PMCC_NO",
-    "HCP_NO_LIST",
-    "ADMISSION_DATE",
-    "DATE_ADM",
-    "ADMISSION_TIME",
-    "TIME_ADM",
-    "DISCHARGE_DATE",
-    "DATE_DIS",
-    "DISCHARGE_TIME",
-    "TIME_DIS",
-    "RECEIVE_DATE",
-    "DATE_REC",
-    "REFILE_DATE",
-    "DATE_REF",
-    "CHECK_DATE",
-    "CHKDT",
-    "EXTRACTION_DATE",
-    "PRIMARY_ILLNESS",
-    "SECONDARY_ILLNESS",
-    "PAT_BDAY",
-    "ICDCODES_ITEM7",
-    "RVSCODES_ITEM7",
-    paste0("ICDCODE", 1:14),
-    "ICCODED15",
-    paste0("ICDCODE", 16:20),
-    paste0("RVSCODE", 1:20)
+    "id_series", "id_pin", "id_hci", "id_hcp",
+    "date_adm", "time_adm", "date_dis", "time_dis",
+    "date_rec", "date_ref", "date_check", "date_ext",
+    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent",
+    "pat_memcat_child", "claim_status", "clin_pdx"
   ),
-
-  # Integer columns (year, clinical, and patient data)
-  "integer" = c(
-    "ADMISSION_YEAR",
-    "SRC_YR",
-    "IS_ADMISSION_OPD",
-    "IS_EMERGENCY_CASE",
-    "OUT_PATIENT",
-    "EMERGENCY",
-    "PATIENT_AGE",
-    "PATAGE"
-  ),
-
-  # Factor columns (categorical patient and claim information)
+  "integer" = c("id_year", "clin_pdx_source"),
   "factor" = c(
-    "PATIENT_TYPE",
-    "PATIENT_RELATIONSHIP",
-    "DEP_REL",
-    "PATIENT_SEX",
-    "PATSEX",
-    "MEMCAT_PARENT_DESC",
-    "MEMCAT_CHILD_DESC",
-    "CLAIM_STATUS",
-    "CLAIMS_STATUS",
-    "PATIENT_DISPOSITION",
-    "DISPOSITION",
-    "ROOM_TYPE"
+    "pat_type", "pat_memcat_parent", "pat_memcat_child",
+    "clin_discharge", "claim_status"
   ),
-
-  # Numeric columns (claim amounts and patient weight)
-  "numeric" = c(
-    "CLAIM_PAID_AMOUNT",
-    "CLAIMS_PAID_AMT",
-    "CLAIM_AMOUNT_ACTUAL",
-    "ACR_AMOUNT_ACTUAL",
-    "PAT_BWT_KG"
-  )
+  "numeric" = c("pat_age", "pat_bwt", "claim_payout", "claim_charge")
 )
 
 ## COVID codes (for exclusion later)
