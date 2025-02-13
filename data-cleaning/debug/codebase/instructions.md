@@ -453,46 +453,24 @@ collapse_to_string <- function(vec) {
     return(empty_vec)
   }
 }
-replace_na_or_empty <- function(
-    dt, replace_with,
-    to_view_checks = TRUE, additional_columns = NULL) {
-  cols <- if (replace_with == "NA_character_") {
-    names(dt)[sapply(dt, function(col) {
-      return(is.character(col) || is.factor(col) || is.list(col))
-    })]
-  } else {
-    names(dt)[sapply(dt, is.list)]
-  }
-  cols <- unique(c(cols, additional_columns))
-  replacement_value <- if (replace_with == "NA_character_") {
-    NA_character_
-  } else {
-    character(0)
-  }
-  for (colname in cols) {
-    col <- dt[[colname]]
+replace_na_or_empty_col <- function(col, replace_with) {
+  if (replace_with == "NA_character_") {
     if (is.list(col)) {
-      dt[, (colname) := lapply(get(colname), function(x) {
-        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) {
-          character(0)
-        } else {
-          x
-        }
-      })]
+      return(lapply(col, \(x)
+      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x))
     } else {
-      dt[
-        get(colname) == "" | get(colname) == "NA" |
-          get(colname) == "character(0)",
-        (colname) := NA_character_
-      ]
+      col[col %chin% c("", "NA", "character(0)")] <- NA_character_
       if (is.factor(col)) {
-        set(dt, j = colname, value = factor(dt[[colname]],
-          levels = c(levels(col), NA)
-        ))
+        col <- factor(col, levels = c(levels(col), NA))
       }
     }
+  } else { # If replace_with == "character(0)"
+    if (is.list(col)) {
+      col <- lapply(col, \(x)
+      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x)
+    }
   }
-  return(dt)
+  return(col)
 }
 clean_column <- function(col) {
   column_to_clean <- as.character(col)
@@ -506,9 +484,6 @@ clean_column <- function(col) {
     opts_regex = stri_opts_regex(case_insensitive = TRUE)
   )
   cleaned_col[cleaned_col %chin% na_like_strings] <- NA_character_
-  covid_rvs_pattern <- paste0(covid_rvs, collapse = "|")
-  is_covid <- stri_detect_regex(cleaned_col, covid_rvs_pattern)
-  is_covid[is.na(is_covid)] <- FALSE # Handle NAs
   neopl <- setNames(
     neoplasms_dt_actual$icd10,
     gsub("/", "", neoplasms_dt_actual$icd10)
@@ -517,11 +492,7 @@ clean_column <- function(col) {
   cleaned_col[!is.na(matched_indices)] <- neopl[
     matched_indices[!is.na(matched_indices)]
   ]
-  return_list <- list(
-    cleaned_col = cleaned_col,
-    is_covid = is_covid
-  )
-  return(return_list)
+  return(cleaned_col)
 }
 remove_whitespace <- function(x) {
   if (is.null(x) || length(x) == 0) {
@@ -753,9 +724,8 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 
 ### 5.1.0.collapse_clean_icd_rvs_cols.R
 ```r
-collapse_clean_icd_rvs_cols <- function(cols, is_icd = TRUE) {
-  cleaned_results <- lapply(cols, clean_column)
-  cleaned_columns <- lapply(cleaned_results, function(res) res$cleaned_col)
+collapse_clean_icd_rvs_cols <- function(cols, is_icd) {
+  cleaned_columns <- lapply(cols, clean_column)
   collapsed <- sapply(seq_along(cleaned_columns[[1]]), function(i) {
     combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
     combined <- combined[!combined %chin% na_like_strings & combined != ""]
@@ -766,11 +736,7 @@ collapse_clean_icd_rvs_cols <- function(cols, is_icd = TRUE) {
     }
   })
   split <- split_to_vector(collapsed)
-  if (is_icd) {
-    unlumped <- remove_lumped_icd_codes(split)
-  } else if (!is_icd) {
-    unlumped <- split
-  }
+  unlumped <- if (is_icd) remove_lumped_icd_codes(split) else split
   return(unlumped)
 }
 ```
@@ -1051,8 +1017,8 @@ find_pdx <- function(
     for (cr_list in list(c1_split, c2_split)) {
       if (length(cr_list) > 0) {
         ret_list <- list(
-          pdx = cr_list[1],
-          pdx_code = ifelse(cr_list[1] %in% c1_split, 1, 2)
+          clin_pdx = cr_list[1],
+          clin_pdx_source = ifelse(cr_list[1] %in% c1_split, 1, 2)
         )
         return(ret_list)
       }
@@ -1061,15 +1027,15 @@ find_pdx <- function(
       pdxs <- clin_icd_split
     } else {
       ret_list <- list(
-        pdx = NA_character_,
-        pdx_code = 99
+        clin_pdx = NA_character_,
+        clin_pdx_source = 99
       )
       return(ret_list)
     }
     if (length(pdxs) == 1) {
       ret_list <- list(
-        pdx = pdxs[1],
-        pdx_code = 3
+        clin_pdx = pdxs[1],
+        clin_pdx_source = 3
       )
       return(ret_list)
     }
@@ -1078,8 +1044,8 @@ find_pdx <- function(
         starting_codes <- pdxs[substr(pdxs, 1, 1) == substr(cr, 1, 1)]
         if (length(starting_codes) == 1) {
           ret_list <- list(
-            pdx = starting_codes[1],
-            pdx_code = 4
+            clin_pdx = starting_codes[1],
+            clin_pdx_source = 4
           )
           return(ret_list)
         } else if (length(starting_codes) > 1) {
@@ -1087,8 +1053,8 @@ find_pdx <- function(
             sapply(starting_codes, check_similarity, y = cr)
           )]
           ret_list <- list(
-            pdx = best_match,
-            pdx_code = 5
+            clin_pdx = best_match,
+            clin_pdx_source = 5
           )
           return(ret_list)
         }
@@ -1096,14 +1062,14 @@ find_pdx <- function(
     }
     set.seed(seed)
     ret_list <- list(
-      pdx = sample(pdxs, 1),
-      pdx_code = 6
+      clin_pdx = sample(pdxs, 1),
+      clin_pdx_source = 6
     )
     return(ret_list)
   }, c1_split, c2_split, clin_icd_split, SIMPLIFY = FALSE)
   ret_list <- list(
-    pdx = sapply(algo_result, `[[`, "pdx"),
-    pdx_code = sapply(algo_result, `[[`, "pdx_code")
+    clin_pdx = sapply(algo_result, `[[`, "clin_pdx"),
+    clin_pdx_source = sapply(algo_result, `[[`, "clin_pdx_source")
   )
   return(ret_list)
 }
@@ -1380,7 +1346,8 @@ required_packages <- c(
   "digest", # Create cryptographic hashes
   "base64enc", # Base64 encoding/decoding
   "arrow", # Apache Arrow for fast data storage
-  "tidyverse" # Collection of data science packages
+  "tidyverse", # Collection of data science packages,
+  "fasttime" # for fastPOSIXct
 )
 github_packages <- c(
   "r-lib/styler" # Code formatting
@@ -1517,141 +1484,100 @@ process_chunk <- function(
     avail_cols = available_columns) {
   setnames(chunk,
     old = avail_cols[avail_cols %in% names(col_maps)],
-    new = sapply(
-      avail_cols[avail_cols %in% names(col_maps)],
-      function(col) col_maps[[col]]
-    )
+    new = unlist(col_maps[avail_cols[avail_cols %in% names(col_maps)]])
   )
-  if (!"id_year" %in% colnames(chunk)) {
-    chunk[, id_year := as.integer(yr_to_load)]
+  cols <- c("c1", "c2", "c1_orig", "c2_orig")
+  vals <- c("clin_c1", "clin_c2", "c1", "c2")
+  for (i in seq_along(cols)) set(chunk, j = cols[i], value = chunk[[vals[i]]])
+  if (!"id_year" %in% names(chunk)) {
+    set(chunk, j = "id_year", value = as.integer(yr_to_load))
   }
-  chunk[, `:=`(
-    id_series = trimws(id_series),
-    id_pin = trimws(id_pin), c1 = clin_c1, c2 = clin_c2
-  )]
-  chunk[, (c("time_adm", "time_dis")) := lapply(
+  id_cols <- c("id_series", "id_pin")
+  chunk[, id_cols := lapply(.SD, trimws), .SDcols = id_cols]
+  time_cols <- c("time_adm", "time_dis")
+  chunk[, (time_cols) := lapply(
     .SD,
     function(col) {
-      ifelse(
-        grepl("AM|PM", col),
-        format(as.POSIXct(sub("\\.\\d+ ", " ", col),
+      idx <- grepl("AM|PM", col) # Identify rows with AM/PM format
+      col[idx] <- format(
+        fastPOSIXct(sub("\\.\\d+ ", " ", col[idx]),
           format = "%m/%d/%Y %I:%M:%S %p"
-        ), "%H:%M"),
-        col
+        ),
+        "%H:%M"
       )
+      col # Return modified column
     }
-  ), .SDcols = c("time_adm", "time_dis")]
-  cols_to_extract <- grep("^(clin_icd\\d+|clin_rvs\\d+)$",
-    names(chunk),
-    value = TRUE
-  )
-  clin_icd_cols <- lapply(
-    cols_to_extract[grepl("^clin_icd", cols_to_extract)],
-    function(col) chunk[[col]]
-  )
-  clin_rvs_cols <- lapply(
-    cols_to_extract[grepl("^clin_rvs", cols_to_extract)],
-    function(col) chunk[[col]]
-  )
-  col_list <- list()
-  if (!is.null(clin_icd_cols) && length(clin_icd_cols) > 0) {
-    col_list$clin_icd <- collapse_clean_icd_rvs_cols(
-      clin_icd_cols,
-      is_icd = TRUE
-    )
-  }
-  if (!is.null(clin_rvs_cols) && length(clin_rvs_cols) > 0) {
-    col_list$clin_rvs <- collapse_clean_icd_rvs_cols(
-      clin_rvs_cols,
-      is_icd = FALSE
-    )
-  }
-  chunk[, `:=`(
-    clin_icd = col_list$clin_icd,
-    clin_rvs = col_list$clin_rvs
-  )]
-  chunk[, (grep("^(clin_icd\\d+|clin_rvs\\d+)$",
-    names(chunk),
-    value = TRUE
-  )) := NULL]
-  c1_result <- clean_column(chunk$c1)
-  c2_result <- clean_column(chunk$c2)
-  chunk[, `:=`(c1_orig = c1, c1 = c1_result$cleaned_col)]
-  chunk[, `:=`(c2_orig = c2, c2 = c2_result$cleaned_col)]
-  is_covid_c1 <- c1_result$is_covid
-  is_covid_c2 <- c2_result$is_covid
-  chunk[, is_covid := (is_covid_c1 | is_covid_c2)]
-  chunk[, `:=`(
-    c1 = lapply(c1, prep_icd_for_mapping),
-    c2 = lapply(c2, prep_icd_for_mapping)
-  )]
+  ), .SDcols = time_cols]
+  c1_c2_cols <- c1_c2_cols
+  chunk[, c1_c2_cols := lapply(.SD, clean_column), .SDcols = c1_c2_cols]
+  chunk[, c1_c2_cols := lapply(.SD, prep_icd_for_mapping), .SDcols = c1_c2_cols]
   chunk[, clin_icd := lapply(seq_len(.N), function(i) {
     clin_icd_list <- c(manual_replacement(clin_icd[[i]]), c1[[i]], c2[[i]])
     return(flatten_then_check_null_na(clin_icd_list))
   })]
-  chunk <- replace_na_or_empty(
-    dt = replace_na_or_empty(
-      dt = chunk, replace_with = "NA_character_"
-    ),
-    replace_with = "character(0)"
-  )
-  c1_results <- append_copy_remove_icd_rvs(
-    chunk$c1, chunk$clin_rvs, chunk$clin_icd
-  )
-  c2_results <- append_copy_remove_icd_rvs(
-    chunk$c2, chunk$clin_rvs, chunk$clin_icd
-  )
+  setcolorder(chunk, c(
+    "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm",
+    "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
+    "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
+    "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
+    "pat_memcat_child", "claim_status", "claim_payout",
+    "claim_charge", "clin_discharge", "clin_outpatient",
+    "clin_emergency", "clin_acc", "clin_c1", "c1", "clin_c2", "c2",
+    "clin_sdx", "clin_proc", "clin_rvs", "clin_pdx", "clin_pdx_source"
+  ))
   chunk[, `:=`(
-    clin_rvs = c1_results$clin_rvs,
-    c1 = c1_results$col, clin_icd = c1_results$clin_icd
-  )]
-  chunk[, `:=`(
-    clin_rvs = c2_results$clin_rvs,
-    c2 = c2_results$col, clin_icd = c2_results$clin_icd
-  )]
-  chunk <- replace_na_or_empty(
-    dt = replace_na_or_empty(
-      dt = chunk, replace_with = "NA_character_"
-    ),
-    replace_with = "character(0)"
-  )
-  cols_to_remap <- c(
+    clin_icd = collapse_clean_icd_rvs_cols(as.list(.SD), TRUE),
+    clin_rvs = collapse_clean_icd_rvs_cols(as.list(.SD), FALSE)
+  ), .SDcols = patterns("^clin_icd\\d+$", "^clin_rvs\\d+$")]
+  chunk[, (patterns("^(clin_icd\\d+|clin_rvs\\d+)$")) := NULL]
+  colnames_chunk <- colnames(chunk)
+  chunk[, (colnames_chunk) := lapply(
+    .SD,
+    function(col) {
+      replace_na_or_empty_col(
+        replace_na_or_empty_col(
+          col, "NA_character_"
+        ), "character(0)"
+      )
+    }
+  ), .SDcols = colnames_chunk]
+  for (col in c1_c2_cols) {
+    results <- append_copy_remove_icd_rvs(
+      chunk[[col]], chunk$clin_rvs, chunk$clin_icd
+    )
+    set(chunk, j = "clin_rvs", value = results$clin_rvs)
+    set(chunk, j = col, value = results$col)
+    set(chunk, j = "clin_icd", value = results$clin_icd)
+  }
+  chunk[, (colnames_chunk) := lapply(
+    .SD,
+    function(col) {
+      replace_na_or_empty_col(
+        replace_na_or_empty_col(
+          col, "NA_character_"
+        ), "character(0)"
+      )
+    }
+  ), .SDcols = colnames_chunk]
+  remap_cols <- c(
     "pat_type", "pat_memcat_parent",
     "pat_memcat_child", "clin_discharge", "claim_status"
   )
-  chunk[, (cols_to_remap) := lapply(
-    .SD,
-    remap_patient_data, remap_master
-  ), .SDcols = cols_to_remap]
+  chunk[, (remap_cols) := lapply(
+    .SD, remap_patient_data, remap_master
+  ), .SDcols = remap_cols]
   chunk[, icd9_list := map_rvs_icd9(clin_rvs)]
-  chunk[, `:=`(
-    c1 = lapply(
-      c1,
-      function(x) {
-        if (is.null(x) || all(is.na(x))) {
-          return(character(0))
-        } else {
-          return(x)
-        }
-      }
-    ),
-    c2 = lapply(
-      c2,
-      function(x) {
-        if (is.null(x) || all(is.na(x))) {
-          return(character(0))
-        } else {
-          return(x)
-        }
-      }
+  chunk[, c1_c2_cols := lapply(.SD, function(x) {
+    lapply(x, \(y) if (is.null(y) || all(is.na(y))) character(0) else y)
+  }), .SDcols = c1_c2_cols]
+  icd_cols <- c("c1", "c2", "clin_icd")
+  chunk[, icd_cols := lapply(.SD, map_icd10), .SDcols = icd_cols]
+  chunk[, (colnames_chunk) := lapply(
+    .SD,
+    replace_na_or_empty_col(
+      col, "character(0)"
     )
-  )]
-  chunk[, `:=`(
-    c1 = map_icd10(c1),
-    c2 = map_icd10(c2),
-    clin_icd = map_icd10(clin_icd)
-  )]
-  chunk <- replace_na_or_empty(dt = chunk, replace_with = "character(0)")
+  ), .SDcols = colnames_chunk]
   pdx_inputs <- prep_pdx_inputs(
     chunk$c1, chunk$c2, chunk$clin_icd,
     acc_pdx, neoplasms_dt_actual, acr_rvs, covid_rvs
@@ -1660,7 +1586,7 @@ process_chunk <- function(
     pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_icd,
     global_seed
   )
-  chunk[, c("pdx", "pdx_code") := .(pdx_result$pdx, pdx_result$pdx_code)]
+  chunk[, c("clin_pdx", "clin_pdx_source") := .(pdx_result$clin_pdx, pdx_result$clin_pdx_source)]
   chunk[, c("c1", "c2", "clin_icd") := lapply(.SD, function(col) {
     lapply(seq_len(.N), function(i) {
       lst <- col[[i]]
@@ -1678,15 +1604,15 @@ process_chunk <- function(
       sdx_var[sdx_var != pdx_var]
     }, pdx, clin_icd
   )][, clin_icd := NULL]
-  if (!"pat_bdate" %in% colnames(chunk)) chunk[, pat_bdate := NA_Date_]
+  if (!"pat_bdate" %in% colnames_chunk) chunk[, pat_bdate := NA_Date_]
   date_cols <- c(
     "date_adm", "date_dis", "date_rec", "date_ref",
     "date_check", "pat_bdate", "date_ext"
   )
   chunk[, (date_cols) := lapply(.SD, function(x) {
-    x <- as.Date(x, format = "%m/%d/%Y")
-    x[x < as.Date("1900-01-01")] <- NA_Date_
-    return(x)
+    x <- fastPOSIXct(x, tz = "UTC") # Faster parsing
+    x[x < as.POSIXct("1900-01-01", tz = "UTC")] <- NA_Date_
+    as.Date(x) # Convert to Date format
   }), .SDcols = date_cols]
   chunk[, c("time_adm", "time_dis") := lapply(.SD, function(x) {
     as.character(ifelse(is.na(x), "00:00:00", paste0(x, ":00")))
@@ -1700,20 +1626,20 @@ process_chunk <- function(
   chunk[, c("clin_outpatient", "clin_emergency") := lapply(.SD, function(col) {
     as.logical(as.integer(col))
   }), .SDcols = c("clin_outpatient", "clin_emergency")]
-  if (!"pat_bwt" %in% colnames(chunk)) chunk[, pat_bwt := NA_real_]
+  if (!"pat_bwt" %in% colnames_chunk) chunk[, pat_bwt := NA_real_]
   num_cols <- c(
     "pat_age", "pat_bwt", "clin_discharge", "claim_payout",
-    "claim_charge", "id_year", "pdx_code"
+    "claim_charge", "id_year", "clin_pdx_source"
   )
   chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
-  int_cols <- c("clin_discharge", "id_year", "pdx_code")
+  int_cols <- c("clin_discharge", "id_year", "clin_pdx_source")
   chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
   char_cols <- c(
     "id_hcp", "pat_type", "clin_acc", "pat_rel", "pat_sex",
-    "pat_memcat_parent", "pat_memcat_child", "claim_status", "pdx"
+    "pat_memcat_parent", "pat_memcat_child", "claim_status", "clin_pdx"
   )
   chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
-  char_cols <- names(chunk)[sapply(chunk, is.character)] # WHY IS THIS HERE?
+  char_cols <- names(chunk)[sapply(chunk, is.character)]
   chunk[, pat_ageday := NA_integer_]
   chunk[, clin_sdx := lapply(clin_sdx, function(codes) {
     valid_codes <- codes[codes %chin% acc_icd_set]
@@ -1722,48 +1648,42 @@ process_chunk <- function(
   chunk[, clin_sdx := lapply(clin_sdx, function(x) {
     if (is.null(x)) character(0) else unlist(x)
   })]
-  chunk <- replace_na_or_empty(
-    dt = chunk, replace_with = "character(0)",
-    additional_columns = c("c1", "c2", "pdx")
-  )
+  chunk[, (colnames_chunk) := lapply(
+    .SD,
+    replace_na_or_empty_col,
+    "character(0)"
+  ), .SDcols = colnames_chunk]
   chunk[, (char_cols) := lapply(.SD, function(col) {
     col <- iconv(col, from = "", to = "UTF-8")
-    col[col %chin% c("None", "")] <- NA_character_
-    return(col)
+    return(fifelse(col %chin% c("None", ""), NA_character_, col))
   }), .SDcols = char_cols]
   num_cols <- names(chunk)[sapply(chunk, is.numeric)]
   chunk[, (num_cols) := lapply(.SD, function(col) {
     col[is.nan(col)] <- NA_real_
     return(col)
   }), .SDcols = num_cols]
-  chunk[, ("id_hcp") := lapply(.SD, function(x) {
-    lapply(strsplit(x, "\\s*,\\s*|\\|\\||\\|"), function(y) {
-      ifelse(length(y) == 0L || all(is.na(y)), character(0), y)
-    })
-  }), .SDcols = "id_hcp"]
-  chunk[, ("id_hcp") := lapply(.SD, function(x) {
-    lapply(x, function(y) {
-      ifelse(is.null(y) || length(y) == 0L || all(is.na(y)), character(0), y)
-    })
-  }), .SDcols = "id_hcp"]
-  setnames(chunk, c("pdx", "pdx_code"), c("clin_pdx", "clin_pdx_source"))
-  setcolorder(chunk, c(
-    "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm",
-    "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
-    "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
-    "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
-    "pat_memcat_child", "claim_status", "claim_payout",
-    "claim_charge", "is_covid", "clin_discharge", "clin_outpatient",
-    "clin_emergency", "clin_acc", "clin_c1", "c1", "clin_c2", "c2",
-    "clin_sdx", "clin_proc", "clin_rvs", "clin_pdx", "clin_pdx_source"
-  ))
-  chunk[, clin_discharge := as.integer(clin_discharge)]
-  chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
-  chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
-  chunk[
-    !is.na(pat_bdate) & !is.na(date_adm),
-    pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)
+  chunk[, id_hcp := lapply(
+    strsplit(id_hcp, "\\s*,\\s*|\\|\\||\\|"),
+    function(y) {
+      if (is.null(y) || length(y) == 0L || all(is.na(y))) character(0) else y
+    }
+  )]
+  trim_cols <- list(clin_sdx = 12, clin_proc = 20)
+  chunk[, (names(trim_cols)) := lapply(
+    .SD,
+    function(col, n) {
+      trimmed <- head(col, n)
+      return(trimmed)
+    }
+  ),
+  .SDcols = names(trim_cols),
+  n = unname(trim_cols)
   ]
+  chunk[, pat_age := fifelse(
+    !is.na(pat_bdate) & !is.na(date_adm),
+    floor(as.numeric(date_adm - pat_bdate) / 365.25),
+    NA_integer_
+  )]
   chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age) &
     pat_bdate > as.Date(date_adm), pat_bdate := NA_Date_]
   chunk[grepl("99432", c1) & !is.na(pat_age) & pat_age < 0 &

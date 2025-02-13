@@ -89,7 +89,7 @@ split_to_vector <- function(column) {
 # Function to process ICD codes
 remove_lumped_icd_codes <- function(column) {
   ## Processes a list column of character vectors, splitting lumped ICD-10 codes
-  unlumped <- lapply(column, function(vec) {
+  unlumped <- lapply(as.list(column), function(vec) {
     # Iterate through each element of the vector
     processed <- unlist(lapply(vec, function(element) {
       if ((is.na(element) || element == "")
@@ -185,7 +185,7 @@ replace_na_or_empty_col <- function(col, replace_with) {
       if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x))
     } else {
       # Replace empty values with NA_character_ for character and factor columns
-      col[col %chin% c("", "NA", "character(0)")] <- NA_character_
+      col[is.na(col) | col %chin% c("", "NA", "character(0)")] <- NA_character_
 
       # Ensure NA is a valid level for factors
       if (is.factor(col)) {
