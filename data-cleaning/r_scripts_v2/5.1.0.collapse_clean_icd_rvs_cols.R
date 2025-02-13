@@ -1,10 +1,7 @@
-collapse_clean_icd_rvs_cols <- function(cols, is_icd) {
-  # Step 1: Clean each column using `clean_column()`
-  cleaned_columns <- lapply(cols, clean_column)
-
+collapse_clin_cols <- function(cols, is_icd) {
   # Step 2: Collapse cleaned columns into a single string with "||" separators
-  collapsed <- lapply(seq_along(cleaned_columns[[1]]), function(i) {
-    combined <- unique(unlist(lapply(cleaned_columns, function(col) col[[i]])))
+  collapsed <- lapply(seq_along(cols[[1]]), function(i) {
+    combined <- unique(unlist(lapply(cols, function(col) col[[i]])))
     combined <- combined[!combined %chin% na_like_strings & combined != ""]
 
     # Return the cleaned values as a vector (avoid collapsing to string)

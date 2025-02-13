@@ -1,23 +1,64 @@
-manual_replacement <- function(text) {
-  replaced <- stri_replace_all_regex(
-    text,
-    manual_patterns_to_replace,
-    manual_code_replacements,
-    vectorize_all = FALSE
+clean_column <- function(col) {
+  # Convert the input column to its ASCII representation.
+  # (Note: "column_to_clean" should be "col" if that's the intended variable.)
+  cleaned_col <- stri_trans_general(col, "Latin-ASCII")
+
+  # Convert all characters in the column to uppercase.
+  cleaned_col <- toupper(cleaned_col)
+
+  # First pass: Remove any characters that are not:
+  # - Word characters (\w) Digits (\d)
+  # - Forward slashes (/) Backslashes (\)
+  # This effectively keeps alphanumeric characters and the slash symbols.
+  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d/\\\\]+", "")
+
+  # Second pass: Remove any forward slash or backslash that is adjacent to a letter.
+  # The regex uses lookbehind (?<=[A-Z]) and lookahead (?=[A-Z])
+  # assertions to detect if a slash is preceded or followed by
+  # an uppercase letter. It removes the slash if a letter is on
+  # either side, ensuring that such punctuation is dropped.
+  cleaned_col <- stri_replace_all_regex(
+    cleaned_col,
+    "(?<=[A-Z])/|/(?=[A-Z])|(?<=[A-Z])\\\\|\\\\(?=[A-Z])",
+    "",
+    opts_regex = stri_opts_regex(case_insensitive = TRUE)
   )
-  return(replaced)
+
+  # Replace any strings that match common NA-like values
+  # (stored in na_like_strings) with an actual NA_character_.
+  # This standardizes missing values.
+  cleaned_col[cleaned_col %chin% na_like_strings] <- NA_character_
+
+  # Restore original slashes for neoplasm ICD-10 codes:
+  # 1. Create a named vector 'neopl' where the names are
+  # the ICD-10 codes with the slash removed, and the values
+  # are the original ICD-10 codes (with the slash).
+  neopl <- setNames(
+    neoplasms_dt_actual$icd10,
+    gsub("/", "", neoplasms_dt_actual$icd10)
+  )
+  # 2. Find the positions in cleaned_col that match
+  # any of the names in 'neopl'.
+  matched_indices <- match(cleaned_col, names(neopl))
+  # 3. Replace the entries in cleaned_col that have a
+  # match with the corresponding original ICD-10 code.
+  cleaned_col[!is.na(matched_indices)] <- neopl[matched_indices[!is.na(matched_indices)]]
+
+  # Return the cleaned column vector.
+  return(cleaned_col)
 }
 
-remove_periods_and_whitespaces <- function(x) {
-  # Ensure UTF-8 encoding
-  x <- sapply(x, function(elem) {
-    element <- iconv(elem, from = "latin1", to = "UTF-8")
-    return(element)
-  }, USE.NAMES = FALSE)
-
-  # Remove periods and whitespaces
-  cleaned <- gsub("[.\\s]", "", x)
-  return(cleaned)
+# Function to collapse the replaced text with "||" as separator
+collapse_to_string <- function(vec) {
+  # Collapse non-empty elements with "||" as the separator
+  vec <- vec[vec != "" & !is.na(vec)]
+  if (length(vec) > 0) {
+    vector <- paste(vec, collapse = "||")
+    return(vector)
+  } else {
+    empty_vec <- NA_character_
+    return(empty_vec)
+  }
 }
 
 split_to_vector <- function(column) {
@@ -112,18 +153,6 @@ remove_lumped_icd_codes <- function(column) {
   return(unlumped)
 }
 
-flatten_then_check_null_na <- function(input) {
-  # Fully flatten all nested lists into a character vector
-  input <- unlist(input, recursive = TRUE)
-
-  # Check if the flattened result is empty or only contains NULL/NA
-  if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
-    return(character(0)) # Return empty character vector if all NULL/NA
-  } else {
-    return(input) # Already a flat character vector
-  }
-}
-
 remove_lumped_rvs_codes <- function(column) {
   ## Separates out lumped RVS codes by splitting into chunks of 5 chars each
   modified_column <- sapply(
@@ -164,19 +193,6 @@ remove_lumped_rvs_codes <- function(column) {
   return(modified_column) # Return the modified column with split RVS codes
 }
 
-# Function to collapse the replaced text with "||" as separator
-collapse_to_string <- function(vec) {
-  # Collapse non-empty elements with "||" as the separator
-  vec <- vec[vec != "" & !is.na(vec)]
-  if (length(vec) > 0) {
-    vector <- paste(vec, collapse = "||")
-    return(vector)
-  } else {
-    empty_vec <- NA_character_
-    return(empty_vec)
-  }
-}
-
 replace_na_or_empty_col <- function(col, replace_with) {
   if (replace_with == "NA_character_") {
     if (is.list(col)) {
@@ -204,39 +220,6 @@ replace_na_or_empty_col <- function(col, replace_with) {
   return(col)
 }
 
-
-clean_column <- function(col) {
-  # Convert column to character and normalize to ASCII
-  cleaned_col <- stri_trans_general(column_to_clean, "Latin-ASCII")
-  cleaned_col <- toupper(cleaned_col)
-
-  # First pass: Keep alphanumeric characters, /, and \
-  cleaned_col <- stri_replace_all_regex(cleaned_col, "[^\\w\\d/\\\\]+", "")
-
-  # Second pass: Remove / or \ if a letter is on either side
-  cleaned_col <- stri_replace_all_regex(
-    cleaned_col,
-    "(?<=[A-Z])/|/(?=[A-Z])|(?<=[A-Z])\\\\|\\\\(?=[A-Z])",
-    "",
-    opts_regex = stri_opts_regex(case_insensitive = TRUE)
-  )
-
-  # Replace any NA-like strings with actual NA values
-  cleaned_col[cleaned_col %chin% na_like_strings] <- NA_character_
-
-  # Restore slashes for neoplasm ICD-10 codes
-  neopl <- setNames(
-    neoplasms_dt_actual$icd10,
-    gsub("/", "", neoplasms_dt_actual$icd10)
-  )
-  matched_indices <- match(cleaned_col, names(neopl))
-  cleaned_col[!is.na(matched_indices)] <- neopl[
-    matched_indices[!is.na(matched_indices)]
-  ]
-
-  return(cleaned_col)
-}
-
 remove_whitespace <- function(x) {
   if (is.null(x) || length(x) == 0) {
     # Return NA for NULL or empty lists
@@ -244,6 +227,28 @@ remove_whitespace <- function(x) {
   } else {
     # Remove all whitespace characters
     return(gsub("\\s+", "", x))
+  }
+}
+
+manual_replacement <- function(text) {
+  replaced <- stri_replace_all_regex(
+    text,
+    manual_patterns_to_replace,
+    manual_code_replacements,
+    vectorize_all = FALSE
+  )
+  return(replaced)
+}
+
+flatten_then_check_null_na <- function(input) {
+  # Fully flatten all nested lists into a character vector
+  input <- unlist(input, recursive = TRUE)
+
+  # Check if the flattened result is empty or only contains NULL/NA
+  if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
+    return(character(0)) # Return empty character vector if all NULL/NA
+  } else {
+    return(input) # Already a flat character vector
   }
 }
 

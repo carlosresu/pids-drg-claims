@@ -16,7 +16,7 @@ to_bq <- FALSE
 to_parallel <- FALSE
 cat("Parallelization:", to_parallel, "\n")
 # TODO: Add description here
-to_debug <- FALSE
+to_debug <- TRUE
 verbose_output <- if (to_debug) TRUE else FALSE
 
 # Grouping parameters
