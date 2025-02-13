@@ -177,7 +177,7 @@ collapse_to_string <- function(vec) {
   }
 }
 
-replace_na_or_empty_column <- function(col, replace_with) {
+replace_na_or_empty_col <- function(col, replace_with) {
   if (replace_with == "NA_character_") {
     if (is.list(col)) {
       # Replace NULL-like values in list columns with character(0)
