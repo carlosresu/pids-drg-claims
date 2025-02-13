@@ -180,9 +180,10 @@ collapse_to_string <- function(vec) {
 replace_na_or_empty_col <- function(col, replace_with) {
   if (replace_with == "NA_character_") {
     if (is.list(col)) {
-      # Replace NULL-like values in list columns with character(0)
-      return(lapply(col, \(x)
-      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x))
+      # Ensure list columns remain list of vectors, replacing NULL-like values with character(0)
+      return(lapply(col, function(x) {
+        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
+      }))
     } else {
       # Replace empty values with NA_character_ for character and factor columns
       col[is.na(col) | col %chin% c("", "NA", "character(0)")] <- NA_character_
@@ -194,8 +195,10 @@ replace_na_or_empty_col <- function(col, replace_with) {
     }
   } else { # If replace_with == "character(0)"
     if (is.list(col)) {
-      col <- lapply(col, \(x)
-      if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x)
+      # Ensure list columns remain list of vectors, avoiding list of lists
+      col <- lapply(col, function(x) {
+        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
+      })
     }
   }
   return(col)
