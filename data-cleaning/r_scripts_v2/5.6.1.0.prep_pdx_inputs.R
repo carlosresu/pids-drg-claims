@@ -11,7 +11,7 @@ prep_pdx_inputs <- function(
   covidrvsfinal <- unique(covidrvs)
 
   # Assumes existing definition of remove_whitespace and filter_icds
-  # Remove whitespace in preparation for pdx finding
+  # Remove whitespace in preparation for clin_pdx finding
   c1_temp <- lapply(c1_orig, function(x) {
     split <- safe_split(remove_whitespace(x))
     return(split)

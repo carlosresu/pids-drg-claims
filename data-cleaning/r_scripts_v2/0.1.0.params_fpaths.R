@@ -49,7 +49,7 @@ manual_code_replacements <- c("O800", "O80", "O809")
 # Control random behavior for reproducibility
 # (Choose and set a number as seed)
 # (Important for stuff like randomly choosing a
-# pdx among multiple possible options)
+# clin_pdx among multiple possible options)
 global_seed <- seed <- 123
 set.seed(global_seed)
 
@@ -274,9 +274,11 @@ for (i in 1:20) {
 
 expected_types <- list(
   "character" = c(
-    # Identifiers and time strings (dates now in Date category)
+    # Identifiers, date, and time strings (dates are kept as char)
     "id_series", "id_pin", "id_hci", "id_hcp",
-    "time_adm", "time_dis",
+    "date_adm", "time_adm", "date_dis", "time_dis",
+    "date_rec", "date_ref", "date_check", "date_ext",
+    "pat_bdate",
     # Patient and clinical text fields
     "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child",
     "claim_status", "clin_pdx", "clin_c1", "clin_c2",
@@ -298,12 +300,9 @@ expected_types <- list(
   ),
   "logical" = c(
     "clin_outpatient", "clin_emergency"
-  ),
-  "Date" = c(
-    "date_adm", "date_dis", "date_rec", "date_ref", "date_check",
-    "date_ext", "pat_bdate"
   )
 )
+
 
 
 ## COVID codes (for exclusion later)
