@@ -50,3 +50,4 @@ grouper/test.py
 Rplots.pdf
 data-cleaning/debug/cache/venv
 data-cleaning/debug/test.csv
+*.gstmp
