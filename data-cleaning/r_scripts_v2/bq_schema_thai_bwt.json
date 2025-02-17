@@ -1,0 +1,12 @@
+[
+  {
+    "name": "CASEID",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "AdmWt",
+    "type": "FLOAT64",
+    "mode": "NULLABLE"
+  }
+]

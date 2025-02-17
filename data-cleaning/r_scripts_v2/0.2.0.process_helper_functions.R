@@ -270,7 +270,7 @@ manual_replacement <- function(text) {
   return(replaced)
 }
 
-flatten_then_check_null_na <- function(input) {
+flatten_then_check_empty <- function(input) {
   # Fully flatten all nested lists into a character vector
   input <- unlist(input, recursive = TRUE)
 
@@ -288,7 +288,7 @@ prep_icd_for_mapping <- function(text) {
     collapse_to_string() %>%
     split_to_vector() %>%
     remove_lumped_icd_codes() %>%
-    flatten_then_check_null_na()
+    flatten_then_check_empty()
 }
 
 # Filter ICD codes based on exclusion criteria,
