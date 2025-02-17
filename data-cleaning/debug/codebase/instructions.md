@@ -995,7 +995,7 @@ find_pdx <- function(
 
 ### 00b-drg-partial.ipynb
 ```r
-source("~/drg-pipeline/data-cleaning/00a-parameters.r")
+source(here::here("data-cleaning", "00a-parameters.r"))
 system("git submodule update --init --recursive")
 required_packages <- c(
   "data.table", "here", "tictoc", "stringr", "stringi", "lubridate",
@@ -1232,7 +1232,7 @@ for (sample_size_divisor in c(625, 125, 25, 5)) {
 
 ### 01-drg-cleaning-v2.ipynb
 ```r
-source("~/drg-pipeline/data-cleaning/00a-parameters.r")
+source(here::here("data-cleaning", "00a-parameters.r"))
 system("git submodule update --init --recursive")
 required_packages <- c(
   "data.table", # Fast data manipulation
@@ -1683,7 +1683,7 @@ if (to_bq) {
 
 ### 02-drg-grouping-v2.ipynb
 ```r
-source("~/drg-pipeline/data-cleaning/00a-parameters.r")
+source(here::here("data-cleaning", "00a-parameters.r"))
 system("git submodule update --init --recursive")
 required_packages <- c(
   "data.table", "here", "tictoc", "stringr", "stringi", "lubridate",
@@ -2510,7 +2510,7 @@ from rpy2.robjects import r, globalenv
 from rpy2.robjects.packages import importr
 import os
 r_source = r['source']
-r_source("~/drg-pipeline/data-cleaning/00a-parameters.r")
+r_source(here::here("data-cleaning", "00a-parameters.r"))
 thread_offset = r['thread_offset'][0]
 sample_size_divisor = int(r['sample_size_divisor'][0])
 to_sample = bool(r['to_sample'][0])

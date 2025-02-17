@@ -36,7 +36,7 @@
 
 # to_spc <- FALSE
 
-source("~/drg-pipeline/data-cleaning/00a-parameters.r")
+source(here::here("data-cleaning", "00a-parameters.r"))
 
 
 # Update the grouper
@@ -1318,4 +1318,3 @@ if (to_thai && !to_thai_all_years && to_thai_bq) {
 #   "jupyter nbconvert --no-prompt --to script",
 #   paths$input_notebook, "--output", paths$output_rscript
 # ))
-
