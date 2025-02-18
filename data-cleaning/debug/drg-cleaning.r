@@ -1,113 +1,110 @@
-# thread_offset <- 0
-
-# sample_size_divisor <- 125
-# # Whether to sample each split_part by sample_size_divisor
-# # (useful when iterating through code runs in quick succession)
-# to_sample <- TRUE
-# # TODO: Add description here
-# to_write <- TRUE
-# # TODO: Add description here
-# to_flush <- FALSE
-# # TODO: Add description here
-# to_parallel <- TRUE
-# # TODO: Add description here
-# to_debug <- FALSE
-# verbose_output <- if (to_debug) TRUE else FALSE
-
-# to_bq <- FALSE
-
-source("~/drg-pipeline/data-cleaning/00a-parameters.r")
+source(here::here("data-cleaning", "00a-parameters.r"))
 
 
 # Update the grouper
 system("git submodule update --init --recursive")
 
-# List, install (if applicable), and load packages
-## Required packages
+# List required packages
 required_packages <- c(
-  "data.table", "here", "tictoc", "stringr", "stringi", "lubridate",
-  "profvis", "hash", "future", "future.apply", "knitr", "htmlwidgets",
-  "parallelly", "stringdist", "parallel", "reticulate", "bigrquery",
-  "jsonlite", "googleCloudStorageR", "haven", "fst", "httr", "ggplot2",
-  "rmarkdown", "digest", "base64enc", "arrow"
-  # , "docstring", "progress" # Comma is here so if I uncomment this line it
-  # automatically works without having to type or delete a comma after haven
+  "data.table", # Fast data manipulation
+  "here", # Simplifies file path management
+  "tictoc", # Timing code execution
+  "stringr", # String manipulation
+  "stringi", # Unicode string processing
+  "lubridate", # Date-time handling
+  "profvis", # Profiling R code
+  "hash", # Hashing utility
+  "future", # Parallel processing
+  "future.apply", # Parallelized apply functions
+  "knitr", # Dynamic report generation
+  "htmlwidgets", # Interactive HTML widgets
+  "parallelly", # Advanced parallel computing
+  "stringdist", # String distance calculations
+  "parallel", # Base parallel computing
+  "reticulate", # Interface to Python
+  "bigrquery", # BigQuery client
+  "jsonlite", # JSON parsing
+  "googleCloudStorageR", # Google Cloud Storage access
+  "haven", # Read/write Stata, SPSS, SAS files
+  "fst", # Fast serialization
+  "httr", # HTTP requests
+  "ggplot2", # Data visualization
+  "rmarkdown", # Dynamic markdown documents
+  "digest", # Create cryptographic hashes
+  "base64enc", # Base64 encoding/decoding
+  "arrow", # Apache Arrow for fast data storage
+  "tidyverse", # Collection of data science packages,
+  "fasttime", # for fastPOSIXct
+  "glue", # for string pasting
+  "progressr" # live progress and ETA
 )
 
-# Additional packages to install via remotes (GitHub), if not available
-github_packages <- c("r-lib/styler")
+github_packages <- c(
+  "r-lib/styler" # Code formatting
+)
 
-# Number of CPU cores for parallel compilation
-n_cores <- parallel::detectCores()
-
-# Function to install and load packages quietly
-install_and_load <- function(package) {
-  if (!require(package, character.only = TRUE)) {
-    message("Installing ", package)
-    install.packages(package, dependencies = TRUE, Ncpus = n_cores)
-  } else {
-    if (verbose_output) message("Loading ", package)
-  }
-  library(package, character.only = TRUE)
-}
-
-# Function to install packages from GitHub via remotes
-install_from_github <- function(repo) {
-  package_name <- basename(repo)
-  if (!require(package_name, character.only = TRUE)) {
-    if (!require("remotes", character.only = TRUE)) {
-      install.packages("remotes", Ncpus = n_cores)
+# Installation commands (commented out, for reference)
+invisible(lapply(
+  required_packages, function(pkg) {
+    if (!require(pkg, character.only = TRUE)) {
+      install.packages(pkg)
     }
-    message("Installing ", package_name, " from GitHub (", repo, ")")
-    remotes::install_github(repo, Ncpus = n_cores)
-  } else {
-    if (verbose_output) message("Loading ", package_name)
   }
-  library(package_name, character.only = TRUE)
-}
+))
+invisible(lapply(
+  github_packages, function(repo) {
+    if (!require(basename(repo), character.only = TRUE)) {
+      remotes::install_github(repo)
+    }
+  }
+))
 
-# Apply the function to each required package
-message("Installing/loading required CRAN packages...")
-invisible(
-  suppressPackageStartupMessages(
-    lapply(required_packages, install_and_load)
-  )
-)
+# Load packages (assumes they are already installed)
+invisible(lapply(required_packages, library, character.only = TRUE))
+invisible(lapply(basename(github_packages), library, character.only = TRUE))
 
-# Install and load GitHub packages if not installed
-message("Installing/loading required GitHub packages...")
-invisible(
-  suppressPackageStartupMessages(
-    lapply(github_packages, install_from_github)
-  )
-)
+
+year <- as.numeric(fread("/home/resurreccion_cmc/drg-pipeline/data-cleaning/debug/cache/year.txt"))
 
 # Source each file sequentially
-for (file in list.files(here::here("data-cleaning/r_scripts_v2"), pattern = "\\.R$", full.names = TRUE)) invisible(source(file))
+for (file in list.files(
+  here::here("data-cleaning/r_scripts_v2"),
+  pattern = "\\.R$", full.names = TRUE
+)) {
+  invisible(source(file))
+}
 
-message(year_to_load)
+message(year)
 
 
 # Enable caching and printing options for data mapping
-to_use_cache <- FALSE # Set to TRUE to enable saving and loading of .rds files
+to_use_cache <- TRUE # Set to TRUE to enable saving and loading of .rds files
 to_print_mapping_data <- FALSE # Set to TRUE to print mapping data tables
 
 # Helper function to load data from cache or query from BigQuery if not cached
-load_or_query <- function(query, var_name) {
-  rds_path <- here(cache_path, "mapping", paste0(var_name, ".rds"))
-  if (to_use_cache && file.exists(rds_path)) {
-    if (verbose_output) message("Loading ", var_name, " from cache...")
-    # Load data from .rds file if cache exists
+load_or_query <- function(
+    query, var_name, year = NULL,
+    overwrite_cache = FALSE) {
+  rds_path <- here(
+    cache_path, "mapping",
+    paste0(ifelse(var_name == "hci" & !is.null(year),
+      paste0("hci_", year), var_name
+    ), ".rds")
+  )
+
+  if (!overwrite_cache && to_use_cache && file.exists(rds_path)) {
+    verbose_output && message("Loading ", var_name, " from cache: ", rds_path)
     return(readRDS(rds_path))
-  } else {
-    if (verbose_output) message("Querying ", var_name, " from BigQuery...")
-    # Query data from BigQuery if not cached
-    # Query execution function (BigQuery to data.table)
-    dt <- query_bq_to_dt(query)
-    saveRDS(dt, rds_path) # Save queried data to .rds cache file
-    return(dt)
   }
+
+  verbose_output && message("Querying ", var_name, " from BigQuery...")
+  dt <- query_bq_to_dt(query)
+
+  if (to_use_cache) saveRDS(dt, rds_path)
+  return(dt)
 }
+
+
 
 # Helper function to print all rows of a data.table if
 # to_print_mapping_data is enabled
@@ -118,17 +115,20 @@ if (to_print_mapping_data) {
   }
 }
 
-# 1. Query and load the `grouper_v5.proc` table
+# 1. Query and load the grouper_v5.proc table
 # This table contains procedure codes and attributes
 # like description, classification, and site
-proc_query <- paste0("SELECT * FROM `", gcp_proj, ".grouper_v5.proc`")
+proc_query <- paste0("SELECT * FROM ", gcp_proj, ".grouper_v5.proc")
 proc <- load_or_query(proc_query, "proc")
 proc[, CODE := as.character(CODE)] # Ensure the CODE column is of character type
 
-# 2. Query and load the `phic.acr_rvs_map` table
+# 2. Query and load the phic.acr_rvs_map table
 # This table maps RVS codes to ICD-9-CM codes,
 # used for healthcare billing purposes
-rvs_icd9_query <- paste0("SELECT * FROM `", gcp_proj, ".phic_libraries.acr_rvs_map`")
+rvs_icd9_query <- paste0(
+  "SELECT * FROM ",
+  gcp_proj, ".phic_libraries.acr_rvs_map"
+)
 rvs_icd9 <- load_or_query(rvs_icd9_query, "rvs_icd9")
 
 # Convert RVS and ICD9CM columns to character type
@@ -151,16 +151,19 @@ rvs_icd9 <- rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE][
   !is.na(rvs) & !is.na(icd9cm), -"DRGUSE"
 ]
 
-# 3. Query and load `phic.acr_procedure` table
+# 3. Query and load phic.acr_procedure table
 # This table contains RVS codes, relative value units (RVUs),
 # and descriptions for procedures
-acr_rvs_query <- paste0("SELECT * FROM `", gcp_proj, ".phic_libraries.acr_procedure`")
+acr_rvs_query <- paste0(
+  "SELECT * FROM ",
+  gcp_proj, ".phic_libraries.acr_procedure"
+)
 acr_rvs <- load_or_query(acr_rvs_query, "acr_rvs")
 
-# 4. Query and load `grouper_v5.i10` table
+# 4. Query and load grouper_v5.i10 table
 # This table contains ICD-10 codes with DRG grouping data,
 # including codes marked as "accepted" (ACCPDX = "Y")
-i10_query <- paste0("SELECT * FROM `", gcp_proj, ".grouper_v5.i10`")
+i10_query <- paste0("SELECT * FROM ", gcp_proj, ".grouper_v5.i10")
 tdrg_icd10 <- load_or_query(i10_query, "tdrg_icd10")
 setkey(tdrg_icd10, "CODE") # Set the CODE column as key for efficient lookups
 
@@ -175,10 +178,9 @@ for (code in acc_pdx) {
   assign(code, TRUE, envir = acc_pdx_env)
 }
 
-# 5. Query and load `icd.phl_icd10` table
-# This table lists diseases and their corresponding
+# 5. Query and load icd.phl_icd10 table
 # ICD-10 codes specific to the Philippines
-phl_icd10_query <- paste0("SELECT * FROM `", gcp_proj, ".icd.phl_icd10`")
+phl_icd10_query <- paste0("SELECT * FROM ", gcp_proj, ".icd.phl_icd10")
 phl_icd10 <- load_or_query(phl_icd10_query, "phl_icd10")
 
 # Filter and process neoplasm codes by extracting
@@ -190,19 +192,20 @@ neoplasms_dt_actual <- as.data.table(phl_icd10[
 ][, icd10 := sapply(strsplit(icd10, ","), function(x) trimws(x[2]))])
 
 
-# 6. Query and load `grouper_v5.i10vx` table
+# 6. Query and load grouper_v5.i10vx table
 # This table contains an expanded version of ICD-10 codes with validation flags
-i10vx_query <- paste0("SELECT * FROM `", gcp_proj, ".grouper_v5.i10vx`")
+i10vx_query <- paste0("SELECT * FROM ", gcp_proj, ".grouper_v5.i10vx")
 i10vx <- load_or_query(i10vx_query, "i10vx")
 setkey(i10vx, "code") # Set the code column as key for efficient lookup
 acc_icd <- unique(i10vx[, code]) # Extract unique ICD codes from this table
 acc_icd_set <- unique(acc_icd)
 
-# 7. Query and load `hci.temp_hci` table
+# 7. Query and load hci.temp_hci table
 # This table lists healthcare institutions with details
 # like ownership, category, and location
-hci_query <- paste0("SELECT * FROM `", gcp_proj, ".hci.temp_hci`")
-hci <- load_or_query(hci_query, "hci")
+# Query and cache HCI data per year
+hci_query <- paste0("SELECT * FROM ", gcp_proj, paste0(".phic_hci.hci_", year))
+hci <- load_or_query(hci_query, "hci", year)
 
 # 8. Define global variables for use later in the script:
 neoplasm_codes <- unique(neoplasms_dt_actual$icd10) # Unique neoplasm codes
@@ -213,7 +216,10 @@ neoplasm_pattern <- paste0("(", paste(neoplasm_codes, collapse = "|"), ")")
 covid_pattern <- paste0("(", paste(covid_codes, collapse = "|"), ")")
 rvs_pattern <- paste0("(", paste(rvs_codes, collapse = "|"), ")")
 
-phil_icds <- unique(gsub("[^A-Za-z0-9]", "", phl_icd10[!grepl("/", icd10), icd10]))
+phil_icds <- unique(gsub(
+  "[^A-Za-z0-9]", "",
+  phl_icd10[!grepl("/", icd10), icd10]
+))
 icd_codes <- unique(tdrg_icd10$CODE)
 
 # Function to create an environment from a vector of unique values
@@ -223,28 +229,28 @@ create_env_from_vector <- function(vec) {
   return(env)
 }
 
-# 1. Create environment for `proc` table data if specific values are needed
-# Here we assume `proc$CODE` is the field of interest
+# 1. Create environment for proc table data if specific values are needed
+# Here we assume proc$CODE is the field of interest
 proc_env <- create_env_from_vector(proc$CODE)
 
-# 2. Create environment for `rvs_icd9` table data based on `rvs` and `icd9cm`
+# 2. Create environment for rvs_icd9 table data based on rvs and icd9cm
 rvs_env <- create_env_from_vector(rvs_icd9$rvs)
 icd9cm_env <- create_env_from_vector(rvs_icd9$icd9cm)
 
-# 3. Environment for `acr_rvs` table (assuming `rvs` is the field of interest)
+# 3. Environment for acr_rvs table (assuming rvs is the field of interest)
 acr_rvs_env <- create_env_from_vector(acr_rvs$rvs)
 
-# 4. Environment for accepted ICD-10 codes (from `tdrg_icd10`)
+# 4. Environment for accepted ICD-10 codes (from tdrg_icd10)
 acc_pdx_env <- create_env_from_vector(acc_pdx)
 
-# 5. Environment for `phl_icd10` ICD-10 codes (e.g., neoplasm codes)
+# 5. Environment for phl_icd10 ICD-10 codes (e.g., neoplasm codes)
 phl_icd10_env <- create_env_from_vector(phl_icd10$icd10)
 
-# 6. Environment for expanded ICD-10 codes (`i10vx`)
+# 6. Environment for expanded ICD-10 codes (i10vx)
 acc_icd_env <- create_env_from_vector(i10vx$code)
 
-# 7. Environment for `hci` table data if needed for specific fields (e.g., `id_hci`)
-# Assuming `hci$id_hci` is the identifier of interest
+# 7. Environment for hci table data if needed for specific fields (e.g., id_hci)
+# Assuming hci$id_hci is the identifier of interest
 hci_env <- create_env_from_vector(hci$id_hci)
 
 # 8. Other specific environments for global variables
@@ -258,7 +264,8 @@ icd_codes_env <- create_env_from_vector(icd_codes)
 covid_neoplasm_codes <- unique(c(covid_codes, neoplasm_codes))
 covid_neoplasm_env <- create_env_from_vector(covid_neoplasm_codes)
 
-# Combine COVID, RVS, and neoplasm codes into a single environment for efficient lookup
+# Combine COVID, RVS, and neoplasm codes into a
+# single environment for efficient lookup
 covid_rvs_neoplasm_codes <- unique(c(covid_codes, rvs_codes, neoplasm_codes))
 covid_rvs_neoplasm_env <- create_env_from_vector(covid_rvs_neoplasm_codes)
 
@@ -269,760 +276,528 @@ covid_rvs_neoplasm_pattern <- paste(
   c(covid_codes, rvs_codes, neoplasm_codes),
   collapse = "|"
 )
-# if (to_print_mapping_data) print(covid_rvs_neoplasm_pattern)
-# # Print regex pattern if enabled
 
-# Helper function to save all specified data tables into a
-# single text file for debugging
-save_all_data_to_file <- function(file_path, ...) {
-  args <- list(...)
-  sink(file_path) # Redirect output to the specified file
-  cat("\n--- All Data Tables in One View ---\n") # Header for the file
-  for (name in names(args)) {
-    cat("\n---", name, "---\n") # Print table name as a header within the file
-    # Print all rows of each data.table
-    print(args[[name]], nrow = Inf, max.print = Inf)
-  }
-  sink() # Stop redirecting output to the file
-  if (verbose_output) message("All data tables saved to ", file_path) # Confirmation message
-}
 
-# Set the file path for the output text file, where all
-# data tables will be saved
-output_file <- here(debug_path, "mapping_data.txt")
-
-# If enabled, save all processed data tables to a single specified
-# file for debugging and verification.
-# Each table represents a different aspect of the medical coding,
-# classification, and healthcare provider data.
-if (to_print_mapping_data) {
-  options(max.print = 999999)
-  save_all_data_to_file(
-    output_file,
-
-    # Data table containing procedure codes and attributes
-    # for each procedure code.
-    # Columns include CODE (unique procedure identifier),
-    # DRGUSE (flag indicating if the procedure is used for DRG grouping),
-    # and several other attributes related to procedure
-    # classification, gender applicability, site, and level of care.
-    grouper_v5_proc = proc,
-
-    # Mapping between ICD-9-CM codes and RVS (Relative Value Scale)
-    # codes used in medical billing.
-    # Includes `is_drg` column to mark codes used in DRG grouping
-    # after merging with the `grouper_v5.proc` table.
-    # This table links standard ICD-9 procedure codes to specific
-    # RVS codes for billing purposes.
-    phic_acr_rvs_map = rvs_icd9,
-
-    # Table of RVS codes and their associated RVU (Relative Value Units)
-    # which represent the value of a procedure.
-    # Also includes a detailed description of each procedure, such as type,
-    #  category, or specific details about the procedure.
-    # This table is essential for understanding the cost/value of each
-    # RVS-coded procedure in medical billing.
-    phic_acr_procedure = acr_rvs,
-
-    # ICD-10 table with additional classification details relevant for
-    #  DRG (Diagnosis Related Group) mapping.
-    # Columns include CODE (ICD-10 diagnosis code), ACCPDX
-    # (accepted primary diagnosis flag), and other grouping
-    # variables like MDC (Major Diagnostic Category) and CC
-    # (Complication/Comorbidity), which help classify the severity or
-    # complexity of cases for healthcare reimbursement.
-    grouper_v5_i10 = tdrg_icd10,
-
-    # A unique list of ICD-10 codes flagged as ACCPDX (accepted
-    # primary diagnosis codes) for use in DRG classification.
-    # This list is derived from `grouper_v5.i10` and is used as
-    # a quick reference to check if a diagnosis is eligible as a primary code.
-    acc_pdx = acc_pdx,
-
-    # Data specific to the Philippines for ICD-10 codes, containing
-    # disease names and the corresponding ICD-10 codes.
-    # This table includes the field `remarks`, which provides
-    # special notes or guidance for each code, such as diagnostic
-    # instructions or clarifications. This dataset is used to
-    # manage and classify diseases in line with local health regulations.
-    icd_phl_icd10 = phl_icd10,
-
-    # Processed subset of neoplasm codes extracted from
-    # `icd.phl_icd10`.
-    # Contains ICD-10 codes specifically formatted to represent
-    # malignant, benign, and other tumor types.
-    # Useful for oncology-specific mappings in DRG processing
-    # or cancer-related case management.
-    neoplasms_dt_actual = neoplasms_dt_actual,
-
-    # Expanded ICD-10 dataset with validation flags indicating
-    # whether each code is valid.
-    # Includes columns such as `validcode` (flag for validation status)
-    # and `todel` (marker for codes that may need removal).
-    # This dataset helps verify the validity of ICD-10 codes and
-    #  manage code deprecation or updates.
-    grouper_v5_i10vx = i10vx,
-
-    # List of unique ICD-10 codes extracted from `grouper_v5.i10vx`
-    # for quick access.
-    # Acts as a condensed reference of all validated ICD-10 codes
-    # available in the `grouper_v5.i10vx` dataset.
-    # Useful for ensuring consistency and accuracy in ICD-10 code
-    # usage across processes.
-    acc_icd = acc_icd,
-
-    # A directory of healthcare institutions (HCI), containing
-    # detailed information about each provider,
-    # including their institution name, ownership type (e.g.,
-    # government, private), category, geographical details,
-    # and provider classification. This table enables linkage
-    # between clinical data and provider-specific data,
-    # allowing for enhanced reporting and analytics on healthcare
-    # service providers.
-    hci_temp_hci = hci
+# Define process_chunk
+process_chunk <- function(
+    chunk, yr_to_load = year, col_maps = column_mappings,
+    known_vals = known_values, remap_master = col_remap_master,
+    avail_cols = available_columns) {
+  ##############################################################################
+  # 1. Input/Year Standardization
+  ##############################################################################
+  # Rename Columns
+  setnames(chunk,
+    old = avail_cols[avail_cols %in% names(col_maps)],
+    new = unlist(col_maps[avail_cols[avail_cols %in% names(col_maps)]])
   )
-  # print(rvs_pattern)
-  options(max.print = 1000)
+
+  # Make a copy of clin_c1 and clin_c2 for later use
+  cols <- c("c1", "c2", "c1_orig", "c2_orig")
+  vals <- c("clin_c1", "clin_c2", "c1", "c2")
+  for (i in seq_along(cols)) set(chunk, j = cols[i], value = chunk[[vals[i]]])
+
+  # Safeguard: If id_year doesn't exist, set it to yr_to_load
+  if (!"id_year" %in% names(chunk)) {
+    set(chunk, j = "id_year", value = yr_to_load)
+  }
+  # Safeguard: If pat_bwt doesn't exist, set it to NA_real_
+  if (!"pat_bwt" %in% names(chunk)) {
+    set(chunk, j = "pat_bwt", value = NA_real_)
+  }
+  # Safeguard: If pat_bdate doesn't exist, set it to NA_Date_
+  if (!"pat_bdate" %in% names(chunk)) {
+    set(chunk, j = "pat_bdate", value = NA_Date_)
+  }
+  # Safeguard: If pat_ageday doesn't exist, set it to NA_real_
+  if (!"pat_ageday" %in% names(chunk)) {
+    set(chunk, j = "pat_ageday", value = NA_integer_)
+  }
+  ##############################################################################
+  # 2. Reformatting
+  ##############################################################################
+  ##############################################################################
+  # 2.A Cleaning Prerequisites and Type Casting
+  ##############################################################################
+  # Here, date columns remain as character.
+  int_cols <- intersect(names(chunk), unlist(expected_types["integer"]))
+  num_cols <- intersect(names(chunk), unlist(expected_types["numeric"]))
+  char_cols <- intersect(names(chunk), unlist(expected_types["character"]))
+  factor_cols <- intersect(names(chunk), unlist(expected_types["factor"]))
+  bool_cols <- intersect(names(chunk), c("clin_outpatient", "clin_emergency"))
+
+  chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
+  chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
+  chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
+  chunk[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
+  chunk[, (bool_cols) := lapply(.SD, as.logical), .SDcols = bool_cols]
+
+  # Convert char cols to UTF-8, then replace empty with NA_character_
+  chunk[, (char_cols) := lapply(.SD, function(col) {
+    col <- iconv(col, from = "", to = "UTF-8")
+  }), .SDcols = char_cols]
+
+  chunk <- replace_na_or_empty(chunk, "NA_character_")
+  chunk <- replace_na_or_empty(chunk, "character(0)")
+
+  # First, clean date columns (currently as character):
+  date_cols <- c(
+    "date_adm", "date_dis", "date_rec", "date_ref",
+    "date_check", "pat_bdate", "date_ext"
+  )
+  chunk[, (date_cols) := lapply(.SD, function(x) {
+    # Remove any decimal seconds from time strings if present
+    # (e.g., "12/31/2022 23:59:59.123" -> "12/31/2022 23:59:59")
+    x <- sub("\\.\\d+ ", " ", x)
+    # Convert using fastPOSIXct to speed up parsing and cast as Date
+    dt <- fastPOSIXct(x, tz = "UTC")
+    # If the parsed date is before 1900-01-01, replace with NA
+    dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA_Date_
+    as.Date(dt)
+  }), .SDcols = date_cols]
+
+  # Then, clean the time columns:
+  time_cols <- c("time_adm", "time_dis")
+  chunk[, (time_cols) := lapply(.SD, function(x) {
+    # If time is missing, substitute "00:00"
+    x <- ifelse(is.na(x), "00:00", x)
+    # Append seconds if not already present
+    # (e.g., "14:30" -> "14:30:00")
+    ifelse(nchar(x) <= 5, paste0(x, ":00"), x)
+  }), .SDcols = time_cols]
+
+  # Finally, combine cleaned date and time columns
+  # to create datetime stamps as needed:
+  chunk[, date_adm := as.POSIXct(paste(date_adm, time_adm),
+    format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
+  )]
+  chunk[, date_dis := as.POSIXct(paste(date_dis, time_dis),
+    format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
+  )]
+  ##############################################################################
+  # 2.B General Reformatting, Cleaning, then Column Collapsing
+  ##############################################################################
+  # Trim whitespace for id columns
+  id_cols <- c("id_series", "id_pin")
+  chunk[, (id_cols) := lapply(.SD, trimws), .SDcols = id_cols]
+
+  # Split id_hcp then replace empty with character(0)
+  chunk[, id_hcp := strsplit(id_hcp, "\\s*,\\s*|\\|\\||\\|")]
+
+  # Replace NaN with NA_real_
+  chunk[, (num_cols) := lapply(.SD, function(col) {
+    col[is.nan(col)] <- NA_real_
+    return(col)
+  }), .SDcols = num_cols]
+
+  # Identify relevant columns
+  clin_icd_colnames <- grep("^clin_icd", names(chunk), value = TRUE)
+  clin_rvs_colnames <- grep("^clin_rvs", names(chunk), value = TRUE)
+  c1_c2_cols <- c("c1", "c2")
+
+  # Apply cleaning and save results
+  chunk[, (c(c1_c2_cols, clin_icd_colnames, clin_rvs_colnames)) :=
+    lapply(.SD, clean_column), .SDcols = c(
+    c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
+  )]
+  # Apply manual replacements
+  chunk[, (c(c1_c2_cols, clin_icd_colnames, clin_rvs_colnames)) :=
+    lapply(.SD, manual_replacement), .SDcols = c(
+    c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
+  )]
+
+  # Collapse cleaned columns using .SDcols
+  chunk[, clin_icd := collapse_cols(.SD), .SDcols = clin_icd_colnames]
+  chunk[, clin_rvs := collapse_cols(.SD), .SDcols = clin_rvs_colnames]
+
+  # Remove original columns efficiently
+  chunk[, (c(clin_icd_colnames, clin_rvs_colnames)) := NULL]
+  ##############################################################################
+  # 2.C Clinical Preparation (Cleaning then Reorganization)
+  ##############################################################################
+  # split to unlumped vectors of ICDs
+  chunk[, clin_icd := remove_lumped_icd_codes(split_to_vector(clin_icd))]
+  # split to vectors of RVS
+  chunk[, clin_rvs := split_to_vector(clin_rvs)]
+
+  # flatten into vectors, removing empty cells
+  chunk[, (c1_c2_cols) :=
+    lapply(.SD, flatten_then_check_empty), .SDcols = c1_c2_cols]
+
+  # removing NA's from each vector/row, maintaining a list structure for
+  # the overall column
+  chunk[, (c1_c2_cols) :=
+    lapply(.SD, \(x) lapply(x, \(y) setdiff(y, NA))), .SDcols = c1_c2_cols]
+
+  # prepare clin_icd for mapping
+  # APPEND cleaned c1/c2 to clin_icd to ensure completeness
+  chunk[, clin_icd := lapply(seq_len(.N), function(i) {
+    clin_icd_list <- c(clin_icd[[i]], c1[[i]], c2[[i]])
+    return(flatten_then_check_empty(clin_icd_list))
+  })]
+
+  chunk[, (c1_c2_cols) := lapply(.SD, function(col) {
+    lapply(col, function(x) setdiff(x, "\u200B"))
+  }), .SDcols = c1_c2_cols]
+
+  # RVS codes
+  # Extract then move rvs codes to proper columns
+  # Process c1 then c2
+  for (col in c1_c2_cols) {
+    results <- append_copy_remove_icd_rvs_c1_c2(
+      chunk[[col]], chunk$clin_rvs, chunk$clin_icd
+    )
+    set(chunk, j = "clin_rvs", value = results$clin_rvs)
+    set(chunk, j = col, value = results$col)
+    set(chunk, j = "clin_icd", value = results$clin_icd)
+  }
+
+  # Call the function in the main script
+  result <- swap_icd_rvs(chunk$clin_icd, chunk$clin_rvs)
+  chunk[, clin_icd := result$clin_icd]
+  chunk[, clin_rvs := result$clin_rvs]
+  ##############################################################################
+  # 3. Transforming
+  ##############################################################################
+  ##############################################################################
+  # 3.A Age Recomputation
+  ##############################################################################
+  # Set pat_age to 0 for specific cases
+  chunk[
+    !is.na(pat_bdate) & !is.na(date_adm),
+    pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)
+  ]
+
+  chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age) &
+    pat_bdate > as.Date(date_adm), pat_bdate := NA_Date_]
+
+  chunk[grepl("99432", c1) & !is.na(pat_age) & pat_age < 0 &
+    pat_age >= -1, pat_age := 0]
+
+  chunk[
+    !is.na(pat_age) & pat_age > 0 & pat_age <= 124,
+    pat_age := floor(pat_age)
+  ]
+
+  chunk[
+    !is.na(pat_age) & (pat_age < 0 | pat_age > 124),
+    pat_age := NA_integer_
+  ]
+  ##############################################################################
+  # 3.B Categorical Relabeling/Aggregation
+  ##############################################################################
+  # List of column names to remap
+  remap_cols <- c(
+    "pat_type", "pat_memcat_parent",
+    "pat_memcat_child", "clin_discharge", "claim_status"
+  )
+  chunk[, (remap_cols) := lapply(
+    .SD, remap_patient_data, remap_master
+  ), .SDcols = remap_cols]
+  ##############################################################################
+  # 3.C Clinical Remapping
+  ##############################################################################
+  # Map ICD 10 codes
+  icd_cols <- c("c1", "c2", "clin_icd")
+  chunk[, (icd_cols) := lapply(.SD, map_icd10), .SDcols = icd_cols]
+  chunk[, clin_sdx := clin_icd]
+  chunk[, clin_icd := NULL]
+  # Map RVS codes
+  chunk[, clin_proc := map_rvs_icd9(clin_rvs)]
+  chunk[, clin_rvs := NULL]
+  ##############################################################################
+  # 3.D PDx Imputation
+  ##############################################################################
+  # Find clin_pdx
+  pdx_inputs <- prep_pdx_inputs(
+    chunk$c1, chunk$c2, chunk$clin_sdx,
+    acc_pdx, neoplasms_dt_actual, acr_rvs, covid_rvs
+  )
+  pdx_result <- find_pdx(
+    pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_sdx,
+    global_seed
+  )
+  chunk[, c("clin_pdx", "clin_pdx_source") :=
+    .(pdx_result$clin_pdx, pdx_result$clin_pdx_source)]
+
+  ##############################################################################
+  # 3.E PDx Imputation Cleanup
+  ##############################################################################
+
+  # Remove clin_pdx from c1, c2, and clin_sdx
+  icd_cols <- c("c1", "c2", "clin_sdx")
+  chunk[, (icd_cols) := lapply(.SD, function(col) {
+    lapply(seq_len(.N), function(i) {
+      setdiff(col[[i]], clin_pdx[i]) # Remove clin_pdx from the column
+    })
+  }), .SDcols = icd_cols]
+
+  # Trim clin_sdx to max 12 elements and clin_proc to max 20 elements
+  chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
+  chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
+  ##############################################################################
+  # 4. Output Standardization & Finalization
+  ##############################################################################
+  # Restore clin_c1 and clin_c2 AND Save rvs mappings to clin_proc
+  chunk[, `:=`(
+    clin_c1 = c1_orig,
+    clin_c2 = c2_orig
+  )][, `:=`(
+    c1 = NULL, c2 = NULL,
+    c1_orig = NULL, c2_orig = NULL
+  )]
+  # Set final column order
+  setcolorder(chunk, c(
+    "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm",
+    "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
+    "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
+    "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
+    "pat_memcat_child", "claim_status", "claim_payout",
+    "claim_charge", "clin_discharge", "clin_outpatient",
+    "clin_emergency", "clin_acc", "clin_c1", "clin_c2",
+    "clin_sdx", "clin_proc", "clin_pdx", "clin_pdx_source"
+  ))
+  invisible(gc())
+  return(chunk)
 }
 
 
-# Step 5: Loop through each part and process the partial files
-# saveWidget(profvis({
+# Data Cleaning Pipeline for DRG Processing
+# This script processes large datasets in parts, applying
+# parallel processing for efficiency.
+# It reads, chunks, processes, and consolidates data before
+# saving intermediate and final outputs.
+
 for (loop_part in 1:split_parts) {
-  # loop_part <- 1
   start_time <- Sys.time() # Record start time for processing
-  # Step 7: Read the appropriate file (sample or full)
-  message(paste0("Start reading part ", loop_part, " of ", split_parts))
-  read_result <- read_appropriate_file(loop_part)
-  # The data to process
-  read_in_dt <- read_result$read_result_dt
-  # Any replacements summary
-  read_in_replacement_summary <- read_result$read_result_replacement_summary
 
-  message(paste0("Finished reading part ", loop_part, " of ", split_parts))
+  # Step 1: Read the appropriate file
+  read_in_dt <- read_appropriate_file(loop_part)
 
-  message(paste0("Start chunking part ", loop_part, " of ", split_parts))
-  # Step 8: Split the data into chunks for parallel processing
+  # Step 2: Split the data into chunks for parallel processing
   chunk_size <- ceiling(nrow(read_in_dt) / nthreads)
-  chunks <- split(
-    read_in_dt,
-    rep(
-      1:nthreads,
-      each = chunk_size,
-      length.out = nrow(read_in_dt)
-    )
-  )
-  message(paste0("Finished chunking part ", loop_part, " of ", split_parts))
-
-  message(paste0("Start processing part ", loop_part, " of ", split_parts))
-  # Step 9: Apply parallel processing
-  # See function(s) before the loop
-  if (to_parallel) {
-    parallel_results <- mclapply(
-      chunks, process_chunk,
-      mc.cores = nthreads
-    )
-  } else {
-    if (!to_debug) parallel_results <- lapply(chunks, process_chunk) else parallel_results <- list(process_chunk(chunks[[1]]))
-  }
-
-  rbound_dt <- rbindlist(lapply(
-    parallel_results,
-    function(res) {
-      res$return_chunk
-    }
+  chunks <- split(read_in_dt, rep(1:nthreads,
+    each = chunk_size,
+    length.out = nrow(read_in_dt)
   ))
 
-  # Step 11: Check for invalid primary diagnoses (PDx) and update the summary
-  invalid_pdx_indices <- which(
-    !is.na(rbound_dt$pdx) & rbound_dt$pdx != "" &
-      !sapply(rbound_dt$pdx, function(x) exists(x, acc_pdx_env))
-  )
-  if (length(invalid_pdx_indices) > 0) {
-    message(paste("Invalid PDx found:", rbound_dt$pdx[invalid_pdx_indices]))
-    pdx_success_list[[loop_part]] <- FALSE
-  } else {
-    pdx_success_list[[loop_part]] <- TRUE
-  }
-
-  for (i in seq_along(parallel_results)) {
-    parallel_results[[i]]$return_summary$pdx_success <- pdx_success_list[[loop_part]]
-    parallel_results[[i]]$return_summary$replacement_summary <- read_in_replacement_summary
-  }
-
-  # Step 10: Combine results from all parallel chunks
-  parallel_summaries <- lapply(
-    parallel_results,
-    function(res) {
-      res$return_summary
+  # Step 3: Process chunks in parallel or sequentially
+  cat(paste0("\rStart processing part  ", loop_part, " of ", split_parts))
+  flush.console()
+  parallel_results <-
+    if (to_parallel) {
+      mclapply(chunks, process_chunk, mc.cores = nthreads)
+    } else if (!to_debug) {
+      lapply(chunks, process_chunk)
+    } else if (to_debug) {
+      list(process_chunk(chunks[[1]]))
     }
-  )
 
-  summarized_dt <- rbound_dt # Store the summarized data
-  combined_chunk_summary[[loop_part]] <- parallel_summaries
+  # Consolidate processed chunks
+  summarized_dt <- rbindlist(parallel_results)
 
-  # Step 12: Write processed data to checkpoint file if required
+  # Step 4: Save processed data if required
   if (to_write) {
     saveRDS(
-      summarized_dt, here(checkpoint_1_path, paste0(
-        checkpoint_1_prefix, year_to_load, suffix,
+      summarized_dt, here(chkpt_1_path, paste0(
+        chkpt_1_prefix, year, suffix,
         "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
       )),
       compress = TRUE
     )
   }
 
-  # Step 13: Collect summaries for each part
-  all_parts_summaries[[loop_part]] <- combined_chunk_summary[[loop_part]]
+  # Step 5: Log processing time and update status
   processing_times[[loop_part]] <- as.numeric(difftime(Sys.time(),
     start_time,
     units = "secs"
   ))
-
-  # Step 14: Update status and ETA
   print_status_update(loop_part, split_parts, processing_times, "clean")
 
-  if (loop_part == 1) dim_dt <- dim(summarized_dt)
-
-  nrow_end[[loop_part]] <- nrow(summarized_dt)
-  # Step 15: Clean up memory after processing each part
-  rm(read_in_dt, rbound_dt, summarized_dt)
+  # Cleanup memory
+  rm(read_in_dt, summarized_dt)
   invisible(gc())
 }
-# }), profvis_fpath)
 
-if (to_post_cleaning_checks) print_summary_tables(aggregate_all_summaries(all_parts_summaries))
+# Step 6: Combine all processed parts into a master data table
+master_dt_list <- mclapply(1:split_parts,
+  function(split_part) {
+    read_part <- readRDS(
+      here(chkpt_1_path, paste0(
+        chkpt_1_prefix, year, suffix, "part_",
+        sprintf("%02d", split_part), "_of_", split_parts, ".rds"
+      ))
+    )
+    return(read_part)
+  },
+  mc.cores = nthreads
+)
 
-
-# Step 2: Combine all parts into a master data table
-master_dt_list <- parallel::mclapply(1:split_parts, function(read_part) {
-  cat(paste("\rStarted reading part", read_part))
-  flush.console()
-  return_dt <- readRDS(here(checkpoint_1_path, paste0(
-    checkpoint_1_prefix, year_to_load, suffix,
-    "part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
-  )))
-  # message(colnames(return_dt))
-  cat(paste("\rFinished reading prt", read_part))
-  flush.console()
-  return(return_dt)
-}, mc.cores = nthreads)
-message("Commencing rbindlist")
+# Merge all parts into a single data table
 master_dt <- rbindlist(master_dt_list, fill = TRUE)
 rm(master_dt_list)
 invisible(gc())
-message("Finished rbindlist")
-# Step 1: Validate row counts across parts
-# Initialize variable to track total row counts across parts
-total_start_rows <- 0
-total_end_rows <- 0
 
-for (nrow_part in 1:split_parts) {
-  # Sum up row counts for each part
-  total_start_rows <- total_start_rows + nrow_start[[nrow_part]]
-  total_end_rows <- total_end_rows + nrow_end[[nrow_part]]
-
-  # Check if rows match for each part
-  if (nrow_start[[nrow_part]] != nrow_end[[nrow_part]]) {
-    warning(
-      "WARNING: Row Count Mismatch! Part ", nrow_part,
-      " has ", nrow_start[[nrow_part]], " starting rows and ",
-      nrow_end[[nrow_part]], " ending rows\n"
-    )
-    stop("ERROR: Row Count Mismatch")
-  }
-}
-
-# Check if the total rows match
-if (if (to_sample) total_rows / sample_size_divisor else total_rows == nrow(master_dt)) {
-  message("\nRow Counts Match for All Parts and Sum to Total Rows\n")
-} else {
-  stop("ERROR: Total Row Count Mismatch")
-}
-
-# Step 3: Save the combined master data table
+# Step 7: Save final processed data
 if (to_write) {
-  message("Commencing saveRDS")
   saveRDS(master_dt, here(
-    checkpoint_2_path, paste0(
-      checkpoint_2_prefix, year_to_load, suffix, ".rds"
+    chkpt_2_path, paste0(
+      chkpt_2_prefix, year, suffix, ".rds"
     )
-  ), compress = TRUE)
-  message("Finished saveRDS")
+  ), compress = FALSE)
 }
 
-
-if (exists("master_dt")) {
-  message("master_dt exists, making a copy and deleting it")
-  result <- data.table::copy(master_dt)
-  rm(master_dt)
-  invisible(gc())
-  message("copied master_dt to result, deleted master_dt")
-} else {
-  message(paste0("master_dt doesn't exist, reading ", paste0(
-    checkpoint_2_prefix, year_to_load, suffix, ".rds"
-  )))
-  result <- readRDS(here(
-    checkpoint_2_path, paste0(
-      checkpoint_2_prefix, year_to_load, suffix, ".rds"
-    )
-  ))
-  invisible(gc())
-  message(paste0("finished reading ", paste0(
-    checkpoint_2_prefix, year_to_load, suffix, ".rds"
-  )))
-}
-
-message(paste0("Saving ", paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")))
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-), compress = TRUE)
-message(paste0("Finished saving ", paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")))
-
-
-if (to_post_cleaning_checks) {
-  # Ensure acc_pdx is a set (i.e., unique values for faster lookup)
-  acc_pdx_set <- unique(acc_pdx)
-
-  dt <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-  ))
-
-  str(dt)
-
-  # Find entries in dt$clin_pdx that are not in acc_pdx_set
-  not_in_acc_pdx <- dt$clin_pdx[!dt$clin_pdx %in% acc_pdx_set & !is.na(dt$clin_pdx)]
-
-  # Check if all clin_pdx entries are in acc_pdx_set
-  all_in_acc_pdx <- length(not_in_acc_pdx) == 0
-
-  # Output the result
-  if (all_in_acc_pdx) {
-    message("All entries in dt$clin_pdx are in acc_pdx.")
-  } else {
-    message("Not all entries in dt$clin_pdx are in acc_pdx. Entries not in acc_pdx are:")
-    print(unique(not_in_acc_pdx)) # Print unique entries not in acc_pdx
-  }
-  rm(all_in_acc_pdx, not_in_acc_pdx)
-  invisible(gc())
-}
-
-
-if (to_post_cleaning_checks) {
-  # Assuming dt is your data.table
-  # Calculate counts per category and total count
-  count_data <- dt[, .N, by = clin_pdx_source]
-  setorder(count_data, clin_pdx_source)
-  count_data[, clin_pdx_source := factor(clin_pdx_source, levels = c(1, 2, 3, 6, 99))]
-
-  # Calculate total count
-  total_count <- sum(count_data$N)
-
-  # Plot histogram with counts on top of each bar and total count below
-  ggplot(count_data, aes(x = clin_pdx_source, y = N)) +
-    geom_bar(stat = "identity", fill = "skyblue", color = "black") +
-    labs(title = "Histogram of clin_pdx_source", x = "clin_pdx_source", y = "Count") +
-    theme_minimal() +
-    scale_x_discrete(drop = FALSE) + # Ensures all categories are shown
-    geom_text(aes(label = N), vjust = -0.5) + # Display count above each bar
-    annotate("text", x = Inf, y = -Inf, label = paste("Total N =", total_count), hjust = 1.1, vjust = -1.5) # Display total count below
-  rm(count_data, total_count)
-  invisible(gc())
-}
-
-
-if (to_post_cleaning_checks) {
-  # Capture the combined structure output for each column into a single text variable
-  output <- capture.output({
-    cat("Structure of non-empty elements in each specified column:\n\n")
-    cat("dt\n")
-    str(dt)
-
-    cat("Structure of non-empty elements in each specified column:\n\n")
-    cat("c1:\n")
-    str(dt[!is.na(c1) & sapply(c1, function(x) length(x) > 0 && any(nzchar(x)))]$c1)
-
-    cat("\nc2:\n")
-    str(dt[!is.na(c2) & sapply(c2, function(x) length(x) > 0 && any(nzchar(x)))]$c2)
-
-    cat("\nclin_sdx:\n")
-    str(dt[!is.na(clin_sdx) & sapply(clin_sdx, function(x) length(x) > 0 && any(nzchar(x)))]$clin_sdx)
-
-    cat("\nclin_pdx:\n")
-    str(dt[!is.na(clin_pdx) & sapply(clin_pdx, function(x) length(x) > 0 && any(nzchar(x)))]$clin_pdx)
-
-    cat("\nclin_proc:\n")
-    str(dt[!is.na(clin_proc) & sapply(clin_proc, function(x) length(x) > 0 && any(nzchar(x)))]$clin_proc)
-  })
-
-  # Print the output as a single message or save it to a file
-  cat(paste(output, collapse = "\n"))
-  rm(output)
-  invisible(gc())
-}
-
-
-if (to_post_cleaning_checks) {
-  # Flatten the list, get unique values, and omit NA
-  unique_values <- unique(unlist(dt$clin_rvs))
-  unique_values <- unique_values[!is.na(unique_values) & unique_values != "NA"]
-
-  # Filter values that are also in rvs_icd9$rvs
-  matched_values <- unique_values[unique_values %in% rvs_icd9$rvs]
-
-  # Print the matched values, separated by line breaks
-  cat(paste(matched_values, collapse = "\n"))
-  rm(unique_values, matched_values)
-  invisible(gc())
-}
-
-
-if (to_post_cleaning_checks) {
-  # Assuming `dt` is your data.table
-  # Filter rows where clin_proc is not NA and does not contain character(0) or empty strings
-  non_empty_clin_proc_rows <- dt[!is.na(clin_proc) & sapply(clin_proc, function(x) length(x) > 0 && any(nzchar(x)))]
-
-  # Print the result
-  print(non_empty_clin_proc_rows)
-  rm(non_empty_clin_proc_rows)
-  invisible(gc())
-}
-
-
-if (to_post_cleaning_checks) {
-  result <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-  ))
-
-  setkey(result, NULL) # Removes any existing key
-  print(result[id_series %like% "e"])
-  print(result[id_pin %like% "e"])
-  print(result[id_hci %like% "e"])
-
-  # Flatten clin_sdx and check if "A" is present in any element
-  flattened_clin_sdx <- unlist(result$clin_sdx, use.names = FALSE, recursive = TRUE)
-
-  # Check if "A" is in any element using %chin% (fast for exact matches)
-  if ("A" %chin% flattened_clin_sdx) {
-    cat("Found 'A' in clin_sdx\n")
-    # Optionally, filter rows that contain "A" in clin_sdx and print progress every 100,000 rows
-    rows_with_A <- result[sapply(result$clin_sdx, function(x) any("A" %chin% x))]
-
-    for (i in seq_len(nrow(rows_with_A))) {
-      print(rows_with_A[i])
-    }
-  } else {
-    cat("No 'A' found in clin_sdx\n")
-  }
-}
-
-
-if (to_post_cleaning_checks) {
-  result <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-  ))
-
-  date_cols <- c(
-    "date_adm", "date_dis", "date_rec", "date_ref",
-    "date_check", "pat_bdate", "date_ext"
-  )
-
-  # Find rows where any date column has a date before 1900-01-01
-  rows_with_old_dates <- result[Reduce(`|`, lapply(
-    .SD,
-    function(x) x < as.Date("1900-01-01")
-  )), .SDcols = date_cols]
-
-  # Print the resulting rows
-  print(rows_with_old_dates)
-}
-
-
-result <- readRDS(here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "prefinal", ".rds")
-))
-print(nrow(result))
-# result <- result[clin_outpatient == FALSE, ] # DONT SUBSET OUTPATIENT CLAIMS
-print(nrow(result))
-result[, is_covid := {
-  # Start with FALSE
-  covid_found <- rep(FALSE, .N)
-
-  # Check each condition sequentially, updating only rows not yet marked TRUE
-  not_found <- !covid_found
-  covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
-
-  not_found <- !covid_found
-  covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
-
-  not_found <- !covid_found
-  covid_found[not_found] <- c2[not_found] %chin% covid_rvs
-
-  not_found <- !covid_found
-  covid_found[not_found] <- c1[not_found] %chin% covid_rvs
-
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_rvs[not_found], function(row) any(row %chin% covid_rvs))
-
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_sdx[not_found], function(row) any(row %chin% covid_rvs))
-
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(clin_proc[not_found], function(row) any(row %chin% covid_rvs))
-
-  # Return the result
-  covid_found
-}]
-
-# result <- result[is_covid == FALSE, ] # DONT SUBSET COVID CLAIMS
-print(nrow(result))
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-))
-
-
-if (to_post_cleaning_checks) {
-  before <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, ".rds")
-  ))
-  after <- readRDS(here(
-    checkpoint_2_path,
-    paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-  ))
-
-  # Ensure both data.tables have the same key columns for comparison
-  setkey(before, id_series)
-  setkey(after, id_series)
-
-  # Identify rows where pat_age is different
-  # between the two tables, handling NA values
-  pat_age_diff_na <- before[after,
-    on = .(id_series), nomatch = 0,
-    # Explicitly name pat_age_before as coming from "before"
-    .(id_series, pat_bdate,
-      pat_age_before = x.pat_age,
-      pat_age_after = i.pat_age
-    ),
-    by = .EACHI
-  ]
-
-  # Filter to show rows where one value is NA and
-  # the other is not or the values are simply different
-  pat_age_diff_na <- pat_age_diff_na[
-    (is.na(pat_age_before) & !is.na(pat_age_after)) |
-      (!is.na(pat_age_before) & is.na(pat_age_after)) |
-      (pat_age_before != pat_age_after)
-  ]
-
-  # Print the differences
-  cat("Rows where pat_age is NA in one table but
-not in the other, or where the values differ:\n")
-  print(pat_age_diff_na)
-
-  rm(before, after)
-  invisible(gc())
-}
-
-
-message("Reading final")
-result <- readRDS(here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final", ".rds")
-))
-message("Finished reading final, commencing subsetting")
-result <- result[, .(
-  id_series, id_pin, id_hci, id_hcp, date_adm, time_adm,
-  date_dis, time_dis, date_rec, date_ref, date_check, pat_type, pat_rel, pat_bdate,
-  pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
-  pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
-  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-)]
-message("Finished subsetting, commencing saveRDS")
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset_with_time", ".rds")
-))
-message("Finished saveRDS, commencing subsetting")
-result <- result[, .(
-  id_series, id_pin, id_hci, id_hcp, date_adm,
-  date_dis, date_rec, date_ref, date_check, pat_type, pat_rel,
-  pat_age, pat_ageday, pat_sex, pat_bwt, pat_memcat_parent,
-  pat_memcat_child, claim_status, claim_payout, claim_charge, is_covid,
-  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-)]
-message("Finished subsetting, commencing saveRDS")
-saveRDS(result, here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset", ".rds")
-))
-message("Finished saveRDS")
-
-
-result <- readRDS(here(
-  checkpoint_2_path,
-  paste0(checkpoint_2_prefix, year_to_load, suffix, "final_subset", ".rds")
-))
-
-
-if (to_bq) {
-  if (!to_sample) bq_table <- paste0("claims_", year_to_load)
-
-  # Check if the table should be dropped and replaced
-  tryCatch(
-    {
-      bq_table_delete(bq_table(gcp_proj, bq_dataset, bq_table))
-      message("Table dropped successfully.\n")
-    },
-    error = function(e) {
-      # If the table does not exist, just continue
-      if (grepl("Not found", e, ignore.case = TRUE)) {
-        message("Table does not exist, nothing to drop.\n")
-      } else {
-        # If it's a different error, re-throw the error
-        stop(e)
-      }
-    }
-  )
-
-  # Attempt to create the table
-  tryCatch(
-    {
-      bq_table_create(
-        bq_table(gcp_proj, bq_dataset, bq_table),
-        fields = fromJSON(here(
-          "data-cleaning/r_scripts_v2",
-          "bq_schema_cleaning.json"
-        ), simplifyDataFrame = FALSE)
-      )
-      message("Table created successfully.\n")
-    },
-    error = function(e) {
-      # Check if the error message indicates that the table already exists
-      if (grepl("already exists", e, ignore.case = TRUE)) {
-        message("Table already exists. Skipping creation and upload.")
-      } else {
-        # If it's a different error, re-throw the error
-        stop(e)
-      }
-    }
-  )
-
-  # Upload to BQ only if table is empty
-  if (to_write) {
-    chunk_size <- 250000 # Adjust the chunk size based on memory availability
-    num_chunks <- ceiling(nrow(result) / chunk_size)
-
-    for (i in seq_len(num_chunks)) {
-      cat(paste("\rUploading chunk no.:", i))
-      flush.console()
-      chunk <- result[
-        ((i - 1) * chunk_size + 1):min(i * chunk_size, nrow(result)),
-      ]
-
-      bq_table_upload(
-        bq_table(gcp_proj, bq_dataset, bq_table),
-        values = chunk,
-        write_disposition = if (i == 1) "WRITE_EMPTY" else "WRITE_APPEND"
-      )
-      cat(paste("\rUploaded chunk no.:", i))
-      flush.console()
-    }
-  }
-}
-
-
-# concatenate_r_files <- function(input_path, output_file) {
-#   # List all .R files in the directory
-#   r_files <- list.files(
-#     path = input_path,
-#     pattern = "\\.R$", full.names = TRUE
-#   )
-
-#   # Delete the existing output file if it exists
-#   if (file.exists(output_file)) {
-#     file.remove(output_file)
-#   }
-
-#   # Read and concatenate contents
-#   file_contents <- lapply(r_files, readLines)
-#   concatenated_content <- unlist(file_contents)
-
-#   # Write concatenated content to the output file
-#   cat(concatenated_content, file = output_file, sep = "\n")
-# }
-
-# # Consolidate all r_scripts scripts into debug.R; useful for debugging
-# concatenate_r_files(
-#   here::here("data-cleaning/r_scripts_v2"),
-#   here::here("data-cleaning/debug/r_scripts_v2.R")
-# )
-
-# system(
-#   paste(
-#     "cd ~/drg-pipeline &&",
-#     "jupyter nbconvert",
-#     "--no-prompt",
-#     "--to script data-cleaning/01-drg-cleaning-v2.ipynb",
-#     "--output debug/drg-cleaning-v2"
-#   )
+# Save a pre-final version of the master dataset
+saveRDS(master_dt, here(
+  chkpt_2_path,
+  paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
+), compress = FALSE)
+
+
+str(readRDS(here(
+  chkpt_2_path,
+  paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
+)))
+
+
+# fwrite(
+#   readRDS(here(
+#     chkpt_2_path,
+#     paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
+#   )),
+#   "~/drg-pipeline/data-cleaning/debug/test.csv"
 # )
 
 
-# # Assign values using regular assignment (no need for <<- if declared globally)
-# if (TRUE) {
-#   to_debug <- FALSE
-#   to_flush_master <- FALSE
-#   to_flush_partial <- FALSE
-# }
-
-# # Define the paths and their corresponding conditions
-# paths <- list(
-#   to_flush_master = c(
-#     "data-cleaning/cache",
-#     "data-cleaning/data/profvis",
-#     "data-cleaning/data/aux-files",
-#     "data-cleaning/data/checkpoints",
-#     "data-cleaning/debug"
-#   ),
-#   to_flush_partial = c(
-#     "data-cleaning/data/claims/raw/parts",
-#     "data-cleaning/data/claims/raw/samples"
-#   )
-# )
-
-# # Iterate over the paths and delete directories if the corresponding condition is true
-# for (condition in names(paths)) {
-#   if (get(condition, envir = .GlobalEnv)) { # Ensure the variables are accessed in the global environment
-#     system(paste(
-#       "rm -r",
-#       paste(here::here(unlist(paths[[condition]])), collapse = " ")
-#     ))
-#   }
-# }
-
-# # Clean up the environment and run garbage collection if debugging is enabled
-# if (to_debug) {
-#   rm(list = ls(), envir = .GlobalEnv) # Ensure global environment is cleared
-#   invisible(gc())
-# }
-
-
-# paths <- list(
-#   input_notebook = here::here("data-cleaning", "01-drg-cleaning-v2.ipynb"),
-#   output_rscript = here::here("data-cleaning", "debug", "drg-cleaning")
-# )
-
-# system(paste(
-#   "jupyter nbconvert --no-prompt --to script",
-#   paths$input_notebook, "--output", paths$output_rscript
+# Final preparations for BQ upload
+# Load the dataset from the tmp chkpt
+# result <- readRDS(here(
+#   chkpt_2_path,
+#   paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
 # ))
+
+# Add is_covid variable
+# Identifies COVID-related claims by checking multiple clinical fields
+# result[, is_covid := {
+#   covid_found <- rep(FALSE, .N) # Initialize all rows as FALSE
+
+#   # Check each field sequentially, marking matches as TRUE
+#   not_found <- !covid_found
+#   # Check primary diagnosis
+#   covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
+
+#   not_found <- !covid_found
+#   # Check secondary diagnosis
+#   covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
+
+#   not_found <- !covid_found
+#   # Check coded diagnosis
+#   covid_found[not_found] <- c2[not_found] %chin% covid_rvs
+
+#   not_found <- !covid_found
+#   # Check additional coded diagnosis
+#   covid_found[not_found] <- c1[not_found] %chin% covid_rvs
+
+#   not_found <- !covid_found
+#   covid_found[not_found] <- sapply(
+#     clin_rvs[not_found],
+#     function(row) any(row %chin% covid_rvs)
+#   ) # Check procedure codes
+
+#   not_found <- !covid_found
+#   covid_found[not_found] <- sapply(
+#     clin_sdx[not_found],
+#     function(row) any(row %chin% covid_rvs)
+#   ) # Check supporting diagnoses
+
+#   not_found <- !covid_found
+#   covid_found[not_found] <- sapply(
+#     clin_proc[not_found],
+#     function(row) any(row %chin% covid_rvs)
+#   ) # Check performed procedures
+
+#   covid_found # Return logical vector of COVID matches
+# }]
+
+# Subset the dataset for BQ
+# Keep only relevant columns needed for BigQuery upload
+# result <- result[, .(
+#   # Identifiers
+#   id_series, id_pin, id_hci, id_hcp,
+#   # Date-related fields
+#   date_adm, date_dis, date_rec, date_ref, date_check,
+#   # Patient details
+#   pat_type, pat_rel, pat_age, pat_ageday, pat_sex,
+#   pat_bwt, pat_memcat_parent, pat_memcat_child,
+#   # Claim-related fields
+#   claim_status, claim_payout, claim_charge, is_covid,
+#   # Clinical classification
+#   clin_discharge, clin_outpatient, clin_emergency, clin_acc,
+#   # Clinical details
+#   clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
+# )]
+
+# Save the processed dataset to a new chkpt before BQ upload
+# saveRDS(result, here(
+#   chkpt_2_path,
+#   paste0(chkpt_2_prefix, year, suffix, "final", ".rds")
+# ))
+
+
+# BQ upload
+# if (to_bq) {
+#   # Define BQ table name
+#   if (!to_sample) bq_table <- paste0("claims_", year)
+
+#   # Attempt to delete the table if it exists
+#   tryCatch(
+#     bq_table_delete(bq_table(gcp_proj, bq_dataset, bq_table)),
+#     error = function(e) {
+#       if (grepl("Not found", e, ignore.case = TRUE)) {
+#         message("Table does not exist, nothing to drop.")
+#       } else {
+#         stop(e)
+#       }
+#     }
+#   )
+
+#   # Create the BQ table if it does not exist
+#   tryCatch(
+#     bq_table_create(
+#       bq_table(gcp_proj, bq_dataset, bq_table),
+#       fields = fromJSON(here(
+#         "data-cleaning/r_scripts_v2",
+#         "bq_schema_cleaning.json"
+#       ), simplifyDataFrame = FALSE)
+#     ),
+#     error = function(e) {
+#       if (grepl("already exists", e, ignore.case = TRUE)) {
+#         message("Table already exists. Skipping creation and upload.")
+#       } else {
+#         stop(e)
+#       }
+#     }
+#   )
+
+#   if (to_write) {
+#     # Define chunk size for upload
+#     chunk_size <- 250000
+#     # Calculate number of chunks
+#     num_chunks <- ceiling(nrow(result) / chunk_size)
+
+#     for (i in seq_len(num_chunks)) {
+#       # Extract chunk
+#       chunk <- result[
+#         ((i - 1) * chunk_size + 1):min(i * chunk_size, nrow(result)),
+#       ]
+
+#       # Upload chunk to BQ
+#       bq_table_upload(
+#         bq_table(gcp_proj, bq_dataset, bq_table),
+#         values = chunk,
+#         write_disposition = if (i == 1) "WRITE_EMPTY" else "WRITE_APPEND"
+#       )
+#     }
+#   }
+# }
 

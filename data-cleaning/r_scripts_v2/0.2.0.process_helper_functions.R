@@ -276,7 +276,7 @@ flatten_then_check_empty <- function(input) {
 
   # Check if the flattened result is empty or only contains NULL/NA
   if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
-    return(character(0)) # Return empty character vector if all NULL/NA
+    return("\u200B") # Temporary placeholder for empty columns
   } else {
     return(input) # Already a flat character vector
   }
