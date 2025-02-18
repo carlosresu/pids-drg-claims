@@ -51,3 +51,5 @@ Rplots.pdf
 data-cleaning/debug/cache/venv
 data-cleaning/debug/test.csv
 *.gstmp
+data-cleaning/debug/cache/progress.txt
+data-cleaning/debug/cache/upload-bwt.log
