@@ -13,7 +13,7 @@ to_flush <- FALSE
 # TODO: Add description here
 to_bq <- FALSE
 # TODO: Add description here
-to_post_cleaning_checks <- TRUE
+to_post_cleaning_checks <- FALSE
 # TODO: Add description here
 to_parallel <- TRUE
 cat("Parallelization:", to_parallel, "\n")
