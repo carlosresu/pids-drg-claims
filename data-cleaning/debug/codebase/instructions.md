@@ -80,6 +80,7 @@ chkpt_7_path <- file.path(chkpt_path, "chkpt_7_py_input")
 chkpt_8_path <- file.path(chkpt_path, "chkpt_8_py_output")
 chkpt_9_path <- file.path(chkpt_path, "chkpt_9_grouper_differences")
 chkpt_10_path <- file.path(chkpt_path, "chkpt_10_stata")
+chkpt_11_path <- file.path(chkpt_path, "chkpt_11_bwt")
 cache_path <- file.path(clean_prefix, "debug", "cache")
 mapping_path <- file.path(cache_path, "mapping")
 total_rows_path <- file.path(cache_path, "total_rows")
@@ -323,6 +324,16 @@ collapse_to_string <- function(vec) {
     return(empty_vec)
   }
 }
+collapse_cols <- function(cols) {
+  apply(do.call(cbind, cols), 1, function(row) {
+    row_vals <- na.omit(row) # Remove NAs
+    if (length(row_vals) > 0) {
+      paste0(row_vals, collapse = "||")
+    } else {
+      NA_character_
+    }
+  })
+}
 split_to_vector <- function(column) {
   lapply(column, function(long_string) {
     result <- character(0)
@@ -408,26 +419,40 @@ remove_lumped_rvs_codes <- function(column) {
   )
   return(modified_column) # Return the modified column with split RVS codes
 }
-replace_na_or_empty_col <- function(col, replace_with) {
-  if (replace_with == "NA_character_") {
+replace_na_or_empty <- function(dt, replace_with) {
+  na_vals <- c(na_values, na_like_strings)
+  cols <- if (replace_with == "NA_character_") {
+    names(dt)[sapply(
+      dt,
+      function(col) is.character(col) || is.factor(col) || is.list(col)
+    )]
+  } else {
+    names(dt)[sapply(dt, is.list)]
+  }
+  replacement_value <- if (replace_with == "NA_character_") {
+    NA_character_
+  } else {
+    character(0)
+  }
+  for (col_name in cols) {
+    col <- dt[[col_name]]
     if (is.list(col)) {
-      return(lapply(col, function(x) {
-        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
-      }))
+      dt[, (col_name) := lapply(get(col_name), function(x) {
+        if (all(is.na(x)) || x %in% na_vals) character(0) else x
+      })]
     } else {
-      col[is.na(col) | col %chin% c("", "NA", "character(0)")] <- NA_character_
+      dt[
+        get(col_name) %in% na_vals,
+        (col_name) := replacement_value
+      ]
       if (is.factor(col)) {
-        col <- factor(col, levels = c(levels(col), NA))
+        set(dt, j = col_name, value = factor(dt[[col_name]],
+          levels = c(levels(col), NA)
+        ))
       }
     }
-  } else { # If replace_with == "character(0)"
-    if (is.list(col)) {
-      col <- lapply(col, function(x) {
-        if (all(is.na(x)) || identical(x, "") || identical(x, "NA")) character(0) else x
-      })
-    }
   }
-  return(col)
+  return(dt)
 }
 remove_whitespace <- function(x) {
   if (is.null(x) || length(x) == 0) {
@@ -445,10 +470,10 @@ manual_replacement <- function(text) {
   )
   return(replaced)
 }
-flatten_then_check_null_na <- function(input) {
+flatten_then_check_empty <- function(input) {
   input <- unlist(input, recursive = TRUE)
   if (length(input) == 0 || all(is.null(input)) || all(is.na(input))) {
-    return(character(0)) # Return empty character vector if all NULL/NA
+    return("\u200B") # Temporary placeholder for empty columns
   } else {
     return(input) # Already a flat character vector
   }
@@ -459,7 +484,7 @@ prep_icd_for_mapping <- function(text) {
     collapse_to_string() %>%
     split_to_vector() %>%
     remove_lumped_icd_codes() %>%
-    flatten_then_check_null_na()
+    flatten_then_check_empty()
 }
 filter_icds <- function(codes, neoplasm_codes, covidrvs, acc_pdx_set) {
   codes <- codes[!is.null(codes) & !is.na(codes) & !grepl("^[0-9]", codes) &
@@ -640,7 +665,7 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 }
 ```
 
-### 5.1.0.collapse_clean_icd_rvs_cols.R
+### 5.1.0.collapse_clin_cols.R
 ```r
 collapse_clin_cols <- function(cols, is_icd) {
   collapsed <- lapply(seq_along(cols[[1]]), function(i) {
@@ -773,7 +798,7 @@ append_copy_remove_icd_rvs_c1_c2 <- function(col, clin_rvs, clin_icd) {
   }, clin_icd, clin_rvs, SIMPLIFY = FALSE)]
   datatable[, col := lapply(col, function(x) {
     if (is.null(x) || all(is.na(x))) {
-      processed_col <- NA_character_
+      processed_col <- character(0)
     } else {
       processed_col <- unlist(x, recursive = TRUE, use.names = FALSE)
     }
@@ -788,7 +813,67 @@ append_copy_remove_icd_rvs_c1_c2 <- function(col, clin_rvs, clin_icd) {
 }
 ```
 
-### 5.3.0.remap_patient_data.R
+### 5.3.0.swap_icd_rvs.R
+```r
+swap_icd_rvs <- function(clin_icd, clin_rvs) {
+  datatable <- data.table(clin_icd = clin_icd, clin_rvs = clin_rvs)
+  datatable[, rvs_matches := mapply(function(icd_vec, rvs_vec) {
+    rvs_codes_in_icd <- Filter(function(code) {
+      flag <- (nchar(code) == 5 && grepl("^[0-9]", code)) ||
+        grepl("^[A-Z]{2}", code) ||
+        !is.null(mget(code, envir = rvs_codes_env, ifnotfound = list(NULL))[[1]]) ||
+        !is.null(mget(code, envir = covid_env, ifnotfound = list(NULL))[[1]])
+      return(flag)
+    }, icd_vec)
+    updated_rvs <- c(rvs_vec, rvs_codes_in_icd[!rvs_codes_in_icd %in% rvs_vec])
+    deduplicated_rvs <- updated_rvs[!duplicated(updated_rvs)]
+    return(deduplicated_rvs)
+  }, clin_icd, clin_rvs, SIMPLIFY = FALSE)]
+  datatable[, clin_rvs := rvs_matches]
+  datatable[, icd_matches := mapply(function(rvs_vec, icd_vec) {
+    icd_codes_in_rvs <- Filter(function(code) {
+      flag <- (!grepl("^[0-9]{5}$", code) &&
+        !grepl("^[A-Z]{2}", code) &&
+        !grepl("/", code)) ||
+        !is.null(mget(code, envir = icd_codes_env, ifnotfound = list(NULL))[[1]]) ||
+        !is.null(mget(code, envir = phil_icds_env, ifnotfound = list(NULL))[[1]])
+      return(flag)
+    }, rvs_vec)
+    updated_icd <- c(icd_vec, icd_codes_in_rvs[!icd_codes_in_rvs %in% icd_vec])
+    deduplicated_icd <- updated_icd[!duplicated(updated_icd)]
+    return(deduplicated_icd)
+  }, clin_rvs, clin_icd, SIMPLIFY = FALSE)]
+  datatable[, clin_icd := icd_matches]
+  datatable[, clin_icd := lapply(clin_icd, function(icd_vec) {
+    filtered_icd <- Filter(function(code) {
+      valid_icd <- (!grepl("^[0-9]{5}$", code) &&
+        !grepl("^[A-Z]{2}", code) &&
+        !grepl("/", code)) ||
+        !is.null(mget(code, envir = icd_codes_env, ifnotfound = list(NULL))[[1]]) ||
+        !is.null(mget(code, envir = phil_icds_env, ifnotfound = list(NULL))[[1]])
+      return(valid_icd)
+    }, icd_vec)
+    return(filtered_icd)
+  })]
+  datatable[, clin_rvs := lapply(clin_rvs, function(rvs_vec) {
+    filtered_rvs <- Filter(function(code) {
+      valid_rvs <- (nchar(code) == 5 && grepl("^[0-9]", code)) ||
+        grepl("^[A-Z]{2}", code) ||
+        !is.null(mget(code, envir = rvs_codes_env, ifnotfound = list(NULL))[[1]]) ||
+        !is.null(mget(code, envir = covid_env, ifnotfound = list(NULL))[[1]])
+      return(valid_rvs)
+    }, rvs_vec)
+    return(filtered_rvs)
+  })]
+  ret_list <- list(
+    clin_icd = datatable$clin_icd,
+    clin_rvs = datatable$clin_rvs
+  )
+  return(ret_list)
+}
+```
+
+### 5.4.0.remap_patient_data.R
 ```r
 remap_patient_data <- function(col, remapping) {
   remapped <- eval(
@@ -802,7 +887,7 @@ remap_patient_data <- function(col, remapping) {
 }
 ```
 
-### 5.4.0.map_rvs_icd9.R
+### 5.5.0.map_rvs_icd9.R
 ```r
 map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
   without_drg_codes <- unique(rvs[is_drg == FALSE]$rvs)
@@ -816,13 +901,13 @@ map_rvs_icd9 <- function(clin_rvs, rvs = rvs_icd9) {
     mapped_icd9 <- unique(unlist(lapply(unlist(x), function(code) {
       rvs_map_solo[[code]] %||% rvs_map_list[[code]] %||% NULL
     })))
-    if (length(mapped_icd9)) mapped_icd9 else NA_character_
+    if (length(mapped_icd9)) mapped_icd9 else character(0)
   })
   return(result)
 }
 ```
 
-### 5.5.0.map_icd10.R
+### 5.6.0.map_icd10.R
 ```r
 map_icd10 <- function(col) {
   icds <- unique(unlist(col))
@@ -867,23 +952,31 @@ map_icd10 <- function(col) {
     }
     icd_mapping[[code]] <- NA_character_
   }
-  ret <- lapply(col, function(codes) {
-    unname(lapply(codes, function(code) {
+  ret <- lapply(col, function(vec) {
+    if (length(vec) == 0) {
+      return(character(0)) # Return empty character vector if input is empty
+    }
+    mapped_vec <- vapply(vec, function(code) {
       if (!is.null(icd_mapping[[code]]) && !is.na(icd_mapping[[code]])) {
-        return(icd_mapping[[code]])
+        return(unname(icd_mapping[[code]])) # **Unname the mapped value**
       } else {
-        return(code) # Keep original code if no mapping found
+        return("") # Return an empty string (placeholder)
       }
-    }))
+    }, FUN.VALUE = character(1))
+    mapped_vec <- unname(mapped_vec[mapped_vec != ""])
+    if (length(mapped_vec) == 0) {
+      return(character(0)) # Ensure empty vectors stay as character(0)
+    }
+    return(mapped_vec)
   })
-  return(ret) # Always return a list of vectors
+  return(ret) # Always return a list of character vectors
 }
 ```
 
-### 5.6.1.0.prep_pdx_inputs.R
+### 5.7.1.0.prep_pdx_inputs.R
 ```r
 prep_pdx_inputs <- function(
-    c1_orig, c2_orig, clin_icd_orig,
+    c1_orig, c2_orig, clin_sdx_orig,
     accpdx = acc_pdx, neoplasmsdtactual = neoplasms_dt_actual,
     acrrvs = acr_rvs, covidrvs = covid_rvs) {
   acc_pdx_set_final <- unique(accpdx)
@@ -898,7 +991,7 @@ prep_pdx_inputs <- function(
     split <- safe_split(remove_whitespace(x))
     return(split)
   })
-  clin_icd_temp <- lapply(clin_icd_orig, function(x) {
+  clin_sdx_temp <- lapply(clin_sdx_orig, function(x) {
     split <- safe_split(remove_whitespace(x))
     return(split)
   })
@@ -910,26 +1003,26 @@ prep_pdx_inputs <- function(
     c2_temp, filter_icds,
     neoplasm_codes_final, covidrvsfinal, acc_pdx_set_final
   )
-  clin_icd_final <- lapply(
-    clin_icd_temp, filter_icds,
+  clin_sdx_final <- lapply(
+    clin_sdx_temp, filter_icds,
     neoplasm_codes_final, covidrvsfinal, acc_pdx_set_final
   )
-  ret_list <- list(c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final)
+  ret_list <- list(c1 = c1_final, c2 = c2_final, clin_sdx = clin_sdx_final)
   return(ret_list)
 }
 ```
 
-### 5.6.2.0.find_pdx.R
+### 5.7.2.0.find_pdx.R
 ```r
 find_pdx <- function(
-    c1_split, c2_split, clin_icd_split,
+    c1_split, c2_split, clin_sdx_split,
     seed) {
   check_similarity <- function(x, y) {
     min_len <- min(nchar(x), nchar(y))
     ret_flag <- sum(substr(x, 1, min_len) == substr(y, 1, min_len))
     return(ret_flag)
   }
-  algo_result <- mapply(function(c1_split, c2_split, clin_icd_split) {
+  algo_result <- mapply(function(c1_split, c2_split, clin_sdx_split) {
     for (cr_list in list(c1_split, c2_split)) {
       if (length(cr_list) > 0) {
         ret_list <- list(
@@ -939,8 +1032,8 @@ find_pdx <- function(
         return(ret_list)
       }
     }
-    if (length(clin_icd_split) > 0) {
-      pdxs <- clin_icd_split
+    if (length(clin_sdx_split) > 0) {
+      pdxs <- clin_sdx_split
     } else {
       ret_list <- list(
         clin_pdx = NA_character_,
@@ -982,7 +1075,7 @@ find_pdx <- function(
       clin_pdx_source = 6
     )
     return(ret_list)
-  }, c1_split, c2_split, clin_icd_split, SIMPLIFY = FALSE)
+  }, c1_split, c2_split, clin_sdx_split, SIMPLIFY = FALSE)
   ret_list <- list(
     clin_pdx = sapply(algo_result, `[[`, "clin_pdx"),
     clin_pdx_source = sapply(algo_result, `[[`, "clin_pdx_source")
@@ -1263,7 +1356,9 @@ required_packages <- c(
   "base64enc", # Base64 encoding/decoding
   "arrow", # Apache Arrow for fast data storage
   "tidyverse", # Collection of data science packages,
-  "fasttime" # for fastPOSIXct
+  "fasttime", # for fastPOSIXct
+  "glue", # for string pasting
+  "progressr" # live progress and ETA
 )
 github_packages <- c(
   "r-lib/styler" # Code formatting
@@ -1284,7 +1379,7 @@ invisible(lapply(
 ))
 invisible(lapply(required_packages, library, character.only = TRUE))
 invisible(lapply(basename(github_packages), library, character.only = TRUE))
-year <- 2018
+year <- as.numeric(fread("/home/resurreccion_cmc/drg-pipeline/data-cleaning/debug/cache/year.txt"))
 for (file in list.files(
   here::here("data-cleaning/r_scripts_v2"),
   pattern = "\\.R$", full.names = TRUE
@@ -1294,17 +1389,23 @@ for (file in list.files(
 message(year)
 to_use_cache <- TRUE # Set to TRUE to enable saving and loading of .rds files
 to_print_mapping_data <- FALSE # Set to TRUE to print mapping data tables
-load_or_query <- function(query, var_name) {
-  rds_path <- here(cache_path, "mapping", paste0(var_name, ".rds"))
-  if (to_use_cache && file.exists(rds_path)) {
-    if (verbose_output) message("Loading ", var_name, " from cache...")
+load_or_query <- function(
+    query, var_name, year = NULL,
+    overwrite_cache = FALSE) {
+  rds_path <- here(
+    cache_path, "mapping",
+    paste0(ifelse(var_name == "hci" & !is.null(year),
+      paste0("hci_", year), var_name
+    ), ".rds")
+  )
+  if (!overwrite_cache && to_use_cache && file.exists(rds_path)) {
+    verbose_output && message("Loading ", var_name, " from cache: ", rds_path)
     return(readRDS(rds_path))
-  } else {
-    if (verbose_output) message("Querying ", var_name, " from BigQuery...")
-    dt <- query_bq_to_dt(query)
-    saveRDS(dt, rds_path) # Save queried data to .rds cache file
-    return(dt)
   }
+  verbose_output && message("Querying ", var_name, " from BigQuery...")
+  dt <- query_bq_to_dt(query)
+  if (to_use_cache) saveRDS(dt, rds_path)
+  return(dt)
 }
 if (to_print_mapping_data) {
   print_all <- function(dt, title) {
@@ -1355,8 +1456,8 @@ i10vx <- load_or_query(i10vx_query, "i10vx")
 setkey(i10vx, "code") # Set the code column as key for efficient lookup
 acc_icd <- unique(i10vx[, code]) # Extract unique ICD codes from this table
 acc_icd_set <- unique(acc_icd)
-hci_query <- paste0("SELECT * FROM ", gcp_proj, ".hci.temp_hci")
-hci <- load_or_query(hci_query, "hci")
+hci_query <- paste0("SELECT * FROM ", gcp_proj, paste0(".phic_hci.hci_", year))
+hci <- load_or_query(hci_query, "hci", year)
 neoplasm_codes <- unique(neoplasms_dt_actual$icd10) # Unique neoplasm codes
 covid_codes <- unique(covid_rvs) # Unique COVID-related codes
 rvs_codes <- unique(acr_rvs$rvs) # Unique RVS codes
@@ -1424,47 +1525,12 @@ process_chunk <- function(
   bool_cols <- intersect(names(chunk), c("clin_outpatient", "clin_emergency"))
   chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
   chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
-  chunk[, (char_cols) := lapply(.SD), .SDcols = char_cols]
+  chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
   chunk[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
   chunk[, (bool_cols) := lapply(.SD, as.logical), .SDcols = bool_cols]
   chunk[, (char_cols) := lapply(.SD, function(col) {
     col <- iconv(col, from = "", to = "UTF-8")
   }), .SDcols = char_cols]
-  replace_na_or_empty <- function(dt, replace_with) {
-    na_vals <- c(na_values, na_like_strings)
-    cols <- if (replace_with == "NA_character_") {
-      names(dt)[sapply(
-        dt,
-        function(col) is.character(col) || is.factor(col) || is.list(col)
-      )]
-    } else {
-      names(dt)[sapply(dt, is.list)]
-    }
-    replacement_value <- if (replace_with == "NA_character_") {
-      NA_character_
-    } else {
-      character(0)
-    }
-    for (col_name in cols) {
-      col <- dt[[col_name]]
-      if (is.list(col)) {
-        dt[, (col_name) := lapply(get(col_name), function(x) {
-          if (all(is.na(x)) || x %in% na_vals) character(0) else x
-        })]
-      } else {
-        dt[
-          get(col_name) %in% na_vals,
-          (col_name) := replacement_value
-        ]
-        if (is.factor(col)) {
-          set(dt, j = col_name, value = factor(dt[[col_name]],
-            levels = c(levels(col), NA)
-          ))
-        }
-      }
-    }
-    return(dt)
-  }
   chunk <- replace_na_or_empty(chunk, "NA_character_")
   chunk <- replace_na_or_empty(chunk, "character(0)")
   date_cols <- c(
@@ -1490,24 +1556,113 @@ process_chunk <- function(
   )]
   id_cols <- c("id_series", "id_pin")
   chunk[, (id_cols) := lapply(.SD, trimws), .SDcols = id_cols]
-  collapse_cols <- function(cols) {
-    collapsed <- apply(do.call(cbind, cols), 1, function(row) {
-      row_vals <- na.omit(row) # Remove NAs
-      if (length(row_vals) > 0) {
-        paste0(row_vals, collapse = "||")
-      } else {
-        NA_character_
-      }
-    })
-    return(collapsed)
-  }
+  chunk[, id_hcp := strsplit(id_hcp, "\\s*,\\s*|\\|\\||\\|")]
+  chunk[, (num_cols) := lapply(.SD, function(col) {
+    col[is.nan(col)] <- NA_real_
+    return(col)
+  }), .SDcols = num_cols]
   clin_icd_colnames <- grep("^clin_icd", names(chunk), value = TRUE)
   clin_rvs_colnames <- grep("^clin_rvs", names(chunk), value = TRUE)
-  clin_icd_cols <- lapply()
-  clin_rvs_cols <- lapply()
+  c1_c2_cols <- c("c1", "c2")
+  chunk[, (c(c1_c2_cols, clin_icd_colnames, clin_rvs_colnames)) :=
+    lapply(.SD, clean_column), .SDcols = c(
+    c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
+  )]
+  chunk[, (c(c1_c2_cols, clin_icd_colnames, clin_rvs_colnames)) :=
+    lapply(.SD, manual_replacement), .SDcols = c(
+    c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
+  )]
   chunk[, clin_icd := collapse_cols(.SD), .SDcols = clin_icd_colnames]
   chunk[, clin_rvs := collapse_cols(.SD), .SDcols = clin_rvs_colnames]
-  chunk[, c(clin_icd_colnames, clin_rvs_colnames) := NULL]
+  chunk[, (c(clin_icd_colnames, clin_rvs_colnames)) := NULL]
+  chunk[, clin_icd := remove_lumped_icd_codes(split_to_vector(clin_icd))]
+  chunk[, clin_rvs := split_to_vector(clin_rvs)]
+  chunk[, (c1_c2_cols) :=
+    lapply(.SD, flatten_then_check_empty), .SDcols = c1_c2_cols]
+  chunk[, (c1_c2_cols) :=
+    lapply(.SD, \(x) lapply(x, \(y) setdiff(y, NA))), .SDcols = c1_c2_cols]
+  chunk[, clin_icd := lapply(seq_len(.N), function(i) {
+    clin_icd_list <- c(clin_icd[[i]], c1[[i]], c2[[i]])
+    return(flatten_then_check_empty(clin_icd_list))
+  })]
+  chunk[, (c1_c2_cols) := lapply(.SD, function(col) {
+    lapply(col, function(x) setdiff(x, "\u200B"))
+  }), .SDcols = c1_c2_cols]
+  for (col in c1_c2_cols) {
+    results <- append_copy_remove_icd_rvs_c1_c2(
+      chunk[[col]], chunk$clin_rvs, chunk$clin_icd
+    )
+    set(chunk, j = "clin_rvs", value = results$clin_rvs)
+    set(chunk, j = col, value = results$col)
+    set(chunk, j = "clin_icd", value = results$clin_icd)
+  }
+  result <- swap_icd_rvs(chunk$clin_icd, chunk$clin_rvs)
+  chunk[, clin_icd := result$clin_icd]
+  chunk[, clin_rvs := result$clin_rvs]
+  chunk[
+    !is.na(pat_bdate) & !is.na(date_adm),
+    pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)
+  ]
+  chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age) &
+    pat_bdate > as.Date(date_adm), pat_bdate := NA_Date_]
+  chunk[grepl("99432", c1_orig) & !is.na(pat_age) & pat_age < 0 &
+    pat_age >= -1, pat_age := 0]
+  chunk[
+    !is.na(pat_age) & pat_age > 0 & pat_age <= 124,
+    pat_age := floor(pat_age)
+  ]
+  chunk[
+    !is.na(pat_age) & (pat_age < 0 | pat_age > 124),
+    pat_age := NA_integer_
+  ]
+  remap_cols <- c(
+    "pat_type", "pat_memcat_parent",
+    "pat_memcat_child", "clin_discharge", "claim_status"
+  )
+  chunk[, (remap_cols) := lapply(
+    .SD, remap_patient_data, remap_master
+  ), .SDcols = remap_cols]
+  icd_cols <- c("c1", "c2", "clin_icd")
+  chunk[, (icd_cols) := lapply(.SD, map_icd10), .SDcols = icd_cols]
+  chunk[, clin_sdx := clin_icd] # rename col
+  chunk[, clin_icd := NULL] # del col
+  chunk[, clin_proc := map_rvs_icd9(clin_rvs)]
+  chunk[, clin_rvs := NULL] # del col
+  pdx_inputs <- prep_pdx_inputs(
+    chunk$c1, chunk$c2, chunk$clin_sdx,
+    acc_pdx, neoplasms_dt_actual, acr_rvs, covid_rvs
+  )
+  pdx_result <- find_pdx(
+    pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_sdx,
+    global_seed
+  )
+  chunk[, c("clin_pdx", "clin_pdx_source") :=
+    .(pdx_result$clin_pdx, pdx_result$clin_pdx_source)]
+  icd_cols <- c("c1", "c2", "clin_sdx")
+  chunk[, (icd_cols) := lapply(.SD, function(col) {
+    lapply(seq_len(.N), function(i) {
+      setdiff(col[[i]], clin_pdx[i]) # Remove clin_pdx from the column
+    })
+  }), .SDcols = icd_cols]
+  chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
+  chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
+  chunk[, `:=`(
+    clin_c1 = c1_orig,
+    clin_c2 = c2_orig
+  )][, `:=`(
+    c1 = NULL, c2 = NULL,
+    c1_orig = NULL, c2_orig = NULL
+  )]
+  setcolorder(chunk, c(
+    "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm",
+    "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
+    "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
+    "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
+    "pat_memcat_child", "claim_status", "claim_payout",
+    "claim_charge", "clin_discharge", "clin_outpatient",
+    "clin_emergency", "clin_acc", "clin_c1", "clin_c2",
+    "clin_sdx", "clin_proc", "clin_pdx", "clin_pdx_source"
+  ))
   invisible(gc())
   return(chunk)
 }
@@ -1528,6 +1683,8 @@ for (loop_part in 1:split_parts) {
       lapply(chunks, process_chunk)
     } else if (to_debug) {
       list(process_chunk(chunks[[1]]))
+    } else {
+      stop("Invalid parameters")
     }
   summarized_dt <- rbindlist(parallel_results)
   if (to_write) {
@@ -1559,126 +1716,24 @@ master_dt_list <- mclapply(1:split_parts,
   },
   mc.cores = nthreads
 )
-message("Commencing rbindlist")
 master_dt <- rbindlist(master_dt_list, fill = TRUE)
 rm(master_dt_list)
 invisible(gc())
-message("Finished rbindlist")
 if (to_write) {
-  message("Commencing saveRDS")
   saveRDS(master_dt, here(
     chkpt_2_path, paste0(
       chkpt_2_prefix, year, suffix, ".rds"
     )
-  ), compress = TRUE)
-  message("Finished saveRDS")
+  ), compress = FALSE)
 }
-message(paste0(
-  "Saving ",
-  paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-))
 saveRDS(master_dt, here(
   chkpt_2_path,
   paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-), compress = TRUE)
-message(paste0(
-  "Finished saving ",
-  paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-))
-fwrite(
-  readRDS(here(
-    chkpt_2_path,
-    paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-  )),
-  "~/drg-pipeline/data-cleaning/debug/test.csv"
-)
-result <- readRDS(here(
+), compress = FALSE)
+str(readRDS(here(
   chkpt_2_path,
   paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-))
-result[, is_covid := {
-  covid_found <- rep(FALSE, .N) # Initialize all rows as FALSE
-  not_found <- !covid_found
-  covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
-  not_found <- !covid_found
-  covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
-  not_found <- !covid_found
-  covid_found[not_found] <- c2[not_found] %chin% covid_rvs
-  not_found <- !covid_found
-  covid_found[not_found] <- c1[not_found] %chin% covid_rvs
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(
-    clin_rvs[not_found],
-    function(row) any(row %chin% covid_rvs)
-  ) # Check procedure codes
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(
-    clin_sdx[not_found],
-    function(row) any(row %chin% covid_rvs)
-  ) # Check supporting diagnoses
-  not_found <- !covid_found
-  covid_found[not_found] <- sapply(
-    clin_proc[not_found],
-    function(row) any(row %chin% covid_rvs)
-  ) # Check performed procedures
-  covid_found # Return logical vector of COVID matches
-}]
-result <- result[, .(
-  id_series, id_pin, id_hci, id_hcp,
-  date_adm, date_dis, date_rec, date_ref, date_check,
-  pat_type, pat_rel, pat_age, pat_ageday, pat_sex,
-  pat_bwt, pat_memcat_parent, pat_memcat_child,
-  claim_status, claim_payout, claim_charge, is_covid,
-  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-)]
-saveRDS(result, here(
-  chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "final", ".rds")
-))
-if (to_bq) {
-  if (!to_sample) bq_table <- paste0("claims_", year)
-  tryCatch(
-    bq_table_delete(bq_table(gcp_proj, bq_dataset, bq_table)),
-    error = function(e) {
-      if (grepl("Not found", e, ignore.case = TRUE)) {
-        message("Table does not exist, nothing to drop.")
-      } else {
-        stop(e)
-      }
-    }
-  )
-  tryCatch(
-    bq_table_create(
-      bq_table(gcp_proj, bq_dataset, bq_table),
-      fields = fromJSON(here(
-        "data-cleaning/r_scripts_v2",
-        "bq_schema_cleaning.json"
-      ), simplifyDataFrame = FALSE)
-    ),
-    error = function(e) {
-      if (grepl("already exists", e, ignore.case = TRUE)) {
-        message("Table already exists. Skipping creation and upload.")
-      } else {
-        stop(e)
-      }
-    }
-  )
-  if (to_write) {
-    chunk_size <- 250000
-    num_chunks <- ceiling(nrow(result) / chunk_size)
-    for (i in seq_len(num_chunks)) {
-      chunk <- result[
-        ((i - 1) * chunk_size + 1):min(i * chunk_size, nrow(result)),
-      ]
-      bq_table_upload(
-        bq_table(gcp_proj, bq_dataset, bq_table),
-        values = chunk,
-        write_disposition = if (i == 1) "WRITE_EMPTY" else "WRITE_APPEND"
-      )
-    }
-  }
-}
+)))
 ```
 
 ### 02-drg-grouping-v2.ipynb
@@ -1728,14 +1783,14 @@ invisible(
   )
 )
 nthreads <- parallelly::availableCores()
-scripts_path <- here("data-cleaning/r_scripts_v2")
-r_files <- list.files(scripts_path, pattern = "\\.R$", full.names = TRUE)
-for (file in r_files) {
-  if (verbose_output) message(Sys.time(), " Sourcing: ", file)
+year <- 2018
+for (file in list.files(
+  here::here("data-cleaning/r_scripts_v2"),
+  pattern = "\\.R$", full.names = TRUE
+)) {
   invisible(source(file))
 }
 message(year)
-bq_dataset <- "drg_claims"
 for (year in 2018:2023) {
   file_type <- if (year %in% c(2022:2023)) ".tsv" else ".csv"
   file_name <- paste0(full_claims_prefix, year, file_type)
@@ -2510,7 +2565,7 @@ from rpy2.robjects import r, globalenv
 from rpy2.robjects.packages import importr
 import os
 r_source = r['source']
-r_source(here::here("data-cleaning", "00a-parameters.r"))
+r_source("~/drg-pipeline/data-cleaning/00a-parameters.r")
 thread_offset = r['thread_offset'][0]
 sample_size_divisor = int(r['sample_size_divisor'][0])
 to_sample = bool(r['to_sample'][0])
