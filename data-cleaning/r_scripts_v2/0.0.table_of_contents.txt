@@ -6,7 +6,7 @@ split_and_save_part
 create_sample_files
 read_appropriate_file
 collapse_clin_cols
-append_copy_remove_icd_rvs
+append_copy_remove_icd_rvs_c1_c2
 remap_patient_data
 map_rvs_icd9
 map_icd10

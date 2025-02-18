@@ -1,4 +1,4 @@
-append_copy_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
+append_copy_remove_icd_rvs_c1_c2 <- function(col, clin_rvs, clin_icd) {
   # Ensure all input lists are lists of vectors
   datatable <- data.table(clin_rvs = clin_rvs, col = col, clin_icd = clin_icd)
 
@@ -135,7 +135,7 @@ append_copy_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
   # Step 9: Recursively unlist elements in col
   datatable[, col := lapply(col, function(x) {
     if (is.null(x) || all(is.na(x))) {
-      processed_col <- NA_character_
+      processed_col <- character(0)
     } else {
       processed_col <- unlist(x, recursive = TRUE, use.names = FALSE)
     }
@@ -151,3 +151,4 @@ append_copy_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
 
   return(ret_list)
 }
+

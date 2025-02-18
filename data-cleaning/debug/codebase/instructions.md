@@ -658,9 +658,9 @@ collapse_clin_cols <- function(cols, is_icd) {
 }
 ```
 
-### 5.2.0.append_copy_remove_icd_rvs.R
+### 5.2.0.append_copy_remove_icd_rvs_c1_c2.R
 ```r
-append_copy_remove_icd_rvs <- function(col, clin_rvs, clin_icd) {
+append_copy_remove_icd_rvs_c1_c2 <- function(col, clin_rvs, clin_icd) {
   datatable <- data.table(clin_rvs = clin_rvs, col = col, clin_icd = clin_icd)
   datatable[, matches := lapply(col, function(x) {
     valid_rvs_codes <- Filter(function(code) {
