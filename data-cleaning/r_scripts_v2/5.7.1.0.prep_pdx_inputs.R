@@ -1,6 +1,6 @@
 prep_pdx_inputs <- function(
     # inputs to process
-    c1_orig, c2_orig, clin_icd_orig,
+    c1_orig, c2_orig, clin_sdx_orig,
     # dependencies
     accpdx = acc_pdx, neoplasmsdtactual = neoplasms_dt_actual,
     acrrvs = acr_rvs, covidrvs = covid_rvs) {
@@ -20,7 +20,7 @@ prep_pdx_inputs <- function(
     split <- safe_split(remove_whitespace(x))
     return(split)
   })
-  clin_icd_temp <- lapply(clin_icd_orig, function(x) {
+  clin_sdx_temp <- lapply(clin_sdx_orig, function(x) {
     split <- safe_split(remove_whitespace(x))
     return(split)
   })
@@ -34,12 +34,12 @@ prep_pdx_inputs <- function(
     c2_temp, filter_icds,
     neoplasm_codes_final, covidrvsfinal, acc_pdx_set_final
   )
-  clin_icd_final <- lapply(
-    clin_icd_temp, filter_icds,
+  clin_sdx_final <- lapply(
+    clin_sdx_temp, filter_icds,
     neoplasm_codes_final, covidrvsfinal, acc_pdx_set_final
   )
 
   # prepared outputs (input to find_pdx)
-  ret_list <- list(c1 = c1_final, c2 = c2_final, clin_icd = clin_icd_final)
+  ret_list <- list(c1 = c1_final, c2 = c2_final, clin_sdx = clin_sdx_final)
   return(ret_list)
 }

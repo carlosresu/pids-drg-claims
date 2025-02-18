@@ -1,6 +1,6 @@
 find_pdx <- function(
     # Inputs:
-    c1_split, c2_split, clin_icd_split,
+    c1_split, c2_split, clin_sdx_split,
     # Parameters:
     seed) {
   # Function to calculate similarity between two strings
@@ -13,9 +13,9 @@ find_pdx <- function(
   # Process each row, saving it so we run it only once, but extract
   # two things from it later.
 
-  # REMEMBER: we already filter c1 thru clin_icd and leave only acceptable pdxs
+  # REMEMBER: we already filter c1 thru clin_sdx and leave only acceptable pdxs
   # this is why we dont check
-  algo_result <- mapply(function(c1_split, c2_split, clin_icd_split) {
+  algo_result <- mapply(function(c1_split, c2_split, clin_sdx_split) {
     # Step A: Check if any element in c1_split or c2_split is an accepted clin_pdx
     for (cr_list in list(c1_split, c2_split)) {
       if (length(cr_list) > 0) {
@@ -27,9 +27,9 @@ find_pdx <- function(
       }
     }
 
-    # Step B: Find accepted clin_pdx from clin_icd_split
-    if (length(clin_icd_split) > 0) {
-      pdxs <- clin_icd_split
+    # Step B: Find accepted clin_pdx from clin_sdx_split
+    if (length(clin_sdx_split) > 0) {
+      pdxs <- clin_sdx_split
     } else {
       ret_list <- list(
         clin_pdx = NA_character_,
@@ -77,7 +77,7 @@ find_pdx <- function(
       clin_pdx_source = 6
     )
     return(ret_list)
-  }, c1_split, c2_split, clin_icd_split, SIMPLIFY = FALSE)
+  }, c1_split, c2_split, clin_sdx_split, SIMPLIFY = FALSE)
 
   # Return the clin_pdx values and codes
   ret_list <- list(

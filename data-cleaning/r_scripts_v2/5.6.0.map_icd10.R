@@ -1,6 +1,5 @@
 map_icd10 <- function(col) {
-  # Collect and pre-filter unique ICD codes,
-  # excluding those in covid_rvs_neoplasm_env
+  # Collect and pre-filter unique ICD codes, excluding those in covid_rvs_neoplasm_env
   icds <- unique(unlist(col))
   filtered_icds <- icds[!is.na(icds) &
     !grepl("^[0-9]", icds) &
@@ -57,16 +56,30 @@ map_icd10 <- function(col) {
     icd_mapping[[code]] <- NA_character_
   }
 
-  # Return mapped ICD codes while ensuring output remains a list of vectors
-  ret <- lapply(col, function(codes) {
-    unname(lapply(codes, function(code) {
+  # Return mapped ICD codes while ensuring correct structure
+  ret <- lapply(col, function(vec) {
+    if (length(vec) == 0) {
+      return(character(0)) # Return empty character vector if input is empty
+    }
+
+    # Ensure mapping preserves structure, but **return character(0) if no mapping is found**
+    mapped_vec <- vapply(vec, function(code) {
       if (!is.null(icd_mapping[[code]]) && !is.na(icd_mapping[[code]])) {
-        return(icd_mapping[[code]])
+        return(unname(icd_mapping[[code]])) # **Unname the mapped value**
       } else {
-        return(code) # Keep original code if no mapping found
+        return("") # Return an empty string (placeholder)
       }
-    }))
+    }, FUN.VALUE = character(1))
+
+    # Ensure final output doesn't have names and removes empty strings
+    mapped_vec <- unname(mapped_vec[mapped_vec != ""])
+
+    if (length(mapped_vec) == 0) {
+      return(character(0)) # Ensure empty vectors stay as character(0)
+    }
+
+    return(mapped_vec)
   })
 
-  return(ret) # Always return a list of vectors
+  return(ret) # Always return a list of character vectors
 }
