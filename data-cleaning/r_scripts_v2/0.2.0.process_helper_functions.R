@@ -293,11 +293,15 @@ prep_icd_for_mapping <- function(text) {
 
 # Filter ICD codes based on exclusion criteria,
 # for use in prepare_pdx_inputs function
-filter_icds <- function(codes, neoplasm_codes, covidrvs, acc_pdx_set) {
-  codes <- codes[!is.null(codes) & !is.na(codes) & !grepl("^[0-9]", codes) &
-    !grepl("^[A-Z]{2}", codes) & !grepl("/", codes) &
-    !(codes %chin% neoplasm_codes) & !(codes %chin% rvs_codes) &
-    !(codes %chin% covidrvs)]
+filter_icds <- function(
+    codes,
+    # neoplasm_codes,
+    # covidrvs,
+    acc_pdx_set) {
+  # codes <- codes[!is.null(codes) & !is.na(codes) & !grepl("^[0-9]", codes) &
+  #   !grepl("^[A-Z]{2}", codes) & !grepl("/", codes) &
+  #   !(codes %chin% neoplasm_codes) & !(codes %chin% rvs_codes) &
+  #   !(codes %chin% covidrvs)]
   filtered <- codes[codes %chin% acc_pdx_set]
   return(filtered)
 }
@@ -362,3 +366,13 @@ print_status_update <- function(
     }
   }
 }
+
+ # Function to expand mappings row-wise
+  expand_mappings <- function(raw_list, map_list) {
+    rbindlist(mapply(function(raw, map) {
+      if (length(map) == 0) {
+        return(data.table(raw_code = raw, mapped_code = "_")) # Mark unmappable cases
+      }
+      data.table(raw_code = rep(raw, length(map)), mapped_code = map)
+    }, raw_list, map_list, SIMPLIFY = FALSE), fill = TRUE)
+  }

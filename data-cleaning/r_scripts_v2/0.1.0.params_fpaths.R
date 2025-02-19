@@ -96,6 +96,8 @@ chkpt_6_prefix <- "chkpt_6_grouped_claims"
 chkpt_7a_prefix <- "python_input_1"
 chkpt_7b_prefix <- "python_input_2"
 chkpt_10_prefix <- "stata"
+chkpt_11_prefix <- "bwt"
+chkpt_12_prefix <- "map"
 
 # Folder Paths:
 chkpt_path <- file.path(data_prefix, "chkpts")
@@ -110,6 +112,7 @@ chkpt_8_path <- file.path(chkpt_path, "chkpt_8_py_output")
 chkpt_9_path <- file.path(chkpt_path, "chkpt_9_grouper_differences")
 chkpt_10_path <- file.path(chkpt_path, "chkpt_10_stata")
 chkpt_11_path <- file.path(chkpt_path, "chkpt_11_bwt")
+chkpt_12_path <- file.path(chkpt_path, "chkpt_12_mapping")
 cache_path <- file.path(clean_prefix, "debug", "cache")
 mapping_path <- file.path(cache_path, "mapping")
 total_rows_path <- file.path(cache_path, "total_rows")

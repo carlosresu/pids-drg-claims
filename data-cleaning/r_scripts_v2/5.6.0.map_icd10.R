@@ -52,8 +52,8 @@ map_icd10 <- function(col) {
       }
     }
 
-    # 4. **Mark as unmatched if all else fails**
-    icd_mapping[[code]] <- NA_character_
+    # 4. **Mark as unmappable if all else fails (Return "_")**
+    icd_mapping[[code]] <- "_"
   }
 
   # Return mapped ICD codes while ensuring correct structure
@@ -62,21 +62,17 @@ map_icd10 <- function(col) {
       return(character(0)) # Return empty character vector if input is empty
     }
 
-    # Ensure mapping preserves structure, but **return character(0) if no mapping is found**
+    # Ensure mapping preserves structure, but return "_" if no mapping is found
     mapped_vec <- vapply(vec, function(code) {
-      if (!is.null(icd_mapping[[code]]) && !is.na(icd_mapping[[code]])) {
+      if (!is.null(icd_mapping[[code]]) && icd_mapping[[code]] != "") {
         return(unname(icd_mapping[[code]])) # **Unname the mapped value**
       } else {
-        return("") # Return an empty string (placeholder)
+        return("_") # Unmappable codes get "_"
       }
     }, FUN.VALUE = character(1))
 
-    # Ensure final output doesn't have names and removes empty strings
-    mapped_vec <- unname(mapped_vec[mapped_vec != ""])
-
-    if (length(mapped_vec) == 0) {
-      return(character(0)) # Ensure empty vectors stay as character(0)
-    }
+    # Ensure final output doesn't have names
+    mapped_vec <- unname(mapped_vec)
 
     return(mapped_vec)
   })
