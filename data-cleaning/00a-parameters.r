@@ -5,7 +5,7 @@ sample_size_divisor <- 625
 
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
-to_sample <- FALSE
+to_sample <- TRUE
 # TODO: Add description here
 to_write <- TRUE
 # To flush intermediate files
@@ -20,12 +20,12 @@ to_debug <- FALSE
 verbose_output <- if (to_debug) TRUE else FALSE
 
 # Grouping parameters
-to_generate_subset <- FALSE
+to_generate_subset <- TRUE
 
-to_py_prompt <- FALSE
-to_python <- FALSE
-to_generate_py_fwrite <- FALSE
-to_generate_feather <- FALSE
+to_py_prompt <- TRUE
+to_python <- TRUE
+to_generate_py_fwrite <- TRUE
+to_generate_feather <- TRUE
 to_py_bq <- FALSE
 
 to_thai_prompt <- TRUE
