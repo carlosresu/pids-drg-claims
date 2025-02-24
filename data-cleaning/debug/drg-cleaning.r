@@ -64,7 +64,7 @@ invisible(lapply(required_packages, library, character.only = TRUE))
 invisible(lapply(basename(github_packages), library, character.only = TRUE))
 
 
-year <- as.numeric(fread("/home/resurreccion_cmc/drg-pipeline/data-cleaning/debug/cache/year.txt"))
+year <- as.numeric(fread("~/drg-pipeline/data-cleaning/debug/cache/year.txt"))
 
 # Source each file sequentially
 for (file in list.files(
@@ -93,11 +93,9 @@ load_or_query <- function(
   )
 
   if (!overwrite_cache && to_use_cache && file.exists(rds_path)) {
-    verbose_output && message("Loading ", var_name, " from cache: ", rds_path)
     return(readRDS(rds_path))
   }
 
-  verbose_output && message("Querying ", var_name, " from BigQuery...")
   dt <- query_bq_to_dt(query)
 
   if (to_use_cache) saveRDS(dt, rds_path)
@@ -282,7 +280,9 @@ covid_rvs_neoplasm_pattern <- paste(
 process_chunk <- function(
     chunk, yr_to_load = year, col_maps = column_mappings,
     known_vals = known_values, remap_master = col_remap_master,
-    avail_cols = available_columns) {
+    avail_cols = available_columns,
+    looppart = loop_part) {
+  fork_id <- Sys.getpid() # Get the process ID
   ##############################################################################
   # 1. Input/Year Standardization
   ##############################################################################
@@ -319,40 +319,46 @@ process_chunk <- function(
   ##############################################################################
   # 2.A Cleaning Prerequisites and Type Casting
   ##############################################################################
-  # Here, date columns remain as character.
+  # Detect columns to type cast
   int_cols <- intersect(names(chunk), unlist(expected_types["integer"]))
   num_cols <- intersect(names(chunk), unlist(expected_types["numeric"]))
   char_cols <- intersect(names(chunk), unlist(expected_types["character"]))
   factor_cols <- intersect(names(chunk), unlist(expected_types["factor"]))
   bool_cols <- intersect(names(chunk), c("clin_outpatient", "clin_emergency"))
-
+  # Type cast columns, dates are kept as character for now
   chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
   chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
   chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
   chunk[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
-  chunk[, (bool_cols) := lapply(.SD, as.logical), .SDcols = bool_cols]
+  chunk[, (bool_cols) := lapply(lapply(.SD, as.integer), as.logical),
+    .SDcols = bool_cols
+  ]
 
   # Convert char cols to UTF-8, then replace empty with NA_character_
   chunk[, (char_cols) := lapply(.SD, function(col) {
     col <- iconv(col, from = "", to = "UTF-8")
   }), .SDcols = char_cols]
 
+  # Clean data by replacing na values and na like strings
+  # with NA_character_, and then replace those with character(0)
   chunk <- replace_na_or_empty(chunk, "NA_character_")
   chunk <- replace_na_or_empty(chunk, "character(0)")
 
-  # First, clean date columns (currently as character):
+  # Define date columns
   date_cols <- c(
     "date_adm", "date_dis", "date_rec", "date_ref",
     "date_check", "pat_bdate", "date_ext"
   )
+
+  # Convert date columns from m/d/y format
   chunk[, (date_cols) := lapply(.SD, function(x) {
-    # Remove any decimal seconds from time strings if present
-    # (e.g., "12/31/2022 23:59:59.123" -> "12/31/2022 23:59:59")
+    # Remove any decimal seconds if present
     x <- sub("\\.\\d+ ", " ", x)
-    # Convert using fastPOSIXct to speed up parsing and cast as Date
-    dt <- fastPOSIXct(x, tz = "UTC")
+    # Convert using as.POSIXct with explicit format
+    dt <- as.POSIXct(x, format = "%m/%d/%Y", tz = "UTC")
     # If the parsed date is before 1900-01-01, replace with NA
-    dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA_Date_
+    dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA
+    # Convert to Date
     as.Date(dt)
   }), .SDcols = date_cols]
 
@@ -400,7 +406,7 @@ process_chunk <- function(
     lapply(.SD, clean_column), .SDcols = c(
     c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
   )]
-  # Apply manual replacements
+  # Apply manual replacements for common typos
   chunk[, (c(c1_c2_cols, clin_icd_colnames, clin_rvs_colnames)) :=
     lapply(.SD, manual_replacement), .SDcols = c(
     c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
@@ -429,13 +435,13 @@ process_chunk <- function(
   chunk[, (c1_c2_cols) :=
     lapply(.SD, \(x) lapply(x, \(y) setdiff(y, NA))), .SDcols = c1_c2_cols]
 
-  # prepare clin_icd for mapping
   # APPEND cleaned c1/c2 to clin_icd to ensure completeness
   chunk[, clin_icd := lapply(seq_len(.N), function(i) {
     clin_icd_list <- c(clin_icd[[i]], c1[[i]], c2[[i]])
     return(flatten_then_check_empty(clin_icd_list))
   })]
 
+  # replace placeholders introduced in flatten_then_check_empty
   chunk[, (c1_c2_cols) := lapply(.SD, function(col) {
     lapply(col, function(x) setdiff(x, "\u200B"))
   }), .SDcols = c1_c2_cols]
@@ -452,7 +458,7 @@ process_chunk <- function(
     set(chunk, j = "clin_icd", value = results$clin_icd)
   }
 
-  # Call the function in the main script
+  # move rvs/icd from icd/rvs, respectively
   result <- swap_icd_rvs(chunk$clin_icd, chunk$clin_rvs)
   chunk[, clin_icd := result$clin_icd]
   chunk[, clin_rvs := result$clin_rvs]
@@ -462,23 +468,24 @@ process_chunk <- function(
   ##############################################################################
   # 3.A Age Recomputation
   ##############################################################################
-  # Set pat_age to 0 for specific cases
+  # compute age as diff between date_adm and bdate, provided inputs exist
   chunk[
     !is.na(pat_bdate) & !is.na(date_adm),
     pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)
   ]
-
+  # set bdate to NA if it comes after date_adm
   chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age) &
     pat_bdate > as.Date(date_adm), pat_bdate := NA_Date_]
-
-  chunk[grepl("99432", c1) & !is.na(pat_age) & pat_age < 0 &
+  # for newborn package c1_orig, set age to 0 if it's a negative number
+  # greater than -1
+  chunk[grepl("99432", c1_orig) & !is.na(pat_age) & pat_age < 0 &
     pat_age >= -1, pat_age := 0]
-
+  # floor all valid non-NA ages
   chunk[
     !is.na(pat_age) & pat_age > 0 & pat_age <= 124,
     pat_age := floor(pat_age)
   ]
-
+  # set invalid ages to NA_integer
   chunk[
     !is.na(pat_age) & (pat_age < 0 | pat_age > 124),
     pat_age := NA_integer_
@@ -491,39 +498,62 @@ process_chunk <- function(
     "pat_type", "pat_memcat_parent",
     "pat_memcat_child", "clin_discharge", "claim_status"
   )
+  # remap columns accordingly
   chunk[, (remap_cols) := lapply(
     .SD, remap_patient_data, remap_master
   ), .SDcols = remap_cols]
   ##############################################################################
   # 3.C Clinical Remapping
   ##############################################################################
-  # Map ICD 10 codes
+  # Define columns to map; save raw codes
   icd_cols <- c("c1", "c2", "clin_icd")
+  rvs_cols <- c("clin_rvs")
+  icd_inputs <- chunk[, ..icd_cols]
+  rvs_inputs <- chunk[, ..rvs_cols]
+
+  # Map ICD 10 codes
   chunk[, (icd_cols) := lapply(.SD, map_icd10), .SDcols = icd_cols]
-  chunk[, clin_sdx := clin_icd]
-  chunk[, clin_icd := NULL]
+  chunk[, clin_sdx := clin_icd] # rename col
+  # chunk[, clin_icd := NULL] # del col
+
   # Map RVS codes
   chunk[, clin_proc := map_rvs_icd9(clin_rvs)]
-  chunk[, clin_rvs := NULL]
+  # chunk[, clin_rvs := NULL] # del col
+
+  # save mapped codes, with "_" placeholder for unmappable
+  icd_cols <- c("c1", "c2", "clin_sdx")
+  rvs_cols <- c("clin_proc")
+  icd_outputs <- chunk[, ..icd_cols]
+  rvs_outputs <- chunk[, ..rvs_cols]
+
+  # replace placeholders introduced in flatten_then_check_empty
+  chunk[, (c("c1", "c2", "clin_sdx", "clin_proc")) := lapply(
+    .SD, function(col) {
+      lapply(col, function(x) setdiff(x, "_"))
+    }
+  ), .SDcols = c("c1", "c2", "clin_sdx", "clin_proc")]
   ##############################################################################
   # 3.D PDx Imputation
   ##############################################################################
-  # Find clin_pdx
+  # prepare pdx inputs
   pdx_inputs <- prep_pdx_inputs(
     chunk$c1, chunk$c2, chunk$clin_sdx,
-    acc_pdx, neoplasms_dt_actual, acr_rvs, covid_rvs
+    acc_pdx
+    # , neoplasms_dt_actual, acr_rvs, covid_rvs
   )
+
+  # find pdx per row
   pdx_result <- find_pdx(
     pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_sdx,
     global_seed
   )
+
+  # save results to dt
   chunk[, c("clin_pdx", "clin_pdx_source") :=
     .(pdx_result$clin_pdx, pdx_result$clin_pdx_source)]
-
   ##############################################################################
   # 3.E PDx Imputation Cleanup
   ##############################################################################
-
   # Remove clin_pdx from c1, c2, and clin_sdx
   icd_cols <- c("c1", "c2", "clin_sdx")
   chunk[, (icd_cols) := lapply(.SD, function(col) {
@@ -543,7 +573,7 @@ process_chunk <- function(
     clin_c1 = c1_orig,
     clin_c2 = c2_orig
   )][, `:=`(
-    c1 = NULL, c2 = NULL,
+    # c1 = NULL, c2 = NULL,
     c1_orig = NULL, c2_orig = NULL
   )]
   # Set final column order
@@ -554,9 +584,40 @@ process_chunk <- function(
     "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
     "pat_memcat_child", "claim_status", "claim_payout",
     "claim_charge", "clin_discharge", "clin_outpatient",
-    "clin_emergency", "clin_acc", "clin_c1", "clin_c2",
-    "clin_sdx", "clin_proc", "clin_pdx", "clin_pdx_source"
+    "clin_emergency", "clin_acc", "c1", "c2", "clin_c1", "clin_c2", "clin_icd",
+    "clin_sdx", "clin_rvs", "clin_proc", "clin_pdx", "clin_pdx_source"
   ))
+
+  # Expand ICD input-output mappings properly
+  icd_dt <- expand_mappings(
+    raw_list = c(icd_inputs$c1, icd_inputs$c2, icd_inputs$clin_icd),
+    map_list = c(icd_outputs$c1, icd_outputs$c2, icd_outputs$clin_sdx)
+  )
+
+  # Remove duplicates and ensure proper mapping
+  icd_dt <- unique(icd_dt[!is.na(raw_code) & raw_code != ""])
+
+  # Expand RVS input-output mappings properly
+  rvs_dt <- expand_mappings(
+    raw_list = rvs_inputs$clin_rvs,
+    map_list = rvs_outputs$clin_proc
+  )
+
+  # Remove duplicates and ensure proper mapping
+  rvs_dt <- unique(rvs_dt[!is.na(raw_code) & raw_code != ""])
+
+  # Store as a list of data.tables
+  mappings_list <- list(icd_mappings = icd_dt, rvs_mappings = rvs_dt)
+
+  # Save the list as RDS
+  saveRDS(mappings_list, here(
+    chkpt_12_path,
+    paste0(
+      chkpt_12_prefix, "_", year, suffix, abs_start_time, "_fork_",
+      fork_id, "_part_", looppart, ".rds"
+    )
+  ))
+
   invisible(gc())
   return(chunk)
 }
@@ -567,7 +628,7 @@ process_chunk <- function(
 # parallel processing for efficiency.
 # It reads, chunks, processes, and consolidates data before
 # saving intermediate and final outputs.
-
+abs_start_time <- as.character(Sys.time())
 for (loop_part in 1:split_parts) {
   start_time <- Sys.time() # Record start time for processing
 
@@ -591,7 +652,10 @@ for (loop_part in 1:split_parts) {
       lapply(chunks, process_chunk)
     } else if (to_debug) {
       list(process_chunk(chunks[[1]]))
+    } else {
+      stop("Invalid parameters")
     }
+
 
   # Consolidate processed chunks
   summarized_dt <- rbindlist(parallel_results)
@@ -648,100 +712,104 @@ if (to_write) {
 }
 
 # Save a pre-final version of the master dataset
-saveRDS(master_dt, here(
-  chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-), compress = FALSE)
+# saveRDS(master_dt, here(
+#   chkpt_2_path,
+#   paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
+# ), compress = FALSE)
 
 
-str(readRDS(here(
-  chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-)))
+# str(master_dt)
+print((nrow(master_dt[clin_pdx_source == 99]) / nrow(master_dt)) * 100)
+print(nrow(master_dt[clin_pdx_source == 99]))
+print(nrow(master_dt[is.na(pat_bdate)]))
+print(nrow(master_dt[is.na(pat_age)]))
 
 
-# fwrite(
-#   readRDS(here(
-#     chkpt_2_path,
-#     paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-#   )),
-#   "~/drg-pipeline/data-cleaning/debug/test.csv"
-# )
+# fwrite(readRDS(here(
+#   chkpt_2_path,
+#   paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
+# )), "~/drg-pipeline/data-cleaning/debug/refactor.csv")
 
 
 # Final preparations for BQ upload
 # Load the dataset from the tmp chkpt
-# result <- readRDS(here(
-#   chkpt_2_path,
-#   paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
-# ))
+result <- readRDS(here(
+  chkpt_2_path,
+  paste0(chkpt_2_prefix, year, suffix, ".rds")
+))
 
 # Add is_covid variable
 # Identifies COVID-related claims by checking multiple clinical fields
-# result[, is_covid := {
-#   covid_found <- rep(FALSE, .N) # Initialize all rows as FALSE
+result[, is_covid := {
+  covid_found <- rep(FALSE, .N) # Initialize all rows as FALSE
 
-#   # Check each field sequentially, marking matches as TRUE
-#   not_found <- !covid_found
-#   # Check primary diagnosis
-#   covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
+  # Check each field sequentially, marking matches as TRUE
+  not_found <- !covid_found
+  # Check primary diagnosis
+  covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
 
-#   not_found <- !covid_found
-#   # Check secondary diagnosis
-#   covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
+  not_found <- !covid_found
+  # Check secondary diagnosis
+  covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
 
-#   not_found <- !covid_found
-#   # Check coded diagnosis
-#   covid_found[not_found] <- c2[not_found] %chin% covid_rvs
+  not_found <- !covid_found
+  # Check coded diagnosis
+  covid_found[not_found] <- c2[not_found] %chin% covid_rvs
 
-#   not_found <- !covid_found
-#   # Check additional coded diagnosis
-#   covid_found[not_found] <- c1[not_found] %chin% covid_rvs
+  not_found <- !covid_found
+  # Check additional coded diagnosis
+  covid_found[not_found] <- c1[not_found] %chin% covid_rvs
 
-#   not_found <- !covid_found
-#   covid_found[not_found] <- sapply(
-#     clin_rvs[not_found],
-#     function(row) any(row %chin% covid_rvs)
-#   ) # Check procedure codes
+  not_found <- !covid_found
+  covid_found[not_found] <- sapply(
+    clin_rvs[not_found],
+    function(row) any(row %chin% covid_rvs)
+  ) # Check procedure codes
 
-#   not_found <- !covid_found
-#   covid_found[not_found] <- sapply(
-#     clin_sdx[not_found],
-#     function(row) any(row %chin% covid_rvs)
-#   ) # Check supporting diagnoses
+  not_found <- !covid_found
+  covid_found[not_found] <- sapply(
+    clin_sdx[not_found],
+    function(row) any(row %chin% covid_rvs)
+  ) # Check supporting diagnoses
 
-#   not_found <- !covid_found
-#   covid_found[not_found] <- sapply(
-#     clin_proc[not_found],
-#     function(row) any(row %chin% covid_rvs)
-#   ) # Check performed procedures
+  not_found <- !covid_found
+  covid_found[not_found] <- sapply(
+    clin_proc[not_found],
+    function(row) any(row %chin% covid_rvs)
+  ) # Check performed procedures
 
-#   covid_found # Return logical vector of COVID matches
-# }]
+  covid_found # Return logical vector of COVID matches
+}]
+
+# Save the processed dataset to a new chkpt before BQ upload
+saveRDS(result, here(
+  chkpt_2_path,
+  paste0(chkpt_2_prefix, year, suffix, "master", ".rds")
+))
 
 # Subset the dataset for BQ
 # Keep only relevant columns needed for BigQuery upload
-# result <- result[, .(
-#   # Identifiers
-#   id_series, id_pin, id_hci, id_hcp,
-#   # Date-related fields
-#   date_adm, date_dis, date_rec, date_ref, date_check,
-#   # Patient details
-#   pat_type, pat_rel, pat_age, pat_ageday, pat_sex,
-#   pat_bwt, pat_memcat_parent, pat_memcat_child,
-#   # Claim-related fields
-#   claim_status, claim_payout, claim_charge, is_covid,
-#   # Clinical classification
-#   clin_discharge, clin_outpatient, clin_emergency, clin_acc,
-#   # Clinical details
-#   clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
-# )]
+result <- result[, .(
+  # Identifiers
+  id_series, id_pin, id_hci, id_hcp,
+  # Date-related fields
+  date_adm, date_dis, date_rec, date_ref, date_check,
+  # Patient details
+  pat_type, pat_rel, pat_age, pat_ageday, pat_sex,
+  pat_bwt, pat_memcat_parent, pat_memcat_child,
+  # Claim-related fields
+  claim_status, claim_payout, claim_charge, is_covid,
+  # Clinical classification
+  clin_discharge, clin_outpatient, clin_emergency, clin_acc,
+  # Clinical details
+  clin_c1, clin_c2, clin_sdx, clin_proc, clin_pdx, clin_pdx_source
+)]
 
 # Save the processed dataset to a new chkpt before BQ upload
-# saveRDS(result, here(
-#   chkpt_2_path,
-#   paste0(chkpt_2_prefix, year, suffix, "final", ".rds")
-# ))
+saveRDS(result, here(
+  chkpt_2_path,
+  paste0(chkpt_2_prefix, year, suffix, "bq_subset", ".rds")
+))
 
 
 # BQ upload
@@ -779,7 +847,7 @@ str(readRDS(here(
 #     }
 #   )
 
-#   if (to_write) {
+#   if (to_bq) {
 #     # Define chunk size for upload
 #     chunk_size <- 250000
 #     # Calculate number of chunks
