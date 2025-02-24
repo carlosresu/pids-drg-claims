@@ -306,360 +306,136 @@ process_chunk <- function(
     known_vals = known_values, remap_master = col_remap_master,
     avail_cols = available_columns,
     looppart = loop_part) {
-  # fork_id <- Sys.getpid() # Get the process ID
   ##############################################################################
   # 1. Input/Year Standardization
   ##############################################################################
+
   # Rename Columns
   setnames(chunk,
     old = avail_cols[avail_cols %in% names(col_maps)],
     new = unlist(col_maps[avail_cols[avail_cols %in% names(col_maps)]])
   )
+
   # Merge na_values and na_like_strings into a single set for efficiency
   na_values_combined <- unique(c(na_values, na_like_strings))
 
-  chunk[, clin_icd_present := FALSE]
+  # Clinical Code Presence Flags (already existing logic)
+  chunk[, cr1_present := FALSE]
   chunk[
-    !is.na(clin_icd1) & !clin_icd1 %chin% na_values_combined,
-    clin_icd_present := TRUE
+    !is.na(clin_c1) & !clin_c1 %chin% na_values_combined,
+    cr1_present := TRUE
   ]
 
-  chunk[, clin_rvs_present := FALSE]
+  chunk[, cr2_present := FALSE]
   chunk[
-    !is.na(clin_rvs1) & !clin_rvs1 %chin% na_values_combined,
-    clin_rvs_present := TRUE
+    !is.na(clin_c2) & !clin_c2 %chin% na_values_combined,
+    cr2_present := TRUE
   ]
+
+  # # Clinical Code Presence Flags (already existing logic)
+  # chunk[, clin_icd_present := FALSE]
+  # chunk[
+  #   !is.na(clin_icd1) & !clin_icd1 %chin% na_values_combined,
+  #   clin_icd_present := TRUE
+  # ]
+
+  # chunk[, clin_rvs_present := FALSE]
+  # chunk[
+  #   !is.na(clin_rvs1) & !clin_rvs1 %chin% na_values_combined,
+  #   clin_rvs_present := TRUE
+  # ]
+
+  # Remove original clinical columns efficiently
   clin_icd_colnames <- grep("^clin_icd\\d+", names(chunk), value = TRUE)
   clin_rvs_colnames <- grep("^clin_rvs\\d+", names(chunk), value = TRUE)
-  # Remove original columns efficiently
   chunk[, (c(clin_icd_colnames, clin_rvs_colnames)) := NULL]
 
-  # # # Make a copy of clin_c1 and clin_c2 for later use
-  # cols <- c("c1", "c2", "c1_orig", "c2_orig")
-  # vals <- c("clin_c1", "clin_c2", "c1", "c2")
-  # for (i in seq_along(cols)) set(chunk, j = cols[i], value = chunk[[vals[i]]])
+  # # Safeguard: If pat_bdate doesn't exist, set it to NA_Date_
+  # if (!"pat_bdate" %in% names(chunk)) {
+  #   set(chunk, j = "pat_bdate", value = NA_Date_)
+  # }
 
-  # Safeguard: If id_year doesn't exist, set it to yr_to_load
-  # if (!"id_year" %in% names(chunk)) {
-  #   set(chunk, j = "id_year", value = yr_to_load)
-  # }
-  # # Safeguard: If pat_bwt doesn't exist, set it to NA_real_
-  # if (!"pat_bwt" %in% names(chunk)) {
-  #   set(chunk, j = "pat_bwt", value = NA_real_)
-  # }
-  # Safeguard: If pat_bdate doesn't exist, set it to NA_Date_
-  if (!"pat_bdate" %in% names(chunk)) {
-    set(chunk, j = "pat_bdate", value = NA_Date_)
-  }
-  # # Safeguard: If pat_ageday doesn't exist, set it to NA_real_
-  # if (!"pat_ageday" %in% names(chunk)) {
-  #   set(chunk, j = "pat_ageday", value = NA_integer_)
-  # }
   ##############################################################################
   # 2. Reformatting
   ##############################################################################
-  ##############################################################################
-  # 2.A Cleaning Prerequisites and Type Casting
-  ##############################################################################
 
-  # bool_cols <- intersect(names(chunk), c("clin_outpatient", "clin_emergency"))
-  # chunk[, (bool_cols) := lapply(lapply(.SD, as.integer), as.logical),
-  #   .SDcols = bool_cols
+  # # Convert necessary columns to character type
+  # char_cols <- intersect(names(chunk), unlist(expected_types["character"]))
+  # chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
+
+  # # Convert numerical columns
+  # int_cols <- intersect(names(chunk), unlist(expected_types["integer"]))
+  # num_cols <- intersect(names(chunk), unlist(expected_types["numeric"]))
+  # chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
+  # chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
+
+  # # Patient Age Presence Flag (already existing)
+  # chunk[, pat_age_present := FALSE]
+  # chunk[
+  #   !is.na(pat_age),
+  #   pat_age_present := TRUE
   # ]
-  # chunk <- chunk[clin_outpatient == FALSE] # Step 2: Apply second condition on reduced dataset
 
-  char_cols <- intersect(names(chunk), unlist(expected_types["character"]))
-  chunk[, (char_cols) := lapply(.SD, as.character), .SDcols = char_cols]
-  # chunk[, claim_status := remap_patient_data(claim_status, remap_master)]
-  # chunk <- chunk[claim_status == "G"] # Step 1: First filter (reduces dataset size)
-  # chunk <- chunk[id_hci %chin% hci_filter] # Step 3: Final filter on further reduced dataset
-
-  # Detect columns to type cast
-  int_cols <- intersect(names(chunk), unlist(expected_types["integer"]))
-  num_cols <- intersect(names(chunk), unlist(expected_types["numeric"]))
-  # factor_cols <- intersect(names(chunk), unlist(expected_types["factor"]))
-  # Type cast columns, dates are kept as character for now
-  chunk[, (int_cols) := lapply(.SD, as.integer), .SDcols = int_cols]
-  chunk[, (num_cols) := lapply(.SD, as.numeric), .SDcols = num_cols]
-  # chunk[, (factor_cols) := lapply(.SD, as.factor), .SDcols = factor_cols]
-
-  # # Convert char cols to UTF-8, then replace empty with NA_character_
-  # chunk[, (char_cols) := lapply(.SD, function(col) {
-  #   col <- iconv(col, from = "", to = "UTF-8")
-  # }), .SDcols = char_cols]
-
-  # # Clean data by replacing na values and na like strings
-  # # with NA_character_, and then replace those with character(0)
-  # chunk <- replace_na_or_empty(chunk, "NA_character_")
-  # chunk <- replace_na_or_empty(chunk, "character(0)")
-
-  # Define date columns
-  date_cols <- c(
-    "date_adm", "pat_bdate"
-  )
-
-  # Convert date columns from m/d/y format
-  chunk[, (date_cols) := lapply(.SD, function(x) {
-    # Remove any decimal seconds if present
-    # x <- sub("\\.\\d+ ", " ", x)
-    # Convert using as.POSIXct with explicit format
-    dt <- as.POSIXct(x, format = "%m/%d/%Y", tz = "UTC")
-    # If the parsed date is before 1900-01-01, replace with NA
-    dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA
-    # Convert to Date
-    as.Date(dt)
-  }), .SDcols = date_cols]
-
-  # # Then, clean the time columns:
-  # time_cols <- c("time_adm", "time_dis")
-  # chunk[, (time_cols) := lapply(.SD, function(x) {
-  #   # If time is missing, substitute "00:00"
-  #   x <- ifelse(is.na(x), "00:00", x)
-  #   # Append seconds if not already present
-  #   # (e.g., "14:30" -> "14:30:00")
-  #   ifelse(nchar(x) <= 5, paste0(x, ":00"), x)
-  # }), .SDcols = time_cols]
-
-  # # Finally, combine cleaned date and time columns
-  # # to create datetime stamps as needed:
-  # chunk[, date_adm := as.POSIXct(paste(date_adm, time_adm),
-  #   format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
-  # )]
-  # chunk[, date_dis := as.POSIXct(paste(date_dis, time_dis),
-  #   format = "%Y-%m-%d %H:%M:%S", tz = "UTC"
-  # )]
   ##############################################################################
-  # 2.B General Reformatting, Cleaning, then Column Collapsing
+  # 3. Date and Time Handling
   ##############################################################################
-  # Split id_hcp then replace empty with character(0)
-  # chunk[, id_hcp := strsplit(id_hcp, "\\s*,\\s*|\\|\\||\\|")]
 
-  # Replace NaN with NA_real_
-  # chunk[, (num_cols) := lapply(.SD, function(col) {
-  #   col[is.nan(col)] <- NA_real_
-  #   return(col)
-  # }), .SDcols = num_cols]
+  # # Define original date & time columns and their replacements
+  # cols <- c(
+  #   "date_adm_orig", "date_dis_orig", "date_rec_orig", "date_ref_orig",
+  #   "date_check_orig", "pat_bdate_orig", "date_ext_orig", "time_adm_orig",
+  #   "time_dis_orig"
+  # )
+  # vals <- c(
+  #   "date_adm", "date_dis", "date_rec", "date_ref",
+  #   "date_check", "pat_bdate", "date_ext", "time_adm", "time_dis"
+  # )
 
-  # Identify relevant columns
-  # c1_c2_cols <- c("c1", "c2")
+  # # Copy values from `vals` columns to `cols`
+  # for (i in seq_along(cols)) set(chunk, j = cols[i], value = chunk[[vals[i]]])
 
-  # # Apply cleaning and save results
-  # chunk[, (c(c1_c2_cols, clin_icd_colnames, clin_rvs_colnames)) :=
-  #   lapply(.SD, clean_column), .SDcols = c(
-  #   c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
-  # )]
-  # # Apply manual replacements for common typos
-  # chunk[, (c(c1_c2_cols, clin_icd_colnames, clin_rvs_colnames)) :=
-  #   lapply(.SD, manual_replacement), .SDcols = c(
-  #   c1_c2_cols, clin_icd_colnames, clin_rvs_colnames
-  # )]
-
-  # Collapse cleaned columns using .SDcols
-  # chunk[, clin_icd := collapse_cols(.SD), .SDcols = clin_icd_colnames]
-  # chunk[, clin_rvs := collapse_cols(.SD), .SDcols = clin_rvs_colnames]
-  ##############################################################################
-  # 2.C Clinical Preparation (Cleaning then Reorganization)
-  ##############################################################################
-  # # split to unlumped vectors of ICDs
-  # chunk[, clin_icd := remove_lumped_icd_codes(split_to_vector(clin_icd))]
-  # # split to vectors of RVS
-  # chunk[, clin_rvs := split_to_vector(clin_rvs)]
-
-  # # flatten into vectors, removing empty cells
-  # chunk[, (c1_c2_cols) :=
-  #   lapply(.SD, flatten_then_check_empty), .SDcols = c1_c2_cols]
-
-  # # removing NA's from each vector/row, maintaining a list structure for
-  # # the overall column
-  # chunk[, (c1_c2_cols) :=
-  #   lapply(.SD, \(x) lapply(x, \(y) setdiff(y, NA))), .SDcols = c1_c2_cols]
-
-  # # APPEND cleaned c1/c2 to clin_icd to ensure completeness
-  # chunk[, clin_icd := lapply(seq_len(.N), function(i) {
-  #   clin_icd_list <- c(clin_icd[[i]], c1[[i]], c2[[i]])
-  #   return(flatten_then_check_empty(clin_icd_list))
-  # })]
-
-  # # replace placeholders introduced in flatten_then_check_empty
-  # chunk[, (c1_c2_cols) := lapply(.SD, function(col) {
-  #   lapply(col, function(x) setdiff(x, "\u200B"))
-  # }), .SDcols = c1_c2_cols]
-
-  # # RVS codes
-  # # Extract then move rvs codes to proper columns
-  # # Process c1 then c2
-  # for (col in c1_c2_cols) {
-  #   results <- append_copy_remove_icd_rvs_c1_c2(
-  #     chunk[[col]], chunk$clin_rvs, chunk$clin_icd
-  #   )
-  #   set(chunk, j = "clin_rvs", value = results$clin_rvs)
-  #   set(chunk, j = col, value = results$col)
-  #   set(chunk, j = "clin_icd", value = results$clin_icd)
+  # # Generate presence flags for date and time columns
+  # for (col in cols) {
+  #   chunk[, paste0(col, "_present") := FALSE]
+  #   chunk[
+  #     !is.na(get(col)) & !get(col) %chin% na_values_combined,
+  #     paste0(col, "_present") := TRUE
+  #   ]
   # }
 
-  # # move rvs/icd from icd/rvs, respectively
-  # result <- swap_icd_rvs(chunk$clin_icd, chunk$clin_rvs)
-  # chunk[, clin_icd := result$clin_icd]
-  # chunk[, clin_rvs := result$clin_rvs]
-  ##############################################################################
-  # 3. Transforming
-  ##############################################################################
-  # cols <- c("pat_bdate_orig", "pat_age_orig", "date_adm_orig")
-  # vals <- c("pat_bdate", "pat_age", "date_adm")
-  # for (i in seq_along(cols)) set(chunk, j = cols[i], value = chunk[[vals[i]]])
-  ##############################################################################
-  # 3.A Age Recomputation
-  ##############################################################################
-  chunk[
-    !is.na(date_adm) & !is.na(pat_bdate) & !is.na(pat_age) &
-      abs((as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) - pat_age) >= 1,
-    age_gap_flag := TRUE
-  ]
+  # # Convert date columns from m/d/y format and clean invalid dates
+  # date_cols <- c(
+  #   "date_adm", "date_dis", "date_rec", "date_ref",
+  #   "date_check", "pat_bdate", "date_ext"
+  # )
+  # chunk[, (date_cols) := lapply(.SD, function(x) {
+  #   x <- sub("\\.\\d+ ", " ", x) # Remove decimal seconds
+  #   dt <- as.POSIXct(x, format = "%m/%d/%Y", tz = "UTC")
+  #   dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA
+  #   as.Date(dt)
+  # }), .SDcols = date_cols]
 
-  chunk[age_gap_flag == TRUE, age_gap_val :=
-    abs((as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) - pat_age)]
+  # if (!"age_gap_flag" %in% names(chunk)) {
+  #   chunk[, age_gap_flag := NA] # Create it with NA if missing
+  # }
 
-  # # compute age as diff between date_adm and bdate, provided inputs exist
   # chunk[
-  #   !is.na(pat_bdate) & !is.na(date_adm),
-  #   pat_age := floor(as.numeric(as.Date(date_adm) - pat_bdate) / 365.25)
+  #   !is.na(date_adm) & !is.na(pat_bdate) & !is.na(pat_age) &
+  #     abs((as.numeric(as.Date(date_adm) - pat_bdate) / 365.25) - pat_age) >= 1,
+  #   age_gap_flag := TRUE
   # ]
-  # # set bdate to NA if it comes after date_adm
-  # chunk[!is.na(pat_bdate) & !is.na(date_adm) & !is.na(pat_age) &
-  #   pat_bdate > as.Date(date_adm), pat_bdate := NA_Date_]
-  # # for newborn package c1_orig, set age to 0 if it's a negative number
-  # # greater than -1
-  # chunk[grepl("99432", c1_orig) & !is.na(pat_age) & pat_age < 0 &
-  #   pat_age >= -1, pat_age := 0]
-  # # floor all valid non-NA ages
-  # chunk[
-  #   !is.na(pat_age) & pat_age > 0 & pat_age <= 124,
-  #   pat_age := floor(pat_age)
-  # ]
-  # # set invalid ages to NA_integer
-  # chunk[
-  #   !is.na(pat_age) & (pat_age < 0 | pat_age > 124),
-  #   pat_age := NA_integer_
-  # ]
+
+  # # Convert and clean time columns
+  # time_cols <- c("time_adm", "time_dis")
+  # chunk[, (time_cols) := lapply(.SD, function(x) {
+  #   x <- ifelse(is.na(x), "00:00", x) # Default missing times to "00:00"
+  #   ifelse(nchar(x) <= 5, paste0(x, ":00"), x) # Ensure seconds are included
+  # }), .SDcols = time_cols]
+
   ##############################################################################
-  # 3.B Categorical Relabeling/Aggregation
+  # 4. Final Processing & Return
   ##############################################################################
-  ##############################################################################
-  # 3.C Clinical Remapping
-  ##############################################################################
-  # # Define columns to map; save raw codes
-  # icd_cols <- c("c1", "c2", "clin_icd")
-  # rvs_cols <- c("clin_rvs")
-  # icd_inputs <- chunk[, ..icd_cols]
-  # rvs_inputs <- chunk[, ..rvs_cols]
 
-  # # Map ICD 10 codes
-  # chunk[, (icd_cols) := lapply(.SD, map_icd10), .SDcols = icd_cols]
-  # chunk[, clin_sdx := clin_icd] # rename col
-  # # chunk[, clin_icd := NULL] # del col
-
-  # # Map RVS codes
-  # chunk[, clin_proc := map_rvs_icd9(clin_rvs)]
-  # # chunk[, clin_rvs := NULL] # del col
-
-  # # save mapped codes, with "_" placeholder for unmappable
-  # icd_cols <- c("c1", "c2", "clin_sdx")
-  # rvs_cols <- c("clin_proc")
-  # icd_outputs <- chunk[, ..icd_cols]
-  # rvs_outputs <- chunk[, ..rvs_cols]
-
-  # # replace placeholders introduced in flatten_then_check_empty
-  # chunk[, (c("c1", "c2", "clin_sdx", "clin_proc")) := lapply(
-  #   .SD, function(col) {
-  #     lapply(col, function(x) setdiff(x, "_"))
-  #   }
-  # ), .SDcols = c("c1", "c2", "clin_sdx", "clin_proc")]
-  ##############################################################################
-  # 3.D PDx Imputation
-  ##############################################################################
-  # # prepare pdx inputs
-  # pdx_inputs <- prep_pdx_inputs(
-  #   chunk$c1, chunk$c2, chunk$clin_sdx,
-  #   acc_pdx
-  #   # , neoplasms_dt_actual, acr_rvs, covid_rvs
-  # )
-
-  # # find pdx per row
-  # pdx_result <- find_pdx(
-  #   pdx_inputs$c1, pdx_inputs$c2, pdx_inputs$clin_sdx,
-  #   global_seed
-  # )
-
-  # # save results to dt
-  # chunk[, c("clin_pdx", "clin_pdx_source") :=
-  #   .(pdx_result$clin_pdx, pdx_result$clin_pdx_source)]
-  ##############################################################################
-  # 3.E PDx Imputation Cleanup
-  ##############################################################################
-  # # Remove clin_pdx from c1, c2, and clin_sdx
-  # icd_cols <- c("c1", "c2", "clin_sdx")
-  # chunk[, (icd_cols) := lapply(.SD, function(col) {
-  #   lapply(seq_len(.N), function(i) {
-  #     setdiff(col[[i]], clin_pdx[i]) # Remove clin_pdx from the column
-  #   })
-  # }), .SDcols = icd_cols]
-
-  # # Trim clin_sdx to max 12 elements and clin_proc to max 20 elements
-  # chunk[, clin_sdx := lapply(clin_sdx, function(x) head(x, 12))]
-  # chunk[, clin_proc := lapply(clin_proc, function(x) head(x, 20))]
-  ##############################################################################
-  # 4. Output Standardization & Finalization
-  ##############################################################################
-  # # Restore clin_c1 and clin_c2 AND Save rvs mappings to clin_proc
-  # chunk[, `:=`(
-  #   clin_c1 = c1_orig,
-  #   clin_c2 = c2_orig
-  # )][, `:=`(
-  #   # c1 = NULL, c2 = NULL,
-  #   c1_orig = NULL, c2_orig = NULL
-  # )]
-  # Set final column order
-  # setcolorder(chunk, c(
-  #   "id_year", "id_series", "id_pin", "id_hci", "id_hcp", "date_adm",
-  #   "time_adm", "date_dis", "time_dis", "date_rec", "date_ref",
-  #   "date_check", "date_ext", "pat_type", "pat_rel", "pat_bdate", "pat_age",
-  #   "pat_ageday", "pat_sex", "pat_bwt", "pat_memcat_parent",
-  #   "pat_memcat_child", "claim_status", "claim_payout",
-  #   "claim_charge", "clin_discharge", "clin_outpatient",
-  #   "clin_emergency", "clin_acc", "c1", "c2", "clin_c1", "clin_c2", "clin_icd",
-  #   "clin_sdx", "clin_rvs", "clin_proc", "clin_pdx", "clin_pdx_source"
-  # ))
-
-  # # Expand ICD input-output mappings properly
-  # icd_dt <- expand_mappings(
-  #   raw_list = c(icd_inputs$c1, icd_inputs$c2, icd_inputs$clin_icd),
-  #   map_list = c(icd_outputs$c1, icd_outputs$c2, icd_outputs$clin_sdx)
-  # )
-
-  # # Remove duplicates and ensure proper mapping
-  # icd_dt <- unique(icd_dt[!is.na(raw_code) & raw_code != ""])
-
-  # # Expand RVS input-output mappings properly
-  # rvs_dt <- expand_mappings(
-  #   raw_list = rvs_inputs$clin_rvs,
-  #   map_list = rvs_outputs$clin_proc
-  # )
-
-  # # Remove duplicates and ensure proper mapping
-  # rvs_dt <- unique(rvs_dt[!is.na(raw_code) & raw_code != ""])
-
-  # # Store as a list of data.tables
-  # mappings_list <- list(icd_mappings = icd_dt, rvs_mappings = rvs_dt)
-
-  # # Save the list as RDS
-  # saveRDS(mappings_list, here(
-  #   chkpt_12_path,
-  #   paste0(
-  #     chkpt_12_prefix, "_", year, suffix, abs_start_time, "_fork_",
-  #     fork_id, "_part_", looppart, ".rds"
-  #   )
-  # ))
-  # invisible(gc())
   return(chunk)
 }
 
@@ -837,11 +613,25 @@ result <- readRDS(here(
 # Keep only relevant columns needed for BigQuery upload
 result <- result[, .(
   # Identifiers
-  id_series, pat_bdate,
-  clin_icd_present,
-  clin_rvs_present,
-  age_gap_flag,
-  age_gap_val
+  id_series,
+  cr1_present,
+  cr2_present
+
+  # # Hardcoded flag columns
+  # date_adm_orig_present,
+  # date_dis_orig_present,
+  # date_rec_orig_present,
+  # date_ref_orig_present,
+  # date_check_orig_present,
+  # pat_bdate_orig_present,
+  # date_ext_orig_present,
+  # time_adm_orig_present,
+  # time_dis_orig_present,
+
+  # # Other flags
+  # clin_icd_present,
+  # clin_rvs_present,
+  # age_gap_flag
 )]
 
 # Save the processed dataset to a new chkpt before BQ upload
@@ -851,39 +641,63 @@ saveRDS(result, here(
 ))
 
 
-# Calculate row counts
+# Calculate total row count
 n_total <- nrow(result)
-n_age_consistent <- nrow(result[is.na(age_gap_flag)])
-percent_age_consistent <- (n_age_consistent / n_total) * 100 # Calculate percentage
 
-# Calculate row counts
-n_bdate <- nrow(result[!is.na(pat_bdate)])
-percent_bdate <- (n_bdate / n_total) * 100 # Calculate percentage
+# Function to compute row counts and percentages for each flag column
+# (This simply uses the flag value already set in process_chunk)
+compute_stats <- function(column) {
+  n_present <- nrow(result[get(column) == TRUE])
+  percent_present <- (n_present / n_total) * 100
+  return(list(n_present = n_present, percent_present = round(percent_present, 2)))
+}
 
-# Calculate row counts
-n_icd <- nrow(result[clin_icd_present == TRUE])
-percent_icd <- (n_icd / n_total) * 100 # Calculate percentage
+# Compute stats for each `_present` column
+stats_list <- list(
+  "year" = year,
+  "n_total" = n_total,
+  "cr1" = compute_stats("cr1_present")$n_present,
+  "cr1_percent" = compute_stats("cr1_present")$percent_present,
+  "cr2" = compute_stats("cr2_present")$n_present,
+  "cr2_percent" = compute_stats("cr2_present")$percent_present
+  # # Age Consistency Stats
+  # "n_age_consistent" = nrow(result[is.na(age_gap_flag)]),
+  # "percent_age_consistent" = round((nrow(result[is.na(age_gap_flag)]) / n_total) * 100, 2),
 
-# Calculate row counts
-n_rvs <- nrow(result[clin_rvs_present == TRUE])
-percent_rvs <- (n_rvs / n_total) * 100 # Calculate percentage
+  # # Date & Time Presence Stats
+  # "n_date_adm_orig_present" = compute_stats("date_adm_orig_present")$n_present,
+  # "percent_date_adm_orig_present" = compute_stats("date_adm_orig_present")$percent_present,
+  # "n_date_dis_orig_present" = compute_stats("date_dis_orig_present")$n_present,
+  # "percent_date_dis_orig_present" = compute_stats("date_dis_orig_present")$percent_present,
+  # "n_date_rec_orig_present" = compute_stats("date_rec_orig_present")$n_present,
+  # "percent_date_rec_orig_present" = compute_stats("date_rec_orig_present")$percent_present,
+  # "n_date_ref_orig_present" = compute_stats("date_ref_orig_present")$n_present,
+  # "percent_date_ref_orig_present" = compute_stats("date_ref_orig_present")$percent_present,
+  # "n_date_check_orig_present" = compute_stats("date_check_orig_present")$n_present,
+  # "percent_date_check_orig_present" = compute_stats("date_check_orig_present")$percent_present,
+  # "n_pat_bdate_orig_present" = compute_stats("pat_bdate_orig_present")$n_present,
+  # "percent_pat_bdate_orig_present" = compute_stats("pat_bdate_orig_present")$percent_present,
+  # "n_date_ext_orig_present" = compute_stats("date_ext_orig_present")$n_present,
+  # "percent_date_ext_orig_present" = compute_stats("date_ext_orig_present")$percent_present,
+  # "n_time_adm_orig_present" = compute_stats("time_adm_orig_present")$n_present,
+  # "percent_time_adm_orig_present" = compute_stats("time_adm_orig_present")$percent_present,
+  # "n_time_dis_orig_present" = compute_stats("time_dis_orig_present")$n_present,
+  # "percent_time_dis_orig_present" = compute_stats("time_dis_orig_present")$percent_present,
 
-# Create a data.table with the results
-bdate_stats <- data.table(
-  year = year,
-  n_age_consistent = n_age_consistent,
-  percent_age_consistent = round(percent_age_consistent, 2),
-  n_bdate_present = n_bdate,
-  percent_bdate_present = round(percent_bdate, 2),
-  n_icd_present = n_icd,
-  percent_icd_present = round(percent_icd, 2),
-  n_rvs_present = n_rvs,
-  percent_rvs_present = round(percent_rvs, 2),
-  n_total = n_total
+  # # Clinical Code Presence Stats
+  # # Note: The original columns (e.g., clin_icd1/clin_rvs1) have been deleted,
+  # # so we simply use the pre-computed flag columns.
+  # "n_icd_present" = compute_stats("clin_icd_present")$n_present,
+  # "percent_icd_present" = compute_stats("clin_icd_present")$percent_present,
+  # "n_rvs_present" = compute_stats("clin_rvs_present")$n_present,
+  # "percent_rvs_present" = compute_stats("clin_rvs_present")$percent_present
 )
 
-# Write to CSV
-fwrite(bdate_stats, paste0("~/drg-pipeline/data-cleaning/debug/bdate_icd_rvs_stats_", year, suffix, ".csv"))
+# Convert list to a data.table and transpose it for proper CSV formatting
+bdate_stats <- data.table(Variable = names(stats_list), Value = unlist(stats_list))
+
+# Write the statistics to CSV
+fwrite(bdate_stats, paste0("~/drg-pipeline/data-cleaning/debug/bdate_icd_rvs_stats_", year, suffix, "cr_list", ".csv"))
 
 
 # BQ upload
