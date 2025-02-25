@@ -483,7 +483,7 @@ for (loop_part in 1:split_parts) {
   # if (to_write) {
   #   saveRDS(
   #     summarized_dt, here(chkpt_1_path, paste0(
-  #       chkpt_1_prefix, year, suffix, "data_quality_master_",
+  #       chkpt_1_prefix, year, suffix, "data_quality_master",
   #       "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
   #     )),
   #     compress = TRUE
@@ -492,8 +492,8 @@ for (loop_part in 1:split_parts) {
 
   if (to_write) {
     saveRDS(
-      summarized_dt, here("~/drg-pipeline/data-cleaning/data/filtered-claims/chkpt_1_partial", paste0(
-        chkpt_1_prefix, year, suffix, "data_quality_master_",
+      summarized_dt, here(filtered_chkpt_1_path, paste0(
+        chkpt_1_prefix, year, suffix, "data_quality_master",
         "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
       )),
       compress = TRUE
@@ -515,7 +515,7 @@ for (loop_part in 1:split_parts) {
 master_dt_list <- mclapply(1:split_parts,
   function(split_part) {
     read_part <- readRDS(
-      here(chkpt_1_path, paste0(
+      here(filtered_chkpt_1_path, paste0(
         chkpt_1_prefix, year, suffix, "data_quality_master_", "part_",
         sprintf("%02d", split_part), "_of_", split_parts, ".rds"
       ))
@@ -534,15 +534,15 @@ invisible(gc())
 # if (to_write) {
 #   saveRDS(master_dt, here(
 #     chkpt_2_path, paste0(
-#       chkpt_2_prefix, year, suffix, "data_quality_master_", ".rds"
+#       chkpt_2_prefix, year, suffix, "data_quality_master", ".rds"
 #     )
 #   ), compress = FALSE)
 # }
 
 if (to_write) {
   saveRDS(master_dt, here(
-    "~/drg-pipeline/data-cleaning/data/filtered-claims/chkpt_2_master", paste0(
-      chkpt_2_prefix, year, suffix, "data_quality_master_", ".rds"
+    filtered_chkpt_2_path, paste0(
+      chkpt_2_prefix, year, suffix, "data_quality_master", ".rds"
     )
   ), compress = FALSE)
 }
@@ -617,7 +617,7 @@ get_non_null_stats <- function(df, column) {
 # # Load the dataset from the tmp chkpt
 # result <- readRDS(here(
 #   chkpt_2_path,
-#   paste0(chkpt_2_prefix, year, suffix, "data_quality_master_", ".rds")
+#   paste0(chkpt_2_prefix, year, suffix, "data_quality_master", ".rds")
 # ))
 
 # # # Add is_covid variable
