@@ -1,11 +1,11 @@
 # Global parameters
 thread_offset <- 0
 
-sample_size_divisor <- 25
+sample_size_divisor <- 5
 
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
-to_sample <- FALSE
+to_sample <- TRUE
 # TODO: Add description here
 to_write <- TRUE
 # To flush intermediate files

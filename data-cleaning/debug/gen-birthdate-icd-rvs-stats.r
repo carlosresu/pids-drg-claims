@@ -293,11 +293,7 @@ WHERE
 
 claims <- load_or_query(claims_query, "claims", year)
 
-
 hci_filter <- hci[inst_level %chin% c("INF", "L1", "L2", "L3"), id_hci]
-
-
-str(claims)
 
 
 # Define process_chunk
@@ -319,18 +315,18 @@ process_chunk <- function(
   # Merge na_values and na_like_strings into a single set for efficiency
   na_values_combined <- unique(c(na_values, na_like_strings))
 
-  # Clinical Code Presence Flags (already existing logic)
-  chunk[, cr1_present := FALSE]
-  chunk[
-    !is.na(clin_c1) & !clin_c1 %chin% na_values_combined,
-    cr1_present := TRUE
-  ]
+  # # Clinical Code Presence Flags (already existing logic)
+  # chunk[, cr1_present := FALSE]
+  # chunk[
+  #   !is.na(clin_c1) & !clin_c1 %chin% na_values_combined,
+  #   cr1_present := TRUE
+  # ]
 
-  chunk[, cr2_present := FALSE]
-  chunk[
-    !is.na(clin_c2) & !clin_c2 %chin% na_values_combined,
-    cr2_present := TRUE
-  ]
+  # chunk[, cr2_present := FALSE]
+  # chunk[
+  #   !is.na(clin_c2) & !clin_c2 %chin% na_values_combined,
+  #   cr2_present := TRUE
+  # ]
 
   # # Clinical Code Presence Flags (already existing logic)
   # chunk[, clin_icd_present := FALSE]
@@ -346,9 +342,9 @@ process_chunk <- function(
   # ]
 
   # Remove original clinical columns efficiently
-  clin_icd_colnames <- grep("^clin_icd\\d+", names(chunk), value = TRUE)
-  clin_rvs_colnames <- grep("^clin_rvs\\d+", names(chunk), value = TRUE)
-  chunk[, (c(clin_icd_colnames, clin_rvs_colnames)) := NULL]
+  # clin_icd_colnames <- grep("^clin_icd\\d+", names(chunk), value = TRUE)
+  # clin_rvs_colnames <- grep("^clin_rvs\\d+", names(chunk), value = TRUE)
+  # chunk[, (c(clin_icd_colnames, clin_rvs_colnames)) := NULL]
 
   # # Safeguard: If pat_bdate doesn't exist, set it to NA_Date_
   # if (!"pat_bdate" %in% names(chunk)) {
@@ -540,6 +536,48 @@ if (to_write) {
 # ), compress = FALSE)
 
 
+# Ensure column names are unique
+colnames(master_dt) <- make.names(colnames(master_dt), unique = TRUE)
+
+# Define NA-like values
+na_values_combined <- unique(c(na_values, na_like_strings))
+
+# Function to compute top 20 unique values with frequency and percentage
+get_top_20 <- function(df, column) {
+  df %>%
+    filter(!(.data[[column]] %in% na_values_combined)) %>% # Exclude NA-like values
+    count(!!sym(column), name = "frequency") %>%
+    arrange(desc(frequency)) %>%
+    mutate(percentage = round(100 * frequency / sum(frequency), 2)) %>%
+    head(20)
+}
+
+# Function to compute the percentage of non-null values, frequency, and denominator
+get_non_null_stats <- function(df, column) {
+  total_rows <- nrow(df)
+  non_null_count <- sum(!(df[[column]] %in% na_values_combined), na.rm = TRUE)
+  percentage_non_null <- round(100 * non_null_count / total_rows, 2)
+
+  tibble(
+    Column = column,
+    Frequency = non_null_count,
+    Denominator = total_rows,
+    Non_Null_Percentage = percentage_non_null
+  )
+}
+
+# Compute non-null statistics for both columns
+non_null_table <- bind_rows(
+  get_non_null_stats(master_dt, "clin_icd1"),
+  get_non_null_stats(master_dt, "clin_rvs1")
+)
+
+# Print results
+# print(get_top_20(master_dt, "clin_icd1"))
+# print(get_top_20(master_dt, "clin_rvs1"))
+# print(as.data.table(non_null_table))
+
+
 # str(master_dt)
 # print((nrow(master_dt[clin_pdx_source == 99]) / nrow(master_dt)) * 100)
 # print(nrow(master_dt[clin_pdx_source == 99]))
@@ -614,8 +652,11 @@ result <- readRDS(here(
 result <- result[, .(
   # Identifiers
   id_series,
-  cr1_present,
-  cr2_present
+  clin_c1,
+  clin_c2
+  # ,
+  # cr1_present,
+  # cr2_present
 
   # # Hardcoded flag columns
   # date_adm_orig_present,
@@ -641,63 +682,65 @@ saveRDS(result, here(
 ))
 
 
-# Calculate total row count
-n_total <- nrow(result)
+# # Calculate total row count
+# n_total <- nrow(result)
 
-# Function to compute row counts and percentages for each flag column
-# (This simply uses the flag value already set in process_chunk)
-compute_stats <- function(column) {
-  n_present <- nrow(result[get(column) == TRUE])
-  percent_present <- (n_present / n_total) * 100
-  return(list(n_present = n_present, percent_present = round(percent_present, 2)))
-}
+# # Function to compute row counts and percentages for each flag column
+# # (This simply uses the flag value already set in process_chunk)
+# compute_stats <- function(column) {
+#   n_present <- nrow(result[get(column) == TRUE])
+#   percent_present <- (n_present / n_total) * 100
+#   return(list(n_present = n_present, percent_present = round(percent_present, 2)))
+# }
 
-# Compute stats for each `_present` column
-stats_list <- list(
-  "year" = year,
-  "n_total" = n_total,
-  "cr1" = compute_stats("cr1_present")$n_present,
-  "cr1_percent" = compute_stats("cr1_present")$percent_present,
-  "cr2" = compute_stats("cr2_present")$n_present,
-  "cr2_percent" = compute_stats("cr2_present")$percent_present
-  # # Age Consistency Stats
-  # "n_age_consistent" = nrow(result[is.na(age_gap_flag)]),
-  # "percent_age_consistent" = round((nrow(result[is.na(age_gap_flag)]) / n_total) * 100, 2),
+# # Compute stats for each `_present` column
+# stats_list <- list(
+#   "year" = year,
+#   "n_total" = n_total,
+#   "clin_c1_top_20" = paste(head(unique(result$clin_icd1), 20), collapse = ", "),
+#   "clin_c2_top_20" = paste(head(unique(result$clin_rvs1), 20), collapse = ", "),
+#   "cr1" = compute_stats("cr1_present")$n_present,
+#   "cr1_percent" = compute_stats("cr1_present")$percent_present,
+#   "cr2" = compute_stats("cr2_present")$n_present,
+#   "cr2_percent" = compute_stats("cr2_present")$percent_present,
+#   # Age Consistency Stats
+#   "n_age_consistent" = nrow(result[is.na(age_gap_flag)]),
+#   "percent_age_consistent" = round((nrow(result[is.na(age_gap_flag)]) / n_total) * 100, 2),
 
-  # # Date & Time Presence Stats
-  # "n_date_adm_orig_present" = compute_stats("date_adm_orig_present")$n_present,
-  # "percent_date_adm_orig_present" = compute_stats("date_adm_orig_present")$percent_present,
-  # "n_date_dis_orig_present" = compute_stats("date_dis_orig_present")$n_present,
-  # "percent_date_dis_orig_present" = compute_stats("date_dis_orig_present")$percent_present,
-  # "n_date_rec_orig_present" = compute_stats("date_rec_orig_present")$n_present,
-  # "percent_date_rec_orig_present" = compute_stats("date_rec_orig_present")$percent_present,
-  # "n_date_ref_orig_present" = compute_stats("date_ref_orig_present")$n_present,
-  # "percent_date_ref_orig_present" = compute_stats("date_ref_orig_present")$percent_present,
-  # "n_date_check_orig_present" = compute_stats("date_check_orig_present")$n_present,
-  # "percent_date_check_orig_present" = compute_stats("date_check_orig_present")$percent_present,
-  # "n_pat_bdate_orig_present" = compute_stats("pat_bdate_orig_present")$n_present,
-  # "percent_pat_bdate_orig_present" = compute_stats("pat_bdate_orig_present")$percent_present,
-  # "n_date_ext_orig_present" = compute_stats("date_ext_orig_present")$n_present,
-  # "percent_date_ext_orig_present" = compute_stats("date_ext_orig_present")$percent_present,
-  # "n_time_adm_orig_present" = compute_stats("time_adm_orig_present")$n_present,
-  # "percent_time_adm_orig_present" = compute_stats("time_adm_orig_present")$percent_present,
-  # "n_time_dis_orig_present" = compute_stats("time_dis_orig_present")$n_present,
-  # "percent_time_dis_orig_present" = compute_stats("time_dis_orig_present")$percent_present,
+#   # Date & Time Presence Stats
+#   "n_date_adm_orig_present" = compute_stats("date_adm_orig_present")$n_present,
+#   "percent_date_adm_orig_present" = compute_stats("date_adm_orig_present")$percent_present,
+#   "n_date_dis_orig_present" = compute_stats("date_dis_orig_present")$n_present,
+#   "percent_date_dis_orig_present" = compute_stats("date_dis_orig_present")$percent_present,
+#   "n_date_rec_orig_present" = compute_stats("date_rec_orig_present")$n_present,
+#   "percent_date_rec_orig_present" = compute_stats("date_rec_orig_present")$percent_present,
+#   "n_date_ref_orig_present" = compute_stats("date_ref_orig_present")$n_present,
+#   "percent_date_ref_orig_present" = compute_stats("date_ref_orig_present")$percent_present,
+#   "n_date_check_orig_present" = compute_stats("date_check_orig_present")$n_present,
+#   "percent_date_check_orig_present" = compute_stats("date_check_orig_present")$percent_present,
+#   "n_pat_bdate_orig_present" = compute_stats("pat_bdate_orig_present")$n_present,
+#   "percent_pat_bdate_orig_present" = compute_stats("pat_bdate_orig_present")$percent_present,
+#   "n_date_ext_orig_present" = compute_stats("date_ext_orig_present")$n_present,
+#   "percent_date_ext_orig_present" = compute_stats("date_ext_orig_present")$percent_present,
+#   "n_time_adm_orig_present" = compute_stats("time_adm_orig_present")$n_present,
+#   "percent_time_adm_orig_present" = compute_stats("time_adm_orig_present")$percent_present,
+#   "n_time_dis_orig_present" = compute_stats("time_dis_orig_present")$n_present,
+#   "percent_time_dis_orig_present" = compute_stats("time_dis_orig_present")$percent_present,
 
-  # # Clinical Code Presence Stats
-  # # Note: The original columns (e.g., clin_icd1/clin_rvs1) have been deleted,
-  # # so we simply use the pre-computed flag columns.
-  # "n_icd_present" = compute_stats("clin_icd_present")$n_present,
-  # "percent_icd_present" = compute_stats("clin_icd_present")$percent_present,
-  # "n_rvs_present" = compute_stats("clin_rvs_present")$n_present,
-  # "percent_rvs_present" = compute_stats("clin_rvs_present")$percent_present
-)
+#   # Clinical Code Presence Stats
+#   # Note: The original columns (e.g., clin_icd1/clin_rvs1) have been deleted,
+#   # so we simply use the pre-computed flag columns.
+#   "n_icd_present" = compute_stats("clin_icd_present")$n_present,
+#   "percent_icd_present" = compute_stats("clin_icd_present")$percent_present,
+#   "n_rvs_present" = compute_stats("clin_rvs_present")$n_present,
+#   "percent_rvs_present" = compute_stats("clin_rvs_present")$percent_present
+# )
 
-# Convert list to a data.table and transpose it for proper CSV formatting
-bdate_stats <- data.table(Variable = names(stats_list), Value = unlist(stats_list))
+# # Convert list to a data.table and transpose it for proper CSV formatting
+# bdate_stats <- data.table(Variable = names(stats_list), Value = unlist(stats_list))
 
 # Write the statistics to CSV
-fwrite(bdate_stats, paste0("~/drg-pipeline/data-cleaning/debug/bdate_icd_rvs_stats_", year, suffix, "cr_list", ".csv"))
+fwrite(as.data.table(non_null_table), paste0("~/drg-pipeline/data-cleaning/debug/bdate_icd_rvs_stats_", year, suffix, "clin_icd_rvs_percent_non_null", ".csv"))
 
 
 # BQ upload
