@@ -313,7 +313,7 @@ process_chunk <- function(
   )
 
   # Merge na_values and na_like_strings into a single set for efficiency
-  na_values_combined <- unique(c(na_values, na_like_strings))
+  # na_values_combined <- unique(c(na_values, na_like_strings))
 
   # # Clinical Code Presence Flags (already existing logic)
   # chunk[, cr1_present := FALSE]
@@ -480,10 +480,20 @@ for (loop_part in 1:split_parts) {
   summarized_dt <- rbindlist(parallel_results)
 
   # Step 4: Save processed data if required
+  # if (to_write) {
+  #   saveRDS(
+  #     summarized_dt, here(chkpt_1_path, paste0(
+  #       chkpt_1_prefix, year, suffix, "data_quality_master_",
+  #       "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
+  #     )),
+  #     compress = TRUE
+  #   )
+  # }
+
   if (to_write) {
     saveRDS(
-      summarized_dt, here(chkpt_1_path, paste0(
-        chkpt_1_prefix, year, suffix, "bdate_",
+      summarized_dt, here("~/drg-pipeline/data-cleaning/data/filtered-claims/chkpt_1_partial", paste0(
+        chkpt_1_prefix, year, suffix, "data_quality_master_",
         "part_", sprintf("%02d", loop_part), "_of_", split_parts, ".rds"
       )),
       compress = TRUE
@@ -506,7 +516,7 @@ master_dt_list <- mclapply(1:split_parts,
   function(split_part) {
     read_part <- readRDS(
       here(chkpt_1_path, paste0(
-        chkpt_1_prefix, year, suffix, "bdate_", "part_",
+        chkpt_1_prefix, year, suffix, "data_quality_master_", "part_",
         sprintf("%02d", split_part), "_of_", split_parts, ".rds"
       ))
     )
@@ -521,10 +531,18 @@ rm(master_dt_list)
 invisible(gc())
 
 # Step 7: Save final processed data
+# if (to_write) {
+#   saveRDS(master_dt, here(
+#     chkpt_2_path, paste0(
+#       chkpt_2_prefix, year, suffix, "data_quality_master_", ".rds"
+#     )
+#   ), compress = FALSE)
+# }
+
 if (to_write) {
   saveRDS(master_dt, here(
-    chkpt_2_path, paste0(
-      chkpt_2_prefix, year, suffix, "bdate_", ".rds"
+    "~/drg-pipeline/data-cleaning/data/filtered-claims/chkpt_2_master", paste0(
+      chkpt_2_prefix, year, suffix, "data_quality_master_", ".rds"
     )
   ), compress = FALSE)
 }
@@ -566,12 +584,16 @@ get_non_null_stats <- function(df, column) {
   )
 }
 
-# Compute non-null statistics for both columns
-non_null_table <- bind_rows(
-  get_non_null_stats(master_dt, "clin_icd1"),
-  get_non_null_stats(master_dt, "clin_rvs1")
-)
+# # Compute non-null statistics for both columns
+# non_null_table <- bind_rows(
+#   get_non_null_stats(master_dt, "clin_icd1"),
+#   get_non_null_stats(master_dt, "clin_rvs1")
+# )
 
+# top_20_table <- bind_rows(
+#   get_top_20(master_dt, "clin_icd1"),
+#   get_top_20(master_dt, "clin_rvs1")
+# )
 # Print results
 # print(get_top_20(master_dt, "clin_icd1"))
 # print(get_top_20(master_dt, "clin_rvs1"))
@@ -591,95 +613,93 @@ non_null_table <- bind_rows(
 # )), "~/drg-pipeline/data-cleaning/debug/refactor.csv")
 
 
-# Final preparations for BQ upload
-# Load the dataset from the tmp chkpt
-result <- readRDS(here(
-  chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "bdate_", ".rds")
-))
-
-# # Add is_covid variable
-# # Identifies COVID-related claims by checking multiple clinical fields
-# result[, is_covid := {
-#   covid_found <- rep(FALSE, .N) # Initialize all rows as FALSE
-
-#   # Check each field sequentially, marking matches as TRUE
-#   not_found <- !covid_found
-#   # Check primary diagnosis
-#   covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
-
-#   not_found <- !covid_found
-#   # Check secondary diagnosis
-#   covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
-
-#   not_found <- !covid_found
-#   # Check coded diagnosis
-#   covid_found[not_found] <- c2[not_found] %chin% covid_rvs
-
-#   not_found <- !covid_found
-#   # Check additional coded diagnosis
-#   covid_found[not_found] <- c1[not_found] %chin% covid_rvs
-
-#   not_found <- !covid_found
-#   covid_found[not_found] <- sapply(
-#     clin_rvs[not_found],
-#     function(row) any(row %chin% covid_rvs)
-#   ) # Check procedure codes
-
-#   not_found <- !covid_found
-#   covid_found[not_found] <- sapply(
-#     clin_sdx[not_found],
-#     function(row) any(row %chin% covid_rvs)
-#   ) # Check supporting diagnoses
-
-#   not_found <- !covid_found
-#   covid_found[not_found] <- sapply(
-#     clin_proc[not_found],
-#     function(row) any(row %chin% covid_rvs)
-#   ) # Check performed procedures
-
-#   covid_found # Return logical vector of COVID matches
-# }]
-
-# Save the processed dataset to a new chkpt before BQ upload
-# saveRDS(result, here(
+# # Final preparations for BQ upload
+# # Load the dataset from the tmp chkpt
+# result <- readRDS(here(
 #   chkpt_2_path,
-#   paste0(chkpt_2_prefix, year, suffix, "bdate_", "master", ".rds")
+#   paste0(chkpt_2_prefix, year, suffix, "data_quality_master_", ".rds")
 # ))
 
-# Subset the dataset for BQ
-# Keep only relevant columns needed for BigQuery upload
-result <- result[, .(
-  # Identifiers
-  id_series,
-  clin_c1,
-  clin_c2
-  # ,
-  # cr1_present,
-  # cr2_present
+# # # Add is_covid variable
+# # # Identifies COVID-related claims by checking multiple clinical fields
+# # result[, is_covid := {
+# #   covid_found <- rep(FALSE, .N) # Initialize all rows as FALSE
 
-  # # Hardcoded flag columns
-  # date_adm_orig_present,
-  # date_dis_orig_present,
-  # date_rec_orig_present,
-  # date_ref_orig_present,
-  # date_check_orig_present,
-  # pat_bdate_orig_present,
-  # date_ext_orig_present,
-  # time_adm_orig_present,
-  # time_dis_orig_present,
+# #   # Check each field sequentially, marking matches as TRUE
+# #   not_found <- !covid_found
+# #   # Check primary diagnosis
+# #   covid_found[not_found] <- clin_c1[not_found] %chin% covid_rvs
 
-  # # Other flags
-  # clin_icd_present,
-  # clin_rvs_present,
-  # age_gap_flag
-)]
+# #   not_found <- !covid_found
+# #   # Check secondary diagnosis
+# #   covid_found[not_found] <- clin_c2[not_found] %chin% covid_rvs
 
-# Save the processed dataset to a new chkpt before BQ upload
-saveRDS(result, here(
-  chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "bdate_", "bq_subset", ".rds")
-))
+# #   not_found <- !covid_found
+# #   # Check coded diagnosis
+# #   covid_found[not_found] <- c2[not_found] %chin% covid_rvs
+
+# #   not_found <- !covid_found
+# #   # Check additional coded diagnosis
+# #   covid_found[not_found] <- c1[not_found] %chin% covid_rvs
+
+# #   not_found <- !covid_found
+# #   covid_found[not_found] <- sapply(
+# #     clin_rvs[not_found],
+# #     function(row) any(row %chin% covid_rvs)
+# #   ) # Check procedure codes
+
+# #   not_found <- !covid_found
+# #   covid_found[not_found] <- sapply(
+# #     clin_sdx[not_found],
+# #     function(row) any(row %chin% covid_rvs)
+# #   ) # Check supporting diagnoses
+
+# #   not_found <- !covid_found
+# #   covid_found[not_found] <- sapply(
+# #     clin_proc[not_found],
+# #     function(row) any(row %chin% covid_rvs)
+# #   ) # Check performed procedures
+
+# #   covid_found # Return logical vector of COVID matches
+# # }]
+
+# # Save the processed dataset to a new chkpt before BQ upload
+# # saveRDS(result, here(
+# #   chkpt_2_path,
+# #   paste0(chkpt_2_prefix, year, suffix, "data_quality_master_", "master", ".rds")
+# # ))
+
+# # Subset the dataset for BQ
+# # Keep only relevant columns needed for BigQuery upload
+# result <- result[, .(
+#   # Identifiers
+#   id_series
+#   # ,
+#   # cr1_present,
+#   # cr2_present
+
+#   # # Hardcoded flag columns
+#   # date_adm_orig_present,
+#   # date_dis_orig_present,
+#   # date_rec_orig_present,
+#   # date_ref_orig_present,
+#   # date_check_orig_present,
+#   # pat_bdate_orig_present,
+#   # date_ext_orig_present,
+#   # time_adm_orig_present,
+#   # time_dis_orig_present,
+
+#   # # Other flags
+#   # clin_icd_present,
+#   # clin_rvs_present,
+#   # age_gap_flag
+# )]
+
+# # Save the processed dataset to a new chkpt before BQ upload
+# saveRDS(result, here(
+#   chkpt_2_path,
+#   paste0(chkpt_2_prefix, year, suffix, "data_quality_master_", "bq_subset", ".rds")
+# ))
 
 
 # # Calculate total row count
@@ -740,7 +760,7 @@ saveRDS(result, here(
 # bdate_stats <- data.table(Variable = names(stats_list), Value = unlist(stats_list))
 
 # Write the statistics to CSV
-fwrite(as.data.table(non_null_table), paste0("~/drg-pipeline/data-cleaning/debug/bdate_icd_rvs_stats_", year, suffix, "clin_icd_rvs_percent_non_null", ".csv"))
+# fwrite(as.data.table(top_20_table), paste0("~/drg-pipeline/data-cleaning/debug/", year, suffix, "clin_icd_rvs_top_20", ".csv"))
 
 
 # BQ upload

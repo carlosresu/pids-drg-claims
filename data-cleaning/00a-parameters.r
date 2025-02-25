@@ -5,7 +5,7 @@ sample_size_divisor <- 5
 
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
-to_sample <- TRUE
+to_sample <- FALSE
 # TODO: Add description here
 to_write <- TRUE
 # To flush intermediate files

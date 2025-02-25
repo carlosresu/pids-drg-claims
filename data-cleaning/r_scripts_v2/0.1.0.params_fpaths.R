@@ -100,6 +100,9 @@ chkpt_11_prefix <- "bwt"
 chkpt_12_prefix <- "map"
 
 # Folder Paths:
+filtered_path <- file.path(data_prefix, "filtered-claims")
+filtered_chkpt_1_path <- file.path(filtered_path, "chkpt_1_partial")
+filtered_chkpt_2_path <- file.path(filtered_path, "chkpt_2_master")
 chkpt_path <- file.path(data_prefix, "chkpts")
 chkpt_1_path <- file.path(chkpt_path, "chkpt_1_partial_clean_claims")
 chkpt_2_path <- file.path(chkpt_path, "chkpt_2_master_clean_claims")
