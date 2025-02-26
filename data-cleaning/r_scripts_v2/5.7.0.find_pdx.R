@@ -1,0 +1,94 @@
+find_pdx <- function(
+    # Inputs:
+    c1_arg, c2_arg, clin_sdx_arg,
+    # Parameters:
+    seed,
+    # Dependencies:
+    accpdx = acc_pdx) {
+  # Step 1: Prepare inputs (Previously handled in prep_pdx_inputs)
+  acc_pdx_set_final <- unique(accpdx)
+
+  # Filter ICD codes
+  c1_split <- lapply(c1_arg, filter_icds, acc_pdx_set_final)
+  c2_split <- lapply(c2_arg, filter_icds, acc_pdx_set_final)
+  clin_sdx_split <- lapply(clin_sdx_arg, filter_icds, acc_pdx_set_final)
+
+  # Function to calculate similarity between two strings
+  check_similarity <- function(x, y) {
+    min_len <- min(nchar(x), nchar(y))
+    ret_flag <- sum(substr(x, 1, min_len) == substr(y, 1, min_len))
+    return(ret_flag)
+  }
+
+  # Process each row, saving it so we run it only once
+  algo_result <- mapply(function(c1_split, c2_split, clin_sdx_split) {
+    # Step A: Check if any element in c1 or c2 is an accepted clin_pdx
+    for (cr_list in list(c1_split, c2_split)) {
+      if (length(cr_list) > 0) {
+        ret_list <- list(
+          clin_pdx = cr_list[1],
+          clin_pdx_source = ifelse(cr_list[1] %in% c1_split, 1, 2)
+        )
+        return(ret_list)
+      }
+    }
+
+    # Step B: Find accepted clin_pdx from clin_sdx_split
+    if (length(clin_sdx_split) > 0) {
+      pdxs <- clin_sdx_split
+    } else {
+      ret_list <- list(
+        clin_pdx = NA_character_,
+        clin_pdx_source = 99
+      )
+      return(ret_list)
+    }
+
+    # Step C: Handle cases with only one accepted clin_pdx
+    if (length(pdxs) == 1) {
+      ret_list <- list(
+        clin_pdx = pdxs[1],
+        clin_pdx_source = 3
+      )
+      return(ret_list)
+    }
+
+    # Step D: Check for matching starting letters in c1_split and c2_split
+    for (cr_list in list(c1_split, c2_split)) {
+      for (cr in cr_list) {
+        starting_codes <- pdxs[substr(pdxs, 1, 1) == substr(cr, 1, 1)]
+        if (length(starting_codes) == 1) {
+          ret_list <- list(
+            clin_pdx = starting_codes[1],
+            clin_pdx_source = 4
+          )
+          return(ret_list)
+        } else if (length(starting_codes) > 1) {
+          best_match <- starting_codes[which.max(
+            sapply(starting_codes, check_similarity, y = cr)
+          )]
+          ret_list <- list(
+            clin_pdx = best_match,
+            clin_pdx_source = 5
+          )
+          return(ret_list)
+        }
+      }
+    }
+
+    # Step E: Pick a random clin_pdx if no match is found
+    set.seed(seed)
+    ret_list <- list(
+      clin_pdx = sample(pdxs, 1),
+      clin_pdx_source = 6
+    )
+    return(ret_list)
+  }, c1_split, c2_split, clin_sdx_split, SIMPLIFY = FALSE)
+
+  # Return the clin_pdx values and codes
+  ret_list <- list(
+    clin_pdx = sapply(algo_result, `[[`, "clin_pdx"),
+    clin_pdx_source = sapply(algo_result, `[[`, "clin_pdx_source")
+  )
+  return(ret_list)
+}
