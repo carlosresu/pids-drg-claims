@@ -291,23 +291,6 @@ prep_icd_for_mapping <- function(text) {
     flatten_then_check_empty()
 }
 
-# Filter ICD codes based on exclusion criteria,
-# for use in prepare_pdx_inputs function
-filter_icds <- function(
-    codes,
-    # neoplasm_codes,
-    # covidrvs,
-    acc_pdx_set) {
-  # codes <- codes[
-
-  #   # & !grepl("^[0-9]", codes) & !grepl("^[A-Z]{2}", codes)
-  #   # & !grepl("/", codes) & !(codes %chin% neoplasm_codes)
-  #   # & !(codes %chin% rvs_codes) & !(codes %chin% covidrvs)
-  # ]
-  filtered <- codes[!is.null(codes) & !is.na(codes) & codes %chin% acc_pdx_set]
-  return(filtered)
-}
-
 # Helper function to handle NULL or NA safely
 safe_split <- function(x) {
   if (is.null(x) || all(is.na(x))) {
