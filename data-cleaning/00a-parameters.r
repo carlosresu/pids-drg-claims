@@ -18,10 +18,10 @@ to_flush <- FALSE
 # To push to BQ
 to_bq <- FALSE
 # To parallelize using unix-style multicore lapply
-to_parallel <- FALSE
+to_parallel <- TRUE
 cat("Parallelization:", to_parallel, "\n")
 # TODO: Add description here
-to_debug <- TRUE
+to_debug <- FALSE
 verbose_output <- if (to_debug) TRUE else FALSE
 
 

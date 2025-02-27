@@ -125,12 +125,22 @@
     "mode": "NULLABLE"
   },
   {
-    "name": "clin_c1",
+    "name": "clin_c1_orig",
     "type": "STRING",
     "mode": "NULLABLE"
   },
   {
-    "name": "clin_c2",
+    "name": "clin_c2_orig",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_c1_cleaned",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_c2_cleaned",
     "type": "STRING",
     "mode": "NULLABLE"
   },
