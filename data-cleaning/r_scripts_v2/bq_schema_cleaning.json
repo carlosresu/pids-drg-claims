@@ -137,15 +137,25 @@
   {
     "name": "clin_c1_cleaned",
     "type": "STRING",
-    "mode": "NULLABLE"
+    "mode": "REPEATED"
   },
   {
     "name": "clin_c2_cleaned",
     "type": "STRING",
-    "mode": "NULLABLE"
+    "mode": "REPEATED"
+  },
+  {
+    "name": "clin_icd",
+    "type": "STRING",
+    "mode": "REPEATED"
   },
   {
     "name": "clin_sdx",
+    "type": "STRING",
+    "mode": "REPEATED"
+  },
+  {
+    "name": "clin_rvs",
     "type": "STRING",
     "mode": "REPEATED"
   },
