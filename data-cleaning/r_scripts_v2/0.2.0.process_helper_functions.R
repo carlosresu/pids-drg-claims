@@ -76,7 +76,7 @@ collapse_cols <- function(cols) {
 split_to_vector <- function(column) {
   lapply(column, function(long_string) {
     # Initialize result vector
-    result <- character(0)
+    result <- character()
 
     # Ensure long_string is not NA before proceeding
     if (is.na(long_string)) {
@@ -148,7 +148,7 @@ remove_lumped_icd_codes <- function(column) {
       if ((is.na(element) || element == "")
       ) {
         # Keep intact if it's a valid neoplasm or COVID code
-        return(character(0))
+        return(character())
       } else {
         # Perform regex-based splitting for ICD-10
         # codes using the combined regex
@@ -221,7 +221,7 @@ replace_na_or_empty <- function(dt, replace_with) {
   replacement_value <- if (replace_with == "NA_character_") {
     NA_character_
   } else {
-    character(0)
+    character()
   }
 
   # Process each column
@@ -230,7 +230,7 @@ replace_na_or_empty <- function(dt, replace_with) {
 
     if (is.list(col)) {
       dt[, (col_name) := lapply(get(col_name), function(x) {
-        if (all(is.na(x)) || x %in% na_vals) character(0) else x
+        if (all(is.na(x)) || x %in% na_vals) character() else x
       })]
     } else {
       dt[
