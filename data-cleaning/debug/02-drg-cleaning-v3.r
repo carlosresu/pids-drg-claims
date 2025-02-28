@@ -556,7 +556,7 @@ if (to_write) {
         chkpt_2_path,
         paste0(chkpt_2_prefix, year, suffix, "v2", ".rds")
       ),
-      compress = FALSE
+      compress = TRUE
     )
   } else {
     saveRDS(master_dt,
@@ -564,7 +564,7 @@ if (to_write) {
         filtered_chkpt_2_path,
         paste0(chkpt_2_prefix, year, suffix, "raw_master", ".rds")
       ),
-      compress = FALSE
+      compress = TRUE
     )
   }
 }
@@ -690,7 +690,7 @@ result[, is_covid := {
 # Save the processed dataset to a new chkpt before BQ upload
 saveRDS(result, here(
   chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "v2", "part_a_is_covid", ".rds")
+  paste0(chkpt_2_prefix, year, suffix, "v2", "_part_a_is_covid", ".rds")
 ))
 
 # Subset the dataset for BQ
@@ -733,12 +733,10 @@ result <- result[, .(
   clin_pdx_source
 )]
 
-
-
 # Save the processed dataset to a new chkpt before BQ upload
 saveRDS(result, here(
   chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "v2", "part_b_bq_subset", ".rds")
+  paste0(chkpt_2_prefix, year, suffix, "v2", "_part_b_bq_subset", ".rds")
 ))
 
 
@@ -805,7 +803,7 @@ saveRDS(result, here(
 
 result <- readRDS(here(
   chkpt_2_path,
-  paste0(chkpt_2_prefix, year, suffix, "v2", "part_b_bq_subset", ".rds")
+  paste0(chkpt_2_prefix, year, suffix, "v2", "_part_b_bq_subset", ".rds")
 ))
 
 
