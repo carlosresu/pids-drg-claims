@@ -1,6 +1,6 @@
 # Global parameters
 thread_offset <- 0
-sample_size_divisor <- 625
+sample_size_divisor <- 5
 
 # Whether to use single, standardized *_raw_master_*.rds
 to_create_std <- FALSE
@@ -20,7 +20,7 @@ to_bq <- TRUE
 to_parallel <- TRUE
 cat("Parallelization:", to_parallel, "\n")
 # TODO: Add description here
-to_debug <- if (!to_parallel) TRUE else FALSE
+to_debug <- FALSE
 verbose_output <- if (to_debug) TRUE else FALSE
 
 

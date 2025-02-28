@@ -23,5 +23,6 @@ read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
 
   nrow_start[[read_part]] <<- nrow(dt)
 
-  return(dt)
+  ret_val <- setDT(dt)
+  return(ret_val)
 }

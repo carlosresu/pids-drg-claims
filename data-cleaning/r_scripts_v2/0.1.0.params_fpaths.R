@@ -22,7 +22,7 @@ separator <- if (file_type == ".tsv") "\t" else ","
 thai_prompt <- TRUE
 to_prompt <- FALSE
 
-split_parts <- 15
+split_parts <- if (nthreads > 16) 30 else 15
 # Sample size divisor: Formula for sample size is
 # (total_rows ÷ split_parts) ÷ sample_size_divisor.
 # Choose between 5, 25, 125, and 625
