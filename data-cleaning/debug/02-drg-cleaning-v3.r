@@ -431,6 +431,8 @@ process_chunk <- function(
 }
 
 
+# if (nthreads <= 8) {
+# if (TRUE) {
 # Data Cleaning Pipeline for DRG Processing
 # This script processes large datasets in parts, applying
 # parallel processing for efficiency.
@@ -568,6 +570,46 @@ if (to_write) {
     )
   }
 }
+# }
+
+
+# if (nthreads > 8) {
+#   # Data Cleaning Pipeline for DRG Processing
+#   # This script processes each split part separately to reduce memory usage
+
+#   abs_start_time <- as.character(Sys.time())
+#   if (to_filter) setkey(claims, id_series) # Do this ONCE before processing
+
+#   colnames <- names(read_appropriate_file(1)[0])
+#   # Step 1: Process each split part in parallel
+#   master_dt <- rbindlist(mclapply(
+#     1:split_parts, function(loop_part) {
+#       if (to_filter) {
+#         if ("PSEUDO_CLAIMSERIES" %in% colnames) {
+#           return(process_chunk(read_appropriate_file(loop_part)[, PSEUDO_CLAIMSERIES := trimws(as.character(PSEUDO_CLAIMSERIES))][claims, nomatch = 0, on = .(PSEUDO_CLAIMSERIES = id_series)], looppart = loop_part))
+#         } else {
+#           return(process_chunk(read_appropriate_file(loop_part)[, CLAIM_SERIES_ID := trimws(as.character(CLAIM_SERIES_ID))][claims, nomatch = 0, on = .(CLAIM_SERIES_ID = id_series)], looppart = loop_part))
+#         }
+#       } else {
+#         return(process_chunk(read_appropriate_file(loop_part), looppart = loop_part))
+#       }
+#     },
+#     mc.cores = nthreads
+#     # , mc.preschedule = FALSE # Uncomment for parallel processing
+#   ), fill = TRUE) # Avoid memory spikes by using dynamic scheduling
+
+#   # Step 6: Save final combined dataset
+#   if (to_write) {
+#     saveRDS(master_dt, here(
+#       chkpt_2_path,
+#       paste0(chkpt_2_prefix, year, suffix, "v2.rds")
+#     ), compress = TRUE)
+#   }
+
+#   # Step 7: Cleanup
+#   rm(master_dt)
+#   invisible(gc())
+# }
 
 
 # # Ensure column names are unique
