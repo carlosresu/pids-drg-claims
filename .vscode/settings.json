@@ -4,5 +4,15 @@
   "python.analysis.autoImportCompletions": true,
   "[r]": {
     "editor.defaultFormatter": "REditorSupport.r"
+  },
+  "files.exclude": {
+    "**/.here": true,
+    "**/.ipynb_checkpoints": true,
+    "**/.venv": true,
+    "**/.vscode": true,
+    "**/grouper": true,
+    "**/libraries": true,
+    "**/misc": true,
+    "**/scripts": true
   }
 }
