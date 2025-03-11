@@ -1,6 +1,6 @@
 # Global parameters
 thread_offset <- 0
-sample_size_divisor <- 5
+sample_size_divisor <- 625
 
 # Whether to use single, standardized *_raw_master_*.rds
 to_create_std <- FALSE
