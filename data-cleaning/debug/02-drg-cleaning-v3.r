@@ -94,24 +94,25 @@ process_chunk <- function(
 
     # Convert date columns from m/d/y format
     chunk[, (date_cols) := lapply(.SD, function(x) {
-      # Remove any decimal seconds if present
-      x <- sub("\\.\\d+ ", " ", x)
       # Convert using as.POSIXct with explicit format
       dt <- as.POSIXct(x, format = "%m/%d/%Y", tz = "UTC")
       # If the parsed date is before 1900-01-01, replace with NA
-      dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA
+      dt[dt < as.POSIXct("1900-01-01", tz = "UTC")] <- NA_Date_
       # Convert to Date
-      as.Date(dt)
+      return(as.Date(dt))
     }), .SDcols = date_cols]
 
-    # Then, clean the time columns:
+    # Define the columns to clean
     time_cols <- c("time_adm", "time_dis")
+    # Apply the cleaning function to each specified column in your data table 'chunk'
     chunk[, (time_cols) := lapply(.SD, function(x) {
-      # If time is missing, substitute "00:00"
-      x <- ifelse(is.na(x), "00:00", x)
-      # Append seconds if not already present
-      # (e.g., "14:30" -> "14:30:00")
+      # Remove fractional seconds (if present)
+      x <- sub("\\.\\d+", "", x)
+      # Extract the time portion (HH:MM:SS) using a regex capture group
+      x <- sub(".* (\\d{2}:\\d{2}:\\d{2}).*", "\\1", x)
+      # If time is missing, substitute "00:00:00"
       ifelse(nchar(x) <= 5, paste0(x, ":00"), x)
+      return(ifelse(is.na(x), "00:00:00", x))
     }), .SDcols = time_cols]
 
     # Finally, combine cleaned date and time columns
@@ -573,6 +574,9 @@ if (to_write) {
 # }
 
 
+print(unique(master_dt[, date_adm]))
+
+
 # if (nthreads > 8) {
 #   # Data Cleaning Pipeline for DRG Processing
 #   # This script processes each split part separately to reduce memory usage
@@ -669,6 +673,8 @@ if (to_write) {
 #   chkpt_2_path,
 #   paste0(chkpt_2_prefix, year, suffix, "tmp", ".rds")
 # )), "~/drg-pipeline/data-cleaning/debug/refactor.csv")
+
+
 
 
 # Final preparations for BQ upload
@@ -849,38 +855,38 @@ result <- readRDS(here(
 ))
 
 
-# Function to print a summary similar to Python's .info()
-print_data_table_info <- function(dt) {
-  total_rows <- nrow(dt)
+# # Function to print a summary similar to Python's .info()
+# print_data_table_info <- function(dt) {
+#   total_rows <- nrow(dt)
 
-  cat(sprintf("Data Table Summary\n----------------------\n"))
-  cat(sprintf("Total Rows: %d\nTotal Columns: %d\n\n", total_rows, ncol(dt)))
-  cat(sprintf("%-20s %-12s %-15s %-8s\n", "Column", "Type", "Non-null Count", "% Non-null"))
-  cat(rep("-", 58), "\n", sep = "")
+#   cat(sprintf("Data Table Summary\n----------------------\n"))
+#   cat(sprintf("Total Rows: %d\nTotal Columns: %d\n\n", total_rows, ncol(dt)))
+#   cat(sprintf("%-20s %-12s %-15s %-8s\n", "Column", "Type", "Non-null Count", "% Non-null"))
+#   cat(rep("-", 58), "\n", sep = "")
 
-  non_null_counts <- dt[, lapply(.SD, function(x) {
-    if (is.list(x)) {
-      sum(lengths(x) > 0) # Count non-empty lists
-    } else if (inherits(x, "Date") | inherits(x, "POSIXt")) {
-      sum(!is.na(x)) # Handle Date and POSIXct correctly
-    } else {
-      sum(!is.na(x) & x != "") # Handle character and numeric columns
-    }
-  })]
+#   non_null_counts <- dt[, lapply(.SD, function(x) {
+#     if (is.list(x)) {
+#       sum(lengths(x) > 0) # Count non-empty lists
+#     } else if (inherits(x, "Date") | inherits(x, "POSIXt")) {
+#       sum(!is.na(x)) # Handle Date and POSIXct correctly
+#     } else {
+#       sum(!is.na(x) & x != "") # Handle character and numeric columns
+#     }
+#   })]
 
-  column_types <- sapply(dt, function(x) class(x)[1]) # Get the first class of each column
+#   column_types <- sapply(dt, function(x) class(x)[1]) # Get the first class of each column
 
-  for (col in names(dt)) {
-    non_null <- non_null_counts[[col]]
-    percent_non_null <- (non_null / total_rows) * 100
-    percent_str <- ifelse(percent_non_null == 100, "100.0%", sprintf("%5.1f%%", percent_non_null))
+#   for (col in names(dt)) {
+#     non_null <- non_null_counts[[col]]
+#     percent_non_null <- (non_null / total_rows) * 100
+#     percent_str <- ifelse(percent_non_null == 100, "100.0%", sprintf("%5.1f%%", percent_non_null))
 
-    cat(sprintf("%-20s %-12s %-15d %s\n", col, column_types[col], non_null, percent_str))
-  }
-}
+#     cat(sprintf("%-20s %-12s %-15d %s\n", col, column_types[col], non_null, percent_str))
+#   }
+# }
 
-# Call the function to print structured info
-print_data_table_info(result)
+# # Call the function to print structured info
+# print_data_table_info(result)
 
 
 # library(ggplot2)
@@ -914,10 +920,9 @@ print_data_table_info(result)
 if (to_bq) {
   # Define BQ table name concisely
   bq_table <- paste0(
-    if (!to_create_std) "claims_" else "raw_claims_",
+    if (!to_create_std) "v2_claims_" else "raw_claims_",
     year,
-    if (!to_sample) "_" else suffix,
-    if (!to_create_std) "v2" else ""
+    if (!to_sample) "" else suffix
   )
 
   schema <- "bq_schema_cleaning.json"
