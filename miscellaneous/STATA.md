@@ -169,11 +169,11 @@ sudo nano ~/Desktop/stata.desktop
 ```
 
 Locate the "Exec=" line
-Make sure it points to stata-mp
+Make sure it points to xstata-mp
 
 ```
-Exec=/usr/local/stata18/stata-mp or Exec=/usr/local/stata18/xstata-mp
+Exec=/usr/local/stata18/xstata-mp
 ```
 
-Alternatively, just launch stata-mp or xstata-mp via the terminal each time, after you've added it to path.
-(By typing /usr/local/stata18/stata-mp or /usr/local/stata18/xstata-mp)
+Alternatively, just launch sxtata-mp via the terminal each time, after you've added it to path.
+(By typing /usr/local/stata18/xstata-mp)
