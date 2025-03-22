@@ -146,7 +146,8 @@ for ($i = 0; $i -lt $inputFiles.Count; $i++) {
     $file = $inputFiles[$i].FullName
     $box = Get-BoxName $i
     Write-Host "Launching: $exePath '$file' in $box"
-    Start-Process -FilePath $sandboxiePath -ArgumentList "/box:$box", "\"$exePath\"", "\"$file\""
+    $arg = "/box:$box `"$exePath`" `"$file`""
+    Start-Process -FilePath $sandboxiePath -ArgumentList $arg
 }
 
 # Function to wait for sandboxed processes to finish
@@ -156,7 +157,8 @@ function Wait-AllSandboxes {
 
     if ((Test-Path $ahkExe) -and (Test-Path $ahkScript)) {
         Write-Host "Launching AutoHotkey script to suppress numeric overflow popups..."
-        Start-Process -FilePath $ahkExe -ArgumentList "\"$ahkScript\"" -WindowStyle Hidden
+        $arg = "`"$ahkScript`""
+        Start-Process -FilePath $ahkExe -ArgumentList $arg -WindowStyle Hidden
     }
     else {
         Write-Warning "AutoHotkey.exe or script not found."

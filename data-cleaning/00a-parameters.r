@@ -32,6 +32,7 @@ to_python <- FALSE
 to_generate_py_fwrite <- FALSE
 to_generate_feather <- FALSE
 to_py_bq <- FALSE
+to_py_all_years <- FALSE
 
 to_thai_prompt <- TRUE
 to_thai <- TRUE
