@@ -126,7 +126,7 @@ chkpt_1_prefix <- "chkpt_1_claims_"
 chkpt_2_prefix <- "chkpt_2_claims_"
 chkpt_3_prefix <- "DRG_Grouped_"
 chkpt_4_prefix <- "chkpt_4_thai_grouper_input_"
-chkpt_5_prefix <- toupper(paste0(gcs_pre_fpath, "_", chkpt_4_prefix))
+chkpt_5_prefix <- chkpt_4_prefix
 chkpt_6_prefix <- "chkpt_6_grouped_claims"
 chkpt_7a_prefix <- "python_input_1"
 chkpt_7b_prefix <- "python_input_2"

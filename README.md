@@ -82,7 +82,6 @@ sudo apt install -y jupyter jupyter-core jupyter-client libcurl4-openssl-dev lib
 
 sudo apt install -y make build-essential libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
 
-
 # Install glances
 sudo snap install glances
 
@@ -95,6 +94,36 @@ sudo apt upgrade
 
 # Install Microsoft .NET 8.0
 sudo apt-get update && sudo apt-get install -y dotnet-sdk-8.0
+
+sudo dpkg --add-architecture i386
+sudo apt update
+sudo apt install -y wine64 firejail wine32 winetricks wine64-tools
+export WINEPREFIX=~/drg-wine32
+export WINEARCH=win32
+wineboot
+wine reg add "HKCU\\Software\\Wine\\WineDbg" /v ShowCrashDialog /t REG_DWORD /d 0 /f
+sudo apt update
+sudo apt install -y xfce4 xfce4-goodies
+wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
+sudo dpkg -i chrome-remote-desktop_current_amd64.deb
+sudo apt-get install -y -f
+```
+
+# RUN THIS IN CHROME REMOTE DESKTOP
+```
+sudo apt install -y ttf-mscorefonts-installer
+sudo apt install -y fonts-liberation fonts-croscore
+WINEPREFIX=~/drg-wine32 winetricks corefonts
+WINEPREFIX=~/drg-wine32 winetricks allfonts
+echo $DISPLAY
+sudo apt install xdotool
+```
+
+# BACK TO SSH
+```
+mkdir -p ~/drg-short
+ln -s ~/drg-pipeline/data-cleaning/data/chkpts/chkpt_4_thai_master_input ~/drg-short/in
+ln -s ~/drg-pipeline/TDRGv5 ~/drg-short/bin
 ```
 
 ```
