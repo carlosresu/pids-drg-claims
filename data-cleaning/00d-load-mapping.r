@@ -8,13 +8,16 @@ to_use_cache <- TRUE # Enable saving/loading of .rds files
 to_print_mapping_data <- FALSE # Set to TRUE to print mapping tables
 
 # Helper function to load data from cache or query from BigQuery if not cached
-load_or_query <- function(query, var_name, year = NULL, overwrite_cache = FALSE) {
-  rds_path <- here("data-cleaning/debug/cache/mapping",
+load_or_query <- function(query, var_name, year_to_load = NULL, overwrite_cache = FALSE) {
+  rds_path <- here(
+    "data-cleaning/debug/cache/mapping",
     paste0(
-      ifelse(var_name == "hci" & !is.null(year), paste0("hci_", year),
-        ifelse(var_name == "claims" & !is.null(year), paste0("claims_", year),
-          var_name)
-      ), ".rds")
+      ifelse(var_name == "hci" & !is.null(year_to_load), paste0("hci_", year_to_load),
+        ifelse(var_name == "claims" & !is.null(year_to_load), paste0("claims_", year_to_load),
+          var_name
+        )
+      ), ".rds"
+    )
   )
 
   if (!overwrite_cache && to_use_cache && file.exists(rds_path)) {
@@ -87,9 +90,9 @@ acc_icd <- unique(i10vx[, code])
 hci_query <- if (to_filter) {
   paste0("SELECT * FROM ", gcp_proj, ".phic_hci.hci_full")
 } else {
-  paste0("SELECT * FROM ", gcp_proj, ".phic_hci.hci_", year)
+  paste0("SELECT * FROM ", gcp_proj, ".phic_hci.hci_", year_to_load)
 }
-hci <- load_or_query(hci_query, "hci", year)
+hci <- load_or_query(hci_query, "hci", year_to_load)
 
 # Define global variables
 neoplasm_codes <- unique(neoplasms_dt_actual$icd10)
@@ -132,7 +135,7 @@ if (to_filter) {
   claims_query <- paste0("
   SELECT
       c.id_series
-  FROM `drg-pipeline.phic_claims.claims_", year, "` c
+  FROM `drg-pipeline.phic_claims.claims_", year_to_load, "` c
   JOIN `drg-pipeline.phic_hci.hci_full` h
       ON c.id_hci = h.id_hci
   WHERE
@@ -141,9 +144,9 @@ if (to_filter) {
       AND c.clin_outpatient = FALSE
       AND h.inst_level IN ('INF', 'L1', 'L2', 'L3');")
 
-  claims <- load_or_query(claims_query, "claims", year)
+  claims <- load_or_query(claims_query, "claims", year_to_load)
 
   hci_filter <- hci[inst_level %chin% c("INF", "L1", "L2", "L3"), id_hci]
 }
 
-message("00f-load-mapping.r successfully executed.")
+message("00d-load-mapping.r successfully executed.")

@@ -1,12 +1,12 @@
 library(data.table)
 library(here)
 
-# Read year from cache
-year_file <- here("data-cleaning/debug/cache/year.txt")
+# Read year_to_load from cache
+year_file <- here("data-cleaning/debug/cache/year_to_load.txt")
 if (file.exists(year_file)) {
-  year <- as.numeric(fread(year_file)$V1)
+  year_to_load <- as.numeric(fread(year_file)$V1)
 } else {
-  stop("Error: year.txt not found.", call. = FALSE)
+  stop("Error: year_to_load.txt not found.", call. = FALSE)
 }
 
 # Path to automate.txt
@@ -21,7 +21,7 @@ if (file.exists(automate_file)) {
 
 # Print results for debugging
 message("==== Loaded Parameters ====")
-message(paste("Year:", year))
+message(paste("year_to_load:", year_to_load))
 message(paste("Automate:", to_automate))
 message("===========================")
 
@@ -44,6 +44,6 @@ if (dir.exists(script_dir)) {
 }
 
 # Make sure variables remain in the global environment
-globalVariables(c("year", "to_automate"))
+globalVariables(c("year_to_load", "to_automate"))
 
-message("00e-load-params-and-scripts.r successfully executed.")
+message("00c-load-params-and-scripts.r successfully executed.")
