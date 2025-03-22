@@ -5,18 +5,18 @@ tictoc::tic("Time spent (total)               ")
 nthreads <- parallelly::availableCores()
 nthreads <- if (nthreads >= 16) nthreads - thread_offset else nthreads
 
-dir.create(dirname(here::here("data-cleaning/debug/cache/year.txt")),
+dir.create(dirname(here::here("data-cleaning/debug/cache/year_to_load.txt")),
   recursive = TRUE, showWarnings = FALSE
 )
-if (!file.exists(here::here("data-cleaning/debug/cache/year.txt"))) {
-  writeLines("2018", here::here("data-cleaning/debug/cache/year.txt"))
+if (!file.exists(here::here("data-cleaning/debug/cache/year_to_load.txt"))) {
+  writeLines("2018", here::here("data-cleaning/debug/cache/year_to_load.txt"))
 }
-if (!exists("year")) {
-  year <- data.table::fread(here::here("data-cleaning", "debug", "cache", "year.txt"),
+if (!exists("year_to_load")) {
+  year_to_load <- data.table::fread(here::here("data-cleaning", "debug", "cache", "year_to_load.txt"),
     header = FALSE, colClasses = "character"
   )[[1]]
 }
-file_type <- if (year %in% c(2022:2023)) ".tsv" else ".csv"
+file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 # Whether to prompt for thai grouper even if bypassing all other prompts
 thai_prompt <- TRUE
@@ -53,15 +53,50 @@ manual_code_replacements <- c("O800", "O80", "O809")
 global_seed <- seed <- 123
 set.seed(global_seed)
 
-if (Sys.info()["nodename"] == "ubuntu2404vm") {
-  # Code to execute if the condition is TRUE
-  service_account_json <- "~/.config/gcloud/drg-pipeline-e80a2b3a9229.json"
-  googleAuthR::gar_auth_service(json_file = service_account_json)
-  googleCloudStorageR::gcs_auth(json_file = service_account_json)
-} else {
+# Get current machine's nodename
+current_node <- Sys.info()["nodename"]
+
+# Define expected nodename for GCE instance
+gce_node <- "pids-drg-claims.us-central1-a.c.pids-drg-data.internal"
+
+if (current_node == gce_node) {
+  # If on the expected GCE VM, use the default service account
   gcs_email <- "10962838043-compute@developer.gserviceaccount.com"
   googleAuthR::gar_auth(email = gcs_email)
+} else {
+  # Not on GCE — use local service account file
+  key_dir <- here::here("keys")
+  key_file <- file.path(key_dir, "pids-drg-data-25ad1e4c7298.json")
+  
+  # Ensure the directory exists
+  if (!dir.exists(key_dir)) {
+    dir.create(key_dir, recursive = TRUE, showWarnings = FALSE)
+    message(paste0("📁 Created key directory at: ", normalizePath(key_dir)))
+  }
+
+  # Prompt user to manually copy the JSON key file if it doesn't exist
+  if (!file.exists(key_file)) {
+    message("❌ Service account key not found.")
+    message("👉 Please copy the key file named `pids-drg-data-25ad1e4c7298.json` to the following folder:\n")
+    message(paste0("   ", normalizePath(key_dir)))
+    message("\n⚠️ Ensure this key is stored securely and is only accessible to authorized users.\n")
+
+    # Wait for user to confirm before continuing
+    repeat {
+      confirm <- readline("⏸️ Once you have copied the JSON key file to the above folder, enter 'y' to continue: ")
+      if (tolower(confirm) == "y" && file.exists(key_file)) break
+      if (tolower(confirm) == "y") {
+        message("❌ File not found. Please ensure the file exists before continuing.")
+      }
+    }
+  }
+
+  # Authenticate using the key file
+  googleAuthR::gar_auth_service(json_file = key_file)
+  googleCloudStorageR::gcs_auth(json_file = key_file)
+  message("✅ Authentication successful using service account key.")
 }
+
 # get current GCP Project
 gcp_proj <- system("gcloud config get-value project", intern = TRUE)
 # Name of GCS bucket
@@ -75,7 +110,7 @@ gcs_spc_fpath <- "spc"
 # bq dataset
 bq_dataset <- "phic_claims"
 # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
-bq_table <- paste0("temp_claims_", year)
+bq_table <- paste0("temp_claims_", year_to_load)
 
 
 # Folder Path Prefixes:
@@ -157,7 +192,7 @@ if (length(created_dirs) == 0) {
 # Commonly Used File Paths:
 full_claims_file <- here::here(
   raw_claims_path,
-  paste0(full_claims_prefix, year, file_type)
+  paste0(full_claims_prefix, year_to_load, file_type)
 )
 # Use the file_type variable here
 
@@ -168,7 +203,7 @@ options(future.globals.maxSize = ram_limit)
 
 total_rows_file <- here::here(
   cache_path, "total_rows",
-  paste0("total_rows_", year, ".rds")
+  paste0("total_rows_", year_to_load, ".rds")
 )
 
 # Load cached total rows file if available, saves ~10 seconds of runtime

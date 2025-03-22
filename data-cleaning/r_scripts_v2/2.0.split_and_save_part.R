@@ -3,7 +3,7 @@ split_and_save_part <- function(split_loop_part) {
   rows_per_part <- ceiling(total_rows / split_parts)
 
   chunk_file <- here::here(raw_claims_parts_path, paste0(
-    full_claims_prefix, year,
+    full_claims_prefix, year_to_load,
     "_part_", sprintf("%02d", split_loop_part),
     "_of_", split_parts, ".rds"
   ))

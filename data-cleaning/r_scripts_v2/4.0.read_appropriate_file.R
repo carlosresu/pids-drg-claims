@@ -1,12 +1,12 @@
 read_appropriate_file <- function(read_part, to_sample_argument = to_sample) {
   chunk_file <- if (to_sample_argument) {
     here(raw_claims_samples_path, paste0(
-      "sampled_claims_", year, "_", sample_size_divisor,
+      "sampled_claims_", year_to_load, "_", sample_size_divisor,
       "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
     ))
   } else {
     here(raw_claims_parts_path, paste0(
-      full_claims_prefix, year,
+      full_claims_prefix, year_to_load,
       "_part_", sprintf("%02d", read_part), "_of_", split_parts, ".rds"
     ))
   }

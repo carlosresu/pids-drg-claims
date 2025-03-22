@@ -83,7 +83,7 @@ Placing your other pending to-do's here also so they dont get lost:
 
 [ ] Split the output tables into three BQ uploads: `claims_` for the cleaned claims, `thai_` for the TDRG outputs, and `py_` for the python outputs
 
-[ ] Null the birthdate, date of admission, or date of discharge if with the year 1900 or before. (Make sure this also has a check that outputs the number of rows affected)
+[ ] Null the birthdate, date of admission, or date of discharge if with the year_to_load 1900 or before. (Make sure this also has a check that outputs the number of rows affected)
 
 [ ] Null patient ages that are above 124 even after any recomputations (and also count the number of rows affected)
 
