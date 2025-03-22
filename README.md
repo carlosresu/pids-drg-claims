@@ -121,9 +121,31 @@ sudo apt install xdotool
 
 # BACK TO SSH
 ```
-mkdir -p ~/drg-short
-ln -s ~/drg-pipeline/data-cleaning/data/chkpts/chkpt_4_thai_master_input ~/drg-short/in
-ln -s ~/drg-pipeline/TDRGv5 ~/drg-short/bin
+sudo apt install -y inotify-tools
+sudo nano /etc/systemd/system/inotify-sync.service
+```
+
+# PASTE THIS
+```
+[Unit]
+Description=Inotify sync for DRG pipeline
+After=network.target
+
+[Service]
+Type=simple
+User=resurreccion_cmc
+ExecStart=/usr/bin/bash -c '/home/resurreccion_cmc/drg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh'
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+```
+sudo chmod +x /home/resurreccion_cmc/drg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh
+sudo systemctl daemon-reload
+sudo systemctl enable inotify-sync.service
+sudo systemctl start inotify-sync.service
 ```
 
 ```

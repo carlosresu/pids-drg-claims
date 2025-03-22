@@ -1,76 +1,61 @@
 #!/bin/bash
 
-set -e
-
-# Define paths
-REPO_ROOT="$HOME/drg-pipeline"
-INPUT_DIR="$REPO_ROOT/data-cleaning/data/chkpts/chkpt_4_thai_master_input"
-EXE_PATH="$REPO_ROOT/TDRGv5/TGRP50V02.exe"
-IGNORE_SCRIPT="$REPO_ROOT/data-cleaning/ahk_scripts/ignore_numeric_overflows.sh"
+# --------------------------------------------------------
+# 1. SETUP
+# --------------------------------------------------------
 WINEPREFIX="$HOME/drg-wine32"
-export WINEPREFIX
-export WINEDEBUG=-all
+EXE_WIN="C:\\\\Program Files\\\\TDRGv5\\\\TGRP50V02.exe"
+INPUT_DIR="$HOME/drg-wine32/drive_c/users/resurreccion_cmc/Input"
+SUPPRESSOR="$HOME/drg-pipeline/data-cleaning/ahk_scripts/ignore_numeric_overflows.sh"
 
-# Ensure 32-bit WINEPREFIX exists
-if [ ! -d "$WINEPREFIX" ]; then
-    echo "Creating 32-bit WINEPREFIX at $WINEPREFIX"
-    WINEARCH=win32 wineboot
+# --------------------------------------------------------
+# 2. OPTIONAL: LAUNCH SUPPRESSOR
+# --------------------------------------------------------
+if [[ -f "$SUPPRESSOR" ]]; then
+    echo "🔄 Starting overflow suppressor..."
+    bash "$SUPPRESSOR" &
+    SUPPRESSOR_PID=$!
 fi
 
-# Disable Wine crash dialogs
-echo "Disabling Wine crash dialog popups..."
-wine reg add "HKCU\\Software\\Wine\\WineDbg" /v ShowCrashDialog /t REG_DWORD /d 0 /f
+# --------------------------------------------------------
+# 3. FIND INPUT FILES
+# --------------------------------------------------------
+# Collect all .txt files matching '*_full_*.txt' inside Input folder
+mapfile -t input_files < <(find "$INPUT_DIR" -type f -name '*_full_*.txt' | sort)
 
-# Validate EXE path
-if [ ! -f "$EXE_PATH" ]; then
-    echo "❌ EXE not found at $EXE_PATH"
+if [[ ${#input_files[@]} -eq 0 ]]; then
+    echo "❌ No matching *_full_*.txt files found in $INPUT_DIR"
     exit 1
 fi
 
-# Start popup suppressor if available
-if [ -f "$IGNORE_SCRIPT" ]; then
-    echo "Launching overflow suppressor..."
-    bash "$IGNORE_SCRIPT" &
-    IGNORE_PID=$!
-fi
+# --------------------------------------------------------
+# 4. LAUNCH PROCESSES
+# --------------------------------------------------------
+for f in "${input_files[@]}"; do
+    filename=$(basename "$f")
+    # Convert to Windows path "C:\users\resurreccion_cmc\Input\filename.txt"
+    wine_input_path="C:\\\\users\\\\resurreccion_cmc\\\\Input\\\\${filename//\//\\\\}"
 
-# Find all input files containing '_full_'
-mapfile -t FILES < <(find "$INPUT_DIR" -type f -name "*_full_*.txt" | sort)
+    echo "🚀 Launching: $filename"
 
-if [ ${#FILES[@]} -eq 0 ]; then
-    echo "❌ No matching input files found."
-    exit 1
-fi
-
-echo "🚀 Launching grouper for ${#FILES[@]} input files..."
-
-# Track background PIDs
-PIDS=()
-
-# Spawn Wine+Firejail process per file
-for FILE in "${FILES[@]}"; do
-    echo "Launching: $(basename "$FILE")"
     firejail --noprofile --net=none \
-        --whitelist="$WINEPREFIX" \
-        --whitelist="$(dirname "$EXE_PATH")" \
-        --whitelist="$(dirname "$FILE")" \
-        --whitelist="$HOME" \
-        env WINEPREFIX="$WINEPREFIX" \
-        wine "$EXE_PATH" "$(WINEPREFIX="$WINEPREFIX" winepath -w "$FILE")" &
-    PIDS+=($!)
+      --whitelist="$HOME/drg-wine32" \
+      env WINEPREFIX="$WINEPREFIX" \
+      wine "$EXE_WIN" "$wine_input_path" &
 done
 
-# Wait for all launched jobs
-for pid in "${PIDS[@]}"; do
-    wait "$pid"
-done
+# --------------------------------------------------------
+# 5. WAIT FOR ALL BACKGROUND PROCESSES
+# --------------------------------------------------------
+wait
+echo "✅ All DRG processes completed."
 
-echo "🎉 All grouper jobs completed."
-
-# Kill suppressor if running
-if [ -n "$IGNORE_PID" ]; then
-    echo "Stopping overflow suppressor..."
-    kill "$IGNORE_PID"
+# --------------------------------------------------------
+# 6. STOP SUPPRESSOR (IF ANY)
+# --------------------------------------------------------
+if [[ -n "$SUPPRESSOR_PID" ]]; then
+    echo "🛑 Stopping overflow suppressor..."
+    kill "$SUPPRESSOR_PID"
 fi
 
-echo "✅ Done."
+echo "🎉 Done."
