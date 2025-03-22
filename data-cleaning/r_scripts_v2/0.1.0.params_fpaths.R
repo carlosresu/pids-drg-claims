@@ -59,17 +59,17 @@ if (Sys.info()["nodename"] == "ubuntu2404vm") {
   googleAuthR::gar_auth_service(json_file = service_account_json)
   googleCloudStorageR::gcs_auth(json_file = service_account_json)
 } else {
-  gcs_email <- "271591364028-compute@developer.gserviceaccount.com"
+  gcs_email <- "10962838043-compute@developer.gserviceaccount.com"
   googleAuthR::gar_auth(email = gcs_email)
 }
 # get current GCP Project
 gcp_proj <- system("gcloud config get-value project", intern = TRUE)
 # Name of GCS bucket
-gcs_bucket <- "phic-claims-chkpts"
+gcs_bucket <- "pids-drg-data"
 # Name of folder path prefix in GCS bucket for thai grouper input
-gcs_pre_fpath <- "pre-tdrg"
+gcs_pre_fpath <- "data/phic/thai/pre"
 # Name of folder path prefix in GCS bucket for thai grouper output
-gcs_post_fpath <- "post-tdrg"
+gcs_post_fpath <- "data/phic/thai/post"
 # TODO: Add description here
 gcs_spc_fpath <- "spc"
 # bq dataset
