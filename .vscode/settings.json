@@ -13,6 +13,7 @@
     "**/grouper": true,
     "**/libraries": true,
     "**/misc": true,
-    "**/scripts": true
+    "**/scripts": true,
+    "**/tests": true
   }
 }

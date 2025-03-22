@@ -1,24 +1,26 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: --- Set base path to script location ---
+cd /d "%~dp0"
+
 :: --- Paths and Config ---
 set "CHKPT4=data-cleaning\data\chkpts\chkpt_4_thai_master_input"
 set "CHKPT5=data-cleaning\data\chkpts\chkpt_5_thai_output"
 set "BUCKET=gs://pids-drg-data/data/phic/thai/pre"
 
-:: --- List of input files (space-separated) ---
-set FILES=^
-chkpt_4_thai_grouper_input_2018_full_part_1_of_2.txt ^
-chkpt_4_thai_grouper_input_2018_full_part_2_of_2.txt ^
-chkpt_4_thai_grouper_input_2019_full_part_1_of_2.txt ^
-chkpt_4_thai_grouper_input_2019_full_part_2_of_2.txt ^
-chkpt_4_thai_grouper_input_2020_full_part_1_of_2.txt ^
-chkpt_4_thai_grouper_input_2020_full_part_2_of_2.txt ^
-chkpt_4_thai_grouper_input_2021_full_part_1_of_1.txt ^
-chkpt_4_thai_grouper_input_2022_full_part_1_of_2.txt ^
-chkpt_4_thai_grouper_input_2022_full_part_2_of_2.txt ^
-chkpt_4_thai_grouper_input_2023_full_part_1_of_2.txt ^
-chkpt_4_thai_grouper_input_2023_full_part_2_of_2.txt
+:: --- List of input files ---
+set FILES=chkpt_4_thai_grouper_input_2018_full_part_1_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2018_full_part_2_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2019_full_part_1_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2019_full_part_2_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2020_full_part_1_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2020_full_part_2_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2021_full_part_1_of_1.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2022_full_part_1_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2022_full_part_2_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2023_full_part_1_of_2.txt
+set FILES=!FILES! chkpt_4_thai_grouper_input_2023_full_part_2_of_2.txt
 
 :: --- Check if gcloud is installed ---
 where gcloud >nul 2>&1
@@ -35,15 +37,18 @@ if errorlevel 1 (
     pause
 )
 
-:: --- Ensure input directory exists ---
+:: --- Ensure input/output directories exist ---
 if not exist "%CHKPT4%" (
     mkdir "%CHKPT4%"
+)
+if not exist "%CHKPT5%" (
+    mkdir "%CHKPT5%"
 )
 
 :: --- Download input files ---
 echo 📥 Downloading input files from GCS...
 set "CMD=gsutil -m cp"
-for %%F in (%FILES%) do (
+for %%F in (!FILES!) do (
     set "CMD=!CMD! %BUCKET%/%%F"
 )
 set "CMD=!CMD! %CHKPT4%"
