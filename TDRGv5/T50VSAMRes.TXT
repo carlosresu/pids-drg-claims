@@ -1,0 +1,21 @@
+caseid|drg|rw|wtlos|ot|adjrw|err|warn|los|drgname
+13780-0212238-A|01010|3.9029|6.64|17|3.9029|0|0|2|Craniotomy  for trauma, no CC
+10665-011128-11|01532|1.2330|8.79|40|1.5685|0|0|251|Degenerative  nervous system disorders, w mod CC
+10660-49188350|01551|1.3330|4.33|15|1.3330|0|0|14|Specific cerebrovascular disorders exc TIA, not transferred, w mild CC
+13758-1346543|01620|0.2622|2.44|5|0.2622|0|0|4|Febrile convulsions, no CC
+13814-4807564|04014|9.2466|22.20|63|9.3386|0|0|86|Major chest procedures, w catas CC
+11343-49-02140|04509|1.0958|5.29|10|1.2172|0|0|29|Cystic fibrosis, w or wo CC
+13758-13801413|08140|2.0354|6.73|18|2.0898|0|0|39|Humerus, tibia,fib & ankle proc exc repl age >17, no CC
+10680-25135-49|08290|5.7549|27.92|73|5.7549|0|0|37|Wound debride w skin graft except hand for MS&CT, no CC
+14904-004421/49|18639|0.3816|3.17|15|0.3816|0|0|3|Fungal diseases, child, w or wo CC
+10741-265718-49|14519|0.3722|2.84|8|0.3722|0|0|5|Postpartum/post abortion wo OR proc
+13814-48040269|15013|2.0765|2.06|6|2.0765|0|0|2|Newborn, died or transf < 5 d of adm w sign proc w mul CC
+10707-4806611|15043|14.3357|49.11|111|14.3721|0|0|124|Newborn, adm wt < 1000 gm w minor proc w mul CC
+10723-011242-49|15111|11.1293|25.01|78|11.1293|0|0|2|Newborn w major procedure w other CC
+10715-49002567|15540|0.2280|2.77|5|0.2280|0|0|5|Newborn, adm wt >2499 gm wo CC
+10664-47335357|11514|3.0231|8.63|38|3.0231|0|0|26|Chronic renal failure, age < 18, w sev to cat CC
+11661-47-773846|26509|0.0000|0.00|0|0.0000|9|384|-1|Ungroupable
+1906180001|26509|0.0000|0.00|0|0.0000|10|0|3|Ungroupable
+1906180002|22023|12.6100|43.14|100|11.9795|0|0|1|Full thickness burns w skin graft or inh inj, w severe CC
+1906180003|02060|1.3469|2.15|4|1.3469|0|0|3|Major lens procedures, no CC
+1906180004|05304|11.5507|7.04|20|11.9445|0|0|67|Acute MI w single vessel PTCA wo stent, w catas CC
