@@ -116,6 +116,9 @@ This configuration creates a Vertex AI Workbench instance tailored for your spec
 sudo apt update
 sudo apt upgrade -y
 sudo apt install -y xfce4 xfce4-goodies
+```
+
+```
 wget https://dl.google.com/linux/direct/chrome-remote-desktop_current_amd64.deb
 sudo dpkg -i chrome-remote-desktop_current_amd64.deb
 sudo apt install -f -y
@@ -123,11 +126,16 @@ sudo apt install -f -y
 
 ```
 echo "exec xfce4-session" > ~/.chrome-remote-desktop-session
-sudo apt remove light-locker
+sudo apt remove -y light-locker
+```
+
+```
 sudo usermod -a -G chrome-remote-desktop $USER
 sudo systemctl enable chrome-remote-desktop@$USER
 sudo systemctl start chrome-remote-desktop@$USER
 ```
+
+# Pairing Chrome Remote Desktop
 
 Get the below code from chrome remote desktop web interface, paste it in terminal via SSH https://remotedesktop.google.com/access/ (Set up via SSH -> Follow the steps)
 DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="YOUR*UNIQUE_CODE" --redirect-url="https://remotedesktop.google.com/*/oauthredirect" --name=$(hostname)
@@ -143,6 +151,8 @@ sudo passwd jupyter
 ```
 
 Enter a new password and remember it
+
+# Stata Installation
 
 Install stata18-mp to /usr/local/stata18
 
@@ -177,41 +187,7 @@ Exec=/usr/local/stata18/xstata-mp
 Alternatively, just launch sxtata-mp via the terminal each time, after you've added it to path.
 (By typing /usr/local/stata18/xstata-mp)
 
-# Transfer /home/ contents
-
-## On Old VM
-
-```
-sudo chmod -R 777 /home/
-sudo tar -czpvf /tmp/home_backup.tar.gz /home/
-```
-
-```
-gcloud init
-```
-
-Login with an account that has access to gs://pids-drg-data/vm/home
-
-```
-gcloud storage cp /tmp/home_backup.tar.gz gs://pids-drg-data/vm/home
-```
-
-## On New VM
-
-```
-gcloud init
-sudo chmod -R 777 /home/
-```
-
-Login with an account that has access to gs://pids-drg-data/vm/home
-
-```
-gcloud storage cp gs://pids-drg-data/vm/home/home_backup.tar.gz /tmp/
-sudo tar -xzpvf /tmp/home_backup.tar.gz -C / --exclude='*Trash*'
-sudo chmod -R 777 /home/
-```
-
-# Stata Installation
+# Stata Cloning
 
 ## Transfer from old VM
 
@@ -254,6 +230,67 @@ sudo apt install -y \
     libcairo2 libcairo2-dev \
     libxinerama1 libxi6 libxrandr2 \
     libcurl4 libcurl4-openssl-dev
+```
+
+```
+/usr/local/stata18/stata-mp
+```
+
+# Transfer /home/ contents
+
+## On Old VM
+
+```
+sudo tar -czpvf /tmp/home_backup.tar.gz /home/
+```
+
+```
+gcloud init
+```
+
+Login with an account that has access to gs://pids-drg-data/vm/home
+
+```
+gcloud storage cp /tmp/home_backup.tar.gz gs://pids-drg-data/vm/home
+```
+
+## On New VM
+
+```
+gcloud init
+```
+
+Login with an account that has access to gs://pids-drg-data/vm/home
+
+```
+gcloud storage cp gs://pids-drg-data/vm/home/home_backup.tar.gz /tmp/
+sudo tar -xzpvf /tmp/home_backup.tar.gz -C / --exclude='*Trash*'
+```
+
+```
+sudo chown root:root /home
+sudo chmod 755 /home
+```
+
+```
+while IFS=: read -r user homedir; do
+  if [ -d "$homedir" ]; then
+    sudo chown -R "$user":"$user" "$homedir"
+  fi
+done < <(getent passwd | awk -F: '$6 ~ /^\/home\// {print $1 ":" $6}')
+```
+
+```
+while IFS=: read -r user homedir; do
+  if [ -d "$homedir" ]; then
+    # Set the home directory permission
+    sudo chmod 755 "$homedir"
+    if [ -d "$homedir/.ssh" ]; then
+      sudo chmod 700 "$homedir/.ssh"
+      sudo chown "$user":"$user" "$homedir/.ssh"
+    fi
+  fi
+done < <(getent passwd | awk -F: '$6 ~ /^\/home\// {print $1 ":" $6}')
 ```
 
 ## Wrap up
