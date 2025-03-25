@@ -176,3 +176,90 @@ Exec=/usr/local/stata18/xstata-mp
 
 Alternatively, just launch sxtata-mp via the terminal each time, after you've added it to path.
 (By typing /usr/local/stata18/xstata-mp)
+
+# Transfer /home/ contents
+
+## On Old VM
+
+```
+sudo chmod -R 777 /home/
+sudo tar -czpvf /tmp/home_backup.tar.gz /home/
+```
+
+```
+gcloud init
+```
+
+Login with an account that has access to gs://pids-drg-data/vm/home
+
+```
+gcloud storage cp /tmp/home_backup.tar.gz gs://pids-drg-data/vm/home
+```
+
+## On New VM
+
+```
+gcloud init
+sudo chmod -R 777 /home/
+```
+
+Login with an account that has access to gs://pids-drg-data/vm/home
+
+```
+gcloud storage cp gs://pids-drg-data/vm/home/home_backup.tar.gz /tmp/
+sudo tar -xzpvf /tmp/home_backup.tar.gz -C / --exclude='*Trash*'
+sudo chmod -R 777 /home/
+```
+
+# Stata Installation
+
+## Transfer from old VM
+
+```
+sudo tar -cvpzf stata18_backup.tar.gz /usr/local/stata18 ~/.stata18
+```
+
+```
+gcloud init
+```
+
+Login with an account that has access to gs://pids-drg-data/vm/stata
+
+## On new VM
+
+```
+gcloud init
+```
+
+Login with an account that has access to gs://pids-drg-data/vm/stata
+
+```
+gcloud storage cp gs://pids-drg-data/vm/stata/stata18_backup.tar.gz ~/
+```
+
+```
+sudo tar -xvpzf stata18_backup.tar.gz -C /
+sudo chown -R root:root /usr/local/stata18
+sudo chmod -R 777 /usr/local/stata18
+sudo apt update
+sudo apt install -y \
+    libncurses5 libncurses5-dev libncursesw5 libtinfo5 \
+    libpng-dev \
+    libgtk2.0-0 libgtk2.0-dev \
+    libgtk-3-0 libgtk-3-dev \
+    libxtst6 libxext6 libxt6 libsm6 libice6 \
+    libxmu6 libx11-6 libxrender1 \
+    libglib2.0-0 libglib2.0-dev \
+    libpango-1.0-0 libpango1.0-dev \
+    libcairo2 libcairo2-dev \
+    libxinerama1 libxi6 libxrandr2 \
+    libcurl4 libcurl4-openssl-dev
+```
+
+## Wrap up
+
+On old and new VM's, run this to revoke your gmail account's login credentials so the VM reverts back to using the service account.
+
+```
+gcloud auth revoke your.email@gmail.com
+```
