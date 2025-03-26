@@ -8,9 +8,10 @@ Run this code in Google Cloud Platform Cloud Shell:
 2. Service account should be the service account of the GCP Project. (See --service-account portion of the script below.)
 
 First time
+
 ```
 gcloud compute instances create drg-data-pipeline \
-    --project=drg-pipeline \
+    --project=pids-drg-claims \
     --zone=us-central1-a \
     --machine-type=e2-highmem-16 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
@@ -31,9 +32,10 @@ gcloud compute instances create drg-data-pipeline \
 ```
 
 Subsequent creations:
+
 ```
 gcloud compute instances create drg-data-pipeline \
-    --project=drg-pipeline \
+    --project=pids-drg-claims \
     --zone=us-central1-a \
     --machine-type=e2-highmem-8 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
@@ -58,10 +60,10 @@ Run the below code in GCP Cloud Shell. This enables the Patch service to work wi
 
 ```
 # Enable full VM Manager features
-gcloud compute os-config project-feature-settings update --project drg-pipeline --patch-and-config-feature-set=full
+gcloud compute os-config project-feature-settings update --project pids-drg-claims --patch-and-config-feature-set=full
 
 # Verify it's working
-gcloud compute os-config project-feature-settings describe --project drg-pipeline
+gcloud compute os-config project-feature-settings describe --project pids-drg-claims
 ```
 
 ## VM Configuration (System-Wide)
@@ -110,6 +112,7 @@ sudo apt-get install -y -f
 ```
 
 # RUN THIS IN CHROME REMOTE DESKTOP
+
 ```
 sudo apt install -y ttf-mscorefonts-installer
 sudo apt install -y fonts-liberation fonts-croscore
@@ -120,12 +123,14 @@ sudo apt install xdotool
 ```
 
 # BACK TO SSH
+
 ```
 sudo apt install -y inotify-tools
 sudo nano /etc/systemd/system/inotify-sync.service
 ```
 
 # PASTE THIS
+
 ```
 [Unit]
 Description=Inotify sync for DRG pipeline
@@ -134,7 +139,7 @@ After=network.target
 [Service]
 Type=simple
 User=resurreccion_cmc
-ExecStart=/usr/bin/bash -c '/home/resurreccion_cmc/drg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh'
+ExecStart=/usr/bin/bash -c '/home/resurreccion_cmc/pids-drg-claims/data-cleaning/ahk_scripts/inotify_sync.sh'
 Restart=always
 
 [Install]
@@ -142,7 +147,7 @@ WantedBy=multi-user.target
 ```
 
 ```
-sudo chmod +x /home/resurreccion_cmc/drg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh
+sudo chmod +x /home/resurreccion_cmc/pids-drg-claims/data-cleaning/ahk_scripts/inotify_sync.sh
 sudo systemctl daemon-reload
 sudo systemctl enable inotify-sync.service
 sudo systemctl start inotify-sync.service
@@ -154,6 +159,7 @@ curl https://pyenv.run | bash
 ```
 
 # Insert the following in ~/.bash_profile, ~/.profile ~/.bashrc
+
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
 eval "$(pyenv init -)"
@@ -203,6 +209,7 @@ pip install jupyter jupyter-core jupyter-client ipykernel
 ```
 
 New Install R method
+
 ```
 # update indices
 sudo apt update -qq
@@ -211,7 +218,7 @@ sudo apt update -qq
 sudo apt install -y --no-install-recommends software-properties-common dirmngr
 
 # add the signing key (by Michael Rutter) for these repos
-# To verify key, run gpg --show-keys /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc 
+# To verify key, run gpg --show-keys /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
 # Fingerprint: E298A3A825C0D65DFD57CBB651716619E084DAB9
 
 wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
@@ -230,7 +237,7 @@ Make system-wide libraries writable by R, otherwise we'd need to rely on renv wh
 
 Here we create a data folder in the home directory where multiple users can store data, accessible to all of their user profile git cloned repositories.
 
-For example, if I login as resurreccion_cmc, my user profile folder is /home/resurreccion_cmc and in that is my drg-pipeline git cloned repository. Later we will symbolically link the entire 'data' folder to each of our git cloned repository folders, as the code expects the 'data' folder and its contents to be in the data-cleaning folder of the repository, i.e. ~/drg-pipeline/data-cleaning/data.
+For example, if I login as resurreccion_cmc, my user profile folder is /home/resurreccion_cmc and in that is my pids-drg-claims git cloned repository. Later we will symbolically link the entire 'data' folder to each of our git cloned repository folders, as the code expects the 'data' folder and its contents to be in the data-cleaning folder of the repository, i.e. ~/pids-drg-claims/data-cleaning/data.
 
 ```
 sudo chmod -R 777 /usr/local/lib/R/site-library
@@ -257,15 +264,15 @@ sudo nano /etc/fstab
 UUID=bb716fcb-7f55-418c-8382-455bd288d54a /mnt/data-disk ext4 defaults 0 2
 ```
 
-
 ```
-sudo mkdir -p /mnt/data-disk/data
-sudo chmod -R 777 /mnt/data-disk/data
-sudo chown -R root:root /mnt/data-disk/data
-sudo chmod -R 777 /mnt/data-disk/data
+sudo mkdir -p /home/data
+sudo chmod -R 777 /home/data
+sudo chown -R root:root /home/data
+sudo chmod -R 777 /home/data
 ```
 
 Old Code
+
 ```
 sudo mkdir -p /home/data
 sudo chmod -R 777 /home/data
@@ -331,8 +338,8 @@ gcloud auth application-default login # MAY NOT BE NEEDED ANYMORE
 
 # Login with the appropriate account # MAY NOT BE NEEDED ANYMORE
 
-# Upload drg-pipeline-e80a2b3a9229.json (in Carlos Resurreccion's PIDS OneDrive) or an equivalent Service Account Json Key to VM at ~/.config/gcloud/
-# If using another key, rename it to drg-pipeline-e80a2b3a9229.json all the same.
+# Upload pids-drg-claims-e80a2b3a9229.json (in Carlos Resurreccion's PIDS OneDrive) or an equivalent Service Account Json Key to VM at ~/.config/gcloud/
+# If using another key, rename it to pids-drg-claims-e80a2b3a9229.json all the same.
 ```
 
 Lastly, edit the VM instance in GCP and add the following in the text box of the startup script automation section:
@@ -364,28 +371,28 @@ git config --global user.name "Carlos Miguel Resurreccion"
 git config --global user.email resurreccion.cmc@gmail.com
 ```
 
-Clone drg-pipeline into your home folder first
+Clone pids-drg-claims into your home folder first
 
 ```
-git clone https://github.com/pids-drg/drg-pipeline
-cd ~/drg-pipeline
+git clone https://github.com/pids-drg-team/pids-drg-claims
+cd ~/pids-drg-claims
 git submodule update --init --recursive
 ```
 
-Symbolically Link /mnt/data-disk/data to your username's drg-pipeline/data-cleaning folder
+Symbolically Link /home/data to your pids-drg-claims/data-cleaning folder
 
 ```
-sudo ln -s /mnt/data-disk/data /home/resurreccion_cmc/drg-pipeline/data-cleaning
+sudo ln -s /home/data ~/pids-drg-claims/data-cleaning
 ```
 
-Link ~/drg-pipeline/data-cleaning/grouper/libraries contents into ~/drg-pipeline/data-cleaning as the script (reticulate) expects it to be there.
+<!-- Link ~/pids-drg-claims/data-cleaning/grouper/libraries contents into ~/pids-drg-claims/data-cleaning as the script (reticulate) expects it to be there.
 
 ```
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/libraries ~/drg-pipeline/data-cleaning
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/scripts ~/drg-pipeline/data-cleaning
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/misc ~/drg-pipeline/data-cleaning
-sudo ln -s ~/drg-pipeline/data-cleaning/grouper/tests ~/drg-pipeline/data-cleaning
-```
+sudo ln -s ~/pids-drg-claims/data-cleaning/grouper/libraries ~/pids-drg-claims/data-cleaning
+sudo ln -s ~/pids-drg-claims/data-cleaning/grouper/scripts ~/pids-drg-claims/data-cleaning
+sudo ln -s ~/pids-drg-claims/data-cleaning/grouper/misc ~/pids-drg-claims/data-cleaning
+sudo ln -s ~/pids-drg-claims/data-cleaning/grouper/tests ~/pids-drg-claims/data-cleaning
+``` -->
 
 Configure ipykernel with venv
 Create a .venv using VS Code Python: Select Interpreter > Create a Virtual Environment > .venv > select requirements.txt in data-cleaning (not the grouper).
@@ -405,7 +412,7 @@ Assuming you've already authorized the VS Code Server Code Tunnel in the VM, sim
 
 Once inside,
 
-1. Select the `drg-pipeline` folder in your user directory that we created by cloning the `drg-pipeline` repo earlier
+1. Select the `pids-drg-claims` folder in your user directory that we created by cloning the `pids-drg-claims` repo earlier
 2. Open `data-cleaning/drg-cleaning.ipynb`
 
 Finally,
@@ -413,9 +420,9 @@ Finally,
 1. Go over the parameters under `Primary` and `Secondary Parameters`, as well as `File Paths`, and
 2. Make sure everything is in order.
 
-**Important 1: Ensure you've symbolically linked `/mnt/data-disk/data` to `/home/<username>/drg-pipeline/data-cleaning`**
+**Important 1: Ensure you've symbolically linked `/home/data` to `/home/<username>/pids-drg-claims/data-cleaning`**
 
-**Important 2: Ensure you've symbolically linked `~/drg-pipeline/data-cleaning/grouper/libraries` to `~/drg-pipeline/data-cleaning`**
+**Important 2: Ensure you've symbolically linked `~/pids-drg-claims/data-cleaning/grouper/libraries` to `~/pids-drg-claims/data-cleaning`**
 
 Steps to run the data-cleaning code end-to-end:
 
@@ -431,24 +438,24 @@ Steps to run the data-cleaning code end-to-end:
       2. Press `enter`.
    2. If not:
       1. **Don't type anything or press enter just yet. Leave it pending.** **DO NOT CLOSE VS CODE OR DISCONNECT FROM THE CODE TUNNEL INSTANCE**
-      2. Go to GCP GCS `phic-claims-chkpts/pre-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/pre-tdrg?project=drg-pipeline>)
+      2. Go to GCP GCS `phic-claims-chkpts/pre-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/pre-tdrg?project=pids-drg-claims>)
       3. Find the file it just uploaded.
       4. Download the file to your local machine. **DO NOT RENAME THE FILE AFTER DOWNLOADING.**
       5. Run the Thai Batch Grouper `(TGRP50V02.exe)` on the file you just downloaded. It should take an hour or two.
-      6. Go to GCP GCS `phic-claims-chkpts/post-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/post-tdrg?project=drg-pipeline>)
+      6. Go to GCP GCS `phic-claims-chkpts/post-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/post-tdrg?project=pids-drg-claims>)
       7. Upload the file outputted by the Thai Batch Grouper. **DO NOT RENAME THE FILE BEFORE UPLOADING.**
       8. Return to your VS Code Code Tunnel Instance.
       9. Type `y`.
       10. Press `enter`.
 6. It should now proceed with the process, first by analyzing and checking for differences between the drg code generated via Python Grouper vs via Thai Batch Grouper.
    1. It will write a csv containing said differences (or an empty csv if there are none),
-   2. It will write to `~/drg-pipeline/data/chkpts/chkpt_9_grouper_differences` as `chkpt_9_grouper_differences_*.csv`
-7. It will then push to BQ as `drg-pipeline.phic_claims.claims_20XX1231`
+   2. It will write to `~/pids-drg-claims/data/chkpts/chkpt_9_grouper_differences` as `chkpt_9_grouper_differences_*.csv`
+7. It will then push to BQ as `pids-drg-claims.phic_claims.claims_20XX1231`
 
 # Maintenace
 
 1. Enable scheduled shutdown
-   1. (<https://console.cloud.google.com/compute/instances/instanceSchedules?project=drg-pipeline&tab=instanceSchedules>)
+   1. (<https://console.cloud.google.com/compute/instances/instanceSchedules?project=pids-drg-claims&tab=instanceSchedules>)
    2. Create a scheduler job, set it to Iowa, Philippine time, start empty, and stop at 8:30 PM. Name it stop-vm-eod.
    3. Add the VM instance to it, you'll need the following permissions:
       `Compute Engine System service account service-271591364028@compute-system.iam.gserviceaccount.com needs to have [compute.instances.stop] permissions applied in order to perform this operation.`
