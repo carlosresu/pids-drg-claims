@@ -11,7 +11,7 @@ First time
 
 ```
 gcloud compute instances create drg-data-pipeline \
-    --project=pids-drg-claims \
+    --project=pids-drg-data \
     --zone=us-central1-a \
     --machine-type=e2-highmem-16 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
@@ -35,7 +35,7 @@ Subsequent creations:
 
 ```
 gcloud compute instances create drg-data-pipeline \
-    --project=pids-drg-claims \
+    --project=pids-drg-data \
     --zone=us-central1-a \
     --machine-type=e2-highmem-8 \
     --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
@@ -60,10 +60,10 @@ Run the below code in GCP Cloud Shell. This enables the Patch service to work wi
 
 ```
 # Enable full VM Manager features
-gcloud compute os-config project-feature-settings update --project pids-drg-claims --patch-and-config-feature-set=full
+gcloud compute os-config project-feature-settings update --project pids-drg-data --patch-and-config-feature-set=full
 
 # Verify it's working
-gcloud compute os-config project-feature-settings describe --project pids-drg-claims
+gcloud compute os-config project-feature-settings describe --project pids-drg-data
 ```
 
 ## VM Configuration (System-Wide)
@@ -139,7 +139,7 @@ After=network.target
 [Service]
 Type=simple
 User=resurreccion_cmc
-ExecStart=/usr/bin/bash -c '/home/resurreccion_cmc/pids-drg-claims/data-cleaning/ahk_scripts/inotify_sync.sh'
+ExecStart=/usr/bin/bash -c '/home/resurreccion_cmc/drg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh'
 Restart=always
 
 [Install]
@@ -147,7 +147,7 @@ WantedBy=multi-user.target
 ```
 
 ```
-sudo chmod +x /home/resurreccion_cmc/pids-drg-claims/data-cleaning/ahk_scripts/inotify_sync.sh
+sudo chmod +x /home/resurreccion_cmc/drg-pipelinedrg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh
 sudo systemctl daemon-reload
 sudo systemctl enable inotify-sync.service
 sudo systemctl start inotify-sync.service
@@ -338,8 +338,8 @@ gcloud auth application-default login # MAY NOT BE NEEDED ANYMORE
 
 # Login with the appropriate account # MAY NOT BE NEEDED ANYMORE
 
-# Upload pids-drg-claims-e80a2b3a9229.json (in Carlos Resurreccion's PIDS OneDrive) or an equivalent Service Account Json Key to VM at ~/.config/gcloud/
-# If using another key, rename it to pids-drg-claims-e80a2b3a9229.json all the same.
+# Upload drg-pipeline-e80a2b3a9229.json (in Carlos Resurreccion's PIDS OneDrive) or an equivalent Service Account Json Key to VM at ~/.config/gcloud/
+# If using another key, rename it to drg-pipeline-e80a2b3a9229.json all the same.
 ```
 
 Lastly, edit the VM instance in GCP and add the following in the text box of the startup script automation section:
@@ -438,11 +438,11 @@ Steps to run the data-cleaning code end-to-end:
       2. Press `enter`.
    2. If not:
       1. **Don't type anything or press enter just yet. Leave it pending.** **DO NOT CLOSE VS CODE OR DISCONNECT FROM THE CODE TUNNEL INSTANCE**
-      2. Go to GCP GCS `phic-claims-chkpts/pre-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/pre-tdrg?project=pids-drg-claims>)
+      2. Go to GCP GCS `phic-claims-chkpts/pre-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/pre-tdrg?project=pids-drg-data>)
       3. Find the file it just uploaded.
       4. Download the file to your local machine. **DO NOT RENAME THE FILE AFTER DOWNLOADING.**
       5. Run the Thai Batch Grouper `(TGRP50V02.exe)` on the file you just downloaded. It should take an hour or two.
-      6. Go to GCP GCS `phic-claims-chkpts/post-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/post-tdrg?project=pids-drg-claims>)
+      6. Go to GCP GCS `phic-claims-chkpts/post-tdrg` (<https://console.cloud.google.com/storage/browser/phic-claims-chkpts/post-tdrg?project=pids-drg-data>)
       7. Upload the file outputted by the Thai Batch Grouper. **DO NOT RENAME THE FILE BEFORE UPLOADING.**
       8. Return to your VS Code Code Tunnel Instance.
       9. Type `y`.
@@ -455,7 +455,7 @@ Steps to run the data-cleaning code end-to-end:
 # Maintenace
 
 1. Enable scheduled shutdown
-   1. (<https://console.cloud.google.com/compute/instances/instanceSchedules?project=pids-drg-claims&tab=instanceSchedules>)
+   1. (<https://console.cloud.google.com/compute/instances/instanceSchedules?project=pids-drg-data&tab=instanceSchedules>)
    2. Create a scheduler job, set it to Iowa, Philippine time, start empty, and stop at 8:30 PM. Name it stop-vm-eod.
    3. Add the VM instance to it, you'll need the following permissions:
       `Compute Engine System service account service-271591364028@compute-system.iam.gserviceaccount.com needs to have [compute.instances.stop] permissions applied in order to perform this operation.`
