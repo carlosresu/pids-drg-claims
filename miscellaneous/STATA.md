@@ -1,116 +1,33 @@
 # VM Creation
 
-# Creation Steps:
+## Creation Steps:
 
-Guide to Creating a Vertex AI Workbench Instance with Specified Parameters
+1. GCP > Vertex AI Workbench > Create New button (under the Instances tab) > Advanced options button (located in the pop-up window to the right)
+2. Details (if not specified, leave default setting as is)
+   1. Name: pids-drg-stata
+   2. Region: us-central1 (Iowa)
+   3. Zone: us-central1-a
+   4. JupyterLab Version: JupyterLab 4.x
+   5. VM specs: n2d-standard-8 (N2D CPU type, 8 vCPU, 32 GB memory)
+      1. or N2 CPU type (i.e., n2-standard-8) if N2D is max quota'd already
+      2. If you need more memory, select n2d-highmem-8 (64 GB)
+      3. If you need EVEN more memory, select n2d-highmem-16 (128 GB) or higher
+         1. NOTE: Current stata license only utilizes 8 cpu cores.
+         2. NOTE: Please do this sparingly, as CPUs (that we can't even use) are expensive!
+   6. Secure Boot: ✅ checked
+   7. Idle Shutdown: 720 minutes (aka 12 hours)
+   8. Boot Disk
+      1. Type: Standard
+      2. Size: 150 GB
+   9. Data Disk
+      1. Type: Standard
+      2. Size: 250 GB
+   10. Delete to Trash: ✅ checked
+   11. Report custom metrics to Cloud Monitoring: ✅ checked
+   12. Install Cloud Monitoring: ✅ checked
+3. Create the VM! Then proceed to below steps.
 
-This guide outlines the steps to create a Vertex AI Workbench instance in Google Cloud Platform (GCP) using the provided configuration.
-
-Step 1: Access the Vertex AI Workbench Console 1. Navigate to the Vertex AI Workbench page in the GCP Console. 2. Ensure you are in the correct GCP project where you have billing enabled.
-
-Step 2: Begin Instance Creation
-
-1. Click “New notebook”.
-2. Choose “Customize” to configure a new notebook instance with your specific parameters.
-
-Step 3: Configure Instance Details
-
-1. Notebook Name:
-   • Enter stata-vm-wbi.
-   • Ensure the name starts with a letter and contains up to 47 lowercase letters, numbers, or hyphens, without ending in a hyphen.
-2. Region and Zone:
-   • Set Region to us-central1 (Iowa).
-   • Set Zone to us-central1-a.
-3. Enable Dataproc Serverless Interactive Sessions:
-   • Check the box to enable Dataproc Spark kernels.
-4. Labels and Tags (optional):
-   • Add any labels or network tags if needed for identification or resource grouping.
-
-Step 4: Configure Environment
-
-1. Workbench Type:
-   • Leave the default Instance selected.
-2. Environment:
-   • Leave “Use custom container” unchecked
-   • Set the environment to “Use the latest version”.
-3. Post-startup Script (optional):
-   • Provide the path to a script in a Cloud Storage bucket if you want specific commands to run after the instance boots up.
-4. Metadata:
-   • Avoid using reserved metadata keys like data-disk-uri, framework, notebooks-api, etc.
-
-Step 5: Configure Machine Type and Resources
-
-1. Machine Type:
-   • Choose e2-highmem-16:
-   • vCPUs: 16 (8 cores).
-   • Memory: 128 GB.
-2. GPU:
-   • Skip GPU configuration unless needed for additional workloads.
-3. Shielded VM Options:
-   • Enable all settings for enhanced security:
-   • Secure Boot.
-   • Virtual Trusted Platform Module (vTPM).
-   • Integrity monitoring.
-4. Idle Shutdown:
-   • Enable Idle Shutdown and set inactivity time to 120 minutes (2 hours).
-
-Step 6: Configure Disk Settings
-
-1. Boot Disk:
-   • Type: Standard Persistent Disk.
-   • Size: 200 GB.
-2. Data Disk:
-   • Type: Standard Persistent Disk.
-   • Size: 150 GB.
-3. Encryption:
-   • Use the Google-managed encryption key.
-
-Step 7: Networking Configuration
-
-1. Networking:
-   • Ensure the default network is selected:
-   • Network: default.
-   • Subnetwork: default (10.128.0.0/20).
-2. Assign External IP Address:
-   • Enable to allow internet access.
-3. Allow Proxy Access:
-   • Ensure proxy access is enabled to access the instance via JupyterLab.
-4. Private Google Access:
-   • Leave this option turned off since the instance will use an external IP.
-
-Step 8: Set IAM and Security
-
-1. Service Account:
-   • Use the default Compute Engine service account unless a specific account is required.
-   • Ensure the account has sufficient API permissions.
-2. Single User Access:
-   • Restrict access to a single user by enabling Single user.
-3. Security Options:
-   • Allow:
-   • Root access.
-   • nbconvert for exporting notebooks.
-   • File downloading.
-   • Terminal access to run shell commands.
-
-Step 9: Set System Health
-
-1. Environment Auto-Upgrade
-   • Leave this unchecked
-2. Check Report System Health and Report DNS status for required Google Domains
-
-Step 10: Review and Create
-
-1. Double-check all configuration settings to ensure they match your requirements.
-2. Click “Create” and wait for the instance to be provisioned.
-
-Additional Notes
-
-    •	Once the instance is created, you can SSH into it or access the JupyterLab interface for further customization.
-    •	Ensure to stop or shut down the instance when not in use to avoid unnecessary charges.
-
-This configuration creates a Vertex AI Workbench instance tailored for your specified parameters and optimized for flexibility, cost, and security.
-
-# Configuration Steps
+## Configuration Steps
 
 ```
 sudo apt update
@@ -130,88 +47,80 @@ sudo apt remove -y light-locker
 ```
 
 ```
+if ! getent group chrome-remote-desktop > /dev/null; then
+  sudo groupadd chrome-remote-desktop
+fi
 sudo usermod -a -G chrome-remote-desktop $USER
 sudo systemctl enable chrome-remote-desktop@$USER
 sudo systemctl start chrome-remote-desktop@$USER
 ```
 
-# Pairing Chrome Remote Desktop
+```
+sudo mkdir -p /etc/skel/Desktop
+sudo ln -sfn /home/jupyter /etc/skel/Desktop/jupyter
+echo 'export PATH="/usr/local/stata18:$PATH"' | sudo tee -a /etc/skel/.bashrc
+```
 
-Get the below code from chrome remote desktop web interface, paste it in terminal via SSH https://remotedesktop.google.com/access/ (Set up via SSH -> Follow the steps)
+## Pairing Chrome Remote Desktop
+
+### Get the below code from chrome remote desktop web interface, paste it in terminal via SSH https://remotedesktop.google.com/access/ (Set up via SSH -> Follow the steps)
+
+```
 DISPLAY= /opt/google/chrome-remote-desktop/start-host --code="YOUR*UNIQUE_CODE" --redirect-url="https://remotedesktop.google.com/*/oauthredirect" --name=$(hostname)
-
-Set a PIN:
-During execution, you’ll be prompted to enter and confirm a 6-digit PIN.
-This PIN will be used to authenticate when connecting remotely.
-
-When first connecting it'll ask for the admin password for the user jupyter
-
-```
-sudo passwd jupyter
 ```
 
-Enter a new password and remember it
+### Set a PIN: During execution, you’ll be prompted to enter and confirm a 6-digit PIN. This PIN will be used to authenticate when connecting remotely.
 
-# Stata Installation
+### When first connecting it'll ask for the admin password for the user jupyter for something. Just cancel/exit it.
 
-Install stata18-mp to /usr/local/stata18
+## Stata Installation
 
-```
-sudo nano ~/.bashrc
-```
+### Install Stata (via ICTSD) to /usr/local/stata18
 
-```
-export PATH="/usr/local/stata18:$PATH"
-```
+### Then add shortcut to all future users
 
 ```
-source ~/.bashrc
-```
-
-```
-cp /usr/local/stata18/stata.desktop ~/Desktop/
-chmod +x ~/Desktop/stata.desktop
-```
-
-```
-sudo nano ~/Desktop/stata.desktop
-```
-
-Locate the "Exec=" line
-Make sure it points to xstata-mp
-
-```
+sudo mkdir -p /etc/skel/Desktop
+sudo tee /etc/skel/Desktop/stata.desktop > /dev/null <<EOF
+[Desktop Entry]
+Name=Stata MP
+Comment=Launch Stata MP GUI
 Exec=/usr/local/stata18/xstata-mp
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Education;
+EOF
+sudo chmod +x /etc/skel/Desktop/stata.desktop
 ```
-
-Alternatively, just launch sxtata-mp via the terminal each time, after you've added it to path.
-(By typing /usr/local/stata18/xstata-mp)
 
 # Stata Cloning
 
 ## Transfer from old VM
 
+### creating the backup
+
 ```
 sudo tar -cvpzf stata18_backup.tar.gz /usr/local/stata18 ~/.stata18
 ```
 
+### gcloud steps (Login with an account that has access to gs://pids-drg-vm/stata)
+
 ```
 gcloud init
+gcloud storage cp ~/stata18_backup.tar.gz gs://pids-drg-vm/stata/
 ```
-
-Login with an account that has access to gs://pids-drg-data/vm/stata
 
 ## On new VM
 
+### gcloud steps (Login with an account that has access to gs://pids-drg-vm/stata)
+
 ```
 gcloud init
+gcloud storage cp gs://pids-drg-vm/stata/stata18_backup.tar.gz ~/
 ```
 
-Login with an account that has access to gs://pids-drg-data/vm/stata
-
-```
-gcloud storage cp gs://pids-drg-data/vm/stata/stata18_backup.tar.gz ~/
-```
+### Stata Restoration and Testing (should end with stata opening up; type exit to exit)
 
 ```
 sudo tar -xvpzf stata18_backup.tar.gz -C /
@@ -230,70 +139,89 @@ sudo apt install -y \
     libcairo2 libcairo2-dev \
     libxinerama1 libxi6 libxrandr2 \
     libcurl4 libcurl4-openssl-dev
+/usr/local/stata18/stata-mp
 ```
 
+### Then add stata shortcut to all future users
+
 ```
-/usr/local/stata18/stata-mp
+sudo mkdir -p /etc/skel/Desktop
+sudo tee /etc/skel/Desktop/stata.desktop > /dev/null <<EOF
+[Desktop Entry]
+Name=Stata MP
+Comment=Launch Stata MP GUI
+Exec=/usr/local/stata18/xstata-mp
+Icon=utilities-terminal
+Terminal=false
+Type=Application
+Categories=Education;
+EOF
+sudo chmod +x /etc/skel/Desktop/stata.desktop
 ```
 
 # Transfer /home/ contents
 
 ## On Old VM
 
+### creating the backup
+
 ```
-sudo tar -czpvf /tmp/home_backup.tar.gz /home/
+sudo tar -czpvf /tmp/home_backup.tar.gz /home/jupyter
 ```
+
+### gcloud steps (Login with an account that has access to gs://pids-drg-vm/home)
 
 ```
 gcloud init
-```
-
-Login with an account that has access to gs://pids-drg-data/vm/home
-
-```
-gcloud storage cp /tmp/home_backup.tar.gz gs://pids-drg-data/vm/home
+gcloud storage cp /tmp/home_backup.tar.gz gs://pids-drg-vm/home
 ```
 
 ## On New VM
 
+### gcloud steps (Login with an account that has access to gs://pids-drg-vm/home)
+
 ```
 gcloud init
+gcloud storage cp gs://pids-drg-vm/home/home_backup.tar.gz /tmp/
 ```
 
-Login with an account that has access to gs://pids-drg-data/vm/home
+### File restoration (ignore default folders, while restoring only /home/jupyter)
 
 ```
-gcloud storage cp gs://pids-drg-data/vm/home/home_backup.tar.gz /tmp/
-sudo tar -xzpvf /tmp/home_backup.tar.gz -C / --exclude='*Trash*'
+sudo tar -xzpvf /tmp/home_backup.tar.gz -C / home/jupyter \
+  --exclude='home/jupyter/.*' \
+  --exclude='home/jupyter/unix' \
+  --exclude='home/jupyter/unix/*' \
+  --exclude='home/jupyter/tutorials' \
+  --exclude='home/jupyter/tutorials/*' \
+  --exclude='*Trash*' \
+  --exclude='*.ipynb_checkpoints*'
 ```
 
-```
-sudo chown root:root /home
-sudo chmod 755 /home
-```
+### Fixing file permissions
+
+#### Do this so all future user-files in /home/jupyter have 777 (directories) or 666 (files)
 
 ```
-while IFS=: read -r user homedir; do
-  if [ -d "$homedir" ]; then
-    sudo chown -R "$user":"$user" "$homedir"
-  fi
-done < <(getent passwd | awk -F: '$6 ~ /^\/home\// {print $1 ":" $6}')
+sudo nano /home/jupyter/.jupyter/jupyter_notebook_config.py
 ```
 
+#### Add the below
+
 ```
-while IFS=: read -r user homedir; do
-  if [ -d "$homedir" ]; then
-    # Set the home directory permission
-    sudo chmod 755 "$homedir"
-    if [ -d "$homedir/.ssh" ]; then
-      sudo chmod 700 "$homedir/.ssh"
-      sudo chown "$user":"$user" "$homedir/.ssh"
-    fi
-  fi
-done < <(getent passwd | awk -F: '$6 ~ /^\/home\// {print $1 ":" $6}')
+import os
+os.umask(0)
 ```
 
-## Wrap up
+#### Do this so existing user-files in /home/jupyter we restored have 777 (directories) or 666 (files), and so files in /home/jupyter are owned by the jupyter user
+
+```
+sudo find /home/jupyter -type d ! -path '*/.*' ! -name '.*' -exec sudo chmod 777 {} +
+sudo find /home/jupyter -type f ! -path '*/.*' ! -name '.*' -exec sudo chmod 666 {} +
+sudo chown -R jupyter:jupyter /home/jupyter
+```
+
+# Wrap up
 
 On old and new VM's, run this to revoke your gmail account's login credentials so the VM reverts back to using the service account.
 
