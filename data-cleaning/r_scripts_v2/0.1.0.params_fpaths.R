@@ -57,7 +57,7 @@ set.seed(global_seed)
 current_node <- Sys.info()["nodename"]
 
 # Define expected nodename for GCE instance
-gce_node <- "pids-drg-claims.us-central1-a.c.pids-drg-data.internal"
+gce_node <- "pids-drg-data.us-central1-a.c.pids-drg-data.internal"
 
 if (current_node == gce_node) {
   # If on the expected GCE VM, use the default service account
@@ -67,7 +67,7 @@ if (current_node == gce_node) {
   # Not on GCE — use local service account file
   key_dir <- here::here("keys")
   key_file <- file.path(key_dir, "pids-drg-data-25ad1e4c7298.json")
-  
+
   # Ensure the directory exists
   if (!dir.exists(key_dir)) {
     dir.create(key_dir, recursive = TRUE, showWarnings = FALSE)

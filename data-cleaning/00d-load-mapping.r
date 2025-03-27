@@ -135,8 +135,8 @@ if (to_filter) {
   claims_query <- paste0("
   SELECT
       c.id_series
-  FROM `drg-pipeline.phic_claims.claims_", year_to_load, "` c
-  JOIN `drg-pipeline.phic_hci.hci_full` h
+  FROM `pids-drg-data.phic_eclaims.eclaims_", year_to_load, "` c
+  JOIN `pids-drg-data.phic_hfac.hfac_2023` h
       ON c.id_hci = h.id_hci
   WHERE
       c.claim_status = 'G'

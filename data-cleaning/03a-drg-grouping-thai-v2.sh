@@ -6,7 +6,7 @@
 WINEPREFIX="$HOME/drg-wine32"
 EXE_WIN="C:\\\\Program Files\\\\TDRGv5\\\\TGRP50V02.exe"
 INPUT_DIR="$HOME/drg-wine32/drive_c/users/resurreccion_cmc/Input"
-SUPPRESSOR="$HOME/drg-pipeline/data-cleaning/ahk_scripts/ignore_numeric_overflows.sh"
+SUPPRESSOR="$HOME/pids-drg-claims/data-cleaning/ahk_scripts/ignore_numeric_overflows.sh"
 
 # --------------------------------------------------------
 # 2. OPTIONAL: LAUNCH SUPPRESSOR

@@ -139,7 +139,7 @@ After=network.target
 [Service]
 Type=simple
 User=resurreccion_cmc
-ExecStart=/usr/bin/bash -c '/home/resurreccion_cmc/drg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh'
+ExecStart=/usr/bin/bash -c '~/pids-drg-claims/data-cleaning/ahk_scripts/inotify_sync.sh'
 Restart=always
 
 [Install]
@@ -147,7 +147,7 @@ WantedBy=multi-user.target
 ```
 
 ```
-sudo chmod +x /home/resurreccion_cmc/drg-pipelinedrg-pipeline/data-cleaning/ahk_scripts/inotify_sync.sh
+sudo chmod +x ~/pids-drg-claims/data-cleaning/ahk_scripts/inotify_sync.sh
 sudo systemctl daemon-reload
 sudo systemctl enable inotify-sync.service
 sudo systemctl start inotify-sync.service
@@ -237,7 +237,7 @@ Make system-wide libraries writable by R, otherwise we'd need to rely on renv wh
 
 Here we create a data folder in the home directory where multiple users can store data, accessible to all of their user profile git cloned repositories.
 
-For example, if I login as resurreccion_cmc, my user profile folder is /home/resurreccion_cmc and in that is my pids-drg-claims git cloned repository. Later we will symbolically link the entire 'data' folder to each of our git cloned repository folders, as the code expects the 'data' folder and its contents to be in the data-cleaning folder of the repository, i.e. ~/pids-drg-claims/data-cleaning/data.
+For example, if I login as resurreccion_cmc, my user profile folder is ~ and in that is my pids-drg-claims git cloned repository. Later we will symbolically link the entire 'data' folder to each of our git cloned repository folders, as the code expects the 'data' folder and its contents to be in the data-cleaning folder of the repository, i.e. ~/pids-drg-claims/data-cleaning/data.
 
 ```
 sudo chmod -R 777 /usr/local/lib/R/site-library
@@ -338,8 +338,8 @@ gcloud auth application-default login # MAY NOT BE NEEDED ANYMORE
 
 # Login with the appropriate account # MAY NOT BE NEEDED ANYMORE
 
-# Upload drg-pipeline-e80a2b3a9229.json (in Carlos Resurreccion's PIDS OneDrive) or an equivalent Service Account Json Key to VM at ~/.config/gcloud/
-# If using another key, rename it to drg-pipeline-e80a2b3a9229.json all the same.
+# Upload pids-drg-claims-e80a2b3a9229.json (in Carlos Resurreccion's PIDS OneDrive) or an equivalent Service Account Json Key to VM at ~/.config/gcloud/
+# If using another key, rename it to pids-drg-claims-e80a2b3a9229.json all the same.
 ```
 
 Lastly, edit the VM instance in GCP and add the following in the text box of the startup script automation section:
@@ -450,7 +450,7 @@ Steps to run the data-cleaning code end-to-end:
 6. It should now proceed with the process, first by analyzing and checking for differences between the drg code generated via Python Grouper vs via Thai Batch Grouper.
    1. It will write a csv containing said differences (or an empty csv if there are none),
    2. It will write to `~/pids-drg-claims/data/chkpts/chkpt_9_grouper_differences` as `chkpt_9_grouper_differences_*.csv`
-7. It will then push to BQ as `pids-drg-claims.phic_claims.claims_20XX1231`
+7. It will then push to BQ as `pids-drg-data.phic_claims.claims_20XX1231`
 
 # Maintenace
 
@@ -470,7 +470,7 @@ Steps to run the data-cleaning code end-to-end:
    set -e
 
    # Define the path to the r-reticulate virtual environment
-   VENV_PATH="/home/resurreccion_cmc/.virtualenvs/r-reticulate"
+   VENV_PATH="~/.virtualenvs/r-reticulate"
 
    # Function to upgrade a virtual environment
    upgrade_venv() {
