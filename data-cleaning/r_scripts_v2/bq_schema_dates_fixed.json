@@ -1,0 +1,17 @@
+[
+  {
+    "name": "id_series",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_adm",
+    "type": "DATETIME",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "date_dis",
+    "type": "DATETIME",
+    "mode": "NULLABLE"
+  }
+]
