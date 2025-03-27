@@ -36,13 +36,13 @@ to_py_all_years <- FALSE
 
 to_thai_prompt <- TRUE
 to_thai <- TRUE
-to_thai_bq <- FALSE
+to_thai_bq <- TRUE
 to_generate_thai_txt <- TRUE
 to_thai_all_years <- TRUE
 
 to_spc <- FALSE
 
-if (!to_bq) {
-  to_py_bq <- FALSE
-  to_thai_bq <- FALSE
-}
+# if (!to_bq) {
+#   to_py_bq <- FALSE
+#   to_thai_bq <- FALSE
+# }
