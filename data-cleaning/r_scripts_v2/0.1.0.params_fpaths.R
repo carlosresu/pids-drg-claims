@@ -413,6 +413,44 @@ col_remap_master <- quote(fcase(
   dt[[column_name]] == "UNDEFINED", NA_character_
 ))
 
+bq_cols <- c(
+  "id_series",
+  "id_pin",
+  "id_hci",
+  "id_hcp",
+  "date_adm",
+  "date_dis",
+  "date_rec",
+  "date_ref",
+  "date_check",
+  "pat_type",
+  "pat_rel",
+  "pat_age",
+  "pat_ageday",
+  "pat_sex",
+  "pat_bwt",
+  "pat_memcat_parent",
+  "pat_memcat_child",
+  "claim_status",
+  "claim_payout",
+  "claim_charge",
+  "is_covid",
+  "clin_discharge",
+  "clin_outpatient",
+  "clin_emergency",
+  "clin_acc",
+  "clin_c1_orig",
+  "clin_c2_orig",
+  "clin_c1_cleaned",
+  "clin_c2_cleaned",
+  "clin_icd",
+  "clin_sdx",
+  "clin_rvs",
+  "clin_proc",
+  "clin_pdx",
+  "clin_pdx_source"
+)
+
 # Initialize Variables
 # initialize lists
 all_parts_summaries <- master_dt_list <- icd_mapping_list <- list()
