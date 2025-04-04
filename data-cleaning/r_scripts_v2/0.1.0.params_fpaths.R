@@ -115,7 +115,7 @@ bq_table <- paste0("temp_claims_", year_to_load)
 
 # Folder Path Prefixes:
 # Include spaces if there are any
-full_claims_prefix <- "claims_extract_CLAIMS "
+full_claims_prefix <- "eclaims_"
 full_claims_bq_prefix <- stringr::str_replace_all(
   full_claims_prefix, " ", "\\\\ "
 )
