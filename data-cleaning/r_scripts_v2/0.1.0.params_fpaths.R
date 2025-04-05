@@ -231,15 +231,14 @@ suffix <- paste0(ifelse(to_sample, paste0(
 ## NA-like strings
 na_values <- c(
   "NONE", "None", "none", "-", "--", "---",
-  "NA", "N/A", "n/a", "nan", "NAN", "NaN"
-)
-na_like_strings <- c(
-  "", '"', "'", " ", "  ", " ", "-", "none", "None", "NONE", "NA", "n/a",
-  "N/A", "NaN", "NAN", "nan", "\t", "\n", "\r", "\f", "\v",
+  "NA", "N/A", "n/a", "nan", "NAN", "NaN",
+  "", '"', "'", " ", "  ", "   ",
+  "\t", "\n", "\r", "\f", "\v",
   "\u00A0", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004",
   "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200A",
   "\u2028", "\u2029", "\u202F", "\u205F", "\u3000"
 )
+
 
 # Mapping of column names (including clin_icd and clin_rvs)
 column_mappings <- list(
@@ -386,28 +385,44 @@ known_values <- list(
 
 # Define the fcase logic for remapping the membership categories
 col_remap_master <- quote(fcase(
+  # -------------------------------
+  # pat_type
+  # -------------------------------
   dt[[column_name]] %in% c("MEMBER", "MM"), "M",
   dt[[column_name]] %in% c("DEPENDENT", "DD"), "D",
+
+  # -------------------------------
+  # claim_status
+  # -------------------------------
   dt[[column_name]] == "DENIED", "D",
   dt[[column_name]] == "IN-PROCESS", "I",
   dt[[column_name]] %in% c("PAID", "APRV4PAYMENT"), "G",
   dt[[column_name]] == "RTH", "R",
+
+  # -------------------------------
+  # pat_memcat_parent / pat_memcat_child
+  # -------------------------------
   dt[[column_name]] == "DIRECT CONTRIBUTOR", "D", # DIRECT
   dt[[column_name]] == "INDIRECT CONTRIBUTOR", "I", # INDIRECT
-  dt[[column_name]] %in% c(
+
+  dt[[column_name]] %in% c( # Formal
     "EMPLOYED PRIVATE", "EMPLOYED GOVERNMENT", "HOUSEHOLD HELP/KASAMBAHAY",
     "FAMILY DRIVER", "FORMAL ECONOMY"
-  ), "1", # Formal
-  dt[[column_name]] %in% c(
+  ), "1",
+  dt[[column_name]] %in% c( # Informal
     "SELF-EARNING INDIVIDUAL", "SELF EARNING INDIVIDUAL", "INFORMAL ECONOMY",
     "MIGRANT WORKER", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
     "PROFESSIONAL PRACTITIONER"
-  ), "2", # Informal
+  ), "2",
   dt[[column_name]] == "LIFETIME MEMBER", "3", # Lifetime
   dt[[column_name]] == "INDIGENT", "4", # Indigent
   dt[[column_name]] == "SPONSORED", "5", # Sponsored
   dt[[column_name]] == "SENIOR CITIZEN", "6", # Senior Citizen
+
+  # -------------------------------
+  # clin_discharge
+  # -------------------------------
   dt[[column_name]] %in% c("IMPROVED", "RECOVERED", "I", "R"), "1",
   dt[[column_name]] %in% c("HOME/DISCHARGED AGAINST MEDICAL ADVICE", "H"), "2",
   dt[[column_name]] %in% c("ABSCONDED", "A"), "3",
@@ -415,6 +430,58 @@ col_remap_master <- quote(fcase(
   dt[[column_name]] %in% c("EXPIRED", "E"), "9",
   dt[[column_name]] == "UNDEFINED", NA_character_
 ))
+
+valid_mapped_values <- list(
+  pat_type = c("M", "D", NA_character_),
+  claim_status = c("D", "I", "G", "R", NA_character_),
+  pat_memcat_parent = c("D", "I", NA_character_),
+  pat_memcat_child = c(
+    "1", "2", "3", "4", "5", "6", NA_character_
+  ),
+  clin_discharge = c(
+    "1", "2", "3", "4", "9", NA_character_
+  )
+)
+
+expected_mappings <- list(
+  pat_type = list(
+    "MEMBER" = "M", "MM" = "M",
+    "DEPENDENT" = "D", "DD" = "D"
+  ),
+  claim_status = list(
+    "DENIED" = "D",
+    "IN-PROCESS" = "I",
+    "PAID" = "G", "APRV4PAYMENT" = "G",
+    "RTH" = "R"
+  ),
+  pat_memcat_parent = list(
+    "DIRECT CONTRIBUTOR" = "D",
+    "INDIRECT CONTRIBUTOR" = "I"
+  ),
+  pat_memcat_child = list(
+    "EMPLOYED PRIVATE" = "1", "EMPLOYED GOVERNMENT" = "1",
+    "HOUSEHOLD HELP/KASAMBAHAY" = "1", "FAMILY DRIVER" = "1",
+    "FORMAL ECONOMY" = "1",
+    "SELF-EARNING INDIVIDUAL" = "2", "SELF EARNING INDIVIDUAL" = "2",
+    "INFORMAL ECONOMY" = "2", "MIGRANT WORKER" = "2",
+    "FOREIGN NATIONAL" = "2",
+    "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD" = "2",
+    "PROFESSIONAL PRACTITIONER" = "2",
+    "LIFETIME MEMBER" = "3",
+    "INDIGENT" = "4",
+    "SPONSORED" = "5",
+    "SENIOR CITIZEN" = "6"
+  ),
+  clin_discharge = list(
+    "IMPROVED" = "1", "RECOVERED" = "1", "I" = "1",
+    "R" = "1",
+    "HOME/DISCHARGED AGAINST MEDICAL ADVICE" = "2", "H" = "2",
+    "ABSCONDED" = "3", "A" = "3",
+    "TRANSFERRED/REFERRED" = "4", "T" = "4",
+    "EXPIRED" = "9", "E" = "9",
+    "UNDEFINED" = NA_character_
+  )
+)
 
 bq_cols <- c(
   "id_series",

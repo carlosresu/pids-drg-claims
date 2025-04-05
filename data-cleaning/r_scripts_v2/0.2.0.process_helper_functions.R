@@ -25,9 +25,9 @@ clean_column <- function(col) {
   )
 
   # Replace any strings that match common NA-like values
-  # (stored in na_like_strings) with an actual NA_character_.
+  # (stored in na_values) with an actual NA_character_.
   # This standardizes missing values.
-  cleaned_col[cleaned_col %chin% na_like_strings] <- NA_character_
+  cleaned_col[cleaned_col %chin% na_values] <- NA_character_
 
   # Restore original slashes for neoplasm ICD-10 codes:
   # 1. Create a named vector 'neopl' where the names are
@@ -206,7 +206,7 @@ remove_lumped_rvs_codes <- function(column) {
 }
 
 replace_na_or_empty <- function(dt, replace_with) {
-  na_vals <- c(na_values, na_like_strings)
+  na_vals <- na_values
   # Identify relevant columns
   cols <- if (replace_with == "NA_character_") {
     names(dt)[sapply(

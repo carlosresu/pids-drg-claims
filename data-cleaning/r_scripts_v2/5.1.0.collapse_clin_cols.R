@@ -2,7 +2,7 @@ collapse_clin_cols <- function(cols, is_icd) {
   # Step 2: Collapse cleaned columns into a single string with "||" separators
   collapsed <- lapply(seq_along(cols[[1]]), function(i) {
     combined <- unique(unlist(lapply(cols, function(col) col[[i]])))
-    combined <- combined[!combined %chin% na_like_strings & combined != ""]
+    combined <- combined[!combined %chin% na_values & combined != ""]
 
     # Return the cleaned values as a vector (avoid collapsing to string)
     if (length(combined) > 0) {
