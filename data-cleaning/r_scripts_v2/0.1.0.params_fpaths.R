@@ -229,13 +229,16 @@ suffix <- paste0(ifelse(to_sample, paste0(
 ), "_full_"))
 
 ## NA-like strings
-na_values <- c("NONE", "None", "-", "--", "---", "N/A", "n/a", "nan", "NAN")
+na_values <- c(
+  "NONE", "None", "none", "-", "--", "---",
+  "NA", "N/A", "n/a", "nan", "NAN", "NaN"
+)
 na_like_strings <- c(
   "", '"', "'", " ", "  ", " ", "-", "none", "None", "NONE", "NA", "n/a",
-  "N/A", "NaN", "\t", "\n", "\r", "\f", "\v", "\u00A0",
-  "\u2000", "\u2001", "\u2002", "\u2003", "\u2004", "\u2005",
-  "\u2006", "\u2007", "\u2008", "\u2009", "\u200A", "\u2028",
-  "\u2029", "\u202F", "\u205F", "\u3000"
+  "N/A", "NaN", "NAN", "nan", "\t", "\n", "\r", "\f", "\v",
+  "\u00A0", "\u2000", "\u2001", "\u2002", "\u2003", "\u2004",
+  "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200A",
+  "\u2028", "\u2029", "\u202F", "\u205F", "\u3000"
 )
 
 # Mapping of column names (including clin_icd and clin_rvs)
