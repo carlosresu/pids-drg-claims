@@ -18,8 +18,8 @@ $sandboxiePath = 'C:\Program Files\Sandboxie-Plus\Start.exe'
 $sbCtrlPath = 'C:\Program Files\Sandboxie-Plus\SbieCtrl.exe'
 $sbIni = 'C:\Windows\Sandboxie.ini'
 $exePath = Join-Path $repoRoot 'TDRGv5\TGRP50V02.exe'
-$bucketPre = 'gs://pids-drg-data/data/phic/thai/pre'
-$bucketPost = 'gs://pids-drg-data/data/phic/thai/post'
+$bucketPre = 'gs://pids-drg-vm/data/thai/pre'
+$bucketPost = 'gs://pids-drg-vm/data/thai/post'
 
 # Remove all [Box*] sandbox definitions from Sandboxie.ini safely
 $sbLines = Get-Content -Path $sbIni

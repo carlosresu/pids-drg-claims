@@ -1,4 +1,3 @@
-
 # Thai DRG Grouper (v2) — Batch Execution Guide
 
 This guide explains how to run the Thai DRG Grouper using `03a-drg-grouping-thai-v2.ps1` on Windows with Sandboxie, AutoHotkey, and GCS integration.
@@ -10,12 +9,15 @@ This guide explains how to run the Thai DRG Grouper using `03a-drg-grouping-thai
 Before running the script, ensure the following are installed and configured:
 
 ### Required Software
-- **AutoHotkey v2**  
-  - Installed **for all users**  
+
+- **AutoHotkey v2**
+
+  - Installed **for all users**
   - Ensure `C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe` exists.
 
-- **Sandboxie Plus**  
-  - Installed **for all users**  
+- **Sandboxie Plus**
+
+  - Installed **for all users**
   - Should include:
     - `C:\Program Files\Sandboxie-Plus\Start.exe`
     - `C:\Program Files\Sandboxie-Plus\SbieCtrl.exe`
@@ -25,6 +27,7 @@ Before running the script, ensure the following are installed and configured:
   - User must have access to `gs://pids-drg-data`
 
 ### Repo & Files
+
 - Repository cloned locally on a **Windows computer** (e.g. `C:\Users\resur\Documents\pids-drg-claims`)
 - Run the following notebook beforehand **on the VM with raw claims** to generate `.txt` files:
   ```
@@ -55,20 +58,20 @@ Before running the script, ensure the following are installed and configured:
 
 During execution, the script will prompt you for the following:
 
-| Prompt | Description |
-|--------|-------------|
-| `Enable debugFlag? [y/n]` | Enables debug mode. If set to `y`, only files ending in `*of_1.txt` will be downloaded from GCS for testing. |
-| `Delete old input files in '<chkpt4>'? [y/n]` | If `y`, clears previous input `.txt` files before proceeding. |
-| `Delete old output files in '<chkpt5>'? [y/n]` | If `y`, clears previously processed output `.TXT` files. |
+| Prompt                                                | Description                                                                                                                     |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Enable debugFlag? [y/n]`                             | Enables debug mode. If set to `y`, only files ending in `*of_1.txt` will be downloaded from GCS for testing.                    |
+| `Delete old input files in '<chkpt4>'? [y/n]`         | If `y`, clears previous input `.txt` files before proceeding.                                                                   |
+| `Delete old output files in '<chkpt5>'? [y/n]`        | If `y`, clears previously processed output `.TXT` files.                                                                        |
 | `Download files from gs://.../pre to <chkpt4>? [y/n]` | If `y`, fetches raw input `.txt` files from the GCS bucket to local input folder. Skips if you’ve already placed them manually. |
 
 ---
 
 ## 📁 Folder Structure
 
-| Folder | Description |
-|--------|-------------|
-| `chkpt_4_thai_master_input` | Local folder containing `.txt` input files to process. |
+| Folder                       | Description                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------ |
+| `chkpt_4_thai_master_input`  | Local folder containing `.txt` input files to process.                         |
 | `chkpt_5_thai_master_output` | Output directory where processed `*Res.TXT` files will be moved before upload. |
 
 ---
@@ -83,13 +86,14 @@ During execution, the script will prompt you for the following:
 6. **Waits until all sandboxed processes** are completed.
 7. **Moves output files** (`*Res.TXT`) to the output checkpoint folder.
 8. **Validates completeness** of all grouped outputs.
-9. **Uploads results to GCS** at `gs://pids-drg-data/data/phic/thai/post`.
+9. **Uploads results to GCS** at `gs://pids-drg-vm/data/thai/post`.
 
 ---
 
 ## 🧪 Debug Mode
 
 When `debugFlag` is enabled:
+
 - Only files matching `*of_1.txt` will be downloaded
 - Useful for small-scale test runs
 
@@ -109,7 +113,7 @@ When `debugFlag` is enabled:
 Final results are uploaded automatically to:
 
 ```
-gs://pids-drg-data/data/phic/thai/post/
+gs://pids-drg-vm/data/thai/post/
 ```
 
 Make sure your gcloud CLI is authenticated and initialized correctly.
@@ -119,6 +123,7 @@ Make sure your gcloud CLI is authenticated and initialized correctly.
 ## ✅ Done!
 
 Once all steps complete and output is uploaded, you should see:
+
 ```
 All steps completed.
 ```
