@@ -41,11 +41,14 @@ print_all <- function(dt, title) {
 }
 
 # Define queries
-proc_query <- paste0("SELECT * FROM ", gcp_proj, ".grouper_v5.proc")
+proc_query <- paste0("SELECT * FROM ", gcp_proj, ".tdrg_libraries.proc")
 proc <- load_or_query(proc_query, "proc")
 proc[, CODE := as.character(CODE)]
 
-rvs_icd9_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_libraries.acr_rvs_map")
+rvs_icd9_query <- paste0(
+  "SELECT * FROM ", gcp_proj,
+  ".phic_rvs_crosswalk.icd9_rvs_mapping"
+)
 rvs_icd9 <- load_or_query(rvs_icd9_query, "rvs_icd9")
 
 rvs_icd9 <- rvs_icd9[, .(
@@ -55,10 +58,10 @@ rvs_icd9 <- rvs_icd9[, .(
 rvs_icd9 <- merge(rvs_icd9, proc[, .(CODE, DRGUSE)], by.x = "icd9cm", by.y = "CODE", all.x = TRUE)
 rvs_icd9 <- rvs_icd9[, is_drg := !is.na(DRGUSE) & DRGUSE][!is.na(rvs) & !is.na(icd9cm), -"DRGUSE"]
 
-acr_rvs_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_libraries.acr_procedure")
+acr_rvs_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_acr.procedure")
 acr_rvs <- load_or_query(acr_rvs_query, "acr_rvs")
 
-i10_query <- paste0("SELECT * FROM ", gcp_proj, ".grouper_v5.i10")
+i10_query <- paste0("SELECT * FROM ", gcp_proj, ".tdrg_libraries.i10")
 tdrg_icd10 <- load_or_query(i10_query, "tdrg_icd10")
 setkey(tdrg_icd10, "CODE")
 
@@ -73,6 +76,7 @@ create_env_from_vector <- function(vec) {
 
 acc_pdx_env <- create_env_from_vector(acc_pdx)
 
+# TODO: where is this in the new project?
 phl_icd10_query <- paste0("SELECT * FROM ", gcp_proj, ".icd.phl_icd10")
 phl_icd10 <- load_or_query(phl_icd10_query, "phl_icd10")
 
@@ -80,7 +84,7 @@ phl_icd10 <- load_or_query(phl_icd10_query, "phl_icd10")
 neoplasms_dt_actual <- as.data.table(phl_icd10[grepl("/", icd10), .(icd10)])
 neoplasms_dt_actual[, icd10 := sapply(strsplit(icd10, ","), function(x) trimws(x[2]))]
 
-i10vx_query <- paste0("SELECT * FROM ", gcp_proj, ".grouper_v5.i10vx")
+i10vx_query <- paste0("SELECT * FROM ", gcp_proj, ".tdrg_libraries.i10vx")
 i10vx <- load_or_query(i10vx_query, "i10vx")
 setkey(i10vx, "code")
 

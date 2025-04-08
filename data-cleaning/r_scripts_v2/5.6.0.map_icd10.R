@@ -2,6 +2,7 @@ map_icd10 <- function(col) {
   # Collect and pre-filter unique ICD codes, excluding those in covid_rvs_neoplasm_env
   icds <- unique(unlist(col))
   filtered_icds <- icds[!is.na(icds) &
+    nchar(icds) >= 3 & # added a safeguard to only allow 3+ char strings in
     !grepl("^[0-9]", icds) &
     !grepl("^[A-Z]{2}", icds) &
     !grepl("/", icds) &
@@ -33,7 +34,18 @@ map_icd10 <- function(col) {
 
     # 3. **Trimming codes longer than 4 characters**
     trimmed_code <- if (nchar(code) > 4) {
+      # TODO: the below doesn't account for things like J1892C,
+      # since it demands the 6th char to be a number
+      # also, \\D+ at the start doesn't match the start of strings
+      # so, codes are eventually still wrong if they start incorrectly
+      # \\D+ just means any non-digit character, but we should be more specific
+      # i.e., specify [A-Z] only
       sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
+      # trimming to 1 letter + 2 digits + 1 anything will include covid codes
+      # PROPOSED CHANGE:
+      # let codes in the form A12B through so that it later gets trimmed to A12
+      # it also mandates that a code start with a letter
+      # sub("^([A-Z]\\d{2}[A-Z0-9]).*", "\\1", code)
     } else if (nchar(code) == 4) {
       code
     } else {
