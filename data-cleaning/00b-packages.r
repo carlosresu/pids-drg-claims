@@ -33,7 +33,8 @@ required_packages <- c(
   "tidyverse", # Collection of data science packages,
   "fasttime", # for fastPOSIXct
   "glue", # for string pasting
-  "progressr" # live progress and ETA
+  "progressr", # live progress and ETA
+  "AhoCorasickTrie" # multi-pattern string matching
 )
 
 github_packages <- c(
