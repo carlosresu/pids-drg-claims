@@ -16,7 +16,18 @@ if (!exists("year_to_load")) {
     header = FALSE, colClasses = "character"
   )[[1]]
 }
-file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
+received_date <-
+  if (eclaims_batch == "2023_2024") {
+    if (year_to_load %in% c(2022:2023)) {
+      "received_20240803"
+    } else {
+      "received_20230118"
+    }
+  } else if (eclaims_batch == "2025") {
+    "received_20250415"
+  }
+
+file_type <- if (received_date == "received_20250415") ".tsv" else if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 # Whether to prompt for thai grouper even if bypassing all other prompts
 thai_prompt <- TRUE
@@ -121,7 +132,6 @@ full_claims_bq_prefix <- stringr::str_replace_all(
 )
 clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
-claims_prefix <- file.path(data_prefix, "claims")
 chkpt_1_prefix <- "chkpt_1_claims_"
 chkpt_2_prefix <- "chkpt_2_claims_"
 chkpt_3_prefix <- "DRG_Grouped_"
@@ -135,10 +145,10 @@ chkpt_11_prefix <- "bwt"
 chkpt_12_prefix <- "map"
 
 # Folder Paths:
-filtered_path <- file.path(data_prefix, "filtered-claims")
+filtered_path <- file.path(data_prefix, "filtered-claims", eclaims_batch)
 filtered_chkpt_1_path <- file.path(filtered_path, "chkpt_1_partial")
 filtered_chkpt_2_path <- file.path(filtered_path, "chkpt_2_master")
-chkpt_path <- file.path(data_prefix, "chkpts")
+chkpt_path <- file.path(data_prefix, "chkpts", eclaims_batch)
 chkpt_1_path <- file.path(chkpt_path, "chkpt_1_partial_clean_claims")
 chkpt_2_path <- file.path(chkpt_path, "chkpt_2_master_clean_claims")
 chkpt_3_path <- file.path(chkpt_path, "chkpt_3_thai_partial_input")
@@ -152,16 +162,14 @@ chkpt_10_path <- file.path(chkpt_path, "chkpt_10_stata")
 chkpt_11_path <- file.path(chkpt_path, "chkpt_11_bwt")
 chkpt_12_path <- file.path(chkpt_path, "chkpt_12_mapping")
 cache_path <- file.path(clean_prefix, "debug", "cache")
-mapping_path <- file.path(cache_path, "mapping")
-total_rows_path <- file.path(cache_path, "total_rows")
-py_pkgs_path <- file.path(cache_path, "py_pkgs")
-aux_path <- file.path(data_prefix, "aux-files")
-raw_claims_path <- file.path(data_prefix, "raw-claims")
-raw_claims_parts_path <- file.path(data_prefix, "partial-claims")
-raw_claims_samples_path <- file.path(data_prefix, "sampled-claims")
-raw_claims_md5_path <- file.path(data_prefix, "md5")
-profvis_path <- file.path(data_prefix, "profvis")
-debug_path <- file.path(clean_prefix, "debug")
+mapping_path <- file.path(cache_path, "mapping", eclaims_batch)
+total_rows_path <- file.path(cache_path, "total_rows", eclaims_batch)
+py_pkgs_path <- file.path(cache_path, "py_pkgs", eclaims_batch)
+aux_path <- file.path(data_prefix, "aux-files", eclaims_batch)
+raw_claims_path <- file.path(data_prefix, "raw-claims", eclaims_batch)
+raw_claims_parts_path <- file.path(data_prefix, "partial-claims", eclaims_batch)
+raw_claims_samples_path <- file.path(data_prefix, "sampled-claims", eclaims_batch)
+raw_claims_md5_path <- file.path(data_prefix, "md5", eclaims_batch)
 
 # File Paths
 profvis_fpath <- here::here("data-cleaning", "data", "profvis", "profvis.html")
@@ -202,15 +210,19 @@ ram_limit <- (1 - 0.10) * 64 * (1024^3)
 options(future.globals.maxSize = ram_limit)
 
 total_rows_file <- here::here(
-  cache_path, "total_rows",
-  paste0("total_rows_", year_to_load, ".rds")
+  total_rows_path, paste0("total_rows_", year_to_load, ".rds")
 )
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
 if (file.exists(total_rows_file)) {
   total_rows <- readRDS(total_rows_file)
   message(paste("Total Rows via cached object:", total_rows))
-} else {
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+  suffix <- paste0(ifelse(to_sample, paste0(
+    "_sampled_",
+    sample_size_divisor, "_"
+  ), "_full_"))
+} else if (file.exists(full_claims_file)) {
   total_rows <- data.table::fread(
     file = full_claims_file,
     select = 1L,
@@ -219,14 +231,14 @@ if (file.exists(total_rows_file)) {
   )[, .N]
   saveRDS(total_rows, file = total_rows_file)
   message(paste("Total Rows via fread:", total_rows))
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+  suffix <- paste0(ifelse(to_sample, paste0(
+    "_sampled_",
+    sample_size_divisor, "_"
+  ), "_full_"))
+} else {
+  message("Total rows file and full claims file don't exist, skipping total_rows load-in")
 }
-
-sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
-
-suffix <- paste0(ifelse(to_sample, paste0(
-  "_sampled_",
-  sample_size_divisor, "_"
-), "_full_"))
 
 ## NA-like strings
 na_values <- c(

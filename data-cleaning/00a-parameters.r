@@ -2,6 +2,14 @@
 thread_offset <- 0
 sample_size_divisor <- 125
 
+# allowable values: "2023_2024" or "2025"
+eclaims_batch <- "2025"
+year_range <-
+  if (eclaims_batch == "2023_2024") {
+    c(2018:2023)
+  } else if (eclaims_batch == "2025") {
+    c(2018:2025)
+  }
 # Whether to use single, standardized *_raw_master_*.rds
 to_create_std <- FALSE
 # Whether to sample each split_part by sample_size_divisor
