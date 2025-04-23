@@ -16,7 +16,18 @@ if (!exists("year_to_load")) {
     header = FALSE, colClasses = "character"
   )[[1]]
 }
-file_type <- if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
+received_date <-
+  if (eclaims_batch == "2023_2024") {
+    if (year_to_load %in% c(2022:2023)) {
+      "received_20240803"
+    } else {
+      "received_20230118"
+    }
+  } else if (eclaims_batch == "2025") {
+    "received_20250415"
+  }
+
+file_type <- if (received_date == "received_20250415") ".tsv" else if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 # Whether to prompt for thai grouper even if bypassing all other prompts
 thai_prompt <- TRUE
@@ -121,7 +132,6 @@ full_claims_bq_prefix <- stringr::str_replace_all(
 )
 clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
-claims_prefix <- file.path(data_prefix, "claims")
 chkpt_1_prefix <- "chkpt_1_claims_"
 chkpt_2_prefix <- "chkpt_2_claims_"
 chkpt_3_prefix <- "DRG_Grouped_"
@@ -135,10 +145,10 @@ chkpt_11_prefix <- "bwt"
 chkpt_12_prefix <- "map"
 
 # Folder Paths:
-filtered_path <- file.path(data_prefix, "filtered-claims")
+filtered_path <- file.path(data_prefix, "filtered-claims", eclaims_batch)
 filtered_chkpt_1_path <- file.path(filtered_path, "chkpt_1_partial")
 filtered_chkpt_2_path <- file.path(filtered_path, "chkpt_2_master")
-chkpt_path <- file.path(data_prefix, "chkpts")
+chkpt_path <- file.path(data_prefix, "chkpts", eclaims_batch)
 chkpt_1_path <- file.path(chkpt_path, "chkpt_1_partial_clean_claims")
 chkpt_2_path <- file.path(chkpt_path, "chkpt_2_master_clean_claims")
 chkpt_3_path <- file.path(chkpt_path, "chkpt_3_thai_partial_input")
@@ -152,16 +162,14 @@ chkpt_10_path <- file.path(chkpt_path, "chkpt_10_stata")
 chkpt_11_path <- file.path(chkpt_path, "chkpt_11_bwt")
 chkpt_12_path <- file.path(chkpt_path, "chkpt_12_mapping")
 cache_path <- file.path(clean_prefix, "debug", "cache")
-mapping_path <- file.path(cache_path, "mapping")
-total_rows_path <- file.path(cache_path, "total_rows")
-py_pkgs_path <- file.path(cache_path, "py_pkgs")
-aux_path <- file.path(data_prefix, "aux-files")
-raw_claims_path <- file.path(data_prefix, "raw-claims")
-raw_claims_parts_path <- file.path(data_prefix, "partial-claims")
-raw_claims_samples_path <- file.path(data_prefix, "sampled-claims")
-raw_claims_md5_path <- file.path(data_prefix, "md5")
-profvis_path <- file.path(data_prefix, "profvis")
-debug_path <- file.path(clean_prefix, "debug")
+mapping_path <- file.path(cache_path, "mapping", eclaims_batch)
+total_rows_path <- file.path(cache_path, "total_rows", eclaims_batch)
+py_pkgs_path <- file.path(cache_path, "py_pkgs", eclaims_batch)
+aux_path <- file.path(data_prefix, "aux-files", eclaims_batch)
+raw_claims_path <- file.path(data_prefix, "raw-claims", eclaims_batch)
+raw_claims_parts_path <- file.path(data_prefix, "partial-claims", eclaims_batch)
+raw_claims_samples_path <- file.path(data_prefix, "sampled-claims", eclaims_batch)
+raw_claims_md5_path <- file.path(data_prefix, "md5", eclaims_batch)
 
 # File Paths
 profvis_fpath <- here::here("data-cleaning", "data", "profvis", "profvis.html")
@@ -202,15 +210,19 @@ ram_limit <- (1 - 0.10) * 64 * (1024^3)
 options(future.globals.maxSize = ram_limit)
 
 total_rows_file <- here::here(
-  cache_path, "total_rows",
-  paste0("total_rows_", year_to_load, ".rds")
+  total_rows_path, paste0("total_rows_", year_to_load, ".rds")
 )
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
 if (file.exists(total_rows_file)) {
   total_rows <- readRDS(total_rows_file)
   message(paste("Total Rows via cached object:", total_rows))
-} else {
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+  suffix <- paste0(ifelse(to_sample, paste0(
+    "_sampled_",
+    sample_size_divisor, "_"
+  ), "_full_"))
+} else if (file.exists(full_claims_file)) {
   total_rows <- data.table::fread(
     file = full_claims_file,
     select = 1L,
@@ -219,14 +231,14 @@ if (file.exists(total_rows_file)) {
   )[, .N]
   saveRDS(total_rows, file = total_rows_file)
   message(paste("Total Rows via fread:", total_rows))
+  sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+  suffix <- paste0(ifelse(to_sample, paste0(
+    "_sampled_",
+    sample_size_divisor, "_"
+  ), "_full_"))
+} else {
+  message("Total rows file and full claims file don't exist, skipping total_rows load-in")
 }
-
-sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
-
-suffix <- paste0(ifelse(to_sample, paste0(
-  "_sampled_",
-  sample_size_divisor, "_"
-), "_full_"))
 
 ## NA-like strings
 na_values <- c(
@@ -256,6 +268,8 @@ column_mappings <- list(
   # Claim and patient identifiers
   "CLAIM_SERIES_ID" = "id_series",
   "PSEUDO_CLAIMSERIES" = "id_series",
+  "CLAIMS_SERIES" = "id_series", # new with 2025 extract
+  "CLAIMS_LHIO" = "id_lhio", # new with 2025 extract
   "PIN" = "id_pin",
   "PSEUDO_MEM_PIN" = "id_pin",
 
@@ -266,14 +280,21 @@ column_mappings <- list(
   "DATE_REF" = "date_ref",
   "CHECK_DATE" = "date_check",
   "CHKDT" = "date_check",
+  "CHECK_DT" = "date_check", # new with 2025 extract
   "EXTRACTION_DATE" = "date_ext",
+  "DENIED_DATE" = "date_denied", # new with 2025 extract
+  "RTH_DATE" = "date_rth", # new with 2025 extract
+  "DATE_RECONSIDERED" = "date_recon", # new with 2025 extract
+
 
   # Health care provider and institution
   "HCI_PMCC_NO" = "id_hci",
+  "PMCC_NO" = "id_hci", # new with 2025 extract
   "HCP_NO_LIST" = "id_hcp",
 
   # Patient information
   "PATIENT_TYPE" = "pat_type",
+  "PATIENT" = "pat_type", # new with 2025 extract
   "PATIENT_RELATIONSHIP" = "pat_rel",
   "DEP_REL" = "pat_rel",
   "PATIENT_SEX" = "pat_sex",
@@ -284,12 +305,17 @@ column_mappings <- list(
   "PAT_BWT_KG" = "pat_bwt",
   "MEMCAT_PARENT_DESC" = "pat_memcat_parent",
   "MEMCAT_CHILD_DESC" = "pat_memcat_child",
+  "MEMBER_PRO" = "pat_pro", # new with 2025 extract
+  "MEMBER_PROVINCE" = "pat_province", # new with 2025 extract
+  "MEMBER_MUNICIPALITY" = "pat_municipality", # new with 2025 extract
 
   # Clinical information
-  "IS_ADMISSION_OPD" = "clin_outpatient",
-  "IS_EMERGENCY_CASE" = "clin_emergency",
   "OUT_PATIENT" = "clin_outpatient",
+  "IS_ADMISSION_OPD" = "clin_outpatient",
+  "OPD_TST" = "clin_outpatient", # new with 2025 extract
   "EMERGENCY" = "clin_emergency",
+  "IS_EMERGENCY_CASE" = "clin_emergency",
+  "EMG_TST" = "clin_emergency", # new with 2025 extract
   "ROOM_TYPE" = "clin_acc",
   "PATIENT_DISPOSITION" = "clin_discharge",
   "DISPOSITION" = "clin_discharge",
@@ -305,7 +331,9 @@ column_mappings <- list(
   "CLAIM_PAID_AMOUNT" = "claim_payout",
   "CLAIMS_PAID_AMT" = "claim_payout",
   "CLAIM_AMOUNT_ACTUAL" = "claim_charge",
-  "ACR_AMOUNT_ACTUAL" = "claim_charge"
+  "ACR_AMOUNT_ACTUAL" = "claim_charge",
+  "D_ACTUAL_AMT" = "claim_charge_hcp", # new with 2025 extract
+  "H_ACTUAL_AMT" = "claim_charge_hci" # new with 2025 extract
 )
 
 for (i in 1:20) {
@@ -320,27 +348,28 @@ expected_types <- list(
   "character" = c(
     # Identifiers, date, and time strings (dates are kept as char)
     "id_series", "id_pin", "id_hci", "id_hcp",
+    "id_lhio", # new with 2025 extract
     "date_adm", "time_adm", "date_dis", "time_dis",
     "date_rec", "date_ref", "date_check", "date_ext",
     "pat_bdate",
+    "date_denied", "date_rth", "date_recon", # new with 2025 extract
     # Patient and clinical text fields
-    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child",
-    "claim_status", "clin_pdx", "clin_c1", "clin_c2",
+    "clin_pdx", "clin_c1", "clin_c2",
     "c1", "c2", "clin_sdx", "clin_proc", "clin_rvs",
     # Dynamically generated ICD and RVS columns
-    paste0("clin_icd", 1:20), paste0("clin_rvs", 1:20),
-    # Other clinical information
-    "clin_acc"
+    paste0("clin_icd", 1:20), paste0("clin_rvs", 1:20)
   ),
   "integer" = c(
     "id_year", "clin_pdx_source", "pat_ageday"
   ),
   "numeric" = c(
-    "pat_age", "pat_bwt", "claim_payout", "claim_charge"
+    "pat_age", "pat_bwt", "claim_payout", "claim_charge",
+    "claim_charge_hcp", "claim_charge_hci" # new with 2025 extract
   ),
   "factor" = c(
-    "pat_type", "pat_rel", "pat_memcat_parent", "pat_memcat_child",
-    "claim_status", "clin_discharge"
+    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child",
+    "pat_pro", "pat_province", "pat_municipality", # new with 2025 extract
+    "claim_status", "clin_discharge", "clin_acc"
   ),
   "logical" = c(
     "clin_outpatient", "clin_emergency"
@@ -374,7 +403,8 @@ known_values <- list(
     "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
     "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY",
-    "DIRECT CONTRIBUTOR", "PROFESSIONAL PRACTITIONER"
+    "DIRECT CONTRIBUTOR", "PROFESSIONAL PRACTITIONER",
+    "21 YRS OLD AND ABOVE WITH CAPACITY TO PAY" # new with 2025 extract
   ),
   clin_discharge = c(
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
@@ -413,7 +443,8 @@ col_remap_master <- quote(fcase(
     "SELF-EARNING INDIVIDUAL", "SELF EARNING INDIVIDUAL", "INFORMAL ECONOMY",
     "MIGRANT WORKER", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
-    "PROFESSIONAL PRACTITIONER"
+    "PROFESSIONAL PRACTITIONER",
+    "21 YRS OLD AND ABOVE WITH CAPACITY TO PAY" # new with 2025 extract
   ), "2",
   dt[[column_name]] == "LIFETIME MEMBER", "3", # Lifetime
   dt[[column_name]] == "INDIGENT", "4", # Indigent
@@ -467,6 +498,7 @@ expected_mappings <- list(
     "FOREIGN NATIONAL" = "2",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD" = "2",
     "PROFESSIONAL PRACTITIONER" = "2",
+    "21 YRS OLD AND ABOVE WITH CAPACITY TO PAY" = "2", # new with 2025 extract
     "LIFETIME MEMBER" = "3",
     "INDIGENT" = "4",
     "SPONSORED" = "5",
