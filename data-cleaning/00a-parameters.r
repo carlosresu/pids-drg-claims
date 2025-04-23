@@ -23,7 +23,7 @@ to_filter <- FALSE
 # clin_outpatient = FALSE, and id_hci = inst_level %in% "L1", "L2", "L3", "INF"
 to_flush <- FALSE
 # To push to BQ
-to_bq <- FALSE
+to_bq <- TRUE
 # To parallelize using unix-style multicore lapply
 to_parallel <- TRUE
 cat("Parallelization:", to_parallel, "\n")

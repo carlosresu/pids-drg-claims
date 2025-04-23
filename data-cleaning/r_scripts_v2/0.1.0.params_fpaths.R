@@ -119,7 +119,7 @@ gcs_post_fpath <- "data/phic/thai/post"
 # TODO: Add description here
 gcs_spc_fpath <- "spc"
 # bq dataset
-bq_dataset <- "phic_claims"
+bq_dataset <- "phic_eclaims"
 # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 bq_table <- paste0("temp_claims_", year_to_load)
 
