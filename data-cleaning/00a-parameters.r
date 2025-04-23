@@ -1,6 +1,6 @@
 # Global parameters
 thread_offset <- 0
-sample_size_divisor <- 125
+sample_size_divisor <- 625
 
 # allowable values: "2023_2024" or "2025"
 eclaims_batch <- "2025"
@@ -14,7 +14,7 @@ year_range <-
 to_create_std <- FALSE
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
-to_sample <- FALSE
+to_sample <- TRUE
 # TODO: Add description here
 to_write <- TRUE
 # To flush intermediate files

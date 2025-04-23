@@ -268,6 +268,8 @@ column_mappings <- list(
   # Claim and patient identifiers
   "CLAIM_SERIES_ID" = "id_series",
   "PSEUDO_CLAIMSERIES" = "id_series",
+  "CLAIMS_SERIES" = "id_series", # new with 2025 extract
+  "CLAIMS_LHIO" = "id_lhio", # new with 2025 extract
   "PIN" = "id_pin",
   "PSEUDO_MEM_PIN" = "id_pin",
 
@@ -278,14 +280,21 @@ column_mappings <- list(
   "DATE_REF" = "date_ref",
   "CHECK_DATE" = "date_check",
   "CHKDT" = "date_check",
+  "CHECK_DT" = "date_check", # new with 2025 extract
   "EXTRACTION_DATE" = "date_ext",
+  "DENIED_DATE" = "date_denied", # new with 2025 extract
+  "RTH_DATE" = "date_rth", # new with 2025 extract
+  "DATE_RECONSIDERED" = "date_recon", # new with 2025 extract
+
 
   # Health care provider and institution
   "HCI_PMCC_NO" = "id_hci",
+  "PMCC_NO" = "id_hci", # new with 2025 extract
   "HCP_NO_LIST" = "id_hcp",
 
   # Patient information
   "PATIENT_TYPE" = "pat_type",
+  "PATIENT" = "pat_type", # new with 2025 extract
   "PATIENT_RELATIONSHIP" = "pat_rel",
   "DEP_REL" = "pat_rel",
   "PATIENT_SEX" = "pat_sex",
@@ -296,12 +305,17 @@ column_mappings <- list(
   "PAT_BWT_KG" = "pat_bwt",
   "MEMCAT_PARENT_DESC" = "pat_memcat_parent",
   "MEMCAT_CHILD_DESC" = "pat_memcat_child",
+  "MEMBER_PRO" = "pat_pro", # new with 2025 extract
+  "MEMBER_PROVINCE" = "pat_province", # new with 2025 extract
+  "MEMBER_MUNICIPALITY" = "pat_municipality", # new with 2025 extract
 
   # Clinical information
-  "IS_ADMISSION_OPD" = "clin_outpatient",
-  "IS_EMERGENCY_CASE" = "clin_emergency",
   "OUT_PATIENT" = "clin_outpatient",
+  "IS_ADMISSION_OPD" = "clin_outpatient",
+  "OPD_TST" = "clin_outpatient", # new with 2025 extract
   "EMERGENCY" = "clin_emergency",
+  "IS_EMERGENCY_CASE" = "clin_emergency",
+  "EMG_TST" = "clin_emergency", # new with 2025 extract
   "ROOM_TYPE" = "clin_acc",
   "PATIENT_DISPOSITION" = "clin_discharge",
   "DISPOSITION" = "clin_discharge",
@@ -317,7 +331,9 @@ column_mappings <- list(
   "CLAIM_PAID_AMOUNT" = "claim_payout",
   "CLAIMS_PAID_AMT" = "claim_payout",
   "CLAIM_AMOUNT_ACTUAL" = "claim_charge",
-  "ACR_AMOUNT_ACTUAL" = "claim_charge"
+  "ACR_AMOUNT_ACTUAL" = "claim_charge",
+  "D_ACTUAL_AMT" = "claim_charge_hcp", # new with 2025 extract
+  "H_ACTUAL_AMT" = "claim_charge_hci" # new with 2025 extract
 )
 
 for (i in 1:20) {
@@ -332,27 +348,28 @@ expected_types <- list(
   "character" = c(
     # Identifiers, date, and time strings (dates are kept as char)
     "id_series", "id_pin", "id_hci", "id_hcp",
+    "id_lhio", # new with 2025 extract
     "date_adm", "time_adm", "date_dis", "time_dis",
     "date_rec", "date_ref", "date_check", "date_ext",
     "pat_bdate",
+    "date_denied", "date_rth", "date_recon", # new with 2025 extract
     # Patient and clinical text fields
-    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child",
-    "claim_status", "clin_pdx", "clin_c1", "clin_c2",
+    "clin_pdx", "clin_c1", "clin_c2",
     "c1", "c2", "clin_sdx", "clin_proc", "clin_rvs",
     # Dynamically generated ICD and RVS columns
-    paste0("clin_icd", 1:20), paste0("clin_rvs", 1:20),
-    # Other clinical information
-    "clin_acc"
+    paste0("clin_icd", 1:20), paste0("clin_rvs", 1:20)
   ),
   "integer" = c(
     "id_year", "clin_pdx_source", "pat_ageday"
   ),
   "numeric" = c(
-    "pat_age", "pat_bwt", "claim_payout", "claim_charge"
+    "pat_age", "pat_bwt", "claim_payout", "claim_charge",
+    "claim_charge_hcp", "claim_charge_hci" # new with 2025 extract
   ),
   "factor" = c(
-    "pat_type", "pat_rel", "pat_memcat_parent", "pat_memcat_child",
-    "claim_status", "clin_discharge"
+    "pat_type", "pat_rel", "pat_sex", "pat_memcat_parent", "pat_memcat_child",
+    "pat_pro", "pat_province", "pat_municipality", # new with 2025 extract
+    "claim_status", "clin_discharge", "clin_acc"
   ),
   "logical" = c(
     "clin_outpatient", "clin_emergency"
@@ -386,7 +403,8 @@ known_values <- list(
     "INFORMAL ECONOMY", "HOUSEHOLD HELP/KASAMBAHAY", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
     "SELF EARNING INDIVIDUAL", "FAMILY DRIVER", "FORMAL ECONOMY",
-    "DIRECT CONTRIBUTOR", "PROFESSIONAL PRACTITIONER"
+    "DIRECT CONTRIBUTOR", "PROFESSIONAL PRACTITIONER",
+    "21 YRS OLD AND ABOVE WITH CAPACITY TO PAY" # new with 2025 extract
   ),
   clin_discharge = c(
     "IMPROVED", "RECOVERED", "HOME/DISCHARGED AGAINST MEDICAL ADVICE",
@@ -425,7 +443,8 @@ col_remap_master <- quote(fcase(
     "SELF-EARNING INDIVIDUAL", "SELF EARNING INDIVIDUAL", "INFORMAL ECONOMY",
     "MIGRANT WORKER", "FOREIGN NATIONAL",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD",
-    "PROFESSIONAL PRACTITIONER"
+    "PROFESSIONAL PRACTITIONER",
+    "21 YRS OLD AND ABOVE WITH CAPACITY TO PAY" # new with 2025 extract
   ), "2",
   dt[[column_name]] == "LIFETIME MEMBER", "3", # Lifetime
   dt[[column_name]] == "INDIGENT", "4", # Indigent
@@ -479,6 +498,7 @@ expected_mappings <- list(
     "FOREIGN NATIONAL" = "2",
     "FILIPINOS WITH DUAL CITIZENSHIP / LIVING ABROAD" = "2",
     "PROFESSIONAL PRACTITIONER" = "2",
+    "21 YRS OLD AND ABOVE WITH CAPACITY TO PAY" = "2", # new with 2025 extract
     "LIFETIME MEMBER" = "3",
     "INDIGENT" = "4",
     "SPONSORED" = "5",
