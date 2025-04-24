@@ -109,6 +109,7 @@ split_to_vector <- function(column) {
       "[A-Za-z]{3}[0-9]{2}", # Three letters followed by one or two digits
       "[A-Za-z]{2}[0-9]{3}", # Two letters followed by two or three digits
       "[A-Za-z][0-9]{4}", # A letter followed by four or five digits
+      # TODO: delete [A-Za-z][0-9]{4} because it could match an ICD code
       "[0-9]{5}" # Five consecutive numbers
     )
 
