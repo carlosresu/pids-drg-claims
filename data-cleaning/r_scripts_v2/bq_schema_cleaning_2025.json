@@ -190,6 +190,16 @@
     "mode": "REPEATED"
   },
   {
+    "name": "clin_c1_orig_cleaned",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "clin_c2_orig_cleaned",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
     "name": "clin_icd",
     "type": "STRING",
     "mode": "REPEATED"

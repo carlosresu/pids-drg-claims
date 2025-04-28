@@ -76,7 +76,6 @@ create_env_from_vector <- function(vec) {
 
 acc_pdx_env <- create_env_from_vector(acc_pdx)
 
-# TODO: where is this in the new project?
 phl_icd10_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_icd.phl_icd10")
 phl_icd10 <- load_or_query(phl_icd10_query, "phl_icd10")
 
@@ -89,6 +88,19 @@ i10vx <- load_or_query(i10vx_query, "i10vx")
 setkey(i10vx, "code")
 
 acc_icd <- unique(i10vx[, code])
+
+zben_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_acr.zben")
+zben <- load_or_query(zben_query, "zben")
+setkey(zben, "code")
+zben[, code := gsub("[^A-Za-z0-9]", "", code)]
+zben <- zben$code
+
+acr_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_acr.acr")
+acr <- load_or_query(acr_query, "acr")
+setkey(acr, "code")
+acr[, code := gsub("[^A-Za-z0-9/\\\\]", "", code)]
+acr <- acr[nchar(gsub("[^A-Za-z]", "", code)) <= 1]
+acr <- acr$code
 
 # Query HCI data. TODO: Uncomment this once hci is available for 2024 and 2025
 # hci_query <- if (to_filter) {
@@ -132,6 +144,9 @@ covid_neoplasm_env <- create_env_from_vector(covid_neoplasm_codes)
 
 covid_rvs_neoplasm_codes <- unique(c(covid_codes, rvs_codes, neoplasm_codes))
 covid_rvs_neoplasm_env <- create_env_from_vector(covid_rvs_neoplasm_codes)
+
+covid_rvs_neoplasm_zben_codes <- unique(c(covid_codes, rvs_codes, neoplasm_codes, zben))
+covid_rvs_neoplasm_zben_env <- create_env_from_vector(covid_rvs_neoplasm_zben_codes)
 
 covid_rvs_neoplasm_pattern <- paste(c(covid_codes, rvs_codes, neoplasm_codes), collapse = "|")
 

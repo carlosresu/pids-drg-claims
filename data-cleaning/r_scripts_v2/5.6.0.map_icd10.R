@@ -7,7 +7,8 @@ map_icd10 <- function(col) {
     !grepl("^[A-Z]{2}", icds) &
     !grepl("/", icds) &
     !vapply(icds, function(code) {
-      exists(x = code, envir = covid_rvs_neoplasm_env, inherits = FALSE)
+      # add zben codes to exclusion criteria
+      exists(x = code, envir = covid_rvs_neoplasm_zben_env, inherits = FALSE)
     }, logical(1))]
 
   # Initialize the mapping list

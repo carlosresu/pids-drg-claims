@@ -554,6 +554,8 @@ bq_cols <- c(
   "clin_c2_orig",
   "clin_c1_cleaned",
   "clin_c2_cleaned",
+  "clin_c1_orig_cleaned",
+  "clin_c2_orig_cleaned",
   "clin_icd",
   "clin_sdx",
   "clin_rvs",
