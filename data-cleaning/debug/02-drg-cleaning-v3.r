@@ -1129,6 +1129,7 @@ result <- readRDS(here(
 
 str(result)
 
+
 # BQ upload
 if (to_bq) {
   # Remove the rightmost character from 'suffix'
