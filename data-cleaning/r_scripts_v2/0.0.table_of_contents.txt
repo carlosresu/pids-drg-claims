@@ -5,11 +5,10 @@ query_bq_to_dt
 split_and_save_part
 create_sample_files
 read_appropriate_file
-collapse_clin_cols
+staged_declumping_functions
 append_copy_remove_icd_rvs_c1_c2
 swap_icd_rvs
 remap_patient_data
 map_rvs_icd9
 map_icd10
-prep_pdx_inputs
 find_pdx

@@ -42,11 +42,6 @@ map_icd10 <- function(col) {
       # \\D+ just means any non-digit character, but we should be more specific
       # i.e., specify [A-Z] only
       sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
-      # trimming to 1 letter + 2 digits + 1 anything will include covid codes
-      # PROPOSED CHANGE:
-      # let codes in the form A12B through so that it later gets trimmed to A12
-      # it also mandates that a code start with a letter
-      # sub("^([A-Z]\\d{2}[A-Z0-9]).*", "\\1", code)
     } else if (nchar(code) == 4) {
       code
     } else {

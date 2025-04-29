@@ -169,4 +169,17 @@ covid_rvs_neoplasm_pattern <- paste(c(covid_codes, rvs_codes, neoplasm_codes), c
 #   hci_filter <- hci[inst_level %chin% c("INF", "L1", "L2", "L3"), id_hci]
 # }
 
+# Prepare custom codes
+custom_codes <- c(covid_rvs_neoplasm_codes, zben, acr)
+custom_rvs_codes <- custom_codes[grepl("^[0-9]", custom_codes)]
+custom_codes <- custom_codes[!grepl("^[0-9]", custom_codes)]
+custom_codes <- unique(custom_codes)
+custom_codes_sorted <- unique(custom_codes[order(-nchar(custom_codes))])
+
+# Build ICD dictionary
+icd_dict <- split_icd_by_prefix(icd_codes)
+icd_dict <- extend_icd_dict_with_custom_codes(icd_dict, custom_codes_sorted)
+icd_dict <- sort_icd_dict_by_length(icd_dict)
+all_codes <- unlist(icd_dict, use.names = FALSE)
+
 message("00d-load-mapping.r successfully executed.")
