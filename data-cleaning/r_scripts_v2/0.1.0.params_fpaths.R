@@ -110,8 +110,8 @@ if (current_node == gce_node) {
 
 # get current GCP Project
 gcp_proj <- system("gcloud config get-value project", intern = TRUE)
-# Name of GCS bucket
-gcs_bucket <- "pids-drg-data"
+# Name of GCS bucket for grouping purposes
+gcs_bucket <- "pids-drg-vm"
 # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_pre_fpath <- "data/phic/thai/pre"
 # Name of folder path prefix in GCS bucket for thai grouper output
