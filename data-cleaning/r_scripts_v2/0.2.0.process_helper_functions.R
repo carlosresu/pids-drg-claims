@@ -48,6 +48,7 @@ clean_column <- function(col) {
   return(cleaned_col)
 }
 
+# TODO: Delete this, we don't use it anymore
 # Function to collapse the replaced text with "||" as separator
 collapse_to_string <- function(vec) {
   # Collapse non-empty elements with "||" as the separator
@@ -73,71 +74,7 @@ collapse_cols <- function(cols) {
   })
 }
 
-split_to_vector <- function(column) {
-  lapply(column, function(long_string) {
-    # Initialize result vector
-    result <- character()
-
-    # Ensure long_string is not NA before proceeding
-    if (is.na(long_string)) {
-      return(result)
-    }
-
-    # Step 1: Extract COVID codes
-    covid_matches <- gregexpr(covid_pattern, long_string, perl = TRUE)[[1]]
-    if (!is.na(covid_matches[1]) && covid_matches[1] != -1) {
-      covid_codes <- regmatches(long_string, list(covid_matches))[[1]]
-      result <- c(result, covid_codes)
-      # Remove COVID codes from long_string
-      long_string <- gsub(covid_pattern, "", long_string, perl = TRUE)
-    }
-
-    # Step 2: Extract Neoplasm codes
-    neoplasm_matches <- gregexpr(neoplasm_pattern,
-      long_string,
-      perl = TRUE
-    )[[1]]
-    if (!is.na(neoplasm_matches[1]) && neoplasm_matches[1] != -1) {
-      neoplasm_codes <- regmatches(long_string, list(neoplasm_matches))[[1]]
-      result <- c(result, neoplasm_codes)
-      # Remove Neoplasm codes from long_string
-      long_string <- gsub(neoplasm_pattern, "", long_string, perl = TRUE)
-    }
-
-    # Step 3: Extract RVS codes using individual patterns
-    rvs_patterns <- c(
-      "[A-Za-z]{3}[0-9]{2}", # Three letters followed by one or two digits
-      "[A-Za-z]{2}[0-9]{3}", # Two letters followed by two or three digits
-      "[A-Za-z][0-9]{4}", # A letter followed by four or five digits
-      "[0-9]{5}" # Five consecutive numbers
-    )
-
-    for (pattern in rvs_patterns) {
-      rvs_matches <- gregexpr(pattern, long_string, perl = TRUE)[[1]]
-      if (!is.na(rvs_matches[1]) && rvs_matches[1] != -1) {
-        rvs_codes <- regmatches(long_string, list(rvs_matches))[[1]]
-        result <- c(result, rvs_codes)
-        # Remove RVS codes from long_string
-        long_string <- gsub(pattern, "", long_string, perl = TRUE)
-      }
-    }
-
-    # Step 4: Remaining content in long_string should be lumped ICD codes
-    if (!is.na(long_string) && nchar(long_string) > 0) {
-      result <- c(result, long_string)
-    }
-
-    # Final Step: Split each element of result by "||" and flatten the output
-    final_result <- unlist(lapply(result, function(element) {
-      strsplit(element, "\\|\\|", perl = TRUE)[[1]]
-    }))
-
-    # Remove any empty strings
-    clean_result <- final_result[final_result != ""]
-    return(clean_result)
-  })
-}
-
+# TODO: Delete this, we don't use it anymore
 # USING ENVIRONMENTS
 # Function to process ICD codes
 remove_lumped_icd_codes <- function(column) {
@@ -165,6 +102,7 @@ remove_lumped_icd_codes <- function(column) {
   return(unlumped)
 }
 
+# TODO: Delete this, we don't use it anymore
 remove_lumped_rvs_codes <- function(column) {
   ## Separates out lumped RVS codes by splitting into chunks of 5 chars each
   modified_column <- sapply(
@@ -250,6 +188,7 @@ replace_na_or_empty <- function(dt, replace_with) {
   return(dt)
 }
 
+# TODO: Delete this, we don't use it anymore
 remove_whitespace <- function(x) {
   if (is.null(x) || length(x) == 0) {
     # Return NA for NULL or empty lists
@@ -270,6 +209,7 @@ manual_replacement <- function(text) {
   return(replaced)
 }
 
+# TODO: Delete this, we don't use it anymore
 flatten_then_check_empty <- function(input) {
   # Fully flatten all nested lists into a character vector
   input <- unlist(input, recursive = TRUE)
@@ -282,6 +222,7 @@ flatten_then_check_empty <- function(input) {
   }
 }
 
+# TODO: Delete this, we don't use it anymore
 prep_icd_for_mapping <- function(text) {
   text %>%
     manual_replacement() %>%
@@ -291,6 +232,7 @@ prep_icd_for_mapping <- function(text) {
     flatten_then_check_empty()
 }
 
+# TODO: Delete this, we don't use it anymore
 # Helper function to handle NULL or NA safely
 safe_split <- function(x) {
   if (is.null(x) || all(is.na(x))) {

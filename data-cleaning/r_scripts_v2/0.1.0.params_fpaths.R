@@ -33,7 +33,7 @@ separator <- if (file_type == ".tsv") "\t" else ","
 thai_prompt <- TRUE
 to_prompt <- FALSE
 
-split_parts <- if (nthreads > 16) 30 else 15
+split_parts <- if (nthreads > 16) 15 else 30
 # Sample size divisor: Formula for sample size is
 # (total_rows ÷ split_parts) ÷ sample_size_divisor.
 # Choose between 5, 25, 125, and 625
@@ -110,8 +110,8 @@ if (current_node == gce_node) {
 
 # get current GCP Project
 gcp_proj <- system("gcloud config get-value project", intern = TRUE)
-# Name of GCS bucket
-gcs_bucket <- "pids-drg-data"
+# Name of GCS bucket for grouping purposes
+gcs_bucket <- "pids-drg-vm"
 # Name of folder path prefix in GCS bucket for thai grouper input
 gcs_pre_fpath <- "data/phic/thai/pre"
 # Name of folder path prefix in GCS bucket for thai grouper output
@@ -119,7 +119,7 @@ gcs_post_fpath <- "data/phic/thai/post"
 # TODO: Add description here
 gcs_spc_fpath <- "spc"
 # bq dataset
-bq_dataset <- "phic_claims"
+bq_dataset <- "phic_eclaims"
 # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 bq_table <- paste0("temp_claims_", year_to_load)
 
@@ -517,13 +517,17 @@ expected_mappings <- list(
 
 bq_cols <- c(
   "id_series",
+  "id_lhio", # new with 2025 extract
   "id_pin",
   "id_hci",
   "id_hcp",
   "date_adm",
   "date_dis",
   "date_rec",
+  "date_denied", # new with 2025 extract
+  "date_rth", # new with 2025 extract
   "date_ref",
+  "date_recon", # new with 2025 extract
   "date_check",
   "pat_type",
   "pat_rel",
@@ -533,9 +537,14 @@ bq_cols <- c(
   "pat_bwt",
   "pat_memcat_parent",
   "pat_memcat_child",
+  "pat_pro", # new with 2025 extract
+  "pat_province", # new with 2025 extract
+  "pat_municipality", # new with 2025 extract
   "claim_status",
   "claim_payout",
   "claim_charge",
+  "claim_charge_hcp", # new with 2025 extract
+  "claim_charge_hci", # new with 2025 extract
   "is_covid",
   "clin_discharge",
   "clin_outpatient",
@@ -545,6 +554,8 @@ bq_cols <- c(
   "clin_c2_orig",
   "clin_c1_cleaned",
   "clin_c2_cleaned",
+  "clin_c1_orig_cleaned",
+  "clin_c2_orig_cleaned",
   "clin_icd",
   "clin_sdx",
   "clin_rvs",

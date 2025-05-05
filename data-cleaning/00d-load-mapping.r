@@ -76,7 +76,6 @@ create_env_from_vector <- function(vec) {
 
 acc_pdx_env <- create_env_from_vector(acc_pdx)
 
-# TODO: where is this in the new project?
 phl_icd10_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_icd.phl_icd10")
 phl_icd10 <- load_or_query(phl_icd10_query, "phl_icd10")
 
@@ -89,6 +88,19 @@ i10vx <- load_or_query(i10vx_query, "i10vx")
 setkey(i10vx, "code")
 
 acc_icd <- unique(i10vx[, code])
+
+zben_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_acr.zben")
+zben <- load_or_query(zben_query, "zben")
+setkey(zben, "code")
+zben[, code := gsub("[^A-Za-z0-9]", "", code)]
+zben <- zben$code
+
+acr_query <- paste0("SELECT * FROM ", gcp_proj, ".phic_acr.acr")
+acr <- load_or_query(acr_query, "acr")
+setkey(acr, "code")
+acr[, code := gsub("[^A-Za-z0-9/\\\\]", "", code)]
+acr <- acr[nchar(gsub("[^A-Za-z]", "", code)) <= 1]
+acr <- acr$code
 
 # Query HCI data. TODO: Uncomment this once hci is available for 2024 and 2025
 # hci_query <- if (to_filter) {
@@ -133,6 +145,9 @@ covid_neoplasm_env <- create_env_from_vector(covid_neoplasm_codes)
 covid_rvs_neoplasm_codes <- unique(c(covid_codes, rvs_codes, neoplasm_codes))
 covid_rvs_neoplasm_env <- create_env_from_vector(covid_rvs_neoplasm_codes)
 
+covid_rvs_neoplasm_zben_codes <- unique(c(covid_codes, rvs_codes, neoplasm_codes, zben))
+covid_rvs_neoplasm_zben_env <- create_env_from_vector(covid_rvs_neoplasm_zben_codes)
+
 covid_rvs_neoplasm_pattern <- paste(c(covid_codes, rvs_codes, neoplasm_codes), collapse = "|")
 
 # # Define claim queries. TODO: Uncomment this once hci is available for 2024 and 2025
@@ -153,5 +168,18 @@ covid_rvs_neoplasm_pattern <- paste(c(covid_codes, rvs_codes, neoplasm_codes), c
 
 #   hci_filter <- hci[inst_level %chin% c("INF", "L1", "L2", "L3"), id_hci]
 # }
+
+# Prepare custom codes
+custom_codes <- c(covid_rvs_neoplasm_codes, zben, acr)
+custom_rvs_codes <- custom_codes[grepl("^[0-9]", custom_codes)]
+custom_codes <- custom_codes[!grepl("^[0-9]", custom_codes)]
+custom_codes <- unique(custom_codes)
+custom_codes_sorted <- unique(custom_codes[order(-nchar(custom_codes))])
+
+# Build ICD dictionary
+icd_dict <- split_icd_by_prefix(icd_codes)
+icd_dict <- extend_icd_dict_with_custom_codes(icd_dict, custom_codes_sorted)
+icd_dict <- sort_icd_dict_by_length(icd_dict)
+all_codes <- unlist(icd_dict, use.names = FALSE)
 
 message("00d-load-mapping.r successfully executed.")

@@ -14,7 +14,7 @@ year_range <-
 to_create_std <- FALSE
 # Whether to sample each split_part by sample_size_divisor
 # (useful when iterating through code runs in quick succession)
-to_sample <- TRUE
+to_sample <- FALSE
 # TODO: Add description here
 to_write <- TRUE
 # To flush intermediate files
@@ -23,7 +23,7 @@ to_filter <- FALSE
 # clin_outpatient = FALSE, and id_hci = inst_level %in% "L1", "L2", "L3", "INF"
 to_flush <- FALSE
 # To push to BQ
-to_bq <- FALSE
+to_bq <- TRUE
 # To parallelize using unix-style multicore lapply
 to_parallel <- TRUE
 cat("Parallelization:", to_parallel, "\n")

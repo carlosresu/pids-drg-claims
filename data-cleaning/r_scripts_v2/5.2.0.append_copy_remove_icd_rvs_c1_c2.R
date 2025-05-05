@@ -151,4 +151,3 @@ append_copy_remove_icd_rvs_c1_c2 <- function(col, clin_rvs, clin_icd) {
 
   return(ret_list)
 }
-
