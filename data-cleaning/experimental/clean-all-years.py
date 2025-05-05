@@ -69,7 +69,7 @@ def run_notebook(year_to_load):
     return True
 
 # Run a years; with options for parallel execution
-years = list(range(2024, 2025))  # List of years to process
+years = list(range(2018, 2024))  # List of years to process
 with ProcessPoolExecutor(max_workers=1) as executor:
     results = list(executor.map(run_notebook, years))  # Execute in parallel
 
