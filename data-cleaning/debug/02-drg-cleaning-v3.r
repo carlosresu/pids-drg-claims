@@ -10,211 +10,6 @@ source(here::here("data-cleaning", "00c-load-params-and-scripts.r"))
 source(here::here("data-cleaning", "00d-load-mapping.r"))
 
 
-# Pre-split any input that already contains '||'
-pre_split_on_double_pipe <- function(col) {
-  lapply(col, function(vec) {
-    # Final Step: Split each element of result by "||"
-    # and flatten the output
-    final_result <- unlist(lapply(vec, function(elem) {
-      strsplit(elem, "\\|\\|", perl = TRUE)[[1]]
-    }))
-
-    # Remove any empty strings
-    clean_result <- final_result[final_result != ""]
-  })
-}
-
-# Pre-split any input that already contains '|'
-pre_split_on_single_pipe <- function(col) {
-  lapply(col, function(vec) {
-    # Final Step: Split each element of result by "|"
-    # and flatten the output
-    final_result <- unlist(lapply(vec, function(elem) {
-      strsplit(elem, "\\|", perl = TRUE)[[1]]
-    }))
-
-    # Remove any empty strings
-    clean_result <- final_result[final_result != ""]
-  })
-}
-
-# Remove any entities with less than 3 characters
-filter_short_codes <- function(col) {
-  lapply(col, function(vec) vec[nchar(vec) >= 3])
-}
-
-# Prepare custom codes
-custom_codes <- c(covid_rvs_neoplasm_codes, zben, acr)
-custom_rvs_codes <- custom_codes[grepl("^[0-9]", custom_codes)]
-custom_codes <- custom_codes[!grepl("^[0-9]", custom_codes)]
-custom_codes <- unique(custom_codes)
-custom_codes_sorted <- unique(custom_codes[order(-nchar(custom_codes))])
-
-# ICD dictionary setup
-split_icd_by_prefix <- function(icd_codes) {
-  prefix_map <- split(icd_codes, substr(icd_codes, 1, 1))
-  prefix_map[names(prefix_map) %in% LETTERS]
-}
-
-extend_icd_dict_with_custom_codes <- function(icd_dict, custom_codes) {
-  valid_custom <- custom_codes[!grepl("^[0-9]", custom_codes)]
-  custom_by_prefix <- split(valid_custom, substr(valid_custom, 1, 1))
-
-  for (prefix in names(custom_by_prefix)) {
-    if (prefix %in% names(icd_dict)) {
-      icd_dict[[prefix]] <- unique(c(icd_dict[[prefix]], custom_by_prefix[[prefix]]))
-    } else {
-      icd_dict[[prefix]] <- unique(custom_by_prefix[[prefix]])
-    }
-  }
-
-  icd_dict
-}
-
-sort_icd_dict_by_length <- function(icd_dict) {
-  lapply(icd_dict, function(codes) codes[order(-nchar(codes))])
-}
-
-# Stage 1: match any known custom codes using regex
-step1_match <- function(text) {
-  pattern <- paste0(custom_codes_sorted, collapse = "|")
-  matches <- regmatches(text, gregexpr(pattern, text, perl = TRUE))[[1]]
-
-  if (length(matches) == 0) {
-    return(list(matches = character(0), remainders = text))
-  }
-
-  text_no_match <- text
-  for (m in matches) {
-    text_no_match <- gsub(m, " ", text_no_match, fixed = TRUE)
-  }
-
-  remainders <- unlist(strsplit(text_no_match, "\\s+"))
-  remainders <- remainders[nzchar(remainders)]
-
-  list(matches = matches, remainders = remainders)
-}
-
-# Stage 2: split by digit → letter transitions
-chunk_by_letter_switch <- function(strings) {
-  chunks <- c()
-  for (s in strings) {
-    marked <- gsub("(?<=[0-9])(?=[A-Z])", "||", s, perl = TRUE)
-    parts <- unlist(strsplit(marked, "\\|\\|"))
-    parts <- parts[nzchar(parts)]
-    chunks <- c(chunks, parts)
-  }
-  chunks
-}
-
-# Stage 3: regex match using relevant ICD codes based on starting letter
-step3_match <- function(chunks) {
-  matches <- c()
-  remainders <- c()
-
-  for (chunk in chunks) {
-    prefix <- substr(chunk, 1, 1)
-    if (!prefix %in% LETTERS) {
-      remainders <- c(remainders, chunk)
-      next
-    }
-
-    relevant_codes <- grep(paste0("^", prefix), all_codes, value = TRUE)
-    if (length(relevant_codes) == 0) {
-      remainders <- c(remainders, chunk)
-      next
-    }
-
-    pattern <- paste0(relevant_codes, collapse = "|")
-    found <- regmatches(chunk, gregexpr(pattern, chunk, perl = TRUE))[[1]]
-
-    if (length(found) > 0 && nzchar(found[1])) {
-      matches <- c(matches, found)
-      chunk_clean <- chunk
-      for (f in found) {
-        chunk_clean <- gsub(f, " ", chunk_clean, fixed = TRUE)
-      }
-      leftovers <- unlist(strsplit(chunk_clean, "\\s+"))
-      leftovers <- leftovers[nzchar(leftovers)]
-      remainders <- c(remainders, leftovers)
-    } else {
-      remainders <- c(remainders, chunk)
-    }
-  }
-
-  list(matches = matches, remainders = remainders)
-}
-
-step4_match <- function(chunks) {
-  results <- list(matches = character(0), remainders = character(0))
-
-  for (chunk in chunks) {
-    if (grepl("^[0-9]", chunk)) {
-      digit_prefix <- substr(chunk, 1, 1)
-      relevant_custom_rvs <- custom_rvs_codes[substr(custom_rvs_codes, 1, 1) == digit_prefix]
-
-      if (length(relevant_custom_rvs) > 0) {
-        pattern <- paste0(relevant_custom_rvs, collapse = "|")
-        found <- regmatches(chunk, gregexpr(pattern, chunk, perl = TRUE))[[1]]
-
-        if (length(found) > 0 && nzchar(found[1])) {
-          results$matches <- c(results$matches, found)
-
-          chunk_clean <- chunk
-          for (f in found) {
-            chunk_clean <- gsub(f, " ", chunk_clean, fixed = TRUE)
-          }
-
-          leftovers <- unlist(strsplit(chunk_clean, "\\s+"))
-          leftovers <- leftovers[nzchar(leftovers)]
-          results$remainders <- c(results$remainders, leftovers)
-          next
-        }
-      }
-    }
-
-    results$remainders <- c(results$remainders, chunk)
-  }
-
-  results
-}
-
-# Final pipeline
-delump_icd_staged <- function(list_col) {
-  lapply(list_col, function(char_vec) {
-    unlist(lapply(char_vec, function(text) {
-      if (is.na(text) || text == "") {
-        return(character(0))
-      }
-      s1 <- step1_match(text)
-      if (to_debug) cat("step 1 matches\n")
-      if (to_debug) str(s1$matches)
-      chunks <- chunk_by_letter_switch(s1$remainders)
-      s3 <- step3_match(chunks)
-      if (to_debug) cat("step 3 matches\n")
-      if (to_debug) str(s3$matches)
-      if (to_debug) cat("step 3 remainders\n")
-      if (to_debug) str(s3$remainders)
-      s4 <- step4_match(s3$remainders)
-      if (to_debug) cat("step 4 matches\n")
-      if (to_debug) str(s4$matches)
-      if (to_debug) cat("step 4 remainders\n")
-      if (to_debug) str(s4$remainders)
-      final_result <- c(s1$matches, s3$matches, s4$matches, s4$remainders)
-      if (length(final_result) == 0) {
-        return(as.character(text))
-      }
-      final_result
-    }), recursive = FALSE)
-  })
-}
-
-# Build ICD dictionary
-icd_dict <- split_icd_by_prefix(icd_codes)
-icd_dict <- extend_icd_dict_with_custom_codes(icd_dict, custom_codes_sorted)
-icd_dict <- sort_icd_dict_by_length(icd_dict)
-all_codes <- unlist(icd_dict, use.names = FALSE)
-
 # ✅ Test
 test <- "C19T2NSD01X01Z99099460Z0011J189Y95E12399460223344MORPHOLOGY"
 if (to_debug) cat("starting code\n")
@@ -255,6 +50,7 @@ process_chunk <- function(
     set(chunk, j = col, value = chunk[[mapping[[col]]]])
   }
 
+  # Define default values if missing
   missing_values <- list(
     "id_year" = yr_to_load,
     "pat_bwt" = NA_real_,
@@ -262,6 +58,7 @@ process_chunk <- function(
     "pat_ageday" = NA_integer_
   )
 
+  # Assign default values if missing
   for (col in names(missing_values)) {
     if (!col %in% names(chunk)) {
       set(chunk, j = col, value = missing_values[[col]])
@@ -373,9 +170,10 @@ process_chunk <- function(
     id_cols <- c("id_series", "id_pin")
     chunk[, (id_cols) := lapply(.SD, trimws), .SDcols = id_cols]
 
-    # Split id_hcp then replace empty with character(0)
+    # Split id_hcp then
     chunk[, id_hcp := strsplit(id_hcp, "\\s*,\\s*|\\|\\||\\|")]
 
+    # replace empty with character(0)
     chunk[, id_hcp := lapply(id_hcp, function(x) {
       if (is.null(x) || all(is.na(x))) {
         character(0)
@@ -418,31 +216,20 @@ process_chunk <- function(
   ##############################################################################
   if (!to_create_std) {
     icd_cols <- c("c1", "c2", "clin_icd")
-    # split to unlumped vectors of ICDs
-    chunk[, c1 := pre_split_on_double_pipe(c1)]
-    chunk[, c2 := pre_split_on_double_pipe(c2)]
-    chunk[, clin_icd := pre_split_on_double_pipe(clin_icd)]
+    # collapse multiple repeated lines into a loop
+    for (col in icd_cols) {
+      # split to unlumped vectors of ICDs based on ||
+      chunk[, (col) := pre_split_on_double_pipe(get(col))]
+      # split to unlumped vectors of ICDs based on |
+      chunk[, (col) := pre_split_on_single_pipe(get(col))]
+      # apply staged delumping algorithm
+      chunk[, (col) := delump_icd_staged(get(col))]
+      # delete codes shorter than 3 characters
+      chunk[, (col) := filter_short_codes(get(col))]
+    }
 
-
-    chunk[, c1 := pre_split_on_single_pipe(c1)]
-    chunk[, c2 := pre_split_on_single_pipe(c2)]
-    chunk[, clin_icd := pre_split_on_single_pipe(clin_icd)]
-
-    chunk[, c1 := delump_icd_staged(c1)]
-    chunk[, c2 := delump_icd_staged(c2)]
-    chunk[, clin_icd := delump_icd_staged(clin_icd)]
-
-    chunk[, c1 := filter_short_codes(c1)]
-    chunk[, c2 := filter_short_codes(c2)]
-    chunk[, clin_icd := filter_short_codes(clin_icd)]
     # split to vectors of RVS
     chunk[, clin_rvs := split_to_vector(clin_rvs)]
-
-    # TODO: DELETE THIS
-    # flatten into vectors, removing empty cells
-    # chunk[, (c1_c2_cols) := lapply(
-    #   .SD, flatten_then_check_empty
-    # ), .SDcols = c1_c2_cols]
 
     # removing NA's from each vector/row, maintaining a list structure for
     # the overall column
@@ -453,19 +240,6 @@ process_chunk <- function(
         )
       }
     ), .SDcols = icd_cols]
-
-    # TODO: DELETE THIS
-    # # APPEND cleaned c1/c2 to clin_icd to ensure completeness
-    # chunk[, clin_icd := lapply(seq_len(.N), function(i) {
-    #   clin_icd_list <- c(clin_icd[[i]], c1[[i]], c2[[i]])
-    #   return(flatten_then_check_empty(clin_icd_list))
-    # })]
-
-    # TODO: DELETE THIS
-    # # replace placeholders introduced in flatten_then_check_empty
-    # chunk[, (c1_c2_cols) := lapply(.SD, function(col) {
-    #   lapply(col, function(x) setdiff(x, "\u200B"))
-    # }), .SDcols = c1_c2_cols]
 
     # RVS codes
     # Extract then move rvs codes to proper columns
@@ -559,7 +333,7 @@ process_chunk <- function(
     icd_outputs <- chunk[, ..icd_cols]
     rvs_outputs <- chunk[, ..rvs_cols]
 
-    # replace placeholders introduced in flatten_then_check_empty
+    # replace placeholders introduced in mapping
     underscore_cols <- c(
       "c1", "c2", "clin_icd", "clin_sdx",
       "clin_rvs", "clin_proc"
@@ -573,7 +347,6 @@ process_chunk <- function(
   # 3.D PDx Imputation
   ##############################################################################
   if (!to_create_std) {
-    # prepare pdx inputs
     # find pdx per row
     pdx_result <- find_pdx(
       chunk$c1, chunk$c2, chunk$clin_sdx,
@@ -684,7 +457,6 @@ process_chunk <- function(
     )
 
     # Remove duplicates and ensure proper mapping
-    # icd_dt <- unique(icd_dt[!is.na(raw_code) & raw_code != ""])
     icd_dt <- icd_dt[!is.na(raw_code) & raw_code != ""]
 
     # Expand RVS input-output mappings properly
@@ -694,7 +466,6 @@ process_chunk <- function(
     )
 
     # Remove duplicates and ensure proper mapping
-    # rvs_dt <- unique(rvs_dt[!is.na(raw_code) & raw_code != ""])
     rvs_dt <- rvs_dt[!is.na(raw_code) & raw_code != ""]
 
     # Store as a list of data.tables
@@ -725,6 +496,7 @@ for (loop_part in 1:split_parts) {
   start_time <- Sys.time() # Record start time for processing
   # Step 1: Read the appropriate file
   read_in_dt <- read_appropriate_file(loop_part)
+
   if (to_filter) {
     if ("PSEUDO_CLAIMSERIES" %in% names(read_in_dt)) {
       read_in_dt <- read_in_dt[, PSEUDO_CLAIMSERIES := trimws(as.character(PSEUDO_CLAIMSERIES))][claims, nomatch = 0, on = .(PSEUDO_CLAIMSERIES = id_series)]
@@ -743,7 +515,6 @@ for (loop_part in 1:split_parts) {
   # Step 3: Process chunks in parallel or sequentially
   cat(paste0("\rStart processing part  ", loop_part, " of ", split_parts))
   flush.console()
-
   parallel_results <-
     if (to_parallel) {
       mclapply(chunks, process_chunk, mc.cores = nthreads)
@@ -897,19 +668,6 @@ if (to_write) {
 # print(get_top_20(master_dt, "clin_icd1"))
 # print(get_top_20(master_dt, "clin_rvs1"))
 # print(as.data.table(non_null_table))
-
-
-# str(master_dt)
-# print((nrow(master_dt[clin_pdx_source == 99]) / nrow(master_dt)) * 100)
-# print(nrow(master_dt[clin_pdx_source == 99]))
-# print(nrow(master_dt[is.na(pat_bdate)]))
-# print(nrow(master_dt[is.na(pat_age)]))
-
-
-# fwrite(readRDS(here(
-#   chkpt_2_path,
-#   paste0(chkpt_2_prefix, year_to_load, suffix, "tmp", ".rds")
-# )), "~/pids-drg-claims/data-cleaning/debug/refactor.csv")
 
 
 # Final preparations for BQ upload
@@ -1125,9 +883,6 @@ result <- readRDS(here(
 #   ) +
 #   scale_y_continuous(labels = scales::label_number(scale_cut = scales::cut_short_scale())) + # Format Y-axis with short notation
 #   theme_minimal()
-
-
-str(result)
 
 
 # BQ upload
