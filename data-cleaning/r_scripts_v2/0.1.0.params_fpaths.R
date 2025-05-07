@@ -515,54 +515,97 @@ expected_mappings <- list(
   )
 )
 
-bq_cols <- c(
-  "id_series",
-  "id_lhio", # new with 2025 extract
-  "id_pin",
-  "id_hci",
-  "id_hcp",
-  "date_adm",
-  "date_dis",
-  "date_rec",
-  "date_denied", # new with 2025 extract
-  "date_rth", # new with 2025 extract
-  "date_ref",
-  "date_recon", # new with 2025 extract
-  "date_check",
-  "pat_type",
-  "pat_rel",
-  "pat_age",
-  "pat_ageday",
-  "pat_sex",
-  "pat_bwt",
-  "pat_memcat_parent",
-  "pat_memcat_child",
-  "pat_pro", # new with 2025 extract
-  "pat_province", # new with 2025 extract
-  "pat_municipality", # new with 2025 extract
-  "claim_status",
-  "claim_payout",
-  "claim_charge",
-  "claim_charge_hcp", # new with 2025 extract
-  "claim_charge_hci", # new with 2025 extract
-  "is_covid",
-  "clin_discharge",
-  "clin_outpatient",
-  "clin_emergency",
-  "clin_acc",
-  "clin_c1_orig",
-  "clin_c2_orig",
-  "clin_c1_cleaned",
-  "clin_c2_cleaned",
-  "clin_c1_orig_cleaned",
-  "clin_c2_orig_cleaned",
-  "clin_icd",
-  "clin_sdx",
-  "clin_rvs",
-  "clin_proc",
-  "clin_pdx",
-  "clin_pdx_source"
-)
+bq_cols <-
+  if (eclaims_batch == "2023_2024") {
+    c(
+      "id_series",
+      "id_pin",
+      "id_hci",
+      "id_hcp",
+      "date_adm",
+      "date_dis",
+      "date_rec",
+      "date_ref",
+      "date_check",
+      "pat_type",
+      "pat_rel",
+      "pat_age",
+      "pat_ageday",
+      "pat_sex",
+      "pat_bwt",
+      "pat_memcat_parent",
+      "pat_memcat_child",
+      "claim_status",
+      "claim_payout",
+      "claim_charge",
+      "is_covid",
+      "clin_discharge",
+      "clin_outpatient",
+      "clin_emergency",
+      "clin_acc",
+      "clin_c1_orig",
+      "clin_c2_orig",
+      "clin_c1_cleaned",
+      "clin_c2_cleaned",
+      "clin_c1_orig_cleaned",
+      "clin_c2_orig_cleaned",
+      "clin_icd",
+      "clin_sdx",
+      "clin_rvs",
+      "clin_proc",
+      "clin_pdx",
+      "clin_pdx_source"
+    )
+  } else if (eclaims_batch == "2025") {
+    c(
+      "id_series",
+      "id_lhio", # new with 2025 extract
+      "id_pin",
+      "id_hci",
+      "id_hcp",
+      "date_adm",
+      "date_dis",
+      "date_rec",
+      "date_denied", # new with 2025 extract
+      "date_rth", # new with 2025 extract
+      "date_ref",
+      "date_recon", # new with 2025 extract
+      "date_check",
+      "pat_type",
+      "pat_rel",
+      "pat_age",
+      "pat_ageday",
+      "pat_sex",
+      "pat_bwt",
+      "pat_memcat_parent",
+      "pat_memcat_child",
+      "pat_pro", # new with 2025 extract
+      "pat_province", # new with 2025 extract
+      "pat_municipality", # new with 2025 extract
+      "claim_status",
+      "claim_payout",
+      "claim_charge",
+      "claim_charge_hcp", # new with 2025 extract
+      "claim_charge_hci", # new with 2025 extract
+      "is_covid",
+      "clin_discharge",
+      "clin_outpatient",
+      "clin_emergency",
+      "clin_acc",
+      "clin_c1_orig",
+      "clin_c2_orig",
+      "clin_c1_cleaned",
+      "clin_c2_cleaned",
+      "clin_c1_orig_cleaned",
+      "clin_c2_orig_cleaned",
+      "clin_icd",
+      "clin_sdx",
+      "clin_rvs",
+      "clin_proc",
+      "clin_pdx",
+      "clin_pdx_source"
+    )
+  }
 
 # Initialize Variables
 # initialize lists
