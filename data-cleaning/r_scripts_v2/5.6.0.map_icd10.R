@@ -1,8 +1,13 @@
 map_icd10 <- function(col) {
-  # Collect and pre-filter unique ICD codes, excluding those in covid_rvs_neoplasm_env
+  # Collect all unique ICD codes from the column
   icds <- unique(unlist(col))
+
+  # Pre-filter ICDs:
+  # - must be non-NA, at least 3 characters
+  # - exclude purely numeric, 2-letter codes, or neoplasm-style slashes
+  # - also exclude anything already known in covid_rvs_neoplasm_zben_env
   filtered_icds <- icds[!is.na(icds) &
-    nchar(icds) >= 3 & # added a safeguard to only allow 3+ char strings in
+    nchar(icds) >= 3 &
     !grepl("^[0-9]", icds) &
     !grepl("^[A-Z]{2}", icds) &
     !grepl("/", icds) &
@@ -11,20 +16,20 @@ map_icd10 <- function(col) {
       exists(x = code, envir = covid_rvs_neoplasm_zben_env, inherits = FALSE)
     }, logical(1))]
 
-  # Initialize the mapping list
+  # Initialize the output ICD mapping list
   icd_mapping <- list()
 
-  # Process each unique filtered ICD code
+  # Loop through each filtered code
   for (code in filtered_icds) {
-    code <- trimws(code) # Trim whitespace
+    code <- trimws(code) # Remove leading/trailing whitespace
 
-    # 1. **Exact match check**
+    # 1. Exact match against ICD dictionary
     if (exists(x = code, envir = icd_codes_env, inherits = FALSE)) {
       icd_mapping[[code]] <- code
       next
     }
 
-    # 2. **Attempt adding '9' for 3-character codes**
+    # 2. If it's a 3-character code, try appending '9' (e.g., J18 → J189)
     if (nchar(code) == 3) {
       modified_code <- paste0(code, "9")
       if (exists(x = modified_code, envir = icd_codes_env, inherits = FALSE)) {
@@ -33,7 +38,7 @@ map_icd10 <- function(col) {
       }
     }
 
-    # 3. **Trimming codes longer than 4 characters**
+    # 3. Attempt to trim excess characters if longer than 4
     trimmed_code <- if (nchar(code) > 4) {
       # TODO: the below doesn't account for things like J1892C,
       # since it demands the 6th char to be a number
@@ -43,16 +48,19 @@ map_icd10 <- function(col) {
       # i.e., specify [A-Z] only
       sub("(\\D+\\d{3})(\\d*)$", "\\1", code)
     } else if (nchar(code) == 4) {
-      code
+      code # Already 4 characters, no need to trim
     } else {
-      NULL
+      NULL # Invalid length
     }
 
+    # Check if trimmed code exists in dictionary
     if (!is.null(trimmed_code)) {
       if (exists(x = trimmed_code, envir = icd_codes_env, inherits = FALSE)) {
         icd_mapping[[code]] <- trimmed_code
         next
       }
+
+      # If 4-character trimmed fails, try matching first 3 characters
       trimmed_to_3 <- substr(trimmed_code, 1, 3)
       if (exists(x = trimmed_to_3, envir = icd_codes_env, inherits = FALSE)) {
         icd_mapping[[code]] <- trimmed_to_3
@@ -60,30 +68,30 @@ map_icd10 <- function(col) {
       }
     }
 
-    # 4. **Mark as unmappable if all else fails (Return "_")**
+    # 4. Fallback: mark as unmappable
     icd_mapping[[code]] <- "_"
   }
 
-  # Return mapped ICD codes while ensuring correct structure
+  # Apply mapping back to the original structure
   ret <- lapply(col, function(vec) {
     if (length(vec) == 0) {
-      return(character(0)) # Return empty character vector if input is empty
+      return(character(0)) # Preserve empty entries
     }
 
-    # Ensure mapping preserves structure, but return "_" if no mapping is found
+    # Replace each code with its mapped counterpart or "_" if not found
     mapped_vec <- vapply(vec, function(code) {
       if (!is.null(icd_mapping[[code]]) && icd_mapping[[code]] != "") {
-        return(unname(icd_mapping[[code]])) # **Unname the mapped value**
+        return(unname(icd_mapping[[code]])) # Unnamed string value
       } else {
-        return("_") # Unmappable codes get "_"
+        return("_") # Default for unmappable
       }
     }, FUN.VALUE = character(1))
 
-    # Ensure final output doesn't have names
+    # Strip names just in case
     mapped_vec <- unname(mapped_vec)
 
     return(mapped_vec)
   })
 
-  return(ret) # Always return a list of character vectors
+  return(ret) # Always return list of character vectors (per row)
 }

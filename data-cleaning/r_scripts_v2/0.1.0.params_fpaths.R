@@ -30,18 +30,11 @@ received_date <-
 file_type <- if (received_date == "received_20250415") ".tsv" else if (year_to_load %in% c(2022:2023)) ".tsv" else ".csv"
 separator <- if (file_type == ".tsv") "\t" else ","
 # Whether to prompt for thai grouper even if bypassing all other prompts
+# TODO: Do we still need this?
 thai_prompt <- TRUE
 to_prompt <- FALSE
 
 split_parts <- if (nthreads > 16) 15 else 30
-# Sample size divisor: Formula for sample size is
-# (total_rows ÷ split_parts) ÷ sample_size_divisor.
-# Choose between 5, 25, 125, and 625
-if (exists("sample_size_divisor")) {
-  sample_size_divisor <- sample_size_divisor
-} else {
-  sample_size_divisor <- 5
-}
 
 # Columns to drop
 drop_cols <- c( # Which columns to drop
@@ -117,12 +110,12 @@ gcs_pre_fpath <- "data/phic/thai/pre"
 # Name of folder path prefix in GCS bucket for thai grouper output
 gcs_post_fpath <- "data/phic/thai/post"
 # TODO: Add description here
+# TODO: Do we still need this?
 gcs_spc_fpath <- "spc"
 # bq dataset
-bq_dataset <- "phic_eclaims"
+bq_dataset <- "phic_eclaims_archive"
 # temp bq table, later renamed to claims_20XX1231 in Push to BQ section
 bq_table <- paste0("temp_claims_", year_to_load)
-
 
 # Folder Path Prefixes:
 # Include spaces if there are any
@@ -134,19 +127,22 @@ clean_prefix <- "data-cleaning"
 data_prefix <- file.path(clean_prefix, "data")
 chkpt_1_prefix <- "chkpt_1_claims_"
 chkpt_2_prefix <- "chkpt_2_claims_"
-chkpt_3_prefix <- "DRG_Grouped_"
+chkpt_3_prefix <- "DRG_Grouped_" # TODO: Do we stil need this?
 chkpt_4_prefix <- "chkpt_4_thai_grouper_input_"
 chkpt_5_prefix <- chkpt_4_prefix
 chkpt_6_prefix <- "chkpt_6_grouped_claims_"
-chkpt_7a_prefix <- "python_input_1"
-chkpt_7b_prefix <- "python_input_2"
-chkpt_10_prefix <- "stata"
-chkpt_11_prefix <- "bwt"
-chkpt_12_prefix <- "map"
+chkpt_7a_prefix <- "python_input_1" # TODO: Do we stil need this?
+chkpt_7b_prefix <- "python_input_2" # TODO: Do we stil need this?
+chkpt_10_prefix <- "stata" # TODO: Do we stil need this?
+chkpt_11_prefix <- "bwt" # TODO: Do we stil need this?
+chkpt_12_prefix <- "map" # TODO: Do we stil need this?
 
 # Folder Paths:
+# TODO: Do we stil need this?
 filtered_path <- file.path(data_prefix, "filtered-claims", eclaims_batch)
+# TODO: Do we stil need this?
 filtered_chkpt_1_path <- file.path(filtered_path, "chkpt_1_partial")
+# TODO: Do we stil need this?
 filtered_chkpt_2_path <- file.path(filtered_path, "chkpt_2_master")
 chkpt_path <- file.path(data_prefix, "chkpts", eclaims_batch)
 chkpt_1_path <- file.path(chkpt_path, "chkpt_1_partial_clean_claims")
@@ -202,41 +198,47 @@ full_claims_file <- here::here(
   raw_claims_path,
   paste0(full_claims_prefix, year_to_load, file_type)
 )
-# Use the file_type variable here
-
-ram_limit <- (1 - 0.10) * 64 * (1024^3)
-
-# Allowing each future_lapply session to use more memory
-options(future.globals.maxSize = ram_limit)
-
 total_rows_file <- here::here(
   total_rows_path, paste0("total_rows_", year_to_load, ".rds")
 )
 
 # Load cached total rows file if available, saves ~10 seconds of runtime
 if (file.exists(total_rows_file)) {
+  # Use cached total row count
   total_rows <- readRDS(total_rows_file)
   message(paste("Total Rows via cached object:", total_rows))
+
+  # Compute sample size based on total rows, number of parts, and divisor
   sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+
+  # Set output suffix depending on whether this is a sample or full export
   suffix <- paste0(ifelse(to_sample, paste0(
     "_sampled_",
     sample_size_divisor, "_"
   ), "_full_"))
 } else if (file.exists(full_claims_file)) {
+  # If no cached row count, estimate row count using fread on the first column only
   total_rows <- data.table::fread(
     file = full_claims_file,
-    select = 1L,
+    select = 1L, # Read only the first column for efficiency
     header = TRUE,
     colClasses = "character"
-  )[, .N]
+  )[, .N] # Count number of rows
+
+  # Save the total row count to cache for future use
   saveRDS(total_rows, file = total_rows_file)
   message(paste("Total Rows via fread:", total_rows))
+
+  # Compute sample size as above
   sample_size <- ceiling(total_rows / split_parts / sample_size_divisor)
+
+  # Set suffix based on sampling flag
   suffix <- paste0(ifelse(to_sample, paste0(
     "_sampled_",
     sample_size_divisor, "_"
   ), "_full_"))
 } else {
+  # Neither the cache nor the source file exists; skip loading total_rows
   message("Total rows file and full claims file don't exist, skipping total_rows load-in")
 }
 
@@ -250,7 +252,6 @@ na_values <- c(
   "\u2005", "\u2006", "\u2007", "\u2008", "\u2009", "\u200A",
   "\u2028", "\u2029", "\u202F", "\u205F", "\u3000"
 )
-
 
 # Mapping of column names (including clin_icd and clin_rvs)
 column_mappings <- list(

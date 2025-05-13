@@ -2,6 +2,7 @@
 system("git submodule update --init --recursive")
 
 # List required packages
+# TODO: Cut this down
 required_packages <- c(
   "data.table", # Fast data manipulation
   "here", # Simplifies file path management

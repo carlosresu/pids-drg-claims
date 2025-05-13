@@ -1,5 +1,11 @@
 # Global parameters
+# Used for calculation of nthreads. At higher core
+# counts, we subtract thread_offset from nthreads
+# to give the VM breathing room
 thread_offset <- 0
+# Sample size divisor: Formula for sample size is
+# (total_rows ÷ split_parts) ÷ sample_size_divisor.
+# Choose between 5, 25, 125, and 625
 sample_size_divisor <- 625
 
 # allowable values: "2023_2024" or "2025"

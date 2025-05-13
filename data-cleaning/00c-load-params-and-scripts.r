@@ -2,6 +2,7 @@ library(data.table)
 library(here)
 
 # Read year_to_load from cache
+# TODO: Deduplicate from loading year_to_load in 0.1.0.params_fpaths.R
 year_file <- here("data-cleaning/debug/cache/year_to_load.txt")
 if (file.exists(year_file)) {
   year_to_load <- as.numeric(fread(year_file)$V1)
