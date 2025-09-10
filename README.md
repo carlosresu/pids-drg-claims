@@ -201,6 +201,7 @@ sudo chown -R root:root /home/data
 ```bash
 sudo snap install code --classic
 code tunnel service install   # Follow link, auth with GitHub, enter code in terminal
+sudo loginctl enable-linger $USER
 ```
 
 ### 3.2 Git identity
