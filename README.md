@@ -150,8 +150,8 @@ source ~/.profile
 [ -f ~/.bash_profile ] && source ~/.bash_profile
 
 # Install Python and Jupyter kernel
-pyenv install 3.12.7
-pyenv global 3.12.7
+pyenv install 3.13.7
+pyenv global 3.13.7
 pip install --upgrade pip
 pip install jupyter ipykernel
 ```
