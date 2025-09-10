@@ -213,6 +213,8 @@ git config --global user.email resurreccion.cmc@gmail.com
 
 ### 3.3 Repo + data link
 
+Use your GitHub username, and generate a personal access token (classic) with project (all) and repo (all) permissions.
+
 ```bash
 git clone https://github.com/pids-drg-team/pids-drg-claims ~/pids-drg-claims
 cd ~/pids-drg-claims
