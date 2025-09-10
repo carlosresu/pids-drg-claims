@@ -72,8 +72,7 @@ sudo apt upgrade -y
 
 ### 2.2 Data-science packages for Python & R
 
-```bash
-# -------------------------------
+```bash# -------------------------------
 # Data science essentials for Python & R
 # (Numerics, build toolchains, compression, plotting — no GIS)
 # -------------------------------
@@ -118,14 +117,21 @@ sudo apt install -y \
   libsodium-dev \
   libgit2-dev
 
-# Lightweight plotting stack for R/matplotlib (no GIS)
+# Plotting & text rendering stack for R/matplotlib (no GIS)
 sudo apt install -y \
   libcairo2-dev \
   libpng-dev \
   libjpeg-dev \
   libtiff5-dev \
   libfreetype6-dev \
-  libfontconfig1-dev
+  libfontconfig1-dev \
+  libharfbuzz-dev \
+  libfribidi-dev \
+  libglib2.0-dev
+
+# Optional: common fonts for nicer plots
+sudo apt install -y \
+  fonts-dejavu fonts-liberation
 ```
 
 ### 2.3 Install pyenv + Python
