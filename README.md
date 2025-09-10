@@ -2,7 +2,7 @@
 
 This VM is configured **only** for running Python and R code, via **gcloud SSH** or **Jupyter notebooks through VS Code Remote Tunnels**.
 
-- **Included:** Jupyter, pyenv, R + IRkernel, shared data folder `/home/data`, Ops Agent policy, snapshot schedule.
+- **Included:** Jupyter, pyenv, R + IRkernel, shared data folder `/home/data`
 - **Excluded:** Chrome Remote Desktop, .NET, second-disk setup, patch-job/maintenance automations.
 
 ---
@@ -31,7 +31,7 @@ gcloud compute instances create pids-drg-claims-v2 \
   --shielded-secure-boot \
   --shielded-vtpm \
   --shielded-integrity-monitoring \
-  --labels=goog-ops-agent-policy=v2-x86-template-1-4-0,goog-ec-src=vm_add-gcloud \
+  --labels=goog-ec-src=vm_add-gcloud \
   --reservation-affinity=any \
   --deletion-protection
 ```
