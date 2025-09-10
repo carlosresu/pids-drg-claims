@@ -38,13 +38,10 @@ gcloud compute instances create pids-drg-claims-v2 \
 
 ---
 
-2. **Create ops-agents policy (inline YAML, no file needed)**
-
+2: Create ops-agents policy (via temp file)
 ```bash
-cat <<EOF | gcloud compute instances ops-agents policies create goog-ops-agent-v2-x86-template-1-4-0-us-central1-a \
-  --project=pids-drg-data \
-  --zone=us-central1-a \
-  --file=-
+TMP=$(mktemp /tmp/ops-agent-XXXXXX.yaml)
+cat > "$TMP" <<'EOF'
 agentsRule:
   packageState: installed
   version: latest
@@ -53,9 +50,14 @@ instanceFilter:
   - labels:
       goog-ops-agent-policy: v2-x86-template-1-4-0
 EOF
-```
 
----
+gcloud compute instances ops-agents policies create goog-ops-agent-v2-x86-template-1-4-0-us-central1-a \
+  --project=pids-drg-data \
+  --zone=us-central1-a \
+  --file="$TMP"
+
+rm -f "$TMP"
+```
 
 3. **Create snapshot schedule**
 
