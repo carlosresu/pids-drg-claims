@@ -1,4 +1,4 @@
-# VM Creation and Configuration (Python + R Data Science)
+# VM Creation and Configuration
 
 This VM is configured **only** for running Python and R code, via **gcloud SSH** or **Jupyter notebooks through VS Code Remote Tunnels**.
 
