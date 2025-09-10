@@ -36,55 +36,8 @@ gcloud compute instances create pids-drg-claims-v2 \
   --deletion-protection
 ```
 
----
-
-2: Create ops-agents policy (via temp file)
-```bash
-TMP=$(mktemp /tmp/ops-agent-XXXXXX.yaml)
-cat > "$TMP" <<'EOF'
-agentsRule:
-  packageState: installed
-  version: latest
-instanceFilter:
-  inclusionLabels:
-  - labels:
-      goog-ops-agent-policy: v2-x86-template-1-4-0
-EOF
-
-gcloud compute instances ops-agents policies create goog-ops-agent-v2-x86-template-1-4-0-us-central1-a \
-  --project=pids-drg-data \
-  --zone=us-central1-a \
-  --file="$TMP"
-
-rm -f "$TMP"
-```
-
-3. **Create snapshot schedule**
-
-```bash
-gcloud compute resource-policies create snapshot-schedule default-schedule-1 \
-  --project=pids-drg-data \
-  --region=us-central1 \
-  --max-retention-days=14 \
-  --on-source-disk-delete=keep-auto-snapshots \
-  --daily-schedule \
-  --start-time=12:00
-```
-
----
-
-4. **Attach snapshot schedule to disk**
-
-```bash
-gcloud compute disks add-resource-policies pids-drg-claims-boot-disk-v2 \
-  --project=pids-drg-data \
-  --zone=us-central1-a \
-  --resource-policies=projects/pids-drg-data/regions/us-central1/resourcePolicies/default-schedule-1
-```
-
 > **Notes**
 >
-> * Keeps **Ops Agent** policy and **daily snapshot schedule** at 12:00 (region: `us-central1`).
 > * Leaves **deletion protection** **ON**. Disable manually if you need to delete later.
 > * Leaves **lb-health-check** tag (harmless if unused).
 
