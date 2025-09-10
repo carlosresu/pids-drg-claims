@@ -36,15 +36,26 @@ gcloud compute instances create pids-drg-claims-v2 \
   --deletion-protection
 ```
 
-2. **Inline config + create ops-agents policy**
+---
+
+2. **Create ops-agents policy (inline YAML, no file needed)**
 
 ```bash
-printf 'agentsRule:\n  packageState: installed\n  version: latest\ninstanceFilter:\n  inclusionLabels:\n  - labels:\n      goog-ops-agent-policy: v2-x86-template-1-4-0\n' | \
-gcloud compute instances ops-agents policies create goog-ops-agent-v2-x86-template-1-4-0-us-central1-a \
+cat <<EOF | gcloud compute instances ops-agents policies create goog-ops-agent-v2-x86-template-1-4-0-us-central1-a \
   --project=pids-drg-data \
   --zone=us-central1-a \
   --file=-
+agentsRule:
+  packageState: installed
+  version: latest
+instanceFilter:
+  inclusionLabels:
+  - labels:
+      goog-ops-agent-policy: v2-x86-template-1-4-0
+EOF
 ```
+
+---
 
 3. **Create snapshot schedule**
 
@@ -58,6 +69,8 @@ gcloud compute resource-policies create snapshot-schedule default-schedule-1 \
   --start-time=12:00
 ```
 
+---
+
 4. **Attach snapshot schedule to disk**
 
 ```bash
@@ -66,7 +79,6 @@ gcloud compute disks add-resource-policies pids-drg-claims-boot-disk-v2 \
   --zone=us-central1-a \
   --resource-policies=projects/pids-drg-data/regions/us-central1/resourcePolicies/default-schedule-1
 ```
-
 
 > **Notes**
 >
