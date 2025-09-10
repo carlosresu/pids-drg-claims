@@ -200,7 +200,8 @@ sudo chown -R root:root /home/data
 
 ```bash
 sudo snap install code --classic
-code tunnel service install   # Follow link, auth with GitHub, enter code in terminal
+code tunnel # Follow link, auth with GitHub, enter code in terminal
+code tunnel service install
 sudo loginctl enable-linger $USER
 ```
 
