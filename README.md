@@ -9,7 +9,7 @@ This VM is configured **only** for running Python and R code, via **gcloud SSH**
 
 ## 1) VM Creation
 
-Run in **GCP Cloud Shell** (your command, unchanged):
+Run in **GCP Cloud Shell**:
 
 1. **Create instance**
 
