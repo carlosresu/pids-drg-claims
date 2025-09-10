@@ -229,25 +229,7 @@ sudo ln -s /home/data ~/pids-drg-claims/data-cleaning
 
 ## 4) Running the Pipeline (Notebook)
 
-1. Connect via **VS Code → Remote Tunnels** → `drg-data-pipeline` (or your tunnel name).
-2. Open: `~/pids-drg-claims/data-cleaning/drg-cleaning.ipynb`.
+1. Connect via **VS Code → Remote Tunnels** → `pids-drg-claims-v2` (or your tunnel name).
+2. Open: `~/pids-drg-claims/data-cleaning/*.ipynb`.
 3. Confirm parameters and that `/home/data` is linked.
 4. **Run All**. Follow on-notebook prompts for Thai Batch Grouper as needed.
-
----
-
-## 5) Quick sanity checks (optional)
-
-```bash
-# Python: confirm BLAS/LAPACK and NumPy health
-python - <<'PY'
-import numpy as np, sys
-print("Python:", sys.version)
-a = np.random.rand(2000,2000)
-b = a @ a.T
-print("NumPy OK, shape:", b.shape)
-PY
-
-# R: basic session and BLAS
-R -q -e 'sessionInfo(); capabilities(); sessionInfo()$BLAS'
-```
