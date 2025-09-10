@@ -11,44 +11,62 @@ This VM is configured **only** for running Python and R code, via **gcloud SSH**
 
 Run in **GCP Cloud Shell** (your command, unchanged):
 
+1. **Create instance**
+
 ```bash
 gcloud compute instances create pids-drg-claims-v2 \
---project=pids-drg-data \
---zone=us-central1-a \
---machine-type=n2d-highmem-16 \
---network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
---metadata=enable-osconfig=TRUE,enable-oslogin=true \
---can-ip-forward \
---maintenance-policy=MIGRATE \
---provisioning-model=STANDARD \
---service-account=10962838043-compute@developer.gserviceaccount.com \
---scopes=https://www.googleapis.com/auth/cloud-platform \
---min-cpu-platform=AMD\ Milan \
---tags=http-server,https-server,lb-health-check \
---create-disk=auto-delete=yes,boot=yes,device-name=pids-drg-claims-boot-disk-v2,image=projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2404-noble-amd64-v20250828,mode=rw,size=300,type=pd-standard \
---shielded-secure-boot \
---shielded-vtpm \
---shielded-integrity-monitoring \
---labels=goog-ops-agent-policy=v2-x86-template-1-4-0,goog-ec-src=vm_add-gcloud \
---reservation-affinity=any \
---deletion-protection && \
-printf 'agentsRule:\n  packageState: installed\n  version: latest\ninstanceFilter:\n  inclusionLabels:\n  - labels:\n      goog-ops-agent-policy: v2-x86-template-1-4-0\n' > config.yaml && \
+  --project=pids-drg-data \
+  --zone=us-central1-a \
+  --machine-type=n2d-highmem-16 \
+  --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
+  --metadata=enable-osconfig=TRUE,enable-oslogin=true \
+  --can-ip-forward \
+  --maintenance-policy=MIGRATE \
+  --provisioning-model=STANDARD \
+  --service-account=10962838043-compute@developer.gserviceaccount.com \
+  --scopes=https://www.googleapis.com/auth/cloud-platform \
+  --min-cpu-platform=AMD\ Milan \
+  --tags=http-server,https-server,lb-health-check \
+  --create-disk=auto-delete=yes,boot=yes,device-name=pids-drg-claims-boot-disk-v2,image=projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2404-noble-amd64-v20250828,mode=rw,size=300,type=pd-standard \
+  --shielded-secure-boot \
+  --shielded-vtpm \
+  --shielded-integrity-monitoring \
+  --labels=goog-ops-agent-policy=v2-x86-template-1-4-0,goog-ec-src=vm_add-gcloud \
+  --reservation-affinity=any \
+  --deletion-protection
+```
+
+2. **Inline config + create ops-agents policy**
+
+```bash
+printf 'agentsRule:\n  packageState: installed\n  version: latest\ninstanceFilter:\n  inclusionLabels:\n  - labels:\n      goog-ops-agent-policy: v2-x86-template-1-4-0\n' | \
 gcloud compute instances ops-agents policies create goog-ops-agent-v2-x86-template-1-4-0-us-central1-a \
---project=pids-drg-data \
---zone=us-central1-a \
---file=config.yaml && \
+  --project=pids-drg-data \
+  --zone=us-central1-a \
+  --file=-
+```
+
+3. **Create snapshot schedule**
+
+```bash
 gcloud compute resource-policies create snapshot-schedule default-schedule-1 \
---project=pids-drg-data \
---region=us-central1 \
---max-retention-days=14 \
---on-source-disk-delete=keep-auto-snapshots \
---daily-schedule \
---start-time=12:00 && \
+  --project=pids-drg-data \
+  --region=us-central1 \
+  --max-retention-days=14 \
+  --on-source-disk-delete=keep-auto-snapshots \
+  --daily-schedule \
+  --start-time=12:00
+```
+
+4. **Attach snapshot schedule to disk**
+
+```bash
 gcloud compute disks add-resource-policies pids-drg-claims-boot-disk-v2 \
---project=pids-drg-data \
---zone=us-central1-a \
---resource-policies=projects/pids-drg-data/regions/us-central1/resourcePolicies/default-schedule-1
-````
+  --project=pids-drg-data \
+  --zone=us-central1-a \
+  --resource-policies=projects/pids-drg-data/regions/us-central1/resourcePolicies/default-schedule-1
+```
+
 
 > **Notes**
 >
