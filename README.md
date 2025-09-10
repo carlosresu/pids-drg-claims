@@ -204,6 +204,8 @@ sudo chown -R root:root /home/data
 
 ### 3.1 VS Code Remote Tunnel
 
+You may need to access Serial port 1 on the VM to see the logs for connecting the VM
+
 ```bash
 sudo snap install code --classic
 code tunnel # Follow link, auth with GitHub, enter code in terminal
