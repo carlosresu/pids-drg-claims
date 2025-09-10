@@ -161,18 +161,24 @@ pip install jupyter ipykernel
 ```bash
 # Add CRAN key/repo and install R
 sudo apt update -qq
-sudo apt install -y --no-install-recommends software-properties-common dirmngr
+sudo apt install -y --no-install-recommends software-properties-common dirmngr wget gnupg
+
+# Import CRAN GPG key
 wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
-  sudo tee -a /etc/apt/trusted.gpg.d/cran_ubuntu_key.asc
-sudo add-apt-repository "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
+  gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/cran_ubuntu_key.gpg > /dev/null
+
+# Add CRAN repo for Ubuntu automatically, non-interactive
+sudo add-apt-repository -y "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
+
+# Install R base and dev
 sudo apt install -y --no-install-recommends r-base r-base-dev
 
 # Make system-wide R libraries writable (team installs without renv)
 sudo chmod -R 777 /usr/local/lib/R/site-library
 sudo chmod -R 777 /usr/lib/R/site-library
 
-# In R: install core packages + Jupyter kernel
-sudo R --quiet -e 'Sys.setenv(MAKEFLAGS=paste0("-j", parallel::detectCores())); install.packages(c("languageserver","jsonlite","rlang","yaml","IRkernel","here")); IRkernel::installspec(user=FALSE)'
+# In R: install core packages + Jupyter kernel (parallelized, quiet)
+sudo R --quiet -e 'Sys.setenv(MAKEFLAGS=paste0("-j", parallel::detectCores())); install.packages(c("languageserver","jsonlite","rlang","yaml","IRkernel","here"), repos="https://cloud.r-project.org"); IRkernel::installspec(user=FALSE)'
 
 # Verify Jupyter sees the R kernel
 jupyter kernelspec list
