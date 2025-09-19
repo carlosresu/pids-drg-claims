@@ -1,4 +1,6 @@
-# pids-drg-claims — End-to-End Walkthrough (Beginner-Friendly)
+# pids-drg-claims
+
+# End-to-End Walkthrough
 
 This guide consolidates everything you need to **stand up the VM**, **prepare partials**, **run the cleaning pipeline**, **perform DRG grouping**, and **run checks** for the repository **pids-drg-claims** (shadow-billing branch). It mirrors the flow you outlined and matches the level of beginner-friendliness used in your other repos.
 
@@ -12,38 +14,15 @@ This guide consolidates everything you need to **stand up the VM**, **prepare pa
 > You downloaded an attached ZIP in this walkthrough session. Here’s a trimmed view so you can orient yourself before cloning/using the live repo.
 
 ```
-[]
-  <dir> __MACOSX
-  <dir> pids-drg-claims-shadow-billing
 [pids-drg-claims-shadow-billing]
-  <dir> .vscode
   <dir> data-cleaning
   <dir> miscellaneous
   <dir> vm-setup
-  .DS_Store
-  .gitignore
-  .gitmodules
-  .here
   README.md
-[pids-drg-claims-shadow-billing/vm-setup]
-  <dir> deprecated
-  vm-setup.ipynb
-[pids-drg-claims-shadow-billing/vm-setup/deprecated]
-  Dockerfile
-  commands_for_VM.txt
-  commands_for_local_vm.txt
-  potentially-useful-links.md
-  vertex-creation.ipynb
-  vm-creation.ipynb
+  data-cleaning
+  miscellaneous
+  vm-setup
 [pids-drg-claims-shadow-billing/data-cleaning]
-  <dir> .ipynb_checkpoints
-  <dir> ahk_scripts
-  <dir> debug
-  <dir> experimental
-  <dir> grouper
-  <dir> py_scripts
-  <dir> r_scripts_v2
-  .DS_Store
   00a-parameters.r
   00b-packages.r
   00c-load-params-and-scripts.r
@@ -60,29 +39,6 @@ This guide consolidates everything you need to **stand up the VM**, **prepare pa
   requirements.txt
   scripts
   tests
-[pids-drg-claims-shadow-billing/data-cleaning/py_scripts]
-  __init__.py
-  clear_metadata.py
-  format_data.py
-  python_code - with grouper.ipynb
-  python_code.ipynb
-  run_drg_seeker.py
-[pids-drg-claims-shadow-billing/data-cleaning/experimental]
-  03a-drg-grouping-thai-v2.sh
-  clean-all-years.ipynb
-  clean-all-years.py
-  drg-seeker.ipynb
-  gen-discrepancies.ipynb
-  gen-mapping.ipynb
-  test-find-pdx.ipynb
-  test-process-chunk.ipynb
-  upload-bwt.ipynb
-  validate-refactor.ipynb
-[pids-drg-claims-shadow-billing/data-cleaning/ahk_scripts]
-  ignore_numeric_overflows.ahk
-  ignore_numeric_overflows.sh
-  inotify_sync.sh
-[pids-drg-claims-shadow-billing/data-cleaning/grouper]
 [pids-drg-claims-shadow-billing/data-cleaning/r_scripts_v2]
   0.0.table_of_contents.txt
   0.1.0.params_fpaths.R
@@ -105,126 +61,6 @@ This guide consolidates everything you need to **stand up the VM**, **prepare pa
   bq_schema_spc.json
   bq_schema_thai.json
   bq_schema_thai_bwt.json
-[pids-drg-claims-shadow-billing/data-cleaning/.ipynb_checkpoints]
-  drg-cleaning-checkpoint.ipynb
-[pids-drg-claims-shadow-billing/data-cleaning/debug]
-  <dir> codebase
-  02-drg-cleaning-v3.r
-  drg-cleaning.r
-  drg-grouping.r
-  mem_usage.log
-[pids-drg-claims-shadow-billing/data-cleaning/debug/codebase]
-  instructions.md
-  merge.ipynb
-[pids-drg-claims-shadow-billing/miscellaneous]
-  Code Review - Oct 1 2024
-  STATA.md
-  THAI.md
-  drg.Rproj
-  track_memory.sh
-[pids-drg-claims-shadow-billing/.vscode]
-  settings.json
-  tasks.json
-[__MACOSX]
-  <dir> pids-drg-claims-shadow-billing
-  ._pids-drg-claims-shadow-billing
-[__MACOSX/pids-drg-claims-shadow-billing]
-  <dir> .vscode
-  <dir> data-cleaning
-  <dir> miscellaneous
-  <dir> vm-setup
-  ._.DS_Store
-  ._.gitignore
-  ._.gitmodules
-  ._.here
-  ._.vscode
-  ._README.md
-  ._data-cleaning
-  ._miscellaneous
-  ._vm-setup
-[__MACOSX/pids-drg-claims-shadow-billing/vm-setup]
-  <dir> deprecated
-  ._deprecated
-  ._vm-setup.ipynb
-[__MACOSX/pids-drg-claims-shadow-billing/vm-setup/deprecated]
-  ._Dockerfile
-  ._commands_for_VM.txt
-  ._commands_for_local_vm.txt
-  ._potentially-useful-links.md
-  ._vertex-creation.ipynb
-  ._vm-creation.ipynb
-[__MACOSX/pids-drg-claims-shadow-billing/data-cleaning]
-  <dir> .ipynb_checkpoints
-  <dir> ahk_scripts
-  <dir> debug
-  <dir> experimental
-  <dir> py_scripts
-  <dir> r_scripts_v2
-  ._.DS_Store
-  ._.ipynb_checkpoints
-  ._00a-parameters.r
-  ._00b-packages.r
-  ._00c-load-params-and-scripts.r
-  ._00d-load-mapping.r
-  ._01-drg-partial.ipynb
-  ._02-drg-cleaning-v3.ipynb
-  ._03-drg-grouping-v2.ipynb
-  ._03a-drg-grouping-thai-v2.ps1
-  ._03b-drg-grouping-py-v2.ipynb
-  ._03c-drg-grouping-bq-v2.ipynb
-  ._04-drg-checks.ipynb
-  ._ahk_scripts
-  ._debug
-  ._experimental
-  ._grouper
-  ._py_scripts
-  ._r_scripts_v2
-  ._requirements.txt
-[__MACOSX/pids-drg-claims-shadow-billing/data-cleaning/py_scripts]
-  .___init__.py
-  ._clear_metadata.py
-  ._format_data.py
-  ._python_code - with grouper.ipynb
-  ._python_code.ipynb
-  ._run_drg_seeker.py
-[__MACOSX/pids-drg-claims-shadow-billing/data-cleaning/experimental]
-  ._03a-drg-grouping-thai-v2.sh
-  ._clean-all-years.ipynb
-  ._clean-all-years.py
-  ._drg-seeker.ipynb
-  ._gen-discrepancies.ipynb
-  ._gen-mapping.ipynb
-  ._test-find-pdx.ipynb
-  ._test-process-chunk.ipynb
-  ._upload-bwt.ipynb
-  ._validate-refactor.ipynb
-[__MACOSX/pids-drg-claims-shadow-billing/data-cleaning/ahk_scripts]
-  ._ignore_numeric_overflows.ahk
-  ._ignore_numeric_overflows.sh
-  ._inotify_sync.sh
-[__MACOSX/pids-drg-claims-shadow-billing/data-cleaning/r_scripts_v2]
-  ._0.0.table_of_contents.txt
-  ._0.1.0.params_fpaths.R
-  ._0.2.0.process_helper_functions.R
-  ._0.3.0.grouping_functions.R
-  ._1.0.query_bq_to_dt.R
-  ._2.0.split_and_save_part.R
-  ._3.0.create_sample_files.R
-  ._4.0.read_appropriate_file.R
-  ._5.1.0.staged_declumping_functions.R
-  ._5.2.0.append_copy_remove_icd_rvs_c1_c2.R
-  ._5.3.0.swap_icd_rvs.R
-  ._5.4.0.remap_patient_data.R
-  ._5.5.0.map_rvs_icd9.R
-  ._5.6.0.map_icd10.R
-  ._5.7.0.find_pdx.R
-  ._bq_schema_cleaning.json
-  ._bq_schema_cleaning_2025.json
-  ._bq_schema_python.json
-  ._bq_schema_spc.json
-  ._bq_schema_thai.json
-  ._bq_schema_thai_bwt.json
-... (truncated)
 ```
 
 For day-to-day work, you’ll **clone from GitHub** on your VM (instructions below). Treat this ZIP as a snapshot for reference only.
@@ -243,7 +79,26 @@ This VM is configured **only** for running Python and R code, via **gcloud SSH**
 Open **GCP Cloud Shell** and run:
 
 ```bash
-gcloud compute instances create pids-drg-claims-v2   --project=pids-drg-data   --zone=us-central1-a   --machine-type=n2d-highmem-16   --network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default   --metadata=enable-osconfig=TRUE,enable-oslogin=true   --can-ip-forward   --maintenance-policy=MIGRATE   --provisioning-model=STANDARD   --service-account=10962838043-compute@developer.gserviceaccount.com   --scopes=https://www.googleapis.com/auth/cloud-platform   --min-cpu-platform=AMD\ Milan   --tags=http-server,https-server,lb-health-check   --create-disk=auto-delete=yes,boot=yes,device-name=pids-drg-claims-boot-disk-v2,image=projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2404-noble-amd64-v20250828,mode=rw,size=300,type=pd-standard   --shielded-secure-boot   --shielded-vtpm   --shielded-integrity-monitoring   --labels=goog-ec-src=vm_add-gcloud   --reservation-affinity=any   --deletion-protection
+gcloud compute instances create pids-drg-claims-v2 \
+  --project=pids-drg-data \
+  --zone=us-central1-a \
+  --machine-type=n2d-highmem-16 \
+--network-interface=network-tier=PREMIUM,stack-type=IPV4_ONLY,subnet=default \
+  --metadata=enable-osconfig=TRUE,enable-oslogin=true \
+  --can-ip-forward \
+  --maintenance-policy=MIGRATE \
+  --provisioning-model=STANDARD \
+  --service-account=10962838043-compute@developer.gserviceaccount.com \
+  --scopes=https://www.googleapis.com/auth/cloud-platform \
+  --min-cpu-platform=AMD\ Milan \
+  --tags=http-server,https-server,lb-health-check \
+--create-disk=auto-delete=yes,boot=yes,device-name=pids-drg-claims-boot-disk-v2,image=projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2404-noble-amd64-v20250828,mode=rw,size=300,type=pd-standard \
+  --shielded-secure-boot \
+  --shielded-vtpm \
+  --shielded-integrity-monitoring \
+  --labels=goog-ec-src=vm_add-gcloud \
+  --reservation-affinity=any \
+  --deletion-protection
 ```
 
 **Notes**
@@ -278,31 +133,65 @@ sudo apt upgrade -y
 #### B) Data-science packages for Python & R
 
 ```bash
-# -------------------------------
 # Data science essentials for Python & R
-# (Numerics, build toolchains, compression, plotting — no GIS)
+# (Numerics, build toolchains, compression, plotting -- no GIS)
 # -------------------------------
 
 # Core build tools & utilities
-sudo apt install -y   build-essential   wget curl git   pkg-config   ncdu dstat procps
+sudo apt install -y \
+  build-essential \
+  wget curl git \
+  pkg-config \
+  ncdu dstat procps
 
 # Python runtime + Jupyter
-sudo apt install -y   python3-venv python3-dev python3-full python3-pip   jupyter jupyter-core jupyter-client   pandoc npm
+sudo apt install -y \
+  python3-venv python3-dev python3-full python3-pip \
+  jupyter jupyter-core jupyter-client \
+  pandoc npm
 
 # Numerics: fast BLAS/LAPACK (NumPy/Scipy/R)
-sudo apt install -y   libopenblas-dev   liblapack-dev   libgfortran5
+sudo apt install -y \
+  libopenblas-dev \
+  liblapack-dev \
+  libgfortran5
 
 # Compression & Python build headers (for pyenv builds / C extensions)
-sudo apt install -y   zlib1g-dev   libbz2-dev   libreadline-dev   libsqlite3-dev   libncursesw5-dev   xz-utils   tk-dev   libffi-dev   liblzma-dev   libxml2-dev   libxmlsec1-dev
+sudo apt install -y \
+  zlib1g-dev \
+  libbz2-dev \
+  libreadline-dev \
+  libsqlite3-dev \
+  libncursesw5-dev \
+  xz-utils \
+  tk-dev \
+  libffi-dev \
+  liblzma-dev \
+  libxml2-dev \
+  libxmlsec1-dev
 
 # R package build deps (HTTP, SSL, crypto, git bindings)
-sudo apt install -y   libcurl4-openssl-dev   libssl-dev   libsodium-dev   libgit2-dev
+sudo apt install -y \
+  libcurl4-openssl-dev \
+  libssl-dev \
+  libsodium-dev \
+  libgit2-dev
 
 # Plotting & text rendering stack for R/matplotlib (no GIS)
-sudo apt install -y   libcairo2-dev   libpng-dev   libjpeg-dev   libtiff5-dev   libfreetype6-dev   libfontconfig1-dev   libharfbuzz-dev   libfribidi-dev   libglib2.0-dev
+sudo apt install -y \
+  libcairo2-dev \
+  libpng-dev \
+  libjpeg-dev \
+  libtiff5-dev \
+  libfreetype6-dev \
+  libfontconfig1-dev \
+  libharfbuzz-dev \
+  libfribidi-dev \
+  libglib2.0-dev
 
 # Optional: common fonts for nicer plots
-sudo apt install -y   fonts-dejavu fonts-liberation
+sudo apt install -y \
+  fonts-dejavu fonts-liberation
 ```
 
 #### C) Install pyenv + Python
@@ -341,7 +230,8 @@ sudo apt update -qq
 sudo apt install -y --no-install-recommends software-properties-common dirmngr wget gnupg
 
 # Import CRAN GPG key
-wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc |   gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/cran_ubuntu_key.gpg > /dev/null
+wget -qO- https://cloud.r-project.org/bin/linux/ubuntu/marutter_pubkey.asc | \
+  gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/cran_ubuntu_key.gpg > /dev/null
 
 # Add CRAN repo for Ubuntu automatically, non-interactive
 sudo add-apt-repository -y "deb https://cloud.r-project.org/bin/linux/ubuntu $(lsb_release -cs)-cran40/"
@@ -358,6 +248,7 @@ sudo R --quiet -e 'Sys.setenv(MAKEFLAGS=paste0("-j", parallel::detectCores())); 
 
 # Verify Jupyter sees the R kernel
 jupyter kernelspec list
+
 ```
 
 #### E) Shared data folder
@@ -582,7 +473,3 @@ sudo apt -y autoremove
 6. Run grouping via **03-\*** notebooks or **03a PS1 (Thai batch on Windows)**.
 7. Run **04-drg-checks.ipynb** for QA/QC.
 8. Maintain the VM with periodic `apt` updates.
-
----
-
-_Generated on: 2025-09-19T07:48:39_
