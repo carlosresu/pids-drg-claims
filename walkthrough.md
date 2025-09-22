@@ -417,17 +417,17 @@ Steps:
 
 ```
 The data must be in a vertical bar delimited text file which has the following fields:
-		DOB               Date of birth, format: dd/mm/yyy
-		Sex               Sex: 1 = male, 2 = female
-		DateAdm		        Admission date, format: dd/mm/yyy
-		TimeAdm		        Admission time, format: hhmm
-		DateDsc   	  	  Discharge date, format: dd/mm/yyy
-		TimeDsc  		      Discharge time, format: hhmm
-		DischT      		  Code for discharge type: 1,2,3,4,5, 8 or 9
-		AdmWt    	    	  Weight at Admission in kilogram - needed in newborn
-		PDx         		  Principal Diagnosis Code, ICD-10 WHO & TM 2010 code
-		SDx1 ... SDx12	  12 fields of Secondary Diagnosis Codes, ICD-10 WHO & TM 2010 code
-		Proc1 ... Proc20  20 fields of Procedure Codes, ICD-9-CM 2010 code
+	DOB               Date of birth, format: dd/mm/yyy
+	Sex               Sex: 1 = male, 2 = female
+	DateAdm		        Admission date, format: dd/mm/yyy
+	TimeAdm		        Admission time, format: hhmm
+	DateDsc   	  	  Discharge date, format: dd/mm/yyy
+	TimeDsc  		      Discharge time, format: hhmm
+	DischT      		  Code for discharge type: 1,2,3,4,5, 8 or 9
+	AdmWt    	    	  Weight at Admission in kilogram - needed in newborn
+	PDx         		  Principal Diagnosis Code, ICD-10 WHO & TM 2010 code
+	SDx1 ... SDx12	  12 fields of Secondary Diagnosis Codes, ICD-10 WHO & TM 2010 code
+	Proc1 ... Proc20  20 fields of Procedure Codes, ICD-9-CM 2010 code
 ```
 
 2. Drag the file you want to assign DRGs to, e.g. `sample.txt`, onto the icon of `TGRP50V02.exe`.
