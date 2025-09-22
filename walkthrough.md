@@ -396,13 +396,47 @@ Basic run:
 3. `cd C:\DRG_ThaiBatch`
 4. Run:
    ```powershell
-   .a-drg-grouping-thai-v2.ps1
+   03a-drg-grouping-thai-v2.ps1
    ```
 5. Inspect the **output .txt/.csv** the grouper produces (keep originals; do not edit in Excel before merging).
 
 > If you need the TXT exporter or merge helpers, see the companion R notebooks used earlier in this project for generating Thai batch input and merging results back.
 
-### 4.3 Python BigQuery Grouping: `03b-drg-grouping-py-v2.ipynb` / `03c-drg-grouping-bq-v2.ipynb`
+### 4.3 Manual Thai Batch Grouper on Windows:
+
+Runs on a **Windows 10/11** machine; prerequisites:
+
+- **Windows 10/11, 64‑bit**, local admin account
+- **eClaims** properly formatted as `|` delimited `.txt` files on the PC.
+- **TDRGv5 Grouper** files available locally on the PC.
+
+Steps:
+
+1. Copy the needed **TXT** (exported for grouper) and **TDRGv5 Grouper** contents into a working folder (e.g., `C:\DRG_ThaiBatch`).
+   1. Ensure your file meets the following data structure requirements:
+
+```
+The data must be in a vertical bar delimited text file which has the following fields:
+		DOB               Date of birth, format: dd/mm/yyy
+		Sex               Sex: 1 = male, 2 = female
+		DateAdm		        Admission date, format: dd/mm/yyy
+		TimeAdm		        Admission time, format: hhmm
+		DateDsc   	  	  Discharge date, format: dd/mm/yyy
+		TimeDsc  		      Discharge time, format: hhmm
+		DischT      		  Code for discharge type: 1,2,3,4,5, 8 or 9
+		AdmWt    	    	  Weight at Admission in kilogram - needed in newborn
+		PDx         		  Principal Diagnosis Code, ICD-10 WHO & TM 2010 code
+		SDx1 ... SDx12	  12 fields of Secondary Diagnosis Codes, ICD-10 WHO & TM 2010 code
+		Proc1 ... Proc20  20 fields of Procedure Codes, ICD-9-CM 2010 code
+```
+
+2. Drag the file you want to assign DRGs to, e.g. `sample.txt`, onto the icon of `TGRP50V02.exe`.
+   1. A window will open up, briefly displaying the importing process, and when that is finished, a brief overview of the input file is displayed, as it runs the algorithm.
+   2. The window will close once the process is complete.
+3. In the same location where your file, e.g. `sample.txt`, was, there will now be a new file that ends with `Res.TXT`, e.g. `sampleRes.TXT`.
+   1. The first 10,000 rows of this data will have a textual description of the DRG assigned to it in the column drgname. The rest will not.
+
+### 4.4 Python BigQuery Grouping: `03b-drg-grouping-py-v2.ipynb` / `03c-drg-grouping-bq-v2.ipynb`
 
 - `03b-…` handles Python‑assisted steps/pivots as needed.
 - `03c-…` runs SQL‑side grouping/joins/aggregations in **BigQuery**.
