@@ -16,13 +16,12 @@ This guide consolidates everything you need to **stand up the VM**, **prepare pa
 ```
 [pids-drg-claims-shadow-billing]
   <dir> data-cleaning
-  <dir> miscellaneous
-  <dir> vm-setup
   README.md
-  data-cleaning
-  miscellaneous
-  vm-setup
+  walkthrough.md
 [pids-drg-claims-shadow-billing/data-cleaning]
+  <dir> r_scripts_v2
+  <dir> py_scripts
+  <dir> data
   00a-parameters.r
   00b-packages.r
   00c-load-params-and-scripts.r
@@ -34,11 +33,7 @@ This guide consolidates everything you need to **stand up the VM**, **prepare pa
   03b-drg-grouping-py-v2.ipynb
   03c-drg-grouping-bq-v2.ipynb
   04-drg-checks.ipynb
-  libraries
-  misc
   requirements.txt
-  scripts
-  tests
 [pids-drg-claims-shadow-billing/data-cleaning/r_scripts_v2]
   0.0.table_of_contents.txt
   0.1.0.params_fpaths.R
@@ -71,8 +66,7 @@ For day-to-day work, you’ll **clone from GitHub** on your VM (instructions bel
 
 This VM is configured **only** for running Python and R code, via **gcloud SSH** or **Jupyter notebooks through VS Code Remote Tunnels**.
 
-- **Included:** Jupyter, pyenv, R + IRkernel, shared data folder `/home/data`
-- **Excluded:** Chrome Remote Desktop, .NET, second-disk setup, patch-job/maintenance automations.
+- Jupyter, pyenv, R + IRkernel, shared data folder `/home/data`
 
 ### 1.1 Create the VM (Cloud Shell)
 
@@ -104,7 +98,6 @@ gcloud compute instances create pids-drg-claims-v2 \
 **Notes**
 
 - Deletion protection is **ON** by default. Disable manually before deleting the VM.
-- The `lb-health-check` tag is harmless if unused.
 
 Enable **OS Config / VM Manager** (run once per project):
 
