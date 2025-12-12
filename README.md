@@ -1,3 +1,34 @@
+# pids-drg-claims
+
+## Project Overview
+
+This repository contains the **DRG Claims data cleaning and grouping pipeline** for the PIDS DRG project. It processes raw eClaims data from PhilHealth through a multi-stage pipeline to produce cleaned, grouped, and validated datasets for shadow billing analysis.
+
+**Last Updated:** December 2025
+
+---
+
+## Progress Since June 2025
+
+### Key Accomplishments
+
+| Date | Milestone |
+|------|-----------|
+| **Jun-Jul 2025** | Refactored pipeline architecture, updated README structure |
+| **Aug 2025** | Updated VM configuration to Ubuntu 24.04 (Noble) with AMD Milan |
+| **Sep 2025** | Wrote comprehensive `walkthrough.md` with end-to-end guide |
+| **Oct 2025** | Added Thai Batch Grouper manual instructions |
+| **Nov-Dec 2025** | Created `04-drg-checks.md` validation guide, added sample.py for STATA .dta files |
+
+### Current Pipeline Status
+
+- **Data Cleaning (02):** Operational for years 2019-2025
+- **DRG Grouping (03):** Thai Batch Grouper v5 + Python/BigQuery grouping
+- **Validation (04):** 9 test batches covering schema, counts, identifiers, mappings, dates
+- **BigQuery Integration:** Active upload to `pids-drg-data` project
+
+---
+
 # VM Creation and Configuration
 
 This VM is configured **only** for running Python and R code, via **gcloud SSH** or **Jupyter notebooks through VS Code Remote Tunnels**.
